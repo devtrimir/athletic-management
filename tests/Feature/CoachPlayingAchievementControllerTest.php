@@ -6,8 +6,15 @@ use App\Models\Achievement;
 use App\Models\Coach;
 use App\Models\CoachPlayingAchievement;
 use App\Models\CoachSpecialAchievement;
+use App\Models\Event;
+use App\Models\Member;
 use App\Models\Organization;
+use App\Models\Participation;
 use App\Models\Sport;
+use App\Models\SportSession;
+use App\Models\Team;
+use App\Models\TeamMember;
+use App\Models\Tournament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -295,6 +302,8 @@ test('achievements tab exposes playing achievements separate from coached achiev
             ->component('coaches/show')
             ->where('activeTab', 'achievements')
             ->has('coachAchievements.summary')
+            ->where('playingAchievements.source', 'legacy')
+            ->where('playingAchievements.linked_member', null)
             ->has('playingAchievements.records', 1)
             ->where('playingAchievements.records.0.title', 'National Police Games')
             ->where('playingAchievements.records.0.medal_type', 'GOLD')
@@ -330,9 +339,162 @@ test('coach print preview includes special achievements and playing achievements
             ->component('coaches/print-preview')
             ->has('specialAchievements.records', 1)
             ->where('specialAchievements.records.0.title', 'Commendation Disc')
+            ->where('playingAchievements.source', 'legacy')
+            ->where('playingAchievements.linked_member', null)
             ->has('playingAchievements.records', 1)
             ->where('playingAchievements.records.0.title', 'National Police Games')
             ->where('playingAchievements.records.0.medal_type', 'GOLD')
+            ->has('coachAchievements.summary')
+        );
+});
+
+/**
+ * Build a tournament → event → participation → achievement chain for a member.
+ *
+ * @return array{tournament: Tournament, event: Event, achievement: Achievement}
+ */
+function memberPlayingAchievement(Member $member, array $eventState = [], array $achievementState = []): array
+{
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $member->organization_id,
+        'session_id' => SportSession::factory()->create(['organization_id' => $member->organization_id])->id,
+        'name' => 'All India Police Sports Meet',
+        'date_from' => '2019-02-10',
+        'date_to' => '2019-02-15',
+        'venue' => 'Lucknow',
+    ]);
+
+    $event = Event::factory()->forTournament($tournament)->create([
+        'name' => '100m Sprint',
+        'event_type' => 'individual',
+        ...$eventState,
+    ]);
+
+    $participation = Participation::factory()->forEvent($event)->create([
+        'member_id' => $member->id,
+        'team_id' => null,
+    ]);
+
+    $achievement = Achievement::factory()->forParticipation($participation)->create($achievementState);
+
+    return ['tournament' => $tournament, 'event' => $event, 'achievement' => $achievement];
+}
+
+test('linked coach derives playing achievements from the member record', function (): void {
+    $user = coachPlayingAchievementUser('coaches.view');
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+    ]);
+
+    memberPlayingAchievement($member, [], ['medal_type' => 'GOLD', 'position' => 1]);
+
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+    ]);
+
+    $teamTournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'name' => 'National Police Games',
+        'date_from' => '2021-03-01',
+    ]);
+    $teamEvent = Event::factory()->forTournament($teamTournament)->create([
+        'name' => 'Basketball Team',
+        'event_type' => 'team',
+    ]);
+    $teamParticipation = Participation::factory()->forEvent($teamEvent)->create([
+        'member_id' => $member->id,
+        'team_id' => $team->id,
+    ]);
+    Achievement::factory()->forParticipation($teamParticipation)->create(['medal_type' => 'SILVER', 'position' => 2]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.achievements', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/show')
+            ->where('playingAchievements.source', 'member')
+            ->where('playingAchievements.linked_member.id', $member->id)
+            ->where('playingAchievements.linked_member.member_code', $member->member_code)
+            ->has('playingAchievements.records', 2)
+            ->where('playingAchievements.records.0.event_kind', 'team')
+            ->where('playingAchievements.records.0.medal_type', 'SILVER')
+            ->where('playingAchievements.records.0.tournament.name', 'National Police Games')
+            ->where('playingAchievements.records.0.event.name', 'Basketball Team')
+            ->where('playingAchievements.records.0.achieved_on', '2021-03-01')
+            ->where('playingAchievements.records.1.event_kind', 'individual')
+            ->where('playingAchievements.records.1.medal_type', 'GOLD')
+            ->where('playingAchievements.records.1.tournament.name', 'All India Police Sports Meet')
+            ->where('playingAchievements.records.1.tournament.tier_code', 'NATIONAL')
+            ->where('playingAchievements.records.1.achieved_on', '2019-02-10')
+            ->where('playingAchievements.summary.total', 2)
+            ->where('playingAchievements.summary.medals', 2)
+            ->has('playingAchievements.sports')
+            ->where('coach.member_id', $member->id)
+            ->where('coach.linked_member.id', $member->id)
+            ->where('coachAchievements.summary.GOLD', 0)
+            ->where('coachAchievements.summary.total_events', 0)
+            ->has('coachAchievements.groups', 0)
+        );
+});
+
+test('legacy free-form records are hidden for a linked coach', function (): void {
+    $user = coachPlayingAchievementUser('coaches.view');
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+    ]);
+
+    CoachPlayingAchievement::factory()->forCoach($coach)->create([
+        'title' => 'Legacy State Championship',
+    ]);
+
+    memberPlayingAchievement($member, [], ['medal_type' => 'BRONZE']);
+
+    $this->actingAs($user)
+        ->get(route('coaches.achievements', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('playingAchievements.source', 'member')
+            ->has('playingAchievements.records', 1)
+            ->where('playingAchievements.records.0.medal_type', 'BRONZE')
+            ->where('playingAchievements.summary.total', 1)
+        );
+
+    expect(CoachPlayingAchievement::where('coach_id', $coach->id)->count())->toBe(1);
+});
+
+test('linked coach print preview renders the member-derived playing achievements', function (): void {
+    $user = coachPlayingAchievementUser('coaches.view');
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+    ]);
+
+    memberPlayingAchievement($member, [], ['medal_type' => 'GOLD', 'position' => 1]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.preview', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/print-preview')
+            ->where('playingAchievements.source', 'member')
+            ->where('playingAchievements.linked_member.id', $member->id)
+            ->has('playingAchievements.records', 1)
+            ->where('playingAchievements.records.0.event_kind', 'individual')
+            ->where('playingAchievements.records.0.tournament.name', 'All India Police Sports Meet')
+            ->where('playingAchievements.records.0.event.name', '100m Sprint')
             ->has('coachAchievements.summary')
         );
 });

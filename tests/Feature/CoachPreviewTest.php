@@ -2,15 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Models\Achievement;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\CoachPlayingAchievement;
 use App\Models\CoachSpecialAchievement;
+use App\Models\Event;
+use App\Models\Member;
 use App\Models\Organization;
+use App\Models\Participation;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\SportSession;
 use App\Models\Team;
+use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -111,6 +116,8 @@ test('coach preview includes special achievements and playing achievements', fun
         ->getJson(route('v1.coaches.preview', $coach))
         ->assertOk()
         ->assertJsonPath('special_achievements.0.title', 'Commendation Disc')
+        ->assertJsonPath('playing_achievements_source', 'legacy')
+        ->assertJsonPath('linked_member', null)
         ->assertJsonPath('playing_achievements.0.title', 'National Police Games')
         ->assertJsonPath('playing_achievements.0.medal_type', 'GOLD')
         ->assertJsonPath('playing_achievements.0.level', 'NATIONAL')
@@ -125,4 +132,42 @@ test('coach preview includes special achievements and playing achievements', fun
                 ],
             ],
         ]);
+});
+
+test('coach preview derives playing achievements from the linked member', function () {
+    $user = coachPreviewUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+    ]);
+
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => SportSession::factory()->create(['organization_id' => $user->organization_id])->id,
+        'name' => 'All India Police Sports Meet',
+        'date_from' => '2019-02-10',
+    ]);
+    $event = Event::factory()->forTournament($tournament)->create([
+        'name' => '100m Sprint',
+        'event_type' => 'individual',
+    ]);
+    $participation = Participation::factory()->forEvent($event)->create([
+        'member_id' => $member->id,
+        'team_id' => null,
+    ]);
+    Achievement::factory()->forParticipation($participation)->create(['medal_type' => 'GOLD', 'position' => 1]);
+
+    $this->actingAs($user)
+        ->getJson(route('v1.coaches.preview', $coach))
+        ->assertOk()
+        ->assertJsonPath('playing_achievements_source', 'member')
+        ->assertJsonPath('linked_member.id', $member->id)
+        ->assertJsonPath('linked_member.member_code', $member->member_code)
+        ->assertJsonPath('playing_achievements.0.medal_type', 'GOLD')
+        ->assertJsonPath('playing_achievements.0.event_kind', 'individual')
+        ->assertJsonPath('playing_achievements.0.tournament_name', 'All India Police Sports Meet')
+        ->assertJsonPath('playing_achievements.0.event_name', '100m Sprint')
+        ->assertJsonPath('playing_achievements.0.achieved_on', '2019-02-10')
+        ->assertJsonMissingPath('playing_achievements.0.title');
 });

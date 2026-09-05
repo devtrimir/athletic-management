@@ -84,8 +84,34 @@ export type PlayingAchievementSportOption = {
     category?: string | null;
 };
 
+export type MemberPlayingAchievementRow = {
+    id: number;
+    medal_type: string | null;
+    position: number | null;
+    remarks: string | null;
+    session: { id: number; name: string };
+    tournament: {
+        id: number;
+        name: string;
+        tier_code: string | null;
+        tier_label: string | null;
+        date_from: string | null;
+        date_to: string | null;
+        venue: string | null;
+    };
+    event: { id: number; name: string };
+    event_kind: 'team' | 'individual';
+    achieved_on: string | null;
+};
+
 export type PlayingAchievementsData = {
-    records: PlayingAchievementRow[];
+    source: 'member' | 'legacy';
+    linked_member: {
+        id: number;
+        member_code: string;
+        full_name: string;
+    } | null;
+    records: PlayingAchievementRow[] | MemberPlayingAchievementRow[];
     sports?: PlayingAchievementSportOption[];
     summary: {
         total: number;
@@ -680,7 +706,14 @@ export function CoachPlayingAchievementsSection({
     data: PlayingAchievementsData | undefined;
 }) {
     const { t } = useTranslation();
-    const records = data?.records ?? [];
+    const source = data?.source ?? 'legacy';
+    const isLegacy = source !== 'member';
+    const legacyRecords = isLegacy
+        ? ((data?.records ?? []) as PlayingAchievementRow[])
+        : [];
+    const memberRecords = isLegacy
+        ? []
+        : ((data?.records ?? []) as MemberPlayingAchievementRow[]);
     const sports = data?.sports ?? [];
     const total = data?.summary.total ?? 0;
     const medals = data?.summary.medals ?? 0;
@@ -694,13 +727,24 @@ export function CoachPlayingAchievementsSection({
                             <Trophy className="size-4" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-semibold">
-                                {t('Playing career achievements')}
-                            </h3>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-sm font-semibold">
+                                    {t('Playing career achievements')}
+                                </h3>
+                                {isLegacy ? (
+                                    <Badge variant="secondary">
+                                        {t('Legacy')}
+                                    </Badge>
+                                ) : null}
+                            </div>
                             <p className="text-xs text-muted-foreground">
-                                {t(
-                                    'Medals and positions earned by the coach while still a player, separate from all medal tallies.',
-                                )}
+                                {isLegacy
+                                    ? t(
+                                          'Manually recorded playing-career entries (no linked member record).',
+                                      )
+                                    : t(
+                                          "Derived from the member's recorded tournament achievements.",
+                                      )}
                             </p>
                         </div>
                     </div>
@@ -722,189 +766,309 @@ export function CoachPlayingAchievementsSection({
                             {medals}
                         </div>
                     </div>
-                    <PlayingAchievementDialog coach={coach} sports={sports} />
+                    {isLegacy ? (
+                        <PlayingAchievementDialog
+                            coach={coach}
+                            sports={sports}
+                        />
+                    ) : null}
                 </div>
             </div>
 
             <div className="rounded-xl border bg-card">
-                {records.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-                        <div className="rounded-full bg-muted p-3 text-muted-foreground">
-                            <Trophy className="size-6" />
-                        </div>
-                        <h4 className="mt-4 text-sm font-semibold">
-                            {t('No playing career achievements recorded')}
-                        </h4>
-                        <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                            {t(
-                                'Add medals, positions, or certificates the coach earned as a player here.',
-                            )}
-                        </p>
-                        <div className="mt-5">
-                            <PlayingAchievementDialog
-                                coach={coach}
-                                sports={sports}
-                            />
-                        </div>
-                    </div>
+                {isLegacy ? (
+                    <LegacyPlayingAchievementsList
+                        coach={coach}
+                        records={legacyRecords}
+                        sports={sports}
+                    />
                 ) : (
-                    <div className="divide-y">
-                        {records.map((row) => (
-                            <div
-                                key={row.id}
-                                className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto]"
-                            >
-                                <div className="min-w-0 space-y-3">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        {row.medal_type ? (
-                                            <Badge
-                                                variant="outline"
-                                                className={`gap-1.5 ${medalBadgeClass(row.medal_type)}`}
-                                            >
-                                                <Award className="size-3.5" />
-                                                {t(row.medal_type)}
-                                            </Badge>
-                                        ) : null}
-                                        {row.level ? (
-                                            <Badge variant="outline">
-                                                {t(row.level)}
-                                            </Badge>
-                                        ) : null}
-                                        {row.period ? (
-                                            <Badge variant="secondary">
-                                                {periodLabel(row.period, t)}
-                                            </Badge>
-                                        ) : null}
-                                        {row.venue ? (
-                                            <Badge
-                                                variant="secondary"
-                                                className="gap-1.5"
-                                            >
-                                                <MapPin className="size-3" />
-                                                {row.venue}
-                                            </Badge>
-                                        ) : null}
-                                    </div>
-
-                                    <div>
-                                        <h4 className="text-base leading-6 font-semibold">
-                                            {row.title}
-                                        </h4>
-                                        {row.competition_details ? (
-                                            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                                                {row.competition_details}
-                                            </p>
-                                        ) : null}
-                                    </div>
-
-                                    <div className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-                                        <div className="flex gap-2">
-                                            <CalendarDays className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                                            <div className="min-w-0">
-                                                <div className="text-xs font-medium text-muted-foreground">
-                                                    {t('Event date')}
-                                                </div>
-                                                <div>
-                                                    {formatDate(row.event_date)}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Trophy className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                                            <div className="min-w-0">
-                                                <div className="text-xs font-medium text-muted-foreground">
-                                                    {t('Event')}
-                                                </div>
-                                                <div className="truncate">
-                                                    {[
-                                                        row.sport?.name ?? null,
-                                                        row.event,
-                                                    ]
-                                                        .filter(Boolean)
-                                                        .join(' · ') || '—'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Award className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                                            <div className="min-w-0">
-                                                <div className="text-xs font-medium text-muted-foreground">
-                                                    {t('Position')}
-                                                </div>
-                                                <div>
-                                                    {row.position !== null
-                                                        ? `#${row.position}`
-                                                        : '—'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <CalendarDays className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                                            <div className="min-w-0">
-                                                <div className="text-xs font-medium text-muted-foreground">
-                                                    {t('Achieved on')}
-                                                </div>
-                                                <div>
-                                                    {formatDate(
-                                                        row.achieved_on,
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {row.remarks ? (
-                                        <p className="max-w-3xl text-sm text-muted-foreground">
-                                            {row.remarks}
-                                        </p>
-                                    ) : null}
-                                </div>
-
-                                <div className="flex items-center justify-end gap-1 lg:items-start">
-                                    <PlayingAchievementDialog
-                                        coach={coach}
-                                        row={row}
-                                        sports={sports}
-                                    />
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="size-8 text-destructive hover:text-destructive"
-                                        onClick={() =>
-                                            router.delete(
-                                                destroyPlayingAchievement.url({
-                                                    coach,
-                                                    playingAchievement: row,
-                                                }),
-                                                {
-                                                    preserveScroll: true,
-                                                    preserveState: (page: {
-                                                        props: {
-                                                            errors?: Record<
-                                                                string,
-                                                                string
-                                                            >;
-                                                        };
-                                                    }) =>
-                                                        Object.keys(
-                                                            page.props.errors ??
-                                                                {},
-                                                        ).length > 0,
-                                                },
-                                            )
-                                        }
-                                    >
-                                        <Trash2 className="size-4" />
-                                        <span className="sr-only">
-                                            {t('Delete')}
-                                        </span>
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    <MemberPlayingAchievementsList records={memberRecords} />
                 )}
             </div>
+        </div>
+    );
+}
+
+function MemberPlayingAchievementsList({
+    records,
+}: {
+    records: MemberPlayingAchievementRow[];
+}) {
+    const { t } = useTranslation();
+
+    if (records.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <div className="rounded-full bg-muted p-3 text-muted-foreground">
+                    <Trophy className="size-6" />
+                </div>
+                <h4 className="mt-4 text-sm font-semibold">
+                    {t('No playing career achievements recorded')}
+                </h4>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                    {t(
+                        'No tournament achievements are recorded for the linked member yet.',
+                    )}
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="divide-y">
+            {records.map((row) => (
+                <div key={row.id} className="px-4 py-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {row.medal_type ? (
+                            <Badge
+                                variant="outline"
+                                className={`gap-1.5 ${medalBadgeClass(row.medal_type)}`}
+                            >
+                                <Award className="size-3.5" />
+                                {t(row.medal_type)}
+                            </Badge>
+                        ) : null}
+                        <Badge variant="secondary">
+                            {row.event_kind === 'team'
+                                ? t('Team')
+                                : t('Individual')}
+                        </Badge>
+                        {row.tournament.tier_code ? (
+                            <Badge variant="outline">
+                                {t(row.tournament.tier_code)}
+                            </Badge>
+                        ) : null}
+                        {row.session?.name ? (
+                            <Badge variant="outline">{row.session.name}</Badge>
+                        ) : null}
+                    </div>
+
+                    <div className="mt-2">
+                        <h4 className="text-base leading-6 font-semibold">
+                            {row.tournament.name}
+                        </h4>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {row.event.name}
+                        </p>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
+                        <div className="flex gap-2">
+                            <CalendarDays className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0">
+                                <div className="text-xs font-medium text-muted-foreground">
+                                    {t('Date')}
+                                </div>
+                                <div>
+                                    {formatDate(
+                                        row.achieved_on ??
+                                            row.tournament.date_from,
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0">
+                                <div className="text-xs font-medium text-muted-foreground">
+                                    {t('Venue')}
+                                </div>
+                                <div>{row.tournament.venue ?? '—'}</div>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <Award className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0">
+                                <div className="text-xs font-medium text-muted-foreground">
+                                    {t('Position')}
+                                </div>
+                                <div>
+                                    {row.position !== null
+                                        ? `#${row.position}`
+                                        : '—'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {row.remarks ? (
+                        <p className="mt-3 max-w-3xl text-sm text-muted-foreground">
+                            {row.remarks}
+                        </p>
+                    ) : null}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function LegacyPlayingAchievementsList({
+    coach,
+    records,
+    sports,
+}: {
+    coach: { id: number };
+    records: PlayingAchievementRow[];
+    sports: PlayingAchievementSportOption[];
+}) {
+    const { t } = useTranslation();
+
+    if (records.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <div className="rounded-full bg-muted p-3 text-muted-foreground">
+                    <Trophy className="size-6" />
+                </div>
+                <h4 className="mt-4 text-sm font-semibold">
+                    {t('No playing career achievements recorded')}
+                </h4>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                    {t(
+                        'Add medals, positions, or certificates the coach earned as a player here.',
+                    )}
+                </p>
+                <div className="mt-5">
+                    <PlayingAchievementDialog coach={coach} sports={sports} />
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="divide-y">
+            {records.map((row) => (
+                <div
+                    key={row.id}
+                    className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto]"
+                >
+                    <div className="min-w-0 space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                            {row.medal_type ? (
+                                <Badge
+                                    variant="outline"
+                                    className={`gap-1.5 ${medalBadgeClass(row.medal_type)}`}
+                                >
+                                    <Award className="size-3.5" />
+                                    {t(row.medal_type)}
+                                </Badge>
+                            ) : null}
+                            {row.level ? (
+                                <Badge variant="outline">{t(row.level)}</Badge>
+                            ) : null}
+                            {row.period ? (
+                                <Badge variant="secondary">
+                                    {periodLabel(row.period, t)}
+                                </Badge>
+                            ) : null}
+                            {row.venue ? (
+                                <Badge variant="secondary" className="gap-1.5">
+                                    <MapPin className="size-3" />
+                                    {row.venue}
+                                </Badge>
+                            ) : null}
+                        </div>
+
+                        <div>
+                            <h4 className="text-base leading-6 font-semibold">
+                                {row.title}
+                            </h4>
+                            {row.competition_details ? (
+                                <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                                    {row.competition_details}
+                                </p>
+                            ) : null}
+                        </div>
+
+                        <div className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="flex gap-2">
+                                <CalendarDays className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <div className="min-w-0">
+                                    <div className="text-xs font-medium text-muted-foreground">
+                                        {t('Event date')}
+                                    </div>
+                                    <div>{formatDate(row.event_date)}</div>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <Trophy className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <div className="min-w-0">
+                                    <div className="text-xs font-medium text-muted-foreground">
+                                        {t('Event')}
+                                    </div>
+                                    <div className="truncate">
+                                        {[row.sport?.name ?? null, row.event]
+                                            .filter(Boolean)
+                                            .join(' · ') || '—'}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <Award className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <div className="min-w-0">
+                                    <div className="text-xs font-medium text-muted-foreground">
+                                        {t('Position')}
+                                    </div>
+                                    <div>
+                                        {row.position !== null
+                                            ? `#${row.position}`
+                                            : '—'}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <CalendarDays className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <div className="min-w-0">
+                                    <div className="text-xs font-medium text-muted-foreground">
+                                        {t('Achieved on')}
+                                    </div>
+                                    <div>{formatDate(row.achieved_on)}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {row.remarks ? (
+                            <p className="max-w-3xl text-sm text-muted-foreground">
+                                {row.remarks}
+                            </p>
+                        ) : null}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-1 lg:items-start">
+                        <PlayingAchievementDialog
+                            coach={coach}
+                            row={row}
+                            sports={sports}
+                        />
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-8 text-destructive hover:text-destructive"
+                            onClick={() =>
+                                router.delete(
+                                    destroyPlayingAchievement.url({
+                                        coach,
+                                        playingAchievement: row,
+                                    }),
+                                    {
+                                        preserveScroll: true,
+                                        preserveState: (page: {
+                                            props: {
+                                                errors?: Record<string, string>;
+                                            };
+                                        }) =>
+                                            Object.keys(page.props.errors ?? {})
+                                                .length > 0,
+                                    },
+                                )
+                            }
+                        >
+                            <Trash2 className="size-4" />
+                            <span className="sr-only">{t('Delete')}</span>
+                        </Button>
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }
