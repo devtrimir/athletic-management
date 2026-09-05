@@ -22,7 +22,6 @@ class InchargeFactory extends Factory
             'full_name' => fake()->name(),
             'pno' => fake()->unique()->numerify('##########'),
             'rank' => fake()->randomElement(['Constable', 'Head Constable', 'SI', 'Inspector']),
-            'designation' => fake()->optional()->jobTitle(),
             'mobile' => fake()->optional()->numerify('##########'),
             'email' => fake()->optional()->safeEmail(),
             'is_active' => true,

@@ -39,7 +39,6 @@ type CurrentAssignment = {
     full_name: string;
     pno: string | null;
     rank: string | null;
-    designation: string | null;
     mobile: string | null;
     email: string | null;
     assigned_at: string | null;
@@ -53,7 +52,6 @@ type HistoryRow = {
     full_name: string;
     pno: string | null;
     rank: string | null;
-    designation: string | null;
     mobile: string | null;
     email: string | null;
     assigned_at: string | null;
@@ -71,7 +69,6 @@ type InchargeOption = {
     full_name: string;
     pno: string;
     rank: string | null;
-    designation: string | null;
     mobile: string | null;
     email: string | null;
 };
@@ -219,14 +216,6 @@ function InchargeSnapshot({ incharge }: { incharge: InchargeOption }) {
                     </dt>
                     <dd className="font-medium">
                         {detailValue(incharge.rank)}
-                    </dd>
-                </div>
-                <div>
-                    <dt className="text-xs text-muted-foreground">
-                        {t('Designation')}
-                    </dt>
-                    <dd className="font-medium">
-                        {detailValue(incharge.designation)}
                     </dd>
                 </div>
                 <div>
@@ -598,16 +587,6 @@ export function TeamInchargePanel({
                                 </div>
                                 <div>
                                     <dt className="text-muted-foreground">
-                                        {t('Designation')}
-                                    </dt>
-                                    <dd className="font-medium">
-                                        {detailValue(
-                                            currentAssignment.designation,
-                                        )}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground">
                                         {t('Mobile')}
                                     </dt>
                                     <dd className="font-medium">
@@ -767,9 +746,7 @@ export function TeamInchargePanel({
                                                 )}
                                             </div>
                                             <div className="text-xs text-muted-foreground">
-                                                {[row.rank, row.designation]
-                                                    .filter(Boolean)
-                                                    .join(' · ')}
+                                                {row.rank}
                                             </div>
                                         </TableCell>
                                         <TableCell className="font-mono text-xs">
@@ -863,7 +840,7 @@ export function TeamInchargePanel({
                                 items={inchargeItems}
                                 placeholder={t('Select team prabhari')}
                                 searchPlaceholder={t(
-                                    'Search team prabhari by name, PNO, rank, or designation',
+                                    'Search team prabhari by name, PNO, or rank',
                                 )}
                                 emptyMessage={t('No team prabhari found.')}
                             />
@@ -1014,7 +991,7 @@ export function TeamInchargePanel({
                                 items={inchargeItems}
                                 placeholder={t('Select team prabhari')}
                                 searchPlaceholder={t(
-                                    'Search team prabhari by name, PNO, rank, or designation',
+                                    'Search team prabhari by name, PNO, or rank',
                                 )}
                                 emptyMessage={t('No team prabhari found.')}
                             />
@@ -1193,11 +1170,7 @@ export function TeamInchargePanel({
                                     )}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    {[
-                                        currentAssignment.pno,
-                                        currentAssignment.rank,
-                                        currentAssignment.designation,
-                                    ]
+                                    {[currentAssignment.pno, currentAssignment.rank]
                                         .filter(Boolean)
                                         .join(' · ')}
                                 </p>

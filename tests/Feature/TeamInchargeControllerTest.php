@@ -51,7 +51,6 @@ test('can assign the first team incharge', function (): void {
         'full_name' => 'Asha Singh',
         'pno' => '1234567890',
         'rank' => 'Inspector',
-        'designation' => 'Team Officer',
     ]);
 
     $this->actingAs($user)

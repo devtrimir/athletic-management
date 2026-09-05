@@ -11,7 +11,6 @@ type Incharge = {
     full_name: string;
     pno: string | null;
     rank: string | null;
-    designation: string | null;
     mobile: string | null;
     email: string | null;
     is_active: boolean;
@@ -209,7 +208,6 @@ export default function InchargePrintPreview({
         full_name: 'Incharge',
         pno: null,
         rank: null,
-        designation: null,
         mobile: null,
         email: null,
         is_active: false,
@@ -449,18 +447,6 @@ export default function InchargePrintPreview({
                                     </dt>
                                     <dd>
                                         {identityValue(inchargeRecord.rank)}
-                                    </dd>
-                                </dl>
-                            )}
-                            {hasValue(inchargeRecord.designation) && (
-                                <dl className="grid gap-1">
-                                    <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                        {t('Designation')}
-                                    </dt>
-                                    <dd>
-                                        {identityValue(
-                                            inchargeRecord.designation,
-                                        )}
                                     </dd>
                                 </dl>
                             )}

@@ -22,7 +22,6 @@ export type InchargeFormRecord = {
     full_name: string;
     pno: string;
     rank: string | null;
-    designation: string | null;
     mobile: string | null;
     email: string | null;
     is_active: boolean;
@@ -64,11 +63,9 @@ function resolveMasterSelection(
 export function InchargeForm({
     incharge,
     ranks,
-    designations,
 }: {
     incharge?: InchargeFormRecord;
     ranks: MasterOption[];
-    designations: MasterOption[];
 }) {
     const { t } = useTranslation();
     const [rankSelection, setRankSelection] = useState(
@@ -77,19 +74,10 @@ export function InchargeForm({
     const [rankCustom, setRankCustom] = useState(
         rankSelection === OTHER_OPTION ? (incharge?.rank ?? '') : '',
     );
-    const [designationSelection, setDesignationSelection] = useState(
-        resolveMasterSelection(incharge?.designation, designations),
-    );
-    const [designationCustom, setDesignationCustom] = useState(
-        designationSelection === OTHER_OPTION
-            ? (incharge?.designation ?? '')
-            : '',
-    );
     const form = useForm({
         full_name: incharge?.full_name ?? '',
         pno: incharge?.pno ?? '',
         rank: incharge?.rank ?? '',
-        designation: incharge?.designation ?? '',
         mobile: incharge?.mobile ?? '',
         email: incharge?.email ?? '',
         is_active: incharge?.is_active ?? true,
@@ -176,56 +164,6 @@ export function InchargeForm({
                         />
                     )}
                     <InputError message={form.errors.rank} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="designation">{t('Designation')}</Label>
-                    <Select
-                        value={designationSelection}
-                        onValueChange={(value) => {
-                            setDesignationSelection(value);
-                            form.setData(
-                                'designation',
-                                value === OTHER_OPTION
-                                    ? designationCustom
-                                    : value,
-                            );
-                        }}
-                    >
-                        <SelectTrigger id="designation" className="h-9 w-full">
-                            <SelectValue
-                                placeholder={t('Select designation')}
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {designations.map((designation) => (
-                                <SelectItem
-                                    key={designation.code}
-                                    value={designation.code}
-                                >
-                                    {masterLabel(designation)}
-                                </SelectItem>
-                            ))}
-                            <SelectItem value={OTHER_OPTION}>
-                                {t('Other')}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                    {designationSelection === OTHER_OPTION && (
-                        <Input
-                            className="mt-2 h-9"
-                            value={designationCustom}
-                            onChange={(event) => {
-                                setDesignationCustom(event.target.value);
-                                form.setData(
-                                    'designation',
-                                    event.target.value.trim(),
-                                );
-                            }}
-                            maxLength={100}
-                            placeholder={t('Enter designation')}
-                        />
-                    )}
-                    <InputError message={form.errors.designation} />
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="mobile">{t('Mobile')}</Label>

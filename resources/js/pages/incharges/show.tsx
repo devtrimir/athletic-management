@@ -74,7 +74,6 @@ type Incharge = {
     full_name: string;
     pno: string;
     rank: string | null;
-    designation: string | null;
     mobile: string | null;
     email: string | null;
     is_active: boolean;
@@ -103,7 +102,6 @@ type Assignment = {
     full_name: string;
     pno: string;
     rank: string | null;
-    designation: string | null;
     mobile: string | null;
     email: string | null;
     assigned_by: { id: number; name: string } | null;
@@ -830,10 +828,6 @@ export default function InchargesShow({
                                                 </span>,
                                             )}
                                             {detail(t('Rank'), incharge.rank)}
-                                            {detail(
-                                                t('Designation'),
-                                                incharge.designation,
-                                            )}
                                             {detail(
                                                 t('Mobile'),
                                                 incharge.mobile,

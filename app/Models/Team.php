@@ -212,13 +212,6 @@ class Team extends Model
         );
     }
 
-    protected function currentInchargeDesignation(): Attribute
-    {
-        return Attribute::make(
-            get: fn (): ?string => $this->currentInchargeAssignment?->designation,
-        );
-    }
-
     protected function currentInchargeMobile(): Attribute
     {
         return Attribute::make(

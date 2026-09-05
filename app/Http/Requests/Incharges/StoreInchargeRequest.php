@@ -22,7 +22,6 @@ class StoreInchargeRequest extends FormRequest
             'full_name' => ['required', 'string', 'max:255'],
             'pno' => ['required', 'string', 'max:20', new UniquePnoAcrossPeople($orgId)],
             'rank' => ['nullable', 'string', 'max:100'],
-            'designation' => ['nullable', 'string', 'max:100'],
             'mobile' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:255'],
             'is_active' => ['boolean'],

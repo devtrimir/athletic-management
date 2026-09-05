@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Incharges\StoreInchargeRequest;
 use App\Http\Requests\Incharges\UpdateInchargeRequest;
-use App\Models\Designation;
 use App\Models\Incharge;
 use App\Models\Rank;
 use App\Models\TeamInchargeAssignment;
@@ -36,8 +35,7 @@ class InchargeController extends Controller
                     $query->where(function ($builder) use ($term): void {
                         $builder->whereRaw('LOWER(full_name) LIKE ?', [$term])
                             ->orWhereRaw('LOWER(pno) LIKE ?', [$term])
-                            ->orWhereRaw('LOWER(COALESCE(rank, \'\')) LIKE ?', [$term])
-                            ->orWhereRaw('LOWER(COALESCE(designation, \'\')) LIKE ?', [$term]);
+                            ->orWhereRaw('LOWER(COALESCE(rank, \'\')) LIKE ?', [$term]);
                     });
                 }),
             ])
@@ -134,7 +132,6 @@ class InchargeController extends Controller
                 'full_name' => $incharge->full_name,
                 'pno' => $incharge->pno,
                 'rank' => $incharge->rank,
-                'designation' => $incharge->designation,
                 'mobile' => $incharge->mobile,
                 'email' => $incharge->email,
                 'is_active' => $incharge->is_active,
@@ -174,8 +171,6 @@ class InchargeController extends Controller
     {
         return [
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
-            'designations' => Designation::active()->ordered()->with('rank:code,name,short_name')
-                ->get(['code', 'name', 'short_name', 'mapped_rank_code']),
         ];
     }
 }
