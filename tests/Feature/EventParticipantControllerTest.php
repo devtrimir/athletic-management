@@ -417,3 +417,77 @@ test('duplicate member_id in same batch returns 422', function () {
 
     expect(Participation::where('event_id', $event->id)->count())->toBe(0);
 });
+
+test('team event appends players to existing lineup instead of replacing', function () {
+    $user = epUser('tournaments.update');
+    $tournament = epTournament($user);
+    $event = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => Sport::factory()->create(['organization_id' => $user->organization_id])->id,
+        'event_type' => 'team',
+    ]);
+
+    $team = Team::factory()->create([
+        'organization_id' => $tournament->organization_id,
+        'sport_id' => $event->sport_id,
+        'session_id' => $tournament->session_id,
+        'is_active' => true,
+    ]);
+
+    $firstPlayer = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $secondPlayer = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    TeamMember::factory()->create(['team_id' => $team->id, 'member_id' => $firstPlayer->id, 'session_id' => $tournament->session_id, 'left_on' => null]);
+    TeamMember::factory()->create(['team_id' => $team->id, 'member_id' => $secondPlayer->id, 'session_id' => $tournament->session_id, 'left_on' => null]);
+
+    $route = route('tournaments.events.participants.store', [$tournament, $event]);
+
+    $this->actingAs($user)
+        ->post($route, [
+            'participants' => [
+                ['team_id' => $team->id, 'player_ids' => [$firstPlayer->id]],
+            ],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($user)
+        ->post($route, [
+            'participants' => [
+                ['team_id' => $team->id, 'player_ids' => [$secondPlayer->id]],
+            ],
+        ])
+        ->assertRedirect();
+
+    $participation = Participation::where('event_id', $event->id)->where('team_id', $team->id)->first();
+
+    expect($participation)->not->toBeNull()
+        ->and($participation->lineup_member_ids)->toContain($firstPlayer->id, $secondPlayer->id);
+});
+
+test('re-saving individual participation updates team_id without duplicate', function () {
+    $user = epUser('tournaments.update');
+    $tournament = epTournament($user);
+    $event = epEvent($tournament, $user);
+    [$member, $team] = epRosterMember($tournament, $event, $user);
+
+    Participation::factory()->create([
+        'event_id' => $event->id,
+        'member_id' => $member->id,
+        'session_id' => $tournament->session_id,
+        'team_id' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('tournaments.events.participants.store', [$tournament, $event]), [
+            'participants' => [
+                ['member_id' => $member->id, 'team_id' => $team->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect(Participation::where('event_id', $event->id)->where('member_id', $member->id)->count())->toBe(1);
+
+    $participation = Participation::where('event_id', $event->id)->where('member_id', $member->id)->first();
+
+    expect($participation->team_id)->toBe($team->id);
+});

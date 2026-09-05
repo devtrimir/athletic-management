@@ -11,6 +11,7 @@ use App\Models\MediaFile;
 use App\Models\Member;
 use App\Models\MemberPromotion;
 use App\Models\Participation;
+use App\Models\User;
 use App\Services\MediaPathService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class MediaFileController extends Controller
      */
     public function index(Request $request, Participation $participation): JsonResponse
     {
-        Gate::authorize('view', $participation->member);
+        $this->authorizeParticipationMedia($request->user(), $participation);
 
         $media = $participation->media()->with('uploader:id,name')->latest()->get();
 
@@ -42,7 +43,7 @@ class MediaFileController extends Controller
      */
     public function store(StoreMediaFileRequest $request, Participation $participation): JsonResponse
     {
-        Gate::authorize('view', $participation->member);
+        $this->authorizeParticipationMedia($request->user(), $participation);
 
         $existing = $participation->media()->count();
 
@@ -62,7 +63,7 @@ class MediaFileController extends Controller
         );
 
         $mediaFile = MediaFile::create([
-            'organization_id' => $participation->member->organization_id,
+            'organization_id' => $participation->member?->organization_id ?? $participation->event->tournament->organization_id,
             'mediable_type' => Participation::class,
             'mediable_id' => $participation->id,
             'disk' => 'public',
@@ -158,5 +159,16 @@ class MediaFileController extends Controller
         $mediaFile->delete();
 
         return response()->json(null, 204);
+    }
+
+    private function authorizeParticipationMedia(User $user, Participation $participation): void
+    {
+        if ($participation->member_id !== null) {
+            Gate::authorize('view', $participation->member);
+
+            return;
+        }
+
+        Gate::authorize('update', $participation->event->tournament);
     }
 }

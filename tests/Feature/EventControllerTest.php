@@ -672,3 +672,38 @@ test('show returns 404 when event belongs to a different tournament', function (
         ->get(route('tournaments.events.show', [$tournament, $event]))
         ->assertNotFound();
 });
+
+test('show deferred participant candidates exclude existing team lineup members', function () {
+    $user = eventUser('tournaments.view');
+    $tournament = makeTournamentForUser($user);
+    $event = Event::factory()->forTournament($tournament)->create([
+        'gender_class' => 'OPEN',
+        'event_type' => 'team',
+    ]);
+    [$existingMember, $existingTeam] = makeEventRosterMember($tournament, $event);
+    [$availableMember] = makeEventRosterMember($tournament, $event);
+
+    Participation::factory()->forEvent($event)->create([
+        'member_id' => null,
+        'team_id' => $existingTeam->id,
+        'lineup_member_ids' => [$existingMember->id],
+    ]);
+
+    $version = file_exists(public_path('build/manifest.json'))
+        ? hash_file('xxh128', public_path('build/manifest.json'))
+        : null;
+
+    $response = $this->actingAs($user)
+        ->getJson(route('tournaments.events.show', [$tournament, $event]), [
+            'X-Inertia' => 'true',
+            'X-Inertia-Partial-Component' => 'events/show',
+            'X-Inertia-Partial-Data' => 'participantCandidates',
+            'X-Inertia-Version' => $version,
+        ])
+        ->assertOk();
+
+    $memberIds = collect($response->json('props.participantCandidates'))->flatMap(fn (array $team): array => $team['members'])->pluck('id');
+
+    expect($memberIds)->toContain($availableMember->id)
+        ->and($memberIds)->not->toContain($existingMember->id);
+});

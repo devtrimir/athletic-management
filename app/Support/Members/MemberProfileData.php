@@ -30,6 +30,7 @@ use App\Models\Unit;
 use App\Services\AuditLogBuilder;
 use App\Services\Performance\MemberPerformanceService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class MemberProfileData
 {
@@ -751,13 +752,37 @@ class MemberProfileData
         };
     }
 
+    /**
+     * All participation IDs that belong to this member, either directly or
+     * through a team-event lineup.
+     *
+     * @return Collection<int, int>
+     */
+    private function memberParticipationIds(Member $member): Collection
+    {
+        $directIds = $member->participations()->pluck('id');
+
+        $teamIds = Participation::query()
+            ->whereExists(function ($query) use ($member): void {
+                $query->select(DB::raw(1))
+                    ->from('team_members')
+                    ->whereColumn('team_members.team_id', 'participations.team_id')
+                    ->whereColumn('team_members.session_id', 'participations.session_id')
+                    ->where('team_members.member_id', $member->id)
+                    ->whereNull('team_members.left_on');
+            })
+            ->pluck('id');
+
+        return $directIds->merge($teamIds)->unique()->values();
+    }
+
     /** @return array<string, mixed> */
     private function mediaPayload(Member $member): array
     {
         $mediaFiles = MediaFile::with(['uploader:id,name', 'mediable'])
             ->where('organization_id', $member->organization_id)
             ->where('mediable_type', Participation::class)
-            ->whereIn('mediable_id', $member->participations()->pluck('id'))
+            ->whereIn('mediable_id', $this->memberParticipationIds($member))
             ->orderByDesc('created_at')
             ->get();
 

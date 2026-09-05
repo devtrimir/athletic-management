@@ -49,23 +49,46 @@ class EventParticipantController extends Controller
                     $position = $positionMap[$medalType];
                 }
 
-                $lineupMemberIds = $isTeamEvent
+                $newLineupMemberIds = $isTeamEvent
                     ? array_values(array_filter(array_map('intval', (array) ($row['player_ids'] ?? [])), static fn (int $id): bool => $id > 0))
                     : [];
 
-                $participation = Participation::updateOrCreate(
-                    [
+                if ($isTeamEvent) {
+                    $existingParticipation = Participation::query()
+                        ->where('event_id', $event->id)
+                        ->where('team_id', $teamId)
+                        ->whereNull('member_id')
+                        ->first();
+
+                    $lineupMemberIds = array_values(array_unique(array_merge(
+                        (array) ($existingParticipation?->lineup_member_ids ?? []),
+                        $newLineupMemberIds,
+                    )));
+
+                    $participation = $existingParticipation ?? new Participation;
+                    $participation->fill([
                         'event_id' => $event->id,
-                        'team_id' => $teamId,
-                        'member_id' => $memberId,
-                    ],
-                    [
                         'session_id' => $tournament->session_id,
-                        'position' => $position,
                         'team_id' => $teamId,
-                        'lineup_member_ids' => $isTeamEvent ? $lineupMemberIds : null,
-                    ],
-                );
+                        'member_id' => null,
+                        'position' => $position,
+                        'lineup_member_ids' => $lineupMemberIds,
+                    ]);
+                    $participation->save();
+                } else {
+                    $participation = Participation::updateOrCreate(
+                        [
+                            'event_id' => $event->id,
+                            'member_id' => $memberId,
+                        ],
+                        [
+                            'session_id' => $tournament->session_id,
+                            'position' => $position,
+                            'team_id' => $teamId,
+                            'lineup_member_ids' => null,
+                        ],
+                    );
+                }
 
                 if (! empty($row['medal_type'])) {
                     Achievement::updateOrCreate(

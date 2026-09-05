@@ -51,11 +51,18 @@ class MediaPathService
             $mediable->loadMissing('event.tournament', 'member');
         }
 
-        $orgId = $mediable->member->organization_id;
         $tournamentId = $mediable->event->tournament_id;
         $eventId = $mediable->event_id;
-        $memberId = $mediable->member_id;
 
-        return "org_{$orgId}/tournaments/{$tournamentId}/events/{$eventId}/members/{$memberId}";
+        if ($mediable->member_id !== null) {
+            $orgId = $mediable->member()->withoutGlobalScopes()->value('organization_id')
+                ?? $mediable->event->tournament()->withoutGlobalScopes()->value('organization_id');
+
+            return "org_{$orgId}/tournaments/{$tournamentId}/events/{$eventId}/members/{$mediable->member_id}";
+        }
+
+        $orgId = $mediable->event->tournament()->withoutGlobalScopes()->value('organization_id');
+
+        return "org_{$orgId}/tournaments/{$tournamentId}/events/{$eventId}/teams/{$mediable->team_id}";
     }
 }
