@@ -2,12 +2,18 @@
 
 declare(strict_types=1);
 
+use App\Models\Event;
 use App\Models\MediaFile;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Participation;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Sport;
+use App\Models\SportSession;
+use App\Models\Team;
+use App\Models\TeamMember;
+use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -318,4 +324,96 @@ test('member media API filter by tournament_id works', function () {
 
     $response->assertStatus(200);
     expect($response->json('total'))->toBe(2);
+});
+
+test('team participation media appears on member media API', function () {
+    Storage::fake('public');
+
+    $user = mfUser('members.view');
+    $tournament = Tournament::factory()->create(['organization_id' => $user->organization_id]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $event = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'event_type' => 'team',
+    ]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+    ]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'left_on' => null,
+    ]);
+
+    $participation = Participation::create([
+        'event_id' => $event->id,
+        'member_id' => null,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'lineup_member_ids' => [$member->id],
+    ]);
+
+    MediaFile::factory()->forParticipation($participation)->create([
+        'uploaded_by' => $user->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('v1.members.media.index', $member->id));
+
+    $response->assertStatus(200);
+    expect($response->json('total'))->toBe(1);
+});
+
+test('media upload for team participation does not require a direct member link', function () {
+    Storage::fake('public');
+
+    $user = mfUser('media.upload', 'members.view', 'tournaments.update');
+    $tournament = Tournament::factory()->create(['organization_id' => $user->organization_id]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $event = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'event_type' => 'team',
+    ]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+    ]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'left_on' => null,
+    ]);
+
+    $participation = Participation::create([
+        'event_id' => $event->id,
+        'member_id' => null,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'lineup_member_ids' => [$member->id],
+    ]);
+
+    $file = UploadedFile::fake()->image('team-photo.jpg', 100, 100)->size(500);
+
+    $this->actingAs($user)
+        ->postJson(route('participations.media.store', $participation), ['file' => $file])
+        ->assertStatus(201);
+
+    $this->assertDatabaseHas('media_files', [
+        'mediable_id' => $participation->id,
+        'mediable_type' => Participation::class,
+        'organization_id' => $user->organization_id,
+    ]);
 });

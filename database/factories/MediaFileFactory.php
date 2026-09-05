@@ -7,6 +7,7 @@ namespace Database\Factories;
 use App\Models\MediaFile;
 use App\Models\Participation;
 use App\Models\User;
+use App\Services\MediaPathService;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -27,14 +28,15 @@ class MediaFileFactory extends Factory
             'webp' => 'image/webp',
         };
 
-        $orgId = $participation->member()->withoutGlobalScopes()->value('organization_id') ?? 1;
+        $orgId = $this->resolveOrganizationId($participation);
+        $pathService = app(MediaPathService::class);
 
         return [
             'organization_id' => $orgId,
             'mediable_type' => Participation::class,
             'mediable_id' => $participation->id,
             'disk' => 'public',
-            'path' => "org_{$orgId}/tournaments/0/events/0/members/{$participation->member_id}/".fake()->uuid().".{$ext}",
+            'path' => $pathService->buildDirectory($participation).'/'.fake()->uuid().".{$ext}",
             'original_name' => fake()->word().".{$ext}",
             'mime_type' => $mime,
             'size_bytes' => fake()->numberBetween(50_000, 5_000_000),
@@ -48,10 +50,22 @@ class MediaFileFactory extends Factory
      */
     public function forParticipation(Participation $participation): static
     {
+        $pathService = app(MediaPathService::class);
+
         return $this->state(fn () => [
-            'organization_id' => $participation->member()->withoutGlobalScopes()->value('organization_id'),
+            'organization_id' => $this->resolveOrganizationId($participation),
             'mediable_type' => Participation::class,
             'mediable_id' => $participation->id,
+            'path' => $pathService->buildDirectory($participation).'/'.fake()->uuid().'.jpg',
         ]);
+    }
+
+    private function resolveOrganizationId(Participation $participation): int
+    {
+        $participation->loadMissing('event.tournament', 'member');
+
+        return $participation->member?->organization_id
+            ?? $participation->event?->tournament?->organization_id
+            ?? 1;
     }
 }
