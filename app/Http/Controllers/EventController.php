@@ -14,6 +14,7 @@ use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
+use App\Services\PromotionDependencyGuard;
 use App\Services\Tournaments\TournamentEventPayload;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
@@ -288,15 +289,36 @@ class EventController extends Controller
         return back();
     }
 
-    public function destroy(Tournament $tournament, Event $event): RedirectResponse
+    public function destroy(Tournament $tournament, Event $event, PromotionDependencyGuard $guard): RedirectResponse
     {
         Gate::authorize('update', $tournament);
+
+        $dependents = $guard->forEvent($event);
+
+        if ($dependents->isNotEmpty()) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => $this->dependencyMessage($dependents),
+            ]);
+
+            return to_route('tournaments.events', $tournament);
+        }
 
         $event->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Event deleted.')]);
 
         return to_route('tournaments.events', $tournament);
+    }
+
+    /**
+     * @param  Collection<int, array{type: string, name: string, id: int}>  $dependents
+     */
+    private function dependencyMessage(Collection $dependents): string
+    {
+        $names = $dependents->pluck('name')->unique()->implode(', ');
+
+        return __('Cannot delete because it is used as evidence for promotions/rewards of: :names.', ['names' => $names]);
     }
 
     /**

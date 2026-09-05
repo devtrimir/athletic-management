@@ -12,6 +12,7 @@ use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
+use App\Services\PromotionDependencyGuard;
 use App\Support\Tournaments\TournamentProfileData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -185,15 +186,36 @@ class TournamentController extends Controller
         return to_route('tournaments.show', $tournament);
     }
 
-    public function destroy(Tournament $tournament): RedirectResponse
+    public function destroy(Tournament $tournament, PromotionDependencyGuard $guard): RedirectResponse
     {
         Gate::authorize('delete', $tournament);
+
+        $dependents = $guard->forTournament($tournament);
+
+        if ($dependents->isNotEmpty()) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => $this->dependencyMessage($dependents),
+            ]);
+
+            return to_route('tournaments.index');
+        }
 
         $tournament->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Tournament deleted.')]);
 
         return to_route('tournaments.index');
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, array{type: string, name: string, id: int}>  $dependents
+     */
+    private function dependencyMessage(\Illuminate\Support\Collection $dependents): string
+    {
+        $names = $dependents->pluck('name')->unique()->implode(', ');
+
+        return __('Cannot delete because it is used as evidence for promotions/rewards of: :names.', ['names' => $names]);
     }
 
     /**

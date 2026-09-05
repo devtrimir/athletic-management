@@ -6,6 +6,7 @@
     "The cash reward amount is required.": "The cash reward amount is required.",
     "Head Coach": "Head Coach",
     "Assistant Coach": "Assistant Coach",
+    "Cannot delete because it is used as evidence for promotions/rewards of: :names.": "Cannot delete because it is used as evidence for promotions/rewards of: :names.",
     "No documents uploaded.": "No documents uploaded.",
     "No events.": "No events.",
     "No promotions yet.": "No promotions yet.",

@@ -8,6 +8,7 @@
     ":n results": ":n परिणाम",
     ":name is already assigned to team :team for this session.": ":name इस सत्र में ':team' टीम में पहले से नियुक्त है।",
     ":name added to team.": ":name टीम में जोड़ा गया।",
+    "Cannot delete because it is used as evidence for promotions/rewards of: :names.": "इसे हटाया नहीं जा सकता क्योंकि यह निम्नलिखित के पदोन्नति/पुरस्कार साक्ष्य के रूप में उपयोग किया गया है: :names।",
     ":name removed from team.": ":name टीम से हटाया गया।",
     "+ :count more": "+ :count और",
     "ACTIVE": "सक्रिय",
