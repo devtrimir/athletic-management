@@ -37,6 +37,7 @@ test('tournament overview route returns profile shell without event rows', funct
     $event = Event::factory()->create([
         'tournament_id' => $tournament->id,
         'sport_id' => Sport::factory()->create(['organization_id' => $user->organization_id])->id,
+        'event_type' => 'team',
     ]);
     $team = Team::factory()->create([
         'organization_id' => $user->organization_id,
@@ -45,9 +46,10 @@ test('tournament overview route returns profile shell without event rows', funct
     ]);
     $participation = Participation::factory()->create([
         'event_id' => $event->id,
-        'member_id' => Member::factory()->create(['organization_id' => $user->organization_id])->id,
+        'member_id' => null,
         'team_id' => $team->id,
         'session_id' => $tournament->session_id,
+        'lineup_member_ids' => [Member::factory()->create(['organization_id' => $user->organization_id])->id],
     ]);
     Achievement::factory()->create(['participation_id' => $participation->id]);
 

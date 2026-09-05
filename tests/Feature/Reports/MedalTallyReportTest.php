@@ -167,6 +167,28 @@ test('team tally groups team event medals by tier', function (): void {
     expect($rows[0])->not->toHaveKey('players');
 });
 
+test('team tally ignores individual event medals that carry a resolved team id', function (): void {
+    $org = tallyOrg();
+    $setup = tallySetup($org, medalType: 'GOLD');
+
+    // Individual participations now store the member's resolved team; that
+    // team_id must not turn the medal into a team medal.
+    $team = Team::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $setup['session']->id,
+        'sport_id' => $setup['sport']->id,
+    ]);
+    $setup['achievement']->participation->update(['team_id' => $team->id]);
+
+    $report = app(MedalTallyReport::class);
+
+    expect($report->runTeams($org->id, noFilters()))->toHaveCount(0);
+
+    $individualRows = $report->run($org->id, noFilters());
+    expect($individualRows)->toHaveCount(1);
+    expect($individualRows[0]['GOLD'])->toBe(1);
+});
+
 test('team tally athlete search matches lineup pno', function (): void {
     $org = tallyOrg();
     $setup = tallyTeamSetup($org, medalType: 'GOLD');

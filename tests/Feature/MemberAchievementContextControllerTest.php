@@ -289,6 +289,82 @@ test('rejects new context when manual mode is selected and nothing matches', fun
         ->and(Participation::withoutGlobalScopes()->count())->toBe(0);
 });
 
+test('falls back to member membership when several teams match the sport', function (): void {
+    $user = achievementContextUser('members.manageBenefits');
+    $setup = achievementContextTournamentSetup($user);
+
+    // A second active team for the same sport and session makes the
+    // context-based guess ambiguous; the member's own membership decides.
+    Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $setup['sport']->id,
+        'session_id' => $setup['session']->id,
+        'is_active' => true,
+    ]);
+
+    $payload = achievementContextPayload([
+        'tournament_id' => (string) $setup['tournament']->id,
+        'sport_id' => (string) $setup['sport']->id,
+        'event_sport_id' => (string) $setup['sport']->id,
+        'team_id' => '0',
+        'event_name' => '100m dash',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('members.achievements.resolve-and-store', $setup['member']), $payload)
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('members.events', $setup['member']));
+
+    $participation = Participation::withoutGlobalScopes()
+        ->where('member_id', $setup['member']->id)
+        ->first();
+
+    expect($participation)->not->toBeNull()
+        ->and($participation?->team_id)->toBe($setup['team']->id);
+});
+
+test('leaves team_id null when member has no active team membership', function (): void {
+    $user = achievementContextUser('members.manageBenefits');
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => 'NATIONAL'],
+        ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+    );
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+        'name' => 'National Police Athletics Championship',
+        'date_from' => '2026-01-01',
+        'date_to' => '2026-01-02',
+    ]);
+
+    $payload = achievementContextPayload([
+        'tournament_id' => (string) $tournament->id,
+        'sport_id' => (string) $sport->id,
+        'event_sport_id' => (string) $sport->id,
+        'session_id' => (string) $session->id,
+        'tier_id' => (string) $tier->id,
+        'team_id' => '0',
+        'event_name' => '100m dash',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('members.achievements.resolve-and-store', $member), $payload)
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('members.events', $member));
+
+    $participation = Participation::withoutGlobalScopes()
+        ->where('member_id', $member->id)
+        ->first();
+
+    expect($participation)->not->toBeNull()
+        ->and($participation?->team_id)->toBeNull();
+});
+
 test('auto assigns matching team for member achievement entries', function (): void {
     $user = achievementContextUser('members.manageBenefits');
     $setup = achievementContextTournamentSetup($user);
