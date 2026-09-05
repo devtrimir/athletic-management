@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTranslation } from '@/hooks/use-translation';
+import { specialAchievementTypeLabel } from '@/pages/incharges/show';
 
 type Incharge = {
     id: number;
@@ -80,7 +81,6 @@ type SpecialAchievementPayload = {
 };
 
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
-const PRINT_HEADING = 'UP Police Sports Control Board (UPPSCB)';
 type SectionKey = 'overview' | 'teams' | 'achievements' | 'specialAchievements';
 const AVAILABLE_SECTIONS: SectionKey[] = [
     'overview',
@@ -139,31 +139,20 @@ function hasValue(value: string | null | undefined): boolean {
     return value?.trim() !== undefined && value?.trim() !== '';
 }
 
-function normalizeEnumValue(value: string | null | undefined): string {
+function normalizeEnumValue(
+    value: string | null | undefined,
+    t: (key: string) => string,
+): string {
     const trimmed = value?.trim();
 
     if (!trimmed) {
         return '';
     }
 
-    const upper = trimmed.toUpperCase();
-    const overrides: Record<string, string> = {
-        GD: 'GD',
-        MEN: 'Men',
-        WOMEN: 'Women',
-        INTERNATIONAL: 'International',
-        NATIONAL: 'National',
-        AIPSC: 'AIPSC',
-        STATE: 'State',
-        ZONAL: 'Zonal',
-        OTHER: 'Other',
-        GOLD: 'Gold',
-        SILVER: 'Silver',
-        BRONZE: 'Bronze',
-    };
+    const translated = t(trimmed);
 
-    if (overrides[upper]) {
-        return overrides[upper];
+    if (translated !== trimmed) {
+        return translated;
     }
 
     if (!/[A-Za-z]/.test(trimmed)) {
@@ -414,12 +403,12 @@ export default function InchargePrintPreview({
                 <div className="flex items-start gap-4 border-b-2 border-neutral-900 pb-3">
                     <img
                         src={LETTERHEAD_LOGO_SRC}
-                        alt={PRINT_HEADING}
+                        alt={t('UP Police Sports Control Board (UPPSCB)')}
                         className="size-20 shrink-0 object-contain"
                     />
                     <div className="min-w-0 flex-1 text-center">
                         <div className="text-lg font-bold tracking-wide uppercase">
-                            {PRINT_HEADING}
+                            {t('UP Police Sports Control Board (UPPSCB)')}
                         </div>
                         <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase">
                             {t('Incharge profile record')}
@@ -637,6 +626,7 @@ export default function InchargePrintPreview({
                                                     <td className="border p-2">
                                                         {normalizeEnumValue(
                                                             achievement.level,
+                                                            t,
                                                         )}
                                                     </td>
                                                     <td className="border p-2">
@@ -649,6 +639,7 @@ export default function InchargePrintPreview({
                                                         {[
                                                             normalizeEnumValue(
                                                                 achievement.sport_discipline,
+                                                                t,
                                                             ),
                                                             achievement.event,
                                                             achievement.discipline,
@@ -659,6 +650,7 @@ export default function InchargePrintPreview({
                                                     <td className="border p-2">
                                                         {normalizeEnumValue(
                                                             achievement.medal_type,
+                                                            t,
                                                         )}
                                                     </td>
                                                     <td className="border p-2">
@@ -718,8 +710,9 @@ export default function InchargePrintPreview({
                                             (achievement) => (
                                                 <tr key={achievement.id}>
                                                     <td className="border p-2">
-                                                        {normalizeEnumValue(
+                                                        {specialAchievementTypeLabel(
                                                             achievement.achievement_type,
+                                                            t,
                                                         )}
                                                     </td>
                                                     <td className="border p-2">
