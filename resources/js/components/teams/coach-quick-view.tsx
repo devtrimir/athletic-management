@@ -49,6 +49,30 @@ type SportItem = {
     effective_to: string | null;
     notes: string | null;
 };
+type SpecialAchievementItem = {
+    id: number;
+    achievement_type: string;
+    title: string;
+    awarded_on: string | null;
+    issuing_authority: string | null;
+    place: string | null;
+    remarks: string | null;
+};
+type PlayingAchievementItem = {
+    id: number;
+    title: string;
+    period: string | null;
+    level: string | null;
+    competition_details: string | null;
+    event_date: string | null;
+    venue: string | null;
+    sport_discipline: string | null;
+    event: string | null;
+    medal_type: string | null;
+    position: number | null;
+    achieved_on: string | null;
+    remarks: string | null;
+};
 type AssignmentHistoryItem = {
     id: number;
     role: string;
@@ -92,6 +116,8 @@ type CoachPreview = {
     photo_path: string | null;
     certifications: CertificationItem[];
     sports: SportItem[];
+    special_achievements: SpecialAchievementItem[];
+    playing_achievements: PlayingAchievementItem[];
     assignment_history: AssignmentHistoryItem[];
 };
 
@@ -151,6 +177,20 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
         )
         .join('');
 
+    const specialAchievementRows = data.special_achievements
+        .map(
+            (a) =>
+                `<tr><td>${a.title}</td><td>${a.achievement_type ?? ''}</td><td>${a.awarded_on ?? ''}</td><td>${a.issuing_authority ?? ''}</td><td>${a.place ?? ''}</td></tr>`,
+        )
+        .join('');
+
+    const playingAchievementRows = data.playing_achievements
+        .map(
+            (a) =>
+                `<tr><td>${a.medal_type ?? ''}</td><td>${a.title}</td><td>${a.level ?? ''}</td><td>${a.competition_details ?? ''}</td><td>${a.event_date ?? ''}</td><td>${a.venue ?? ''}</td><td>${a.position ?? ''}</td></tr>`,
+        )
+        .join('');
+
     const assignmentRows = data.assignment_history
         .map(
             (a) =>
@@ -198,6 +238,20 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
             ? `<h2>${t('Sports')}</h2>
     <table><thead><tr><th>${t('Sport')}</th><th>${t('Level')}</th><th>${t('Primary')}</th><th>${t('From')}</th><th>${t('To')}</th></tr></thead>
     <tbody>${sportRows}</tbody></table>`
+            : ''
+    }
+    ${
+        data.special_achievements.length
+            ? `<h2>${t('Special achievements')}</h2>
+    <table><thead><tr><th>${t('Title')}</th><th>${t('Type')}</th><th>${t('Award date')}</th><th>${t('Issuing authority')}</th><th>${t('Place')}</th></tr></thead>
+    <tbody>${specialAchievementRows}</tbody></table>`
+            : ''
+    }
+    ${
+        data.playing_achievements.length
+            ? `<h2>${t('Playing career achievements')}</h2>
+    <table><thead><tr><th>${t('Medal')}</th><th>${t('Title')}</th><th>${t('Level')}</th><th>${t('Competition')}</th><th>${t('Event date')}</th><th>${t('Venue')}</th><th>${t('Position')}</th></tr></thead>
+    <tbody>${playingAchievementRows}</tbody></table>`
             : ''
     }
     ${
@@ -487,6 +541,132 @@ export function CoachQuickView({
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
+                                        </TableBody>
+                                    </Table>
+                                </Section>
+                            )}
+
+                            {data.special_achievements.length > 0 && (
+                                <Section title={t('Special achievements')}>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>
+                                                    {t('Title')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Type')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Award date')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Issuing authority')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Place')}
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {data.special_achievements.map(
+                                                (achievement) => (
+                                                    <TableRow
+                                                        key={achievement.id}
+                                                    >
+                                                        <TableCell>
+                                                            {achievement.title}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.achievement_type ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.awarded_on ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.issuing_authority ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.place ??
+                                                                ''}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </Section>
+                            )}
+
+                            {data.playing_achievements.length > 0 && (
+                                <Section
+                                    title={t('Playing career achievements')}
+                                >
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>
+                                                    {t('Medal')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Title')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Level')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Competition')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Event date')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Venue')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Position')}
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {data.playing_achievements.map(
+                                                (achievement) => (
+                                                    <TableRow
+                                                        key={achievement.id}
+                                                    >
+                                                        <TableCell>
+                                                            {achievement.medal_type ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.title}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.level ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.competition_details ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.event_date ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.venue ??
+                                                                ''}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {achievement.position ??
+                                                                ''}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ),
+                                            )}
                                         </TableBody>
                                     </Table>
                                 </Section>

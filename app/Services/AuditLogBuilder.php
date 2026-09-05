@@ -10,6 +10,7 @@ use App\Models\Coach;
 use App\Models\CoachAlias;
 use App\Models\CoachAssignment;
 use App\Models\CoachCertification;
+use App\Models\CoachPlayingAchievement;
 use App\Models\CoachPromotion;
 use App\Models\CoachPromotionEvidence;
 use App\Models\CoachSpecialAchievement;
@@ -621,6 +622,7 @@ class AuditLogBuilder
         $coachSportIds = CoachSport::where('coach_id', $coach->id)->pluck('id');
         $coachStatusHistoryIds = CoachStatusHistory::where('coach_id', $coach->id)->pluck('id');
         $coachSpecialAchievementIds = CoachSpecialAchievement::where('coach_id', $coach->id)->pluck('id');
+        $coachPlayingAchievementIds = CoachPlayingAchievement::where('coach_id', $coach->id)->pluck('id');
 
         $logs = AuditLog::where('entity', 'Coach')->where('entity_id', $coach->id)->get();
 
@@ -632,6 +634,7 @@ class AuditLogBuilder
             ['entity' => 'CoachSport', 'ids' => $coachSportIds],
             ['entity' => 'CoachStatusHistory', 'ids' => $coachStatusHistoryIds],
             ['entity' => 'CoachSpecialAchievement', 'ids' => $coachSpecialAchievementIds],
+            ['entity' => 'CoachPlayingAchievement', 'ids' => $coachPlayingAchievementIds],
         ] as ['entity' => $entity, 'ids' => $ids]) {
             $logs = $logs->merge(
                 AuditLog::where('entity', $entity)
@@ -694,6 +697,16 @@ class AuditLogBuilder
                     ])->filter()->join(' · '),
                 ])
             : collect();
+        $coachPlayingAchievementLabelMap = $coachPlayingAchievementIds->isNotEmpty()
+            ? CoachPlayingAchievement::whereIn('id', $coachPlayingAchievementIds)
+                ->get()
+                ->mapWithKeys(fn (CoachPlayingAchievement $achievement) => [
+                    $achievement->id => collect([
+                        $achievement->level,
+                        $achievement->title,
+                    ])->filter()->join(' · '),
+                ])
+            : collect();
 
         $subjectMap = [
             'Coach' => 'Coach',
@@ -704,6 +717,7 @@ class AuditLogBuilder
             'CoachSport' => 'Sport specialization',
             'CoachStatusHistory' => 'Status',
             'CoachSpecialAchievement' => 'Special achievement',
+            'CoachPlayingAchievement' => 'Playing career achievement',
             'CoachAssignment' => 'Team assignment',
         ];
 
@@ -775,6 +789,24 @@ class AuditLogBuilder
                 'place' => 'Place',
                 'remarks' => 'Remarks',
             ],
+            'CoachPlayingAchievement' => [
+                'title' => 'Title',
+                'period' => 'Period',
+                'level' => 'Level',
+                'competition_details' => 'Competition details',
+                'event_date' => 'Event date',
+                'venue' => 'Venue',
+                'sport_id' => 'Sport',
+                'event' => 'Event',
+                'discipline' => 'Discipline',
+                'weight_category' => 'Weight category',
+                'gender_class' => 'Class',
+                'medal_type' => 'Medal',
+                'position' => 'Position',
+                'description' => 'Description',
+                'achieved_on' => 'Achieved on',
+                'remarks' => 'Remarks',
+            ],
             'CoachAssignment' => [
                 'team_id' => 'Team',
                 'session_id' => 'Session',
@@ -791,12 +823,13 @@ class AuditLogBuilder
             'CoachSport' => ['id', 'coach_id'],
             'CoachStatusHistory' => ['id', 'coach_id'],
             'CoachSpecialAchievement' => ['id', 'organization_id', 'coach_id', 'order_document_path'],
+            'CoachPlayingAchievement' => ['id', 'organization_id', 'coach_id'],
             'CoachAssignment' => ['id', 'coach_id'],
         ];
 
         $resolve = function (string $entity, string $field, mixed $value, array $diff = []) use (
             $sessionMap, $sportMap, $teamMap, $tournamentMap, $eventMap, $memberMap, $userMap,
-            $coachSpecialAchievementLabelMap,
+            $coachSpecialAchievementLabelMap, $coachPlayingAchievementLabelMap,
         ): ?string {
             if ($value === null) {
                 return null;
@@ -813,6 +846,7 @@ class AuditLogBuilder
                 $entity === 'CoachSpecialAchievement' && $field === 'order_document_path' => 'Attached',
                 $entity === 'CoachSpecialAchievement' && $field === 'order_document_size_bytes' => number_format((int) $value).' bytes',
                 $entity === 'CoachSpecialAchievement' && $field === 'id' => $coachSpecialAchievementLabelMap->get((int) $value) ?? (string) $value,
+                $entity === 'CoachPlayingAchievement' && $field === 'id' => $coachPlayingAchievementLabelMap->get((int) $value) ?? (string) $value,
                 default => (string) $value,
             };
         };

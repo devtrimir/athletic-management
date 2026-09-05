@@ -132,6 +132,50 @@ type CoachAchievementsData = {
     groups: CoachAchievementGroup[];
 };
 
+type SpecialAchievementRecord = {
+    id: number;
+    achievement_type: string;
+    title: string;
+    awarded_on: string | null;
+    issuing_authority: string | null;
+    order_reference: string | null;
+    place: string | null;
+    remarks: string | null;
+};
+
+type SpecialAchievementsData = {
+    records: SpecialAchievementRecord[];
+    summary: {
+        total: number;
+        commendation_discs: number;
+    };
+};
+
+type PlayingAchievementRecord = {
+    id: number;
+    title: string;
+    period: string | null;
+    level: string | null;
+    competition_details: string | null;
+    event_date: string | null;
+    venue: string | null;
+    sport_id: number;
+    sport: { id: number; name: string } | null;
+    event: string | null;
+    medal_type: string | null;
+    position: number | null;
+    achieved_on: string | null;
+    remarks: string | null;
+};
+
+type PlayingAchievementsData = {
+    records: PlayingAchievementRecord[];
+    summary: {
+        total: number;
+        medals: number;
+    };
+};
+
 type CoachPromotion = {
     id: number;
     promotion_date: string | null;
@@ -168,6 +212,8 @@ type SectionKey =
     | 'sports'
     | 'assignments'
     | 'achievements'
+    | 'specialAchievements'
+    | 'playingAchievements'
     | 'certifications'
     | 'promotions'
     | 'status';
@@ -177,6 +223,8 @@ type Props = {
     coachTeams?: CoachAssignment[];
     statusHistory?: CoachStatusHistory[];
     coachAchievements?: CoachAchievementsData;
+    specialAchievements?: SpecialAchievementsData;
+    playingAchievements?: PlayingAchievementsData;
 };
 
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
@@ -187,6 +235,8 @@ const SECTION_LABELS: Record<SectionKey, string> = {
     sports: 'Playable sports',
     assignments: 'Team assignments',
     achievements: 'Achievements',
+    specialAchievements: 'Special achievements',
+    playingAchievements: 'Playing career achievements',
     certifications: 'Certifications',
     promotions: 'Promotions / rewards',
     status: 'Status history',
@@ -198,6 +248,8 @@ const DEFAULT_SECTIONS: SectionKey[] = [
     'sports',
     'assignments',
     'achievements',
+    'specialAchievements',
+    'playingAchievements',
     'certifications',
     'promotions',
     'status',
@@ -373,6 +425,8 @@ export default function CoachPrintPreview({
     coachTeams = [],
     statusHistory = [],
     coachAchievements,
+    specialAchievements,
+    playingAchievements,
 }: Props) {
     const { t } = useTranslation();
     const printTargetRef = useRef<HTMLDivElement | null>(null);
@@ -436,6 +490,8 @@ export default function CoachPrintPreview({
     const certifications = coach.certifications ?? [];
     const promotions = coach.promotions ?? [];
     const achievements = coachAchievements?.groups ?? [];
+    const specialAchievementRecords = specialAchievements?.records ?? [];
+    const playingAchievementRecords = playingAchievements?.records ?? [];
 
     return (
         <>
@@ -759,6 +815,71 @@ export default function CoachPrintPreview({
                             />
                         </Section>
                     )}
+
+                    {enabled('specialAchievements') &&
+                        specialAchievementRecords.length > 0 && (
+                            <Section title={t('Special achievements')}>
+                                <DataTable
+                                    serialLabel={t('S. No.')}
+                                    columns={[
+                                        t('Type'),
+                                        t('Title'),
+                                        t('Award date'),
+                                        t('Issuing authority'),
+                                        t('Order reference'),
+                                        t('Place'),
+                                    ]}
+                                    rows={specialAchievementRecords.map(
+                                        (record) => [
+                                            humanize(record.achievement_type),
+                                            record.title,
+                                            formatDate(record.awarded_on),
+                                            record.issuing_authority,
+                                            record.order_reference,
+                                            record.place,
+                                        ],
+                                    )}
+                                />
+                            </Section>
+                        )}
+
+                    {enabled('playingAchievements') &&
+                        playingAchievementRecords.length > 0 && (
+                            <Section title={t('Playing career achievements')}>
+                                <DataTable
+                                    serialLabel={t('S. No.')}
+                                    columns={[
+                                        t('Medal'),
+                                        t('Title'),
+                                        t('Level'),
+                                        t('Competition'),
+                                        t('Event date'),
+                                        t('Venue'),
+                                        t('Position'),
+                                    ]}
+                                    rows={playingAchievementRecords.map(
+                                        (record) => [
+                                            record.medal_type
+                                                ? humanize(record.medal_type)
+                                                : '—',
+                                            record.title,
+                                            record.level,
+                                            [
+                                                record.competition_details,
+                                                record.event,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · '),
+                                            formatDate(record.event_date),
+                                            record.venue,
+                                            record.position !== null
+                                                ? `#${record.position}`
+                                                : '—',
+                                        ],
+                                    )}
+                                />
+                            </Section>
+                        )}
 
                     {enabled('certifications') && certifications.length > 0 && (
                         <Section title={t('Certifications')}>

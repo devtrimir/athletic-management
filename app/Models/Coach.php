@@ -163,6 +163,12 @@ class Coach extends Model
         return $this->hasMany(CoachSpecialAchievement::class)->latest('awarded_on')->latest('id');
     }
 
+    /** @return HasMany<CoachPlayingAchievement, $this> */
+    public function playingAchievements(): HasMany
+    {
+        return $this->hasMany(CoachPlayingAchievement::class)->latest('achieved_on')->latest('id');
+    }
+
     /** @return BelongsToMany<Sport, $this> */
     public function sports(): BelongsToMany
     {

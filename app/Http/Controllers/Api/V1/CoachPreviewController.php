@@ -19,6 +19,8 @@ class CoachPreviewController extends Controller
         $coach->loadMissing([
             'certifications',
             'sports',
+            'specialAchievements',
+            'playingAchievements.sport:id,name',
             'assignmentHistory' => fn ($query) => $query
                 ->with(['team', 'session'])
                 ->orderByDesc('is_current')
@@ -64,6 +66,37 @@ class CoachPreviewController extends Controller
             ])
             ->values();
 
+        $specialAchievements = $coach->specialAchievements
+            ->map(fn ($achievement) => [
+                'id' => $achievement->id,
+                'achievement_type' => $achievement->achievement_type,
+                'title' => $achievement->title,
+                'awarded_on' => $achievement->awarded_on?->toDateString(),
+                'issuing_authority' => $achievement->issuing_authority,
+                'place' => $achievement->place,
+                'remarks' => $achievement->remarks,
+            ])
+            ->values();
+
+        $playingAchievements = $coach->playingAchievements
+            ->map(fn ($achievement) => [
+                'id' => $achievement->id,
+                'title' => $achievement->title,
+                'period' => $achievement->period,
+                'level' => $achievement->level,
+                'competition_details' => $achievement->competition_details,
+                'event_date' => $achievement->event_date?->toDateString(),
+                'venue' => $achievement->venue,
+                'sport_id' => $achievement->sport_id,
+                'sport' => $achievement->sport?->name,
+                'event' => $achievement->event,
+                'medal_type' => $achievement->medal_type,
+                'position' => $achievement->position,
+                'achieved_on' => $achievement->achieved_on?->toDateString(),
+                'remarks' => $achievement->remarks,
+            ])
+            ->values();
+
         return response()->json([
             'id' => $coach->id,
             'full_name' => $coach->full_name,
@@ -81,6 +114,8 @@ class CoachPreviewController extends Controller
             'profile_status_badge' => $coach->profile_status_badge,
             'certifications' => $certifications,
             'sports' => $sports,
+            'special_achievements' => $specialAchievements,
+            'playing_achievements' => $playingAchievements,
             'assignment_history' => $assignments,
         ]);
     }
