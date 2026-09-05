@@ -25,9 +25,9 @@ const PRESETS: Record<
         label: 'Logo',
         image: '/images/auth/first-bg.jpg',
     },
-    training: {
-        label: 'Training',
-        image: '/images/auth/training-bg.jpg',
+    stadium: {
+        label: 'Stadium',
+        image: '/images/auth/stadium-bg.jpg',
     },
 };
 

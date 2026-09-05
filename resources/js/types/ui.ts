@@ -13,7 +13,7 @@ export type FlashToast = {
     message: string;
 };
 
-export type AuthBackgroundPreset = 'logo' | 'training';
+export type AuthBackgroundPreset = 'logo' | 'stadium';
 
 export type AuthLayoutProps = {
     children?: ReactNode;
