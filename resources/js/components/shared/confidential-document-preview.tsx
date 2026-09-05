@@ -48,7 +48,7 @@ export function ConfidentialDocumentPreview({
                     {triggerLabel ?? t('Preview')}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="h-dvh w-screen max-w-none sm:max-w-none overflow-hidden rounded-none !p-0">
+            <DialogContent className="h-dvh max-h-dvh w-screen max-w-none sm:max-w-none !gap-0 overflow-hidden rounded-none !p-0">
                 <DialogHeader className="border-b px-4 py-3 pr-12">
                     <DialogTitle className="truncate text-base">
                         {documentName}
