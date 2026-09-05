@@ -1,6 +1,10 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
+
 import { useRef, useState } from 'react';
+import InchargeController from '@/actions/App/Http/Controllers/InchargeController';
+import { LocaleSwitcher } from '@/components/locale-switcher';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTranslation } from '@/hooks/use-translation';
@@ -69,10 +73,6 @@ type SpecialAchievement = {
     order_reference: string | null;
     place: string | null;
     remarks: string | null;
-    order_document: {
-        original_name: string | null;
-        preview_url: string | null;
-    } | null;
 };
 
 type SpecialAchievementPayload = {
@@ -80,14 +80,18 @@ type SpecialAchievementPayload = {
 };
 
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
+
 type SectionKey = 'overview' | 'teams' | 'achievements' | 'specialAchievements';
+
 const AVAILABLE_SECTIONS: SectionKey[] = [
     'overview',
     'teams',
     'achievements',
     'specialAchievements',
 ];
+
 const DEFAULT_SECTIONS: SectionKey[] = AVAILABLE_SECTIONS;
+
 const SECTION_LABELS: Record<SectionKey, string> = {
     overview: 'Overview',
     teams: 'Team assignments',
@@ -95,99 +99,150 @@ const SECTION_LABELS: Record<SectionKey, string> = {
     specialAchievements: 'Special achievements',
 };
 
-function formatDate(value: string | null): string {
-    if (!value) {
-        return '';
+const UI_LABELS: Record<
+    string,
+    {
+        en: string;
+        hi: string;
+    }
+> = {
+    'Team prabhari profile record': {
+        en: 'Team prabhari profile record',
+        hi: 'टीम प्रभारी प्रोफाइल रिकॉर्ड',
+    },
+    'S. No.': { en: 'S. No.', hi: 'क्र.सं.' },
+    'Sport / Event': { en: 'Sport / Event', hi: 'खेल / स्पर्धा' },
+    Result: { en: 'Result', hi: 'परिणाम' },
+};
+
+function uiText(label: string, locale: string): string {
+    const entry = UI_LABELS[label];
+
+    if (!entry) {
+        return label;
     }
 
-    const trimmed = value.trim();
-
-    if (!trimmed) {
-        return '';
-    }
-
-    const dateOnly = trimmed.includes('T')
-        ? (trimmed.split('T')[0] ?? '')
-        : trimmed.includes(' ')
-          ? (trimmed.split(' ')[0] ?? '')
-          : trimmed;
-    const ymdMatch = dateOnly.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-
-    if (ymdMatch) {
-        return `${ymdMatch[3]}-${ymdMatch[2]}-${ymdMatch[1]}`;
-    }
-
-    const parsed = new Date(dateOnly);
-
-    if (Number.isNaN(parsed.getTime())) {
-        return dateOnly;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    }).format(parsed);
+    return locale === 'en' ? entry.en : entry.hi;
 }
 
-function identityValue(value: string | null | undefined): string {
-    return value?.trim() ?? '';
+function parseDateValue(value: string): Date | null {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function hasValue(value: string | null | undefined): boolean {
-    return value?.trim() !== undefined && value?.trim() !== '';
-}
-
-function normalizeEnumValue(
+function formatDateValue(
     value: string | null | undefined,
-    t: (key: string) => string,
-): string {
-    const trimmed = value?.trim();
-
-    if (!trimmed) {
-        return '';
+    locale: string,
+    dateStyle: Intl.DateTimeFormatOptions['dateStyle'] = 'long',
+): string | null {
+    if (!value) {
+        return null;
     }
 
-    const translated = t(trimmed);
+    const date = parseDateValue(value);
 
-    if (translated !== trimmed) {
-        return translated;
+    if (!date) {
+        return value;
     }
 
-    if (!/[A-Za-z]/.test(trimmed)) {
-        return trimmed;
-    }
+    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+        dateStyle,
+    }).format(date);
+}
 
-    return trimmed
-        .toLowerCase()
+function hasPrintableValue(value: unknown): boolean {
+    return value !== null && value !== undefined && value !== '';
+}
+
+function hasAnyPrintableValue<T>(
+    rows: T[],
+    getter: (row: T) => unknown,
+): boolean {
+    return rows.some((row) => hasPrintableValue(getter(row)));
+}
+
+function humanizeCode(value: string): string {
+    return value
         .replace(/[_-]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
-        .split(' ')
-        .filter(Boolean)
-        .map((word) => {
-            const normalizedWord = word.toUpperCase();
-
-            if (
-                normalizedWord === word.toUpperCase() &&
-                normalizedWord.length <= 4
-            ) {
-                return normalizedWord;
-            }
-
-            return `${word[0].toUpperCase()}${word.slice(1)}`;
-        })
-        .join(' ');
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function slugifyFileName(value: string): string {
-    return value
-        .toLowerCase()
-        .replace(/\\s+/g, '_')
-        .replace(/[^a-z0-9._-]/g, '')
-        .replace(/_{2,}/g, '_')
-        .replace(/-+/g, '-')
-        .replace(/^[-._]+|[-._]+$/g, '');
+function printValue(
+    value: string | number | null | undefined,
+    t: (key: string) => string,
+): string | number | null {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+
+    if (typeof value === 'number') {
+        return value;
+    }
+
+    const translated = t(value);
+
+    return translated === value ? humanizeCode(value) : translated;
+}
+
+function Section({
+    title,
+    children,
+}: {
+    title: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <section
+            data-section
+            className="break-inside-avoid rounded-lg border bg-white p-3 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none"
+        >
+            <h2 className="mb-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase print:mb-1 print:text-[10px] print:text-black">
+                {title}
+            </h2>
+            {children}
+        </section>
+    );
+}
+
+function DetailsTable({
+    rows,
+}: {
+    rows: { label: string; value: React.ReactNode }[];
+}) {
+    const visibleRows = rows.filter((row) => hasPrintableValue(row.value));
+
+    return (
+        <div className="overflow-hidden rounded-md border print:rounded-sm">
+            <table className="w-full text-sm">
+                <tbody className="print:text-[10px]">
+                    {visibleRows.map((row) => (
+                        <tr
+                            key={row.label}
+                            className="border-t first:border-t-0"
+                        >
+                            <th className="w-1/3 bg-muted/30 p-2 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase print:py-1 print:text-[9px]">
+                                {row.label}
+                            </th>
+                            <td className="p-2 text-foreground print:py-1">
+                                {row.value}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
 }
 
 export default function InchargePrintPreview({
@@ -202,10 +257,11 @@ export default function InchargePrintPreview({
     specialAchievements?: SpecialAchievementPayload;
 }) {
     const { t } = useTranslation();
+    const { locale } = usePage().props as { locale: string };
     const printTargetRef = useRef<HTMLDivElement | null>(null);
     const inchargeRecord = incharge ?? {
         id: 0,
-        full_name: 'Incharge',
+        full_name: 'Team Prabhari',
         pno: null,
         rank: null,
         mobile: null,
@@ -214,6 +270,7 @@ export default function InchargePrintPreview({
         remarks: null,
         photo_path: null,
     };
+    const assignmentRows = assignments;
     const achievementRecords = achievements?.records ?? [];
     const specialAchievementRecords = specialAchievements?.records ?? [];
     const [selectedSections, setSelectedSections] =
@@ -227,6 +284,77 @@ export default function InchargePrintPreview({
         );
     };
 
+    const sectionEnabled = (section: SectionKey): boolean =>
+        selectedSections.includes(section);
+
+    const showTeamSession = hasAnyPrintableValue(
+        assignmentRows,
+        (row) => row.team?.session?.name ?? row.session?.name,
+    );
+    const showAssignedAt = hasAnyPrintableValue(
+        assignmentRows,
+        (row) => row.assigned_at,
+    );
+    const showRemovedAt = hasAnyPrintableValue(
+        assignmentRows,
+        (row) => row.removed_at,
+    );
+    const showReason = hasAnyPrintableValue(
+        assignmentRows,
+        (row) => row.removal_reason ?? row.assignment_reason,
+    );
+
+    const showAchievementLevel = hasAnyPrintableValue(
+        achievementRecords,
+        (row) => row.level,
+    );
+    const showAchievementDate = hasAnyPrintableValue(
+        achievementRecords,
+        (row) => row.event_date ?? row.achieved_on,
+    );
+    const showAchievementSportEvent = hasAnyPrintableValue(
+        achievementRecords,
+        (row) =>
+            row.sport_discipline ?? row.event ?? row.discipline ?? row.event,
+    );
+    const showAchievementMedal = hasAnyPrintableValue(
+        achievementRecords,
+        (row) => row.medal_type,
+    );
+    const showAchievementPosition = hasAnyPrintableValue(
+        achievementRecords,
+        (row) => row.position,
+    );
+    const showAchievementVenue = hasAnyPrintableValue(
+        achievementRecords,
+        (row) => row.venue,
+    );
+    const showAchievementRemarks = hasAnyPrintableValue(
+        achievementRecords,
+        (row) => row.remarks,
+    );
+
+    const showSpecialAwardedOn = hasAnyPrintableValue(
+        specialAchievementRecords,
+        (row) => row.awarded_on,
+    );
+    const showSpecialIssuingAuthority = hasAnyPrintableValue(
+        specialAchievementRecords,
+        (row) => row.issuing_authority,
+    );
+    const showSpecialOrderReference = hasAnyPrintableValue(
+        specialAchievementRecords,
+        (row) => row.order_reference,
+    );
+    const showSpecialPlace = hasAnyPrintableValue(
+        specialAchievementRecords,
+        (row) => row.place,
+    );
+    const showSpecialRemarks = hasAnyPrintableValue(
+        specialAchievementRecords,
+        (row) => row.remarks,
+    );
+
     const handlePrint = (): void => {
         const target = printTargetRef.current;
 
@@ -234,153 +362,90 @@ export default function InchargePrintPreview({
             return;
         }
 
-        const printWindow = window.open('', '_blank', 'width=1200,height=900');
+        const parent = target.parentNode;
+        const nextSibling = target.nextSibling;
+        document.body.appendChild(target);
 
-        if (!printWindow) {
-            return;
-        }
+        const restore = (): void => {
+            window.removeEventListener('afterprint', restore);
 
-        const safeDate = new Date().toLocaleDateString('en-CA');
-        const safeName = slugifyFileName(
-            `uppscb-incharge-${inchargeRecord.full_name}-${inchargeRecord.pno ?? ''}-${safeDate}`,
-        );
+            if (!parent) {
+                return;
+            }
 
-        const styles = Array.from(
-            document.head.querySelectorAll(
-                'meta, link[rel="stylesheet"], style',
-            ),
-        )
-            .map((node) => node.outerHTML)
-            .join('');
-
-        printWindow.document.open();
-        printWindow.document.write(`<!doctype html>
-            <html>
-                <head>
-                    <title>${safeName}</title>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    ${styles}
-                    <style>
-                        @page {
-                            size: A4;
-                            margin: 6mm;
-                        }
-                        html,
-                        body {
-                            margin: 0;
-                            background: white;
-                        }
-                        @media print {
-                            #quick-view-print-target {
-                                margin: 0 !important;
-                                padding: 0 !important;
-                                font-size: 9px !important;
-                                line-height: 1.25 !important;
-                            }
-                            body > * {
-                                display: block !important;
-                            }
-                            body #app {
-                                display: block !important;
-                            }
-                            body #app > * {
-                                display: none !important;
-                            }
-                            body #app #quick-view-print-target {
-                                display: block !important;
-                            }
-                            #quick-view-print-target * {
-                                color: black !important;
-                                background: transparent !important;
-                                box-shadow: none !important;
-                                border-color: #ccc !important;
-                            }
-                            #quick-view-print-target [data-print-hide] {
-                                display: none !important;
-                            }
-                            .print\\:hidden {
-                                display: none !important;
-                            }
-                            th,
-                            td {
-                                font-size: 8px !important;
-                                padding: 0.25rem !important;
-                            }
-                            h1 {
-                                font-size: 14px !important;
-                            }
-                            h2 {
-                                font-size: 11px !important;
-                            }
-                            .text-sm,
-                            .text-xs {
-                                font-size: 8px !important;
-                            }
-                            .text-lg {
-                                font-size: 12px !important;
-                            }
-                            .text-2xl {
-                                font-size: 16px !important;
-                            }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div id="app">${target.outerHTML}</div>
-                </body>
-            </html>`);
-        printWindow.document.close();
-        printWindow.document.title = safeName;
-
-        printWindow.onload = () => {
-            printWindow.print();
-            printWindow.close();
+            if (nextSibling) {
+                parent.insertBefore(target, nextSibling);
+            } else {
+                parent.appendChild(target);
+            }
         };
+
+        window.addEventListener('afterprint', restore);
+        window.print();
     };
 
-    const sectionEnabled = (section: SectionKey): boolean =>
-        selectedSections.includes(section);
+    const breadcrumbs = [
+        { title: t('Team Prabhari'), href: InchargeController.index.url() },
+        {
+            title: inchargeRecord.full_name,
+            href: InchargeController.show.url(inchargeRecord),
+        },
+    ];
 
     return (
         <>
             <Head
-                title={`${inchargeRecord.full_name} — ${t('Print preview')}`}
+                title={`${inchargeRecord.full_name} - ${t('Print preview')}`}
             />
-
             <div
                 ref={printTargetRef}
                 id="quick-view-print-target"
-                className="relative mx-auto max-w-5xl space-y-4 overflow-hidden rounded-2xl border border-neutral-300 bg-white p-4 text-black shadow-sm print:w-full print:max-w-none print:space-y-1 print:rounded-none print:border-0 print:p-0 print:text-[10px] print:leading-4 print:shadow-none"
+                className="relative mx-auto max-w-5xl space-y-4 overflow-hidden rounded-2xl border border-neutral-300 bg-white p-4 text-black shadow-sm print:max-w-none print:space-y-2 print:rounded-none print:border-0 print:p-0 print:text-[10px] print:leading-4 print:shadow-none"
             >
-                <div
-                    className="flex items-center justify-between gap-2 print:hidden"
-                    data-print-hide
-                >
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={`/incharges/${inchargeRecord.id}`}>
-                            <span className="inline-flex items-center">
-                                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                <div className="pointer-events-none absolute inset-0 hidden print:block">
+                    <div className="absolute inset-0 border border-neutral-300/70" />
+                    <div className="absolute inset-3 border border-dashed border-neutral-300/60" />
+                </div>
+                <img
+                    src={LETTERHEAD_LOGO_SRC}
+                    alt=""
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-1/2 left-1/2 z-0 hidden size-[520px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.045] print:block"
+                />
+
+                <div className="flex items-start justify-between gap-4 print:hidden">
+                    <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">
+                            {breadcrumbs.map((item) => item.title).join(' / ')}
+                        </div>
+                        <h1 className="text-2xl font-bold">{t('Print preview')}</h1>
+                        <div className="pt-1">
+                            <LocaleSwitcher />
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link
+                                href={InchargeController.show.url(
+                                    inchargeRecord,
+                                )}
+                            >
+                                <ArrowLeft className="mr-1.5 size-4" />
                                 {t('Back')}
-                            </span>
-                        </Link>
-                    </Button>
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={handlePrint}
-                    >
-                        <Printer className="mr-1.5 h-4 w-4" />
-                        {t('Print')}
-                    </Button>
+                            </Link>
+                        </Button>
+                        <Button type="button" size="sm" onClick={handlePrint}>
+                            <Printer className="mr-1.5 size-4" />
+                            {t('Print')}
+                        </Button>
+                    </div>
                 </div>
 
-                <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 print:hidden">
+                <div className="grid gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 print:hidden">
                     <div className="text-sm font-semibold text-foreground">
                         {t('Print options')}
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {AVAILABLE_SECTIONS.map((section) => (
                             <label
                                 key={section}
@@ -398,338 +463,477 @@ export default function InchargePrintPreview({
                     </div>
                 </div>
 
-                <div className="flex items-start gap-4 border-b-2 border-neutral-900 pb-3">
+                <div className="relative z-10 flex items-center gap-4 border-b-2 border-neutral-900 pb-3 print:gap-3 print:pb-2">
                     <img
                         src={LETTERHEAD_LOGO_SRC}
-                        alt={t('UP Police Sports Control Board (UPPSCB)')}
-                        className="size-20 shrink-0 object-contain"
+                        alt={t('UP Police Sports Control Board')}
+                        className="size-20 shrink-0 object-contain print:size-16"
                     />
                     <div className="min-w-0 flex-1 text-center">
-                        <div className="text-lg font-bold tracking-wide uppercase">
-                            {t('UP Police Sports Control Board (UPPSCB)')}
+                        <div className="text-lg font-bold tracking-wide uppercase print:text-[16px]">
+                            {t('UP Police Sports Control Board')}
                         </div>
-                        <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase">
-                            {t('Incharge profile record')}
+                        <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase print:text-[11px] print:text-black">
+                            {uiText(
+                                'Team prabhari profile record',
+                                locale,
+                            )}
                         </div>
-                        <div className="mt-1 text-xs text-neutral-700">
+                        <div className="mt-1 text-xs text-muted-foreground print:text-[9px] print:text-neutral-700">
                             {t('Official print preview')}
                         </div>
                     </div>
+                    <div
+                        className="hidden w-20 print:block"
+                        aria-hidden="true"
+                    />
                 </div>
 
-                {sectionEnabled('overview') && (
-                    <section className="rounded-xl border p-4 print:space-y-2 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
-                        <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                                <h1 className="text-2xl font-bold text-foreground print:text-[16px] print:leading-tight">
-                                    {inchargeRecord.full_name}
-                                </h1>
-                                {hasValue(inchargeRecord.pno) && (
-                                    <p className="text-sm text-muted-foreground">
-                                        {t('PNO')}: {inchargeRecord.pno}
-                                    </p>
-                                )}
+                <div className="relative z-10 grid gap-3 print:gap-2">
+                    {sectionEnabled('overview') && (
+                        <Section title={t('Overview')}>
+                            <div className="flex items-start gap-4 print:gap-3">
+                                <div className="min-w-0 flex-1 space-y-3 print:space-y-2">
+                                    <div>
+                                        <div className="text-2xl leading-tight font-bold text-foreground print:text-[16px]">
+                                            {inchargeRecord.full_name}
+                                        </div>
+                                        <div className="mt-2 border-b border-neutral-200 print:mt-1.5" />
+                                    </div>
+                                    <DetailsTable
+                                        rows={[
+                                            {
+                                                label: t('PNO'),
+                                                value: inchargeRecord.pno ? (
+                                                    <span className="font-mono">
+                                                        {inchargeRecord.pno}
+                                                    </span>
+                                                ) : null,
+                                            },
+                                            {
+                                                label: t('Current status'),
+                                                value: (
+                                                    <Badge variant="outline">
+                                                        {inchargeRecord.is_active
+                                                            ? t('Active')
+                                                            : t('Inactive')}
+                                                    </Badge>
+                                                ),
+                                            },
+                                            {
+                                                label: t('Rank'),
+                                                value: inchargeRecord.rank,
+                                            },
+                                            {
+                                                label: t('Mobile'),
+                                                value: inchargeRecord.mobile,
+                                            },
+                                            {
+                                                label: t('Email'),
+                                                value: inchargeRecord.email,
+                                            },
+                                            {
+                                                label: t('Remarks'),
+                                                value: inchargeRecord.remarks,
+                                            },
+                                        ]}
+                                    />
+                                </div>
+                                <div className="size-28 shrink-0 overflow-hidden rounded-md border bg-muted print:size-24">
+                                    {inchargeRecord.photo_path ? (
+                                        <img
+                                            src={`/storage/${inchargeRecord.photo_path}`}
+                                            alt={inchargeRecord.full_name}
+                                            className="size-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex size-full items-center justify-center px-2 text-center text-xs text-muted-foreground print:text-[9px]">
+                                            {t('No photo')}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            {inchargeRecord.photo_path && (
-                                <img
-                                    src={`/storage/${inchargeRecord.photo_path}`}
-                                    alt={inchargeRecord.full_name}
-                                    className="size-20 shrink-0 rounded-lg border object-cover"
-                                />
-                            )}
-                        </div>
+                        </Section>
+                    )}
 
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                            {hasValue(inchargeRecord.rank) && (
-                                <dl className="grid gap-1">
-                                    <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                        {t('Rank')}
-                                    </dt>
-                                    <dd>
-                                        {identityValue(inchargeRecord.rank)}
-                                    </dd>
-                                </dl>
-                            )}
-                            {hasValue(inchargeRecord.mobile) && (
-                                <dl className="grid gap-1">
-                                    <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                        {t('Mobile')}
-                                    </dt>
-                                    <dd>
-                                        {identityValue(inchargeRecord.mobile)}
-                                    </dd>
-                                </dl>
-                            )}
-                            {hasValue(inchargeRecord.email) && (
-                                <dl className="grid gap-1">
-                                    <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                        {t('Email')}
-                                    </dt>
-                                    <dd>
-                                        {identityValue(inchargeRecord.email)}
-                                    </dd>
-                                </dl>
-                            )}
-                            <dl className="grid gap-1">
-                                <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                    {t('Status')}
-                                </dt>
-                                <dd>
-                                    {inchargeRecord.is_active
-                                        ? t('Active')
-                                        : t('Inactive')}
-                                </dd>
-                            </dl>
-                        </div>
-
-                        {hasValue(inchargeRecord.remarks) && (
-                            <div className="mt-3">
-                                <h2 className="mb-1 text-sm font-semibold">
-                                    {t('Remarks')}
-                                </h2>
+                    {sectionEnabled('teams') && (
+                        <Section title={t('Team assignments')}>
+                            {assignmentRows.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
-                                    {identityValue(inchargeRecord.remarks)}
+                                    {t('No teams assigned yet.')}
                                 </p>
-                            </div>
-                        )}
-                    </section>
-                )}
-
-                {sectionEnabled('teams') && (
-                    <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
-                        <h2 className="mb-2 text-lg font-semibold">
-                            {t('Team assignments')}
-                        </h2>
-                        {assignments.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                                {t('No teams assigned yet.')}
-                            </p>
-                        ) : (
-                            <div className="overflow-auto">
-                                <table className="w-full table-auto border-collapse text-sm">
-                                    <thead>
-                                        <tr className="bg-muted/50 text-left">
-                                            <th className="border p-2">
-                                                {t('Team')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Session')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Assigned at')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Removed at')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Reason')}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {assignments.map((assignment) => (
-                                            <tr key={assignment.id}>
-                                                <td className="border p-2">
-                                                    {assignment.team?.name}
-                                                </td>
-                                                <td className="border p-2">
-                                                    {assignment.team?.session
-                                                        ?.name ??
-                                                        assignment.session
-                                                            ?.name ??
-                                                        ''}
-                                                </td>
-                                                <td className="border p-2">
-                                                    {formatDate(
-                                                        assignment.assigned_at,
-                                                    )}
-                                                </td>
-                                                <td className="border p-2">
-                                                    {formatDate(
-                                                        assignment.removed_at,
-                                                    )}
-                                                </td>
-                                                <td className="border p-2">
-                                                    {assignment.is_current
-                                                        ? t('Current')
-                                                        : (assignment.removal_reason ??
-                                                          assignment.assignment_reason ??
-                                                          '')}
-                                                </td>
+                            ) : (
+                                <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                            <tr>
+                                                <th className="w-10 p-2 align-top">
+                                                    {uiText('S. No.', locale)}
+                                                </th>
+                                                <th className="p-2 align-top">
+                                                    {t('Team')}
+                                                </th>
+                                                {showTeamSession && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Session')}
+                                                    </th>
+                                                )}
+                                                {showAssignedAt && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Assigned at')}
+                                                    </th>
+                                                )}
+                                                {showRemovedAt && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Removed at')}
+                                                    </th>
+                                                )}
+                                                {showReason && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Reason')}
+                                                    </th>
+                                                )}
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </section>
-                )}
+                                        </thead>
+                                        <tbody className="divide-y print:text-[10px]">
+                                            {assignmentRows.map(
+                                                (row, index) => (
+                                                    <tr
+                                                        key={row.id}
+                                                        className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                    >
+                                                        <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                            {index + 1}
+                                                        </td>
+                                                        <td className="p-3 align-top print:p-2">
+                                                            {row.team?.name}
+                                                        </td>
+                                                        {showTeamSession && (
+                                                            <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                {row.team
+                                                                    ?.session
+                                                                    ?.name ??
+                                                                    row.session
+                                                                        ?.name}
+                                                            </td>
+                                                        )}
+                                                        {showAssignedAt && (
+                                                            <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                {formatDateValue(
+                                                                    row.assigned_at,
+                                                                    locale,
+                                                                )}
+                                                            </td>
+                                                        )}
+                                                        {showRemovedAt && (
+                                                            <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                {formatDateValue(
+                                                                    row.removed_at,
+                                                                    locale,
+                                                                )}
+                                                            </td>
+                                                        )}
+                                                        {showReason && (
+                                                            <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                {row.is_current
+                                                                    ? t(
+                                                                          'Current',
+                                                                      )
+                                                                    : (row.removal_reason ??
+                                                                      row.assignment_reason ??
+                                                                      '')}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ),
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </Section>
+                    )}
 
-                {sectionEnabled('achievements') && (
-                    <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
-                        <h2 className="mb-2 text-lg font-semibold">
-                            {t('Achievements')}
-                        </h2>
-                        {achievementRecords.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                                {t('No achievement records yet.')}
-                            </p>
-                        ) : (
-                            <div className="overflow-auto">
-                                <table className="w-full table-auto border-collapse text-sm">
-                                    <thead>
-                                        <tr className="bg-muted/50 text-left">
-                                            <th className="border p-2">
-                                                {t('Title')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Level')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Date')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Sport / Event')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Medal')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Position')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Venue')}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {achievementRecords.map(
-                                            (achievement) => (
-                                                <tr key={achievement.id}>
-                                                    <td className="border p-2">
-                                                        {achievement.title}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {normalizeEnumValue(
-                                                            achievement.level,
+                    {sectionEnabled('achievements') && (
+                        <Section title={t('Achievements')}>
+                            {achievementRecords.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    {t('No achievement records yet.')}
+                                </p>
+                            ) : (
+                                <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                            <tr>
+                                                <th className="w-10 p-2 align-top">
+                                                    {uiText('S. No.', locale)}
+                                                </th>
+                                                <th className="p-2 align-top">
+                                                    {t('Title')}
+                                                </th>
+                                                {showAchievementLevel && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Level')}
+                                                    </th>
+                                                )}
+                                                {showAchievementDate && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Date')}
+                                                    </th>
+                                                )}
+                                                {showAchievementSportEvent && (
+                                                    <th className="p-2 align-top">
+                                                        {uiText(
+                                                            'Sport / Event',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                )}
+                                                {showAchievementMedal && (
+                                                    <th className="p-2 align-top">
+                                                        {uiText(
+                                                            'Result',
+                                                            locale,
+                                                        )}
+                                                    </th>
+                                                )}
+                                                {showAchievementPosition && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Position')}
+                                                    </th>
+                                                )}
+                                                {showAchievementVenue && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Venue')}
+                                                    </th>
+                                                )}
+                                                {showAchievementRemarks && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Remarks')}
+                                                    </th>
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y print:text-[10px]">
+                                            {achievementRecords.map(
+                                                (row, index) => {
+                                                    const sportEventLine = [
+                                                        printValue(
+                                                            row.sport_discipline,
                                                             t,
-                                                        )}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {formatDate(
-                                                            achievement.event_date ??
-                                                                achievement.achieved_on,
-                                                        )}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {[
-                                                            normalizeEnumValue(
-                                                                achievement.sport_discipline,
+                                                        ),
+                                                        row.event,
+                                                        row.discipline,
+                                                    ]
+                                                        .filter(
+                                                            hasPrintableValue,
+                                                        )
+                                                        .join(' · ');
+
+                                                    const resultLine = [
+                                                        printValue(
+                                                            row.medal_type,
+                                                            t,
+                                                        ),
+                                                        row.position != null
+                                                            ? `${t('Position')}: ${row.position}`
+                                                            : null,
+                                                    ]
+                                                        .filter(
+                                                            hasPrintableValue,
+                                                        )
+                                                        .join(' · ');
+
+                                                    return (
+                                                        <tr
+                                                            key={row.id}
+                                                            className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                        >
+                                                            <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                {index + 1}
+                                                            </td>
+                                                            <td className="p-3 align-top print:p-2">
+                                                                <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                    {row.title}
+                                                                </div>
+                                                                {row.competition_details && (
+                                                                    <div className="mt-1 text-xs leading-4 break-words text-muted-foreground print:text-[9px]">
+                                                                        {
+                                                                            row.competition_details
+                                                                        }
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            {showAchievementLevel && (
+                                                                <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                    {printValue(
+                                                                        row.level,
+                                                                        t,
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                            {showAchievementDate && (
+                                                                <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                    {formatDateValue(
+                                                                        row.event_date ??
+                                                                            row.achieved_on,
+                                                                        locale,
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                            {showAchievementSportEvent && (
+                                                                <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                    {sportEventLine}
+                                                                </td>
+                                                            )}
+                                                            {showAchievementMedal && (
+                                                                <td className="p-3 align-top print:p-2">
+                                                                    {resultLine && (
+                                                                        <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
+                                                                            {
+                                                                                resultLine
+                                                                            }
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                            {showAchievementPosition && (
+                                                                <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                    {row.position ??
+                                                                        ''}
+                                                                </td>
+                                                            )}
+                                                            {showAchievementVenue && (
+                                                                <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                    {row.venue}
+                                                                </td>
+                                                            )}
+                                                            {showAchievementRemarks && (
+                                                                <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                    {row.remarks}
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    );
+                                                },
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </Section>
+                    )}
+
+                    {sectionEnabled('specialAchievements') && (
+                        <Section title={t('Special achievements')}>
+                            {specialAchievementRecords.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    {t('No special achievements yet.')}
+                                </p>
+                            ) : (
+                                <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                            <tr>
+                                                <th className="w-10 p-2 align-top">
+                                                    {uiText('S. No.', locale)}
+                                                </th>
+                                                <th className="p-2 align-top">
+                                                    {t('Type')}
+                                                </th>
+                                                <th className="p-2 align-top">
+                                                    {t('Title')}
+                                                </th>
+                                                {showSpecialAwardedOn && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Awarded on')}
+                                                    </th>
+                                                )}
+                                                {showSpecialIssuingAuthority && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Issuing authority')}
+                                                    </th>
+                                                )}
+                                                {showSpecialOrderReference && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Order reference')}
+                                                    </th>
+                                                )}
+                                                {showSpecialPlace && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Place')}
+                                                    </th>
+                                                )}
+                                                {showSpecialRemarks && (
+                                                    <th className="p-2 align-top">
+                                                        {t('Remarks')}
+                                                    </th>
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y print:text-[10px]">
+                                            {specialAchievementRecords.map(
+                                                (row, index) => (
+                                                    <tr
+                                                        key={row.id}
+                                                        className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                    >
+                                                        <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                            {index + 1}
+                                                        </td>
+                                                        <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                            {specialAchievementTypeLabel(
+                                                                row.achievement_type,
                                                                 t,
-                                                            ),
-                                                            achievement.event,
-                                                            achievement.discipline,
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' · ') || ''}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {normalizeEnumValue(
-                                                            achievement.medal_type,
-                                                            t,
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3 align-top print:p-2">
+                                                            <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                {row.title}
+                                                            </div>
+                                                        </td>
+                                                        {showSpecialAwardedOn && (
+                                                            <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                {formatDateValue(
+                                                                    row.awarded_on,
+                                                                    locale,
+                                                                )}
+                                                            </td>
                                                         )}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {achievement.position ??
-                                                            ''}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {achievement.venue ??
-                                                            ''}
-                                                    </td>
-                                                </tr>
-                                            ),
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </section>
-                )}
-
-                {sectionEnabled('specialAchievements') && (
-                    <section className="rounded-xl border p-4 print:rounded-md print:border-b print:border-neutral-300 print:p-2">
-                        <h2 className="mb-2 text-lg font-semibold">
-                            {t('Special achievements')}
-                        </h2>
-                        {specialAchievementRecords.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                                {t('No special achievements yet.')}
-                            </p>
-                        ) : (
-                            <div className="overflow-auto">
-                                <table className="w-full table-auto border-collapse text-sm">
-                                    <thead>
-                                        <tr className="bg-muted/50 text-left">
-                                            <th className="border p-2">
-                                                {t('Type')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Title')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Awarded on')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Authority')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Place')}
-                                            </th>
-                                            <th className="border p-2">
-                                                {t('Reference')}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {specialAchievementRecords.map(
-                                            (achievement) => (
-                                                <tr key={achievement.id}>
-                                                    <td className="border p-2">
-                                                        {specialAchievementTypeLabel(
-                                                            achievement.achievement_type,
-                                                            t,
+                                                        {showSpecialIssuingAuthority && (
+                                                            <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                {
+                                                                    row.issuing_authority
+                                                                }
+                                                            </td>
                                                         )}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {achievement.title}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {formatDate(
-                                                            achievement.awarded_on,
+                                                        {showSpecialOrderReference && (
+                                                            <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                {
+                                                                    row.order_reference
+                                                                }
+                                                            </td>
                                                         )}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {achievement.issuing_authority ??
-                                                            ''}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {achievement.place ??
-                                                            ''}
-                                                    </td>
-                                                    <td className="border p-2">
-                                                        {achievement.order_reference ??
-                                                            ''}
-                                                    </td>
-                                                </tr>
-                                            ),
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </section>
-                )}
+                                                        {showSpecialPlace && (
+                                                            <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                {row.place}
+                                                            </td>
+                                                        )}
+                                                        {showSpecialRemarks && (
+                                                            <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
+                                                                {row.remarks}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ),
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </Section>
+                    )}
+                </div>
             </div>
         </>
     );
