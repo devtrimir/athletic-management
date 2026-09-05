@@ -63,6 +63,11 @@ class CoachPolicy
         return $user->can('coaches.manageStatus') || $user->can('coaches.update');
     }
 
+    public function manageSpecialAchievements(User $user, mixed $coach): bool
+    {
+        return $user->can('coaches.manageSpecialAchievements') || $user->can('coaches.update');
+    }
+
     public function uploadMedia(User $user, mixed $coach): bool
     {
         return $user->can('coaches.uploadMedia') || $user->can('coaches.update') || $user->can('media.upload');

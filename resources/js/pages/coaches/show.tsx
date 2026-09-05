@@ -44,6 +44,7 @@ import {
     changelog as coachChangelog,
     media as coachMedia,
     promotions as coachPromotions,
+    specialAchievements as coachSpecialAchievementsTab,
     sports as coachSports,
     status as coachStatus,
 } from '@/actions/App/Http/Controllers/CoachProfileTabController';
@@ -58,6 +59,8 @@ import {
 } from '@/actions/App/Http/Controllers/CoachSportController';
 import { store as storeCoachStatus } from '@/actions/App/Http/Controllers/CoachStatusController';
 import { events as memberEvents } from '@/actions/App/Http/Controllers/MemberProfileTabController';
+import { CoachSpecialAchievementsTab } from '@/components/coaches/special-achievements-tab';
+import type { SpecialAchievementsData } from '@/components/coaches/special-achievements-tab';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
@@ -84,6 +87,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Table,
     TableBody,
@@ -343,6 +347,7 @@ type CoachShowTab =
     | 'sports'
     | 'certifications'
     | 'achievements'
+    | 'special-achievements'
     | 'promotions'
     | 'media'
     | 'changelog'
@@ -354,6 +359,7 @@ const COACH_SHOW_TABS: CoachShowTab[] = [
     'sports',
     'certifications',
     'achievements',
+    'special-achievements',
     'promotions',
     'media',
     'changelog',
@@ -418,6 +424,7 @@ export default function CoachesShow({
     ranks = [],
     coachAchievements,
     rewardEvidenceOptions = [],
+    specialAchievements,
 }: {
     coach: Coach;
     activeTab?: CoachShowTab;
@@ -429,6 +436,7 @@ export default function CoachesShow({
     ranks?: RankOption[];
     coachAchievements?: CoachAchievementsData;
     rewardEvidenceOptions?: RewardEvidenceSessionOption[];
+    specialAchievements?: SpecialAchievementsData;
 }) {
     const { t } = useTranslation();
 
@@ -1520,6 +1528,14 @@ export default function CoachesShow({
                                 {t('Achievements')}
                             </Link>
                         </TabsTrigger>
+                        <TabsTrigger value="special-achievements" asChild>
+                            <Link
+                                href={coachSpecialAchievementsTab.url(coach)}
+                                prefetch
+                            >
+                                {t('Special achievements')}
+                            </Link>
+                        </TabsTrigger>
                         <TabsTrigger value="promotions" asChild>
                             <Link href={coachPromotions.url(coach)}>
                                 {t('Promotions & Rewards')}
@@ -2605,6 +2621,27 @@ export default function CoachesShow({
                                 </div>
                             )}
                         </div>
+                    </TabsContent>
+
+                    <TabsContent value="special-achievements">
+                        <Deferred
+                            data="specialAchievements"
+                            fallback={
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map((n) => (
+                                        <Skeleton
+                                            key={n}
+                                            className="h-12 w-full"
+                                        />
+                                    ))}
+                                </div>
+                            }
+                        >
+                            <CoachSpecialAchievementsTab
+                                coach={coach}
+                                data={specialAchievements}
+                            />
+                        </Deferred>
                     </TabsContent>
 
                     <TabsContent value="promotions">

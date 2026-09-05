@@ -11,6 +11,7 @@ use App\Models\Achievement;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\CoachPromotionEvidence;
+use App\Models\CoachSpecialAchievement;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TeamMember;
@@ -91,6 +92,16 @@ class CoachProfileData
             ...$this->shell($coach),
             'activeTab' => 'achievements',
             'coachAchievements' => $this->achievementsPayload($coach),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function specialAchievements(Coach $coach): array
+    {
+        return [
+            ...$this->shell($coach),
+            'activeTab' => 'special-achievements',
+            'specialAchievements' => $this->specialAchievementsPayload($coach),
         ];
     }
 
@@ -386,6 +397,44 @@ class CoachProfileData
                 'medal_winning_players' => $countableAchievements->pluck('participation.member_id')->unique()->count(),
             ],
             'groups' => $groups,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function specialAchievementsPayload(Coach $coach): array
+    {
+        $records = $coach->specialAchievements()
+            ->get()
+            ->map(fn (CoachSpecialAchievement $achievement): array => [
+                'id' => $achievement->id,
+                'achievement_type' => $achievement->achievement_type,
+                'title' => $achievement->title,
+                'awarded_on' => $achievement->awarded_on?->toDateString(),
+                'issuing_authority' => $achievement->issuing_authority,
+                'order_reference' => $achievement->order_reference,
+                'order_document' => $achievement->order_document_path ? [
+                    'path' => $achievement->order_document_path,
+                    'url' => route('coaches.special-achievements.order-document.preview', [$coach, $achievement]),
+                    'preview_url' => route('coaches.special-achievements.order-document.preview', [$coach, $achievement]),
+                    'download_url' => route('coaches.special-achievements.order-document', [$coach, $achievement]),
+                    'original_name' => $achievement->order_document_original_name,
+                    'mime_type' => $achievement->order_document_mime_type,
+                    'size_bytes' => $achievement->order_document_size_bytes,
+                ] : null,
+                'place' => $achievement->place,
+                'remarks' => $achievement->remarks,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total' => count($records),
+                'commendation_discs' => collect($records)
+                    ->where('achievement_type', 'COMMENDATION_DISC')
+                    ->count(),
+            ],
         ];
     }
 

@@ -40,6 +40,13 @@ class CoachProfileTabController extends Controller
         return Inertia::render('coaches/show', $profileData->achievements($coach));
     }
 
+    public function specialAchievements(Coach $coach, CoachProfileData $profileData): Response
+    {
+        Gate::authorize('view', $coach);
+
+        return Inertia::render('coaches/show', $profileData->specialAchievements($coach));
+    }
+
     public function promotions(Coach $coach, CoachProfileData $profileData): Response
     {
         Gate::authorize('view', $coach);
