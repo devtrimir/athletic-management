@@ -144,7 +144,7 @@ type PlayingAchievementFormErrors = Partial<
 function defaults(row?: PlayingAchievementRow): PlayingAchievementFormData {
     return {
         title: row?.title ?? '',
-        period: row?.period ?? 'PRE_RECRUITMENT',
+        period: row?.period ?? 'POST_RECRUITMENT',
         level: row?.level ?? 'NATIONAL',
         competition_details: row?.competition_details ?? '',
         event_date: row?.event_date ?? '',
