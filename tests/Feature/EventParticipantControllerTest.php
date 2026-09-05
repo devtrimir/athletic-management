@@ -354,6 +354,52 @@ test('store returns 404 when event belongs to a different tournament', function 
         ->assertNotFound();
 });
 
+test('store resolves participation team from the membership matching the event sport', function () {
+    $user = epUser('tournaments.update');
+    $tournament = epTournament($user);
+    $event = epEvent($tournament, $user);
+    $member = epMember($user);
+
+    $otherSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $otherTeam = Team::factory()->create([
+        'organization_id' => $tournament->organization_id,
+        'sport_id' => $otherSport->id,
+        'session_id' => $tournament->session_id,
+        'is_active' => true,
+    ]);
+    $sportTeam = epTeam($tournament, $event);
+
+    TeamMember::factory()->create([
+        'team_id' => $otherTeam->id,
+        'member_id' => $member->id,
+        'session_id' => $tournament->session_id,
+        'left_on' => null,
+        'joined_on' => '2025-01-01',
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $sportTeam->id,
+        'member_id' => $member->id,
+        'session_id' => $tournament->session_id,
+        'left_on' => null,
+        'joined_on' => '2025-06-01',
+    ]);
+
+    $this->actingAs($user)
+        ->post(epRoute($tournament, $event), [
+            'participants' => [
+                ['member_id' => $member->id, 'team_id' => $sportTeam->id, 'medal_type' => 'GOLD'],
+            ],
+        ])
+        ->assertRedirect(route('tournaments.events.show', [$tournament, $event]));
+
+    $participation = Participation::where('event_id', $event->id)
+        ->where('member_id', $member->id)
+        ->first();
+
+    expect($participation)->not->toBeNull()
+        ->and($participation->team_id)->toBe($sportTeam->id);
+});
+
 test('duplicate member_id in same batch returns 422', function () {
     $user = epUser('tournaments.update');
     $tournament = epTournament($user);

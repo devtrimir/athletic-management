@@ -11,6 +11,7 @@ use App\Models\Participation;
 use App\Models\Team;
 use App\Models\TeamMember;
 use App\Services\Members\TournamentEventContextResolver;
+use App\Support\Participations\ParticipationTeamResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -21,6 +22,7 @@ class MemberAchievementContextController extends Controller
 {
     public function __construct(
         private readonly TournamentEventContextResolver $resolver,
+        private readonly ParticipationTeamResolver $participationTeamResolver,
     ) {}
 
     public function store(StoreMemberAchievementFromContextRequest $request, Member $member): RedirectResponse
@@ -67,6 +69,14 @@ class MemberAchievementContextController extends Controller
                     $event,
                     (bool) $validated['is_historical_session'],
                 );
+
+                if ($teamId <= 0 && ! $teamParticipation) {
+                    $teamId = $this->participationTeamResolver->resolveTeamId(
+                        (int) $member->id,
+                        $sessionId,
+                        (int) ($event->sport_id ?? 0),
+                    ) ?? 0;
+                }
 
                 if ($teamParticipation && ! (bool) $validated['is_historical_session'] && $teamId <= 0) {
                     throw ValidationException::withMessages([

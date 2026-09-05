@@ -243,7 +243,11 @@ class TournamentProfileData
         );
 
         $tournament->setAttribute('participants_count', $participantsCount);
-        $tournament->setAttribute('teams_count', Participation::whereIn('event_id', $eventIds)->whereNotNull('team_id')->distinct('team_id')->count('team_id'));
+        $tournament->setAttribute('teams_count', Participation::whereIn('event_id', $eventIds)
+            ->whereNotNull('team_id')
+            ->whereHas('event', fn (Builder $query) => $query->where('event_type', 'team'))
+            ->distinct('team_id')
+            ->count('team_id'));
         $tournament->setAttribute(
             'medals_count',
             Achievement::query()
@@ -398,7 +402,9 @@ class TournamentProfileData
             ->addSelect([
                 'teams_count' => Participation::query()
                     ->selectRaw('count(distinct participations.team_id)')
+                    ->join('events as team_events', 'team_events.id', '=', 'participations.event_id')
                     ->whereColumn('participations.event_id', 'events.id')
+                    ->where('team_events.event_type', 'team')
                     ->whereNotNull('participations.team_id'),
             ])
             ->orderBy('name')
@@ -455,7 +461,7 @@ class TournamentProfileData
         $singleMemberByEvent = Participation::query()
             ->select(['id', 'event_id', 'member_id'])
             ->whereIn('event_id', $eventIds)
-            ->whereNull('team_id')
+            ->whereHas('event', fn (Builder $query) => $query->where('event_type', 'individual'))
             ->get()
             ->filter(fn (Participation $row): bool => (int) $row->member_id > 0)
             ->groupBy('event_id')
@@ -475,6 +481,7 @@ class TournamentProfileData
             ->select(['id', 'event_id', 'member_id', 'lineup_member_ids'])
             ->whereIn('event_id', $eventIds)
             ->whereNotNull('team_id')
+            ->whereHas('event', fn (Builder $query) => $query->where('event_type', 'team'))
             ->get();
 
         foreach ($teamRows as $teamRow) {
@@ -580,14 +587,15 @@ class TournamentProfileData
         $memberMedalsByEvent = [];
         foreach ($rows as $row) {
             $eventId = (int) $row->event_id;
+            $eventType = (string) ($eventTypesById->get($eventId) ?? '');
             $candidateIds = [];
             $participationId = (int) $row->id;
             $medalsByType = $this->participationMedalCounts(
                 $row,
-                (string) ($eventTypesById->get($eventId) ?? ''),
+                $eventType,
             );
 
-            if ((int) $row->team_id > 0) {
+            if ($eventType === 'team' && (int) $row->team_id > 0) {
                 $candidateIds = array_values(array_filter(
                     array_map('intval', (array) ($row->lineup_member_ids ?? [])),
                     static fn (int $memberId): bool => $memberId > 0,

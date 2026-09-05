@@ -1348,6 +1348,130 @@ test('coach achievements respect assignment date window when tournament date exi
         ->and($players[0]['member']['full_name'])->toBe('Inside Window');
 });
 
+test('coach achievements include individual medals via auto-resolved participation team', function () {
+    $user = coachUser('coaches.view', 'tournaments.update');
+    $organization = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create(['organization_id' => $organization->id]);
+    $sport = Sport::factory()->create(['organization_id' => $organization->id]);
+    $team = Team::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'is_active' => true,
+    ]);
+    $coach = Coach::factory()->create(['organization_id' => $organization->id]);
+    CoachAssignment::factory()->head()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'assigned_at' => '2026-01-01 00:00:00',
+    ]);
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => 'NATIONAL'],
+        ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+    );
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'tier_id' => $tier->id,
+        'date_from' => '2026-02-10',
+    ]);
+    $event = Event::factory()->forTournament($tournament)->create(['name' => 'Long Jump']);
+    $member = Member::factory()->create([
+        'organization_id' => $organization->id,
+        'full_name' => 'Individual Medalist',
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'left_on' => null,
+    ]);
+
+    // The roster-validated team_id is submitted, but the stored value is
+    // resolved from the member's active team membership by the controller.
+    $this->actingAs($user)
+        ->post(route('tournaments.events.participants.store', [$tournament, $event]), [
+            'participants' => [
+                ['member_id' => $member->id, 'team_id' => $team->id, 'medal_type' => 'GOLD'],
+            ],
+        ])
+        ->assertRedirect(route('tournaments.events.show', [$tournament, $event]));
+
+    $participation = Participation::where('event_id', $event->id)->where('member_id', $member->id)->first();
+    expect($participation)->not->toBeNull()
+        ->and($participation->team_id)->toBe($team->id);
+
+    $this->actingAs($user)
+        ->get(route('coaches.achievements', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('coachAchievements.summary.GOLD', 1)
+            ->where('coachAchievements.groups.0.players.0.member.full_name', 'Individual Medalist')
+            ->etc()
+        );
+});
+
+test('coach achievements exclude auto-resolved individual medals when assigned after the tournament date', function () {
+    $user = coachUser('coaches.view', 'tournaments.update');
+    $organization = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create(['organization_id' => $organization->id]);
+    $sport = Sport::factory()->create(['organization_id' => $organization->id]);
+    $team = Team::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'is_active' => true,
+    ]);
+    $coach = Coach::factory()->create(['organization_id' => $organization->id]);
+    CoachAssignment::factory()->head()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'assigned_at' => '2026-03-01 00:00:00',
+    ]);
+    $tier = TournamentTier::firstOrCreate(
+        ['code' => 'NATIONAL'],
+        ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+    );
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'tier_id' => $tier->id,
+        'date_from' => '2026-02-10',
+    ]);
+    $event = Event::factory()->forTournament($tournament)->create(['name' => 'Long Jump']);
+    $member = Member::factory()->create(['organization_id' => $organization->id]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'left_on' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('tournaments.events.participants.store', [$tournament, $event]), [
+            'participants' => [
+                ['member_id' => $member->id, 'team_id' => $team->id, 'medal_type' => 'GOLD'],
+            ],
+        ])
+        ->assertRedirect(route('tournaments.events.show', [$tournament, $event]));
+
+    expect(Participation::where('event_id', $event->id)->where('member_id', $member->id)->value('team_id'))
+        ->toBe($team->id);
+
+    $this->actingAs($user)
+        ->get(route('coaches.achievements', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('coachAchievements.summary.GOLD', 0)
+            ->where('coachAchievements.summary.total_events', 0)
+            ->etc()
+        );
+});
+
 test('coach promotions tab returns promotion rows and rank options', function () {
     $user = coachUser('coaches.view');
     $fromRank = coachRank('CONSTABLE', 1);

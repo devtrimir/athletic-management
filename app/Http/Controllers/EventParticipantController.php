@@ -10,6 +10,7 @@ use App\Models\Achievement;
 use App\Models\Event;
 use App\Models\Participation;
 use App\Models\Tournament;
+use App\Support\Participations\ParticipationTeamResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,10 @@ use Inertia\Inertia;
 
 class EventParticipantController extends Controller
 {
+    public function __construct(
+        private readonly ParticipationTeamResolver $participationTeamResolver,
+    ) {}
+
     public function store(StoreEventParticipantsRequest $request, Tournament $tournament, Event $event): RedirectResponse
     {
         Gate::authorize('update', $tournament);
@@ -27,8 +32,14 @@ class EventParticipantController extends Controller
 
         DB::transaction(function () use ($tournament, $event, $rows, $isTeamEvent): void {
             foreach ($rows as $row) {
-                $teamId = $isTeamEvent ? ($row['team_id'] ?? null) : null;
                 $memberId = $isTeamEvent ? null : ($row['member_id'] ?? null);
+                $teamId = $isTeamEvent
+                    ? ($row['team_id'] ?? null)
+                    : $this->participationTeamResolver->resolveTeamId(
+                        (int) ($memberId ?? 0),
+                        (int) $tournament->session_id,
+                        (int) $event->sport_id,
+                    );
                 $medalType = (string) ($row['medal_type'] ?? '');
                 $position = $row['position'] ?? $row['medal_position'] ?? null;
                 $remarks = $row['remarks'] ?? null;
