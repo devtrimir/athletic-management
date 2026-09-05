@@ -32,6 +32,12 @@ class CoachResource extends JsonResource
             'photo_path' => $this->photo_path,
             'pno' => $this->pno,
             'mobile' => $this->mobile,
+            'member_id' => $this->member_id,
+            'linked_member' => $this->whenLoaded('member', fn () => $this->member ? [
+                'id' => $this->member->id,
+                'member_code' => $this->member->member_code,
+                'full_name' => $this->member->full_name,
+            ] : null),
             'district_id' => $this->district_id,
             'unit_id' => $this->unit_id,
             'district' => $this->whenLoaded('district', fn () => [

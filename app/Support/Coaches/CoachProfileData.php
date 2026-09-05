@@ -13,6 +13,7 @@ use App\Models\CoachAssignment;
 use App\Models\CoachPlayingAchievement;
 use App\Models\CoachPromotionEvidence;
 use App\Models\CoachSpecialAchievement;
+use App\Models\Member;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TeamMember;
@@ -219,6 +220,7 @@ class CoachProfileData
             'nisMaster:id,kind,code,name,short_name',
             'tierMaster:id,code,label_hi,label_en,weight',
             'rankMaster:id,code,name,short_name',
+            'member:id,member_code,full_name',
         ]);
 
         $coachData = (new CoachResource($coach))->resolve();
@@ -443,13 +445,27 @@ class CoachProfileData
     }
 
     /**
-     * Playing-career achievements from when the coach was a player. Completely
-     * standalone: no link to achievements, participations, or medal tallies.
+     * Playing-career achievements from when the coach was a player. When the
+     * coach is linked to a member record the section is read-only and derived
+     * from that member's real tournament achievements; otherwise it falls
+     * back to the standalone free-form (legacy) records.
      *
      * @return array<string, mixed>
      */
     private function playingAchievementsPayload(Coach $coach): array
     {
+        $sports = Sport::query()
+            ->select(['id', 'name', 'category'])
+            ->where('organization_id', $coach->organization_id)
+            ->orderBy('name')
+            ->get();
+
+        $member = $coach->member;
+
+        if ($member !== null) {
+            return $this->memberPlayingAchievementsPayload($member, $sports);
+        }
+
         $records = $coach->playingAchievements()
             ->with('sport:id,name')
             ->get()
@@ -480,15 +496,97 @@ class CoachProfileData
             ->all();
 
         return [
+            'source' => 'legacy',
+            'linked_member' => null,
             'records' => $records,
-            'sports' => Sport::query()
-                ->select(['id', 'name', 'category'])
-                ->where('organization_id', $coach->organization_id)
-                ->orderBy('name')
-                ->get(),
+            'sports' => $sports,
             'summary' => [
                 'total' => count($records),
                 'medals' => collect($records)
+                    ->whereIn('medal_type', ['GOLD', 'SILVER', 'BRONZE', 'MERIT'])
+                    ->count(),
+            ],
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Sport>  $sports
+     * @return array<string, mixed>
+     */
+    private function memberPlayingAchievementsPayload(Member $member, Collection $sports): array
+    {
+        $memberTeamIds = TeamMember::query()
+            ->where('member_id', $member->id)
+            ->pluck('team_id')
+            ->filter()
+            ->map(static fn (int $teamId): int => $teamId)
+            ->values()
+            ->all();
+
+        $achievements = Achievement::whereHas('participation', function ($query) use ($member, $memberTeamIds): void {
+            $query->where('member_id', $member->id);
+
+            if ($memberTeamIds !== []) {
+                $query->orWhereIn('team_id', $memberTeamIds);
+            }
+        })
+            ->with([
+                'participation.session:id,name',
+                'participation.event:id,tournament_id,name,event_type',
+                'participation.event.tournament:id,name,tier_id,date_from,date_to,venue',
+                'participation.event.tournament.tier:id,code,label_en,weight',
+            ])
+            ->orderByDesc('id')
+            ->get();
+
+        $records = $achievements
+            ->map(function (Achievement $achievement): array {
+                $participation = $achievement->participation;
+                $event = $participation->event;
+                $tournament = $event->tournament;
+                $eventKind = $event->event_type ?? ($participation->team_id ? 'team' : 'individual');
+
+                return [
+                    'id' => $achievement->id,
+                    'medal_type' => $achievement->medal_type,
+                    'position' => $achievement->position,
+                    'remarks' => $achievement->remarks,
+                    'session' => [
+                        'id' => $participation->session->id,
+                        'name' => $participation->session->name,
+                    ],
+                    'tournament' => [
+                        'id' => $tournament->id,
+                        'name' => $tournament->name,
+                        'tier_code' => $tournament->tier?->code,
+                        'tier_label' => $tournament->tier?->label_en,
+                        'date_from' => $tournament->date_from?->toDateString(),
+                        'date_to' => $tournament->date_to?->toDateString(),
+                        'venue' => $tournament->venue,
+                    ],
+                    'event' => [
+                        'id' => $event->id,
+                        'name' => $event->name,
+                    ],
+                    'event_kind' => $eventKind === 'team' ? 'team' : 'individual',
+                    'achieved_on' => $tournament->date_from?->toDateString(),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'source' => 'member',
+            'linked_member' => [
+                'id' => $member->id,
+                'member_code' => $member->member_code,
+                'full_name' => $member->full_name,
+            ],
+            'records' => $records,
+            'sports' => $sports,
+            'summary' => [
+                'total' => count($records),
+                'medals' => $achievements
                     ->whereIn('medal_type', ['GOLD', 'SILVER', 'BRONZE', 'MERIT'])
                     ->count(),
             ],

@@ -304,5 +304,14 @@
     "AIPSC": "AIPSC",
     "STATE": "STATE",
     "ZONAL": "ZONAL",
-    "OTHER": "OTHER"
+    "OTHER": "OTHER",
+    "Team": "Team",
+    "Individual": "Individual",
+    "Legacy": "Legacy",
+    "Kind": "Kind",
+    "Tournament": "Tournament",
+    "Derived from member record": "Derived from member record",
+    "Derived from the member's recorded tournament achievements.": "Derived from the member's recorded tournament achievements.",
+    "Manually recorded playing-career entries (no linked member record).": "Manually recorded playing-career entries (no linked member record).",
+    "No tournament achievements are recorded for the linked member yet.": "No tournament achievements are recorded for the linked member yet."
 }

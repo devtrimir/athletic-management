@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Achievement;
 use App\Models\Coach;
+use App\Models\TeamMember;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -78,24 +80,71 @@ class CoachPreviewController extends Controller
             ])
             ->values();
 
-        $playingAchievements = $coach->playingAchievements
-            ->map(fn ($achievement) => [
-                'id' => $achievement->id,
-                'title' => $achievement->title,
-                'period' => $achievement->period,
-                'level' => $achievement->level,
-                'competition_details' => $achievement->competition_details,
-                'event_date' => $achievement->event_date?->toDateString(),
-                'venue' => $achievement->venue,
-                'sport_id' => $achievement->sport_id,
-                'sport' => $achievement->sport?->name,
-                'event' => $achievement->event,
-                'medal_type' => $achievement->medal_type,
-                'position' => $achievement->position,
-                'achieved_on' => $achievement->achieved_on?->toDateString(),
-                'remarks' => $achievement->remarks,
-            ])
-            ->values();
+        $member = $coach->member()->select(['id', 'member_code', 'full_name'])->first();
+
+        if ($member !== null) {
+            $memberTeamIds = TeamMember::query()
+                ->where('member_id', $member->id)
+                ->pluck('team_id')
+                ->filter()
+                ->map(static fn (int $teamId): int => $teamId)
+                ->values()
+                ->all();
+
+            $playingAchievements = Achievement::whereHas('participation', function ($query) use ($member, $memberTeamIds): void {
+                $query->where('member_id', $member->id);
+
+                if ($memberTeamIds !== []) {
+                    $query->orWhereIn('team_id', $memberTeamIds);
+                }
+            })
+                ->with([
+                    'participation.session:id,name',
+                    'participation.event:id,tournament_id,name,event_type',
+                    'participation.event.tournament:id,name,tier_id,date_from,date_to,venue',
+                    'participation.event.tournament.tier:id,code,label_en,weight',
+                ])
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn (Achievement $achievement): array => [
+                    'id' => $achievement->id,
+                    'medal_type' => $achievement->medal_type,
+                    'position' => $achievement->position,
+                    'remarks' => $achievement->remarks,
+                    'session_name' => $achievement->participation->session->name,
+                    'tournament_name' => $achievement->participation->event->tournament->name,
+                    'tier_code' => $achievement->participation->event->tournament->tier?->code,
+                    'tier_label' => $achievement->participation->event->tournament->tier?->label_en,
+                    'date_from' => $achievement->participation->event->tournament->date_from?->toDateString(),
+                    'date_to' => $achievement->participation->event->tournament->date_to?->toDateString(),
+                    'venue' => $achievement->participation->event->tournament->venue,
+                    'event_name' => $achievement->participation->event->name,
+                    'event_kind' => ($achievement->participation->event->event_type ?? ($achievement->participation->team_id ? 'team' : 'individual')) === 'team' ? 'team' : 'individual',
+                    'achieved_on' => $achievement->participation->event->tournament->date_from?->toDateString(),
+                ])
+                ->values()
+                ->all();
+        } else {
+            $playingAchievements = $coach->playingAchievements
+                ->map(fn ($achievement) => [
+                    'id' => $achievement->id,
+                    'title' => $achievement->title,
+                    'period' => $achievement->period,
+                    'level' => $achievement->level,
+                    'competition_details' => $achievement->competition_details,
+                    'event_date' => $achievement->event_date?->toDateString(),
+                    'venue' => $achievement->venue,
+                    'sport_id' => $achievement->sport_id,
+                    'sport' => $achievement->sport?->name,
+                    'event' => $achievement->event,
+                    'medal_type' => $achievement->medal_type,
+                    'position' => $achievement->position,
+                    'achieved_on' => $achievement->achieved_on?->toDateString(),
+                    'remarks' => $achievement->remarks,
+                ])
+                ->values()
+                ->all();
+        }
 
         return response()->json([
             'id' => $coach->id,
@@ -116,6 +165,12 @@ class CoachPreviewController extends Controller
             'sports' => $sports,
             'special_achievements' => $specialAchievements,
             'playing_achievements' => $playingAchievements,
+            'playing_achievements_source' => $member !== null ? 'member' : 'legacy',
+            'linked_member' => $member ? [
+                'id' => $member->id,
+                'member_code' => $member->member_code,
+                'full_name' => $member->full_name,
+            ] : null,
             'assignment_history' => $assignments,
         ]);
     }

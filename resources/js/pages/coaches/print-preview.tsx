@@ -168,8 +168,34 @@ type PlayingAchievementRecord = {
     remarks: string | null;
 };
 
+type MemberPlayingAchievementRecord = {
+    id: number;
+    medal_type: string | null;
+    position: number | null;
+    remarks: string | null;
+    session: { id: number; name: string };
+    tournament: {
+        id: number;
+        name: string;
+        tier_code: string | null;
+        tier_label: string | null;
+        date_from: string | null;
+        date_to: string | null;
+        venue: string | null;
+    };
+    event: { id: number; name: string };
+    event_kind: 'team' | 'individual';
+    achieved_on: string | null;
+};
+
 type PlayingAchievementsData = {
-    records: PlayingAchievementRecord[];
+    source: 'member' | 'legacy';
+    linked_member: {
+        id: number;
+        member_code: string;
+        full_name: string;
+    } | null;
+    records: (PlayingAchievementRecord | MemberPlayingAchievementRecord)[];
     summary: {
         total: number;
         medals: number;
@@ -845,20 +871,63 @@ export default function CoachPrintPreview({
 
                     {enabled('playingAchievements') &&
                         playingAchievementRecords.length > 0 && (
-                            <Section title={t('Playing career achievements')}>
-                                <DataTable
-                                    serialLabel={t('S. No.')}
-                                    columns={[
-                                        t('Medal'),
-                                        t('Title'),
-                                        t('Level'),
-                                        t('Competition'),
-                                        t('Event date'),
-                                        t('Venue'),
-                                        t('Position'),
-                                    ]}
-                                    rows={playingAchievementRecords.map(
-                                        (record) => [
+                            <Section
+                                title={`${t('Playing career achievements')}${
+                                    playingAchievements?.source === 'member'
+                                        ? ` (${t('Derived from member record')})`
+                                        : ` (${t('Legacy')})`
+                                }`}
+                            >
+                                {playingAchievements?.source === 'member' ? (
+                                    <DataTable
+                                        serialLabel={t('S. No.')}
+                                        columns={[
+                                            t('Medal'),
+                                            t('Tournament'),
+                                            t('Event'),
+                                            t('Kind'),
+                                            t('Date'),
+                                            t('Venue'),
+                                            t('Position'),
+                                        ]}
+                                        rows={(
+                                            playingAchievementRecords as MemberPlayingAchievementRecord[]
+                                        ).map((record) => [
+                                            record.medal_type
+                                                ? humanize(record.medal_type)
+                                                : '—',
+                                            [
+                                                record.tournament.name,
+                                                record.tournament.tier_code,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · '),
+                                            record.event.name,
+                                            record.event_kind === 'team'
+                                                ? t('Team')
+                                                : t('Individual'),
+                                            formatDate(record.achieved_on),
+                                            record.tournament.venue,
+                                            record.position !== null
+                                                ? `#${record.position}`
+                                                : '—',
+                                        ])}
+                                    />
+                                ) : (
+                                    <DataTable
+                                        serialLabel={t('S. No.')}
+                                        columns={[
+                                            t('Medal'),
+                                            t('Title'),
+                                            t('Level'),
+                                            t('Competition'),
+                                            t('Event date'),
+                                            t('Venue'),
+                                            t('Position'),
+                                        ]}
+                                        rows={(
+                                            playingAchievementRecords as PlayingAchievementRecord[]
+                                        ).map((record) => [
                                             record.medal_type
                                                 ? humanize(record.medal_type)
                                                 : '—',
@@ -875,9 +944,9 @@ export default function CoachPrintPreview({
                                             record.position !== null
                                                 ? `#${record.position}`
                                                 : '—',
-                                        ],
-                                    )}
-                                />
+                                        ])}
+                                    />
+                                )}
                             </Section>
                         )}
 
