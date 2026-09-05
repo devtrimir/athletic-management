@@ -1052,14 +1052,7 @@ function LegacyPlayingAchievementsList({
                                             >
                                                 <Award className="size-3.5" />
                                                 {t(row.medal_type)}
-                                                {row.position !== null
-                                                    ? ` · #${row.position}`
-                                                    : ''}
                                             </Badge>
-                                        ) : row.position !== null ? (
-                                            <span className="whitespace-nowrap">
-                                                #{row.position}
-                                            </span>
                                         ) : (
                                             <span className="text-muted-foreground">
                                                 —
@@ -1084,14 +1077,6 @@ function LegacyPlayingAchievementsList({
                                         {row.sport ? (
                                             <div className="truncate text-xs text-muted-foreground">
                                                 {row.sport.name}
-                                            </div>
-                                        ) : null}
-                                        {row.remarks ? (
-                                            <div
-                                                className="truncate text-xs text-muted-foreground"
-                                                title={row.remarks}
-                                            >
-                                                {row.remarks}
                                             </div>
                                         ) : null}
                                     </TableCell>

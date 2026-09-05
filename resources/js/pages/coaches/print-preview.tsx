@@ -889,7 +889,6 @@ export default function CoachPrintPreview({
                                             t('Kind'),
                                             t('Date'),
                                             t('Venue'),
-                                            t('Position'),
                                         ]}
                                         rows={(
                                             playingAchievementRecords as MemberPlayingAchievementRecord[]
@@ -909,50 +908,107 @@ export default function CoachPrintPreview({
                                                 : t('Individual'),
                                             formatDate(record.achieved_on),
                                             record.tournament.venue,
-                                            record.position !== null
-                                                ? `#${record.position}`
-                                                : '—',
                                         ])}
                                     />
                                 ) : (
-                                    <DataTable
-                                        serialLabel={t('S. No.')}
-                                        columns={[
-                                            t('Medal'),
-                                            t('Title'),
-                                            t('Level'),
-                                            t('Kind'),
-                                            t('Competition'),
-                                            t('Event date'),
-                                            t('Venue'),
-                                            t('Position'),
-                                        ]}
-                                        rows={(
-                                            playingAchievementRecords as PlayingAchievementRecord[]
-                                        ).map((record) => [
-                                            record.medal_type
-                                                ? humanize(record.medal_type)
-                                                : '—',
-                                            record.title,
-                                            record.level,
-                                            record.event_type
-                                                ? record.event_type === 'team'
-                                                    ? t('Team')
-                                                    : t('Individual')
-                                                : '—',
-                                            [
-                                                record.competition_details,
-                                                record.event,
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' · '),
-                                            formatDate(record.event_date),
-                                            record.venue,
-                                            record.position !== null
-                                                ? `#${record.position}`
-                                                : '—',
-                                        ])}
-                                    />
+                                    (() => {
+                                        const legacyRecords =
+                                            playingAchievementRecords as PlayingAchievementRecord[];
+                                        const groups = [
+                                            {
+                                                key: 'POST_RECRUITMENT',
+                                                label: t('Post-recruitment'),
+                                                rows: legacyRecords.filter(
+                                                    (r) =>
+                                                        r.period ===
+                                                        'POST_RECRUITMENT',
+                                                ),
+                                            },
+                                            {
+                                                key: 'PRE_RECRUITMENT',
+                                                label: t('Pre-recruitment'),
+                                                rows: legacyRecords.filter(
+                                                    (r) =>
+                                                        r.period ===
+                                                        'PRE_RECRUITMENT',
+                                                ),
+                                            },
+                                            {
+                                                key: 'OTHER',
+                                                label: t('Other'),
+                                                rows: legacyRecords.filter(
+                                                    (r) =>
+                                                        r.period !==
+                                                            'POST_RECRUITMENT' &&
+                                                        r.period !==
+                                                            'PRE_RECRUITMENT',
+                                                ),
+                                            },
+                                        ].filter((g) => g.rows.length > 0);
+
+                                        return (
+                                            <div className="space-y-4">
+                                                {groups.map((group) => (
+                                                    <div key={group.key}>
+                                                        <div className="mb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                                                            {group.label}
+                                                        </div>
+                                                        <DataTable
+                                                            serialLabel={t(
+                                                                'S. No.',
+                                                            )}
+                                                            columns={[
+                                                                t('Medal'),
+                                                                t('Title'),
+                                                                t('Level'),
+                                                                t('Kind'),
+                                                                t(
+                                                                    'Competition',
+                                                                ),
+                                                                t('Event date'),
+                                                                t('Venue'),
+                                                            ]}
+                                                            rows={group.rows.map(
+                                                                (record) => [
+                                                                    record.medal_type
+                                                                        ? humanize(
+                                                                              record.medal_type,
+                                                                          )
+                                                                        : '—',
+                                                                    record.title,
+                                                                    record.level,
+                                                                    record.event_type
+                                                                        ? record.event_type ===
+                                                                          'team'
+                                                                            ? t(
+                                                                                  'Team',
+                                                                              )
+                                                                            : t(
+                                                                                  'Individual',
+                                                                              )
+                                                                        : '—',
+                                                                    [
+                                                                        record.competition_details,
+                                                                        record.event,
+                                                                    ]
+                                                                        .filter(
+                                                                            Boolean,
+                                                                        )
+                                                                        .join(
+                                                                            ' · ',
+                                                                        ),
+                                                                    formatDate(
+                                                                        record.event_date,
+                                                                    ),
+                                                                    record.venue,
+                                                                ],
+                                                            )}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()
                                 )}
                             </Section>
                         )}

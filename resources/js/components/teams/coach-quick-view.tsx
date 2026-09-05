@@ -214,12 +214,43 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
         data.playing_achievements_source === 'member'
             ? (data.playing_achievements as MemberPlayingAchievementItem[]).map(
                   (a) =>
-                      `<tr><td>${a.medal_type ?? ''}</td><td>${[a.tournament_name, a.tier_code].filter(Boolean).join(' · ')}</td><td>${a.event_name}</td><td>${a.event_kind === 'team' ? t('Team') : t('Individual')}</td><td>${a.achieved_on ?? a.date_from ?? ''}</td><td>${a.venue ?? ''}</td><td>${a.position ?? ''}</td></tr>`,
+                      `<tr><td>${a.medal_type ?? ''}</td><td>${[a.tournament_name, a.tier_code].filter(Boolean).join(' · ')}</td><td>${a.event_name}</td><td>${a.event_kind === 'team' ? t('Team') : t('Individual')}</td><td>${a.achieved_on ?? a.date_from ?? ''}</td><td>${a.venue ?? ''}</td></tr>`,
               )
-            : (data.playing_achievements as PlayingAchievementItem[]).map(
-                  (a) =>
-                      `<tr><td>${a.medal_type ?? ''}</td><td>${a.title}</td><td>${a.level ?? ''}</td><td>${a.event_type ? (a.event_type === 'team' ? t('Team') : t('Individual')) : ''}</td><td>${a.competition_details ?? ''}</td><td>${a.event_date ?? ''}</td><td>${a.venue ?? ''}</td><td>${a.position ?? ''}</td></tr>`,
-              )
+            : [
+                  {
+                      key: 'POST_RECRUITMENT',
+                      label: t('Post-recruitment'),
+                      rows: (
+                          data.playing_achievements as PlayingAchievementItem[]
+                      ).filter((a) => a.period === 'POST_RECRUITMENT'),
+                  },
+                  {
+                      key: 'PRE_RECRUITMENT',
+                      label: t('Pre-recruitment'),
+                      rows: (
+                          data.playing_achievements as PlayingAchievementItem[]
+                      ).filter((a) => a.period === 'PRE_RECRUITMENT'),
+                  },
+                  {
+                      key: 'OTHER',
+                      label: t('Other'),
+                      rows: (
+                          data.playing_achievements as PlayingAchievementItem[]
+                      ).filter(
+                          (a) =>
+                              a.period !== 'POST_RECRUITMENT' &&
+                              a.period !== 'PRE_RECRUITMENT',
+                      ),
+                  },
+              ]
+                  .filter((g) => g.rows.length > 0)
+                  .flatMap((group) => [
+                      `<tr><td colspan="7" style="background:#f0f0f0;font-weight:bold;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#555">${group.label}</td></tr>`,
+                      ...group.rows.map(
+                          (a) =>
+                              `<tr><td>${a.medal_type ?? ''}</td><td>${a.title}</td><td>${a.level ?? ''}</td><td>${a.event_type ? (a.event_type === 'team' ? t('Team') : t('Individual')) : ''}</td><td>${a.competition_details ?? ''}</td><td>${a.event_date ?? ''}</td><td>${a.venue ?? ''}</td></tr>`,
+                      ),
+                  ])
     ).join('');
 
     const assignmentRows = data.assignment_history
@@ -287,8 +318,8 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
               }</h2>
     <table><thead><tr>${
         data.playing_achievements_source === 'member'
-            ? `<th>${t('Medal')}</th><th>${t('Tournament')}</th><th>${t('Event')}</th><th>${t('Kind')}</th><th>${t('Date')}</th><th>${t('Venue')}</th><th>${t('Position')}</th>`
-            : `<th>${t('Medal')}</th><th>${t('Title')}</th><th>${t('Level')}</th><th>${t('Kind')}</th><th>${t('Competition')}</th><th>${t('Event date')}</th><th>${t('Venue')}</th><th>${t('Position')}</th>`
+            ? `<th>${t('Medal')}</th><th>${t('Tournament')}</th><th>${t('Event')}</th><th>${t('Kind')}</th><th>${t('Date')}</th><th>${t('Venue')}</th>`
+            : `<th>${t('Medal')}</th><th>${t('Title')}</th><th>${t('Level')}</th><th>${t('Kind')}</th><th>${t('Competition')}</th><th>${t('Event date')}</th><th>${t('Venue')}</th>`
     }</tr></thead>
     <tbody>${playingAchievementRows}</tbody></table>`
             : ''
@@ -673,9 +704,6 @@ export function CoachQuickView({
                                                         <TableHead>
                                                             {t('Venue')}
                                                         </TableHead>
-                                                        <TableHead>
-                                                            {t('Position')}
-                                                        </TableHead>
                                                     </>
                                                 ) : (
                                                     <>
@@ -700,132 +728,170 @@ export function CoachQuickView({
                                                         <TableHead>
                                                             {t('Venue')}
                                                         </TableHead>
-                                                        <TableHead>
-                                                            {t('Position')}
-                                                        </TableHead>
                                                     </>
                                                 )}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {data.playing_achievements.map(
-                                                (achievement) =>
-                                                    data.playing_achievements_source ===
-                                                    'member' ? (
-                                                        <TableRow
-                                                            key={achievement.id}
-                                                        >
-                                                            {(() => {
-                                                                const row =
-                                                                    achievement as MemberPlayingAchievementItem;
+                                            {data.playing_achievements_source ===
+                                            'member'
+                                                ? data.playing_achievements.map(
+                                                      (achievement) => {
+                                                          const row =
+                                                              achievement as MemberPlayingAchievementItem;
 
-                                                                return (
-                                                                    <>
-                                                                        <TableCell>
-                                                                            {row.medal_type ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {[
-                                                                                row.tournament_name,
-                                                                                row.tier_code,
-                                                                            ]
-                                                                                .filter(
-                                                                                    Boolean,
-                                                                                )
-                                                                                .join(
-                                                                                    ' · ',
-                                                                                )}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {
-                                                                                row.event_name
-                                                                            }
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.event_kind ===
-                                                                            'team'
-                                                                                ? t(
-                                                                                      'Team',
-                                                                                  )
-                                                                                : t(
-                                                                                      'Individual',
-                                                                                  )}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.achieved_on ??
-                                                                                row.date_from ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.venue ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.position ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                    </>
-                                                                );
-                                                            })()}
-                                                        </TableRow>
-                                                    ) : (
-                                                        <TableRow
-                                                            key={achievement.id}
-                                                        >
-                                                            {(() => {
-                                                                const row =
-                                                                    achievement as PlayingAchievementItem;
-
-                                                                return (
-                                                                    <>
-                                                                        <TableCell>
-                                                                            {row.medal_type ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {
-                                                                                row.title
-                                                                            }
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.level ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.event_type
-                                                                                ? row.event_type ===
-                                                                                  'team'
-                                                                                    ? t(
-                                                                                          'Team',
-                                                                                      )
-                                                                                    : t(
-                                                                                          'Individual',
-                                                                                      )
-                                                                                : ''}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.competition_details ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.event_date ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.venue ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {row.position ??
-                                                                                ''}
-                                                                        </TableCell>
-                                                                    </>
-                                                                );
-                                                            })()}
-                                                        </TableRow>
-                                                    ),
-                                            )}
+                                                          return (
+                                                              <TableRow
+                                                                  key={row.id}
+                                                              >
+                                                                  <TableCell>
+                                                                      {row.medal_type ??
+                                                                          ''}
+                                                                  </TableCell>
+                                                                  <TableCell>
+                                                                      {[
+                                                                          row.tournament_name,
+                                                                          row.tier_code,
+                                                                      ]
+                                                                          .filter(
+                                                                              Boolean,
+                                                                          )
+                                                                          .join(
+                                                                              ' · ',
+                                                                          )}
+                                                                  </TableCell>
+                                                                  <TableCell>
+                                                                      {
+                                                                          row.event_name
+                                                                      }
+                                                                  </TableCell>
+                                                                  <TableCell>
+                                                                      {row.event_kind ===
+                                                                      'team'
+                                                                          ? t(
+                                                                                'Team',
+                                                                            )
+                                                                          : t(
+                                                                                'Individual',
+                                                                            )}
+                                                                  </TableCell>
+                                                                  <TableCell>
+                                                                      {row.achieved_on ??
+                                                                          row.date_from ??
+                                                                          ''}
+                                                                  </TableCell>
+                                                                  <TableCell>
+                                                                      {row.venue ??
+                                                                          ''}
+                                                                  </TableCell>
+                                                              </TableRow>
+                                                          );
+                                                      },
+                                                  )
+                                                : [
+                                                      {
+                                                          key: 'POST_RECRUITMENT',
+                                                          label: t(
+                                                              'Post-recruitment',
+                                                          ),
+                                                          rows: (
+                                                              data.playing_achievements as PlayingAchievementItem[]
+                                                          ).filter(
+                                                              (r) =>
+                                                                  r.period ===
+                                                                  'POST_RECRUITMENT',
+                                                          ),
+                                                      },
+                                                      {
+                                                          key: 'PRE_RECRUITMENT',
+                                                          label: t(
+                                                              'Pre-recruitment',
+                                                          ),
+                                                          rows: (
+                                                              data.playing_achievements as PlayingAchievementItem[]
+                                                          ).filter(
+                                                              (r) =>
+                                                                  r.period ===
+                                                                  'PRE_RECRUITMENT',
+                                                          ),
+                                                      },
+                                                      {
+                                                          key: 'OTHER',
+                                                          label: t('Other'),
+                                                          rows: (
+                                                              data.playing_achievements as PlayingAchievementItem[]
+                                                          ).filter(
+                                                              (r) =>
+                                                                  r.period !==
+                                                                      'POST_RECRUITMENT' &&
+                                                                  r.period !==
+                                                                      'PRE_RECRUITMENT',
+                                                          ),
+                                                      },
+                                                  ]
+                                                      .filter(
+                                                          (g) =>
+                                                              g.rows.length > 0,
+                                                      )
+                                                      .flatMap((group) => [
+                                                          <TableRow
+                                                              key={`group-${group.key}`}
+                                                          >
+                                                              <TableCell
+                                                                  colSpan={7}
+                                                                  className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                                              >
+                                                                  {group.label}
+                                                              </TableCell>
+                                                          </TableRow>,
+                                                          ...group.rows.map(
+                                                              (row) => (
+                                                                  <TableRow
+                                                                      key={
+                                                                          row.id
+                                                                      }
+                                                                  >
+                                                                      <TableCell>
+                                                                          {row.medal_type ??
+                                                                              ''}
+                                                                      </TableCell>
+                                                                      <TableCell>
+                                                                          {
+                                                                              row.title
+                                                                          }
+                                                                      </TableCell>
+                                                                      <TableCell>
+                                                                          {row.level ??
+                                                                              ''}
+                                                                      </TableCell>
+                                                                      <TableCell>
+                                                                          {row.event_type
+                                                                              ? row.event_type ===
+                                                                                'team'
+                                                                                  ? t(
+                                                                                        'Team',
+                                                                                    )
+                                                                                  : t(
+                                                                                        'Individual',
+                                                                                    )
+                                                                              : ''}
+                                                                      </TableCell>
+                                                                      <TableCell>
+                                                                          {row.competition_details ??
+                                                                              ''}
+                                                                      </TableCell>
+                                                                      <TableCell>
+                                                                          {row.event_date ??
+                                                                              ''}
+                                                                      </TableCell>
+                                                                      <TableCell>
+                                                                          {row.venue ??
+                                                                              ''}
+                                                                      </TableCell>
+                                                                  </TableRow>
+                                                              ),
+                                                          ),
+                                                      ])}
                                         </TableBody>
                                     </Table>
                                 </Section>
