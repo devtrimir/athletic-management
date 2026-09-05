@@ -336,6 +336,12 @@ type Coach = {
         short_name: string | null;
     } | null;
     team_activity_status?: 'active' | 'inactive';
+    rank_master?: {
+        id: number;
+        code: string | null;
+        name: string;
+        short_name: string | null;
+    } | null;
     certifications?: CoachCertification[];
     promotions?: CoachPromotion[];
     sports?: CoachSport[];
@@ -651,6 +657,17 @@ export default function CoachesShow({
             promotion.cash_reward_date ||
             promotion.cash_reward_reference ||
             promotion.cash_reward_remarks,
+        );
+    }
+
+    function isPromotionFormValid(): boolean {
+        if (promotionDialogMode === 'reward') {
+            return promotionForm.data.cash_reward_amount.trim() !== '';
+        }
+
+        return (
+            promotionForm.data.promotion_date.trim() !== '' &&
+            promotionForm.data.to_rank.trim() !== ''
         );
     }
 
@@ -1183,7 +1200,7 @@ export default function CoachesShow({
         setEditingPromotion(null);
         promotionForm.setData({
             promotion_date: '',
-            from_rank: '',
+            from_rank: coach.rank_master?.code ?? '',
             to_rank: '',
             cash_reward_amount: '',
             cash_reward_date: '',
@@ -1221,7 +1238,7 @@ export default function CoachesShow({
         setPromotionDialogMode(mode);
         promotionForm.setData({
             promotion_date: promotion.promotion_date ?? '',
-            from_rank: promotion.from_rank ?? '',
+            from_rank: promotion.from_rank ?? coach.rank_master?.code ?? '',
             to_rank: promotion.to_rank ?? '',
             cash_reward_amount: promotion.cash_reward_amount ?? '',
             cash_reward_date: promotion.cash_reward_date ?? '',
@@ -1272,6 +1289,9 @@ export default function CoachesShow({
             onSuccess: () => {
                 setPromotionDialogOpen(false);
                 resetPromotionForm();
+            },
+            onError: () => {
+                // Keep the modal open so the user can see and fix errors.
             },
         };
 
@@ -3350,7 +3370,10 @@ export default function CoachesShow({
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={promotionForm.processing}
+                                disabled={
+                                    promotionForm.processing ||
+                                    !isPromotionFormValid()
+                                }
                             >
                                 {promotionDialogMode === 'reward'
                                     ? t('Save reward')

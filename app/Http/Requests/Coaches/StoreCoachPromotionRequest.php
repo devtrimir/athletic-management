@@ -42,6 +42,40 @@ class StoreCoachPromotionRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $hasPromotionFields = $this->filled('promotion_date')
+                || $this->filled('to_rank')
+                || $this->filled('from_rank')
+                || $this->filled('reason')
+                || $this->filled('remarks');
+
+            $hasRewardFields = $this->filled('cash_reward_amount')
+                || $this->filled('cash_reward_date')
+                || $this->filled('cash_reward_reference')
+                || $this->filled('cash_reward_remarks');
+
+            if ($hasPromotionFields) {
+                if (! $this->filled('promotion_date')) {
+                    $validator->errors()->add(
+                        'promotion_date',
+                        __('The promotion date is required.'),
+                    );
+                }
+
+                if (! $this->filled('to_rank')) {
+                    $validator->errors()->add(
+                        'to_rank',
+                        __('The target rank is required.'),
+                    );
+                }
+            }
+
+            if ($hasRewardFields && ! $this->filled('cash_reward_amount')) {
+                $validator->errors()->add(
+                    'cash_reward_amount',
+                    __('The cash reward amount is required.'),
+                );
+            }
+
             if (! $this->filled('to_rank') && ! $this->filled('cash_reward_amount')) {
                 $validator->errors()->add(
                     'to_rank',

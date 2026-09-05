@@ -855,6 +855,38 @@ class AuditLogBuilder
     }
 
     /**
+     * Decide whether a CoachPromotion audit log entry represents a promotion,
+     * a cash reward, or both.
+     *
+     * @param  array<string, mixed>  $diff
+     */
+    private function coachPromotionSubject(array $diff, string $action): string
+    {
+        $values = [];
+
+        if ($action === 'updated' && isset($diff['old'], $diff['new'])) {
+            $values = array_merge($diff['old'], $diff['new']);
+        } else {
+            $values = $diff;
+        }
+
+        $hasReward = ! empty($values['cash_reward_amount']);
+        $hasPromotion = ! empty($values['to_rank'])
+            || ! empty($values['promotion_date'])
+            || ! empty($values['from_rank']);
+
+        if ($hasPromotion && $hasReward) {
+            return 'Promotion + Reward';
+        }
+
+        if ($hasReward) {
+            return 'Reward';
+        }
+
+        return 'Promotion';
+    }
+
+    /**
      * Map raw AuditLog collection to the frontend-consumable shape.
      *
      * @param  Collection<int, AuditLog>  $logs
@@ -882,6 +914,10 @@ class AuditLogBuilder
             $subject = $subjectMap[$entity] ?? $entity;
             $labels = $fieldLabelMap[$entity] ?? [];
             $hidden = $hiddenFields[$entity] ?? [];
+
+            if ($entity === 'CoachPromotion') {
+                $subject = $this->coachPromotionSubject($diff, $log->action);
+            }
 
             if ($log->action === 'updated' && isset($diff['old'], $diff['new'])) {
                 foreach ($diff['new'] as $field => $newVal) {
