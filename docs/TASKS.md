@@ -339,7 +339,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [x] **P6-T42** Playing achievements event-structured standalone records: event_type (team/individual) form field, source_achievement_id provenance column reserved for future copy-from-member — PR #194
 - [x] **P6-T44** Playing career achievements render as proper tables (shared Table component) for both legacy and member-derived lists — PR #199
 - [x] **P6-T45** Driver-aware lineup count in TournamentProfileData (JSONB_ARRAY_LENGTH pgsql / JSON_ARRAY_LENGTH sqlite / JSON_LENGTH mysql) — fixes SQLSTATE crash after tournament creation — PR #200 (merged `fa32564c`)
-- [x] **P6-T46** team_id stored on individual-event participations (resolved from active team membership; backfill migration); team-vs-individual classification moved to events.event_type; individual medals now reach coach achievements — PR #201 (merged `e86fe393`)
+- [x] **P6-T46** team_id stored on individual-event participations (resolved from active team membership; backfill migration); team-vs-individual classification moved to events.event_type; individual medals now reach coach achievements — PR #201/#202 (final merge `22950076`)
 
 - [x] **P6-T36** Print preview polish: remove duplicate name heading (both pages), drop 'Display name' row from coach print, full rank names on office print, 23 missing Hindi keys + From/To rank translation fixes — PR #187
 - [x] **P6-T35** Redesign coach profile print preview to match the member print design (letterhead + frame + watermark, pill section toggles, member print helpers, cloned print window) — PR #186
