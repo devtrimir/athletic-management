@@ -45,6 +45,7 @@ return [
         ['code' => 'coaches.manageTeamAssignments', 'group' => 'coaches', 'name_hi' => 'कोच टीम असाइनमेंट प्रबंधित करें', 'name_en' => 'Manage coach team assignments'],
         ['code' => 'coaches.manageStatus', 'group' => 'coaches', 'name_hi' => 'कोच स्थिति प्रबंधित करें', 'name_en' => 'Manage coach status'],
         ['code' => 'coaches.manageAchievements', 'group' => 'coaches', 'name_hi' => 'कोच उपलब्धियाँ प्रबंधित करें', 'name_en' => 'Manage coach achievements'],
+        ['code' => 'coaches.manageSpecialAchievements', 'group' => 'coaches', 'name_hi' => 'कोच विशिष्ट उपलब्धियाँ प्रबंधित करें', 'name_en' => 'Manage coach special achievements'],
         ['code' => 'coaches.managePromotions', 'group' => 'coaches', 'name_hi' => 'कोच पदोन्नति प्रबंधित करें', 'name_en' => 'Manage coach promotions'],
         ['code' => 'coaches.manageRewards', 'group' => 'coaches', 'name_hi' => 'कोच पुरस्कार प्रबंधित करें', 'name_en' => 'Manage coach rewards'],
         ['code' => 'coaches.viewAuditLog', 'group' => 'coaches', 'name_hi' => 'कोच ऑडिट लॉग देखें', 'name_en' => 'View coach audit log'],
