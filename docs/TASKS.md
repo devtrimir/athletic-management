@@ -337,7 +337,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 
 - [x] **P6-T43** DatePicker direct-typing fix in shared component (local draft, strict full-date parsing, blur revert) — global across 23 usages — PRs #195 + #196 (rev) + #197 (rev: month separator)
 - [x] **P6-T42** Playing achievements event-structured standalone records: event_type (team/individual) form field, source_achievement_id provenance column reserved for future copy-from-member — PR #194
-- [ ] **P6-T44** Playing career achievements render as proper tables (shared Table component) for both legacy and member-derived lists — PR #199
+- [x] **P6-T44** Playing career achievements render as proper tables (shared Table component) for both legacy and member-derived lists — PR #199
 
 - [x] **P6-T36** Print preview polish: remove duplicate name heading (both pages), drop 'Display name' row from coach print, full rank names on office print, 23 missing Hindi keys + From/To rank translation fixes — PR #187
 - [x] **P6-T35** Redesign coach profile print preview to match the member print design (letterhead + frame + watermark, pill section toggles, member print helpers, cloned print window) — PR #186
