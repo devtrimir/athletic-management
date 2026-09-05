@@ -344,7 +344,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [x] **P6-T48** Fix shared `ConfidentialDocumentPreview` modal width on desktop: override `sm:max-w-lg` so modal uses full viewport width at all breakpoints — PR #204
 - [x] **P6-T49** Audit and fix missing Hindi translations on coach promotion/reward tab and related profile pages — PR #206
 - [x] **P6-T50** Fix coach promotion/reward modal: pre-fill current rank, enforce per-mode validation, and correct audit-log subject — PR #207
-- [~] **P6-T51** Show readable coach role labels on coach assignments tab (`Head Coach` / `Assistant Coach` instead of `HEAD` / `ASSISTANT`) — PR #208
+- [x] **P6-T51** Show readable coach role labels on coach assignments tab (`Head Coach` / `Assistant Coach` instead of `HEAD` / `ASSISTANT`) — PR #208
 
 - [x] **P6-T36** Print preview polish: remove duplicate name heading (both pages), drop 'Display name' row from coach print, full rank names on office print, 23 missing Hindi keys + From/To rank translation fixes — PR #187
 - [x] **P6-T35** Redesign coach profile print preview to match the member print design (letterhead + frame + watermark, pill section toggles, member print helpers, cloned print window) — PR #186
