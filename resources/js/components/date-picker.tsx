@@ -2,7 +2,6 @@ import {
     addMonths,
     format,
     isValid,
-    parse,
     parseISO,
     setMonth,
     setYear,
@@ -42,43 +41,48 @@ type Props = {
 };
 
 function parseDateValue(value: string): Date | undefined {
-    if (!value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         return undefined;
     }
 
     const parsed = parseISO(value);
 
-    if (isValid(parsed)) {
-        return parsed;
-    }
-
-    const fallback = new Date(value);
-
-    return isValid(fallback) ? fallback : undefined;
+    return isValid(parsed) ? parsed : undefined;
 }
 
-function normalizeTypedDate(value: string): string {
+function strictParseTypedDate(value: string): Date | undefined {
     const trimmed = value.trim();
 
-    if (!trimmed) {
-        return '';
+    // Accept only fully-formed dates; partial input must never parse.
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+    const dmySlash = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+    const dmyDash = /^(\d{2})-(\d{2})-(\d{4})$/.exec(trimmed);
+    // Bare 8 digits: ddmmyyyy (placeholder format dd/mm/yyyy).
+    const dmyCompact = /^(\d{2})(\d{2})(\d{4})$/.exec(trimmed);
+
+    const parts = iso ?? dmySlash ?? dmyDash ?? dmyCompact;
+
+    if (!parts) {
+        return undefined;
     }
 
-    const formats = ['yyyy-MM-dd', 'dd/MM/yyyy', 'dd-MM-yyyy'];
+    const [, first, second, third] = parts;
+    const [year, month, day] = iso
+        ? [Number(first), Number(second), Number(third)]
+        : [Number(third), Number(second), Number(first)];
 
-    for (const dateFormat of formats) {
-        const parsed = parse(trimmed, dateFormat, new Date());
-
-        if (isValid(parsed)) {
-            return format(parsed, 'yyyy-MM-dd');
-        }
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+        return undefined;
     }
 
-    return trimmed;
-}
+    const parsed = new Date(year, month - 1, day);
 
-function isCanonicalDate(value: string): boolean {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+    // Reject overflows like 31/02/2026 rolling into March.
+    return parsed.getFullYear() === year &&
+        parsed.getMonth() === month - 1 &&
+        parsed.getDate() === day
+        ? parsed
+        : undefined;
 }
 
 function displayDateValue(value: string): string {
@@ -114,6 +118,7 @@ export function DatePicker({
 }: Props) {
     const { t } = useTranslation();
     const [open, setOpen] = React.useState(false);
+    const [draft, setDraft] = React.useState<string | null>(null);
     const [displayMonth, setDisplayMonth] = React.useState(
         parseDateValue(value) ?? new Date(),
     );
@@ -128,29 +133,51 @@ export function DatePicker({
 
     function handleSelect(day: Date | undefined) {
         onChange(day ? format(day, 'yyyy-MM-dd') : '');
+        setDraft(null);
         setOpen(false);
     }
 
-    function handleBlur() {
-        const normalized = normalizeTypedDate(value);
-        const parsed = parseDateValue(normalized);
-
-        if (parsed && min && parsed < min) {
+    function commitParsed(parsed: Date) {
+        if (min && parsed < min) {
             onChange(minDate ?? '');
 
             return;
         }
 
-        if (parsed && max && parsed > max) {
+        if (max && parsed > max) {
             onChange(maxDate ?? '');
 
             return;
         }
 
-        onChange(normalized);
+        onChange(format(parsed, 'yyyy-MM-dd'));
+    }
+
+    function handleBlur() {
+        const text = draft;
+        setDraft(null);
+
+        if (text === null) {
+            return;
+        }
+
+        if (!text.trim()) {
+            onChange('');
+
+            return;
+        }
+
+        const parsed = strictParseTypedDate(text);
+
+        // Invalid input: revert to the last committed value rather than
+        // storing garbage; server-side validation flags bad dates on submit.
+        if (parsed) {
+            commitParsed(parsed);
+        }
     }
 
     function clearDate() {
+        setDraft(null);
         onChange('');
         setOpen(false);
     }
@@ -177,18 +204,28 @@ export function DatePicker({
                 id={id}
                 type="text"
                 inputMode="numeric"
-                value={displayDateValue(value)}
+                value={draft ?? displayDateValue(value)}
                 disabled={disabled}
                 aria-invalid={ariaInvalid}
                 aria-describedby={ariaDescribedBy}
                 placeholder={placeholder ?? 'dd/mm/yyyy'}
                 onChange={(event) => {
                     const nextValue = event.target.value;
-                    const normalized = normalizeTypedDate(nextValue);
+                    setDraft(nextValue);
 
-                    onChange(
-                        isCanonicalDate(normalized) ? normalized : nextValue,
-                    );
+                    if (!nextValue.trim()) {
+                        onChange('');
+
+                        return;
+                    }
+
+                    // Only fully-formed dates commit; partial input stays
+                    // local so the user can keep typing.
+                    const parsed = strictParseTypedDate(nextValue);
+
+                    if (parsed) {
+                        commitParsed(parsed);
+                    }
                 }}
                 onBlur={handleBlur}
                 className="h-9 min-w-0 flex-1"
