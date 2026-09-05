@@ -116,7 +116,7 @@ export default function InchargesIndex({
                                 }
                             }}
                             placeholder={t(
-                                'Search team prabhari by name, PNO, rank, or designation',
+                                'Search team prabhari by name, PNO, or rank',
                             )}
                             className="pl-9"
                         />

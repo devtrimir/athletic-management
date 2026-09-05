@@ -24,7 +24,6 @@ class TeamInchargeAssignmentFactory extends Factory
             'full_name' => fake()->name(),
             'pno' => fake()->numerify('##########'),
             'rank' => fake()->randomElement(['Constable', 'Head Constable', 'SI']),
-            'designation' => fake()->optional()->jobTitle(),
             'mobile' => fake()->optional()->numerify('##########'),
             'email' => fake()->optional()->safeEmail(),
             'assigned_at' => now()->subDays(fake()->numberBetween(1, 60)),

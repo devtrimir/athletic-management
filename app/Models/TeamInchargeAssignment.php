@@ -21,7 +21,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'full_name',
     'pno',
     'rank',
-    'designation',
     'mobile',
     'email',
     'assigned_at',

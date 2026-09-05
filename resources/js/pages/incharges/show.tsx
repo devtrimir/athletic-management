@@ -74,7 +74,6 @@ type Incharge = {
     full_name: string;
     pno: string;
     rank: string | null;
-    designation: string | null;
     mobile: string | null;
     email: string | null;
     is_active: boolean;
@@ -103,7 +102,6 @@ type Assignment = {
     full_name: string;
     pno: string;
     rank: string | null;
-    designation: string | null;
     mobile: string | null;
     email: string | null;
     assigned_by: { id: number; name: string } | null;
@@ -122,13 +120,18 @@ type InchargeAchievement = {
     competition_details: string | null;
     event_date: string | null;
     venue: string | null;
+    sport_id: number | null;
+    sport: { id: number; name: string } | null;
     sport_discipline: string | null;
     event: string | null;
     discipline: string | null;
     weight_category: string | null;
     gender_class: string | null;
     medal_type: string | null;
+    event_type: 'team' | 'individual' | null;
     position: number | null;
+    description: string | null;
+    achieved_on: string | null;
     remarks: string | null;
 };
 
@@ -207,9 +210,14 @@ const POSITION_TO_MEDAL: Record<string, string> = {
     '3': 'BRONZE',
 };
 const GENDER_CLASS_ITEMS: string[] = ['M', 'F', 'MIXED', 'OPEN'];
+const PERIOD_OPTIONS: Array<'PRE_RECRUITMENT' | 'POST_RECRUITMENT'> = [
+    'PRE_RECRUITMENT',
+    'POST_RECRUITMENT',
+];
+const EVENT_TYPE_OPTIONS: Array<'team' | 'individual'> = ['team', 'individual'];
 
 type AchievementFormState = {
-    period: 'POST_RECRUITMENT';
+    period: 'PRE_RECRUITMENT' | 'POST_RECRUITMENT';
     level: string;
     sport_id: string;
     title: string;
@@ -222,7 +230,9 @@ type AchievementFormState = {
     weight_category: string;
     gender_class: string;
     medal_type: string;
+    event_type: 'team' | 'individual';
     position: string;
+    achieved_on: string;
     remarks: string;
 };
 
@@ -291,6 +301,42 @@ function normalizeIsoDate(value: string): string {
     ).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
 }
 
+function normalizeDateInput(value: string): string | null {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+        return '';
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return trimmed;
+    }
+
+    const match = /^\d{2}[/-]\d{2}[/-]\d{4}$/.exec(trimmed);
+
+    if (!match) {
+        return null;
+    }
+
+    const [, day, month, year] = match;
+    const normalized = `${year}-${month}-${day}`;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    if (
+        date.getFullYear() !== Number(year) ||
+        date.getMonth() !== Number(month) - 1 ||
+        date.getDate() !== Number(day)
+    ) {
+        return null;
+    }
+
+    return normalized;
+}
+
 function displayValue(value: string | number | null | undefined): string {
     return value === null || value === undefined || value === ''
         ? '—'
@@ -350,14 +396,14 @@ export default function InchargesShow({
         | 'achievements'
         | 'special-achievements'
         | 'changelog';
-    summary?: { current_teams_count: number; total_assignments_count: number };
+    summary?: { current_teams_count: number };
     achievements?: InchargeAchievementPayload;
     assignments?: Assignment[];
     auditLog?: AuditEntry[];
     auditLogEndpoint?: string;
     specialAchievements?: InchargeSpecialAchievementPayload;
     achievement_levels?: string[];
-    sports?: { id: number; name: string }[];
+    sports?: { id: number; name: string; category?: string | null }[];
 }) {
     const { t } = useTranslation();
     const sportNameById = new Map(
@@ -385,7 +431,7 @@ export default function InchargesShow({
     });
     const achievementForm = useForm<AchievementFormState>({
         period: 'POST_RECRUITMENT',
-        level: '',
+        level: 'NATIONAL',
         sport_id: '',
         title: '',
         competition_details: '',
@@ -397,7 +443,9 @@ export default function InchargesShow({
         weight_category: '',
         gender_class: '',
         medal_type: '',
+        event_type: 'team',
         position: '',
+        achieved_on: '',
         remarks: '',
     });
     const specialAchievementForm = useForm<SpecialAchievementFormState>({
@@ -416,7 +464,7 @@ export default function InchargesShow({
         setEditingAchievementId(null);
         achievementForm.setData({
             period: 'POST_RECRUITMENT',
-            level: '',
+            level: 'NATIONAL',
             sport_id: '',
             title: '',
             competition_details: '',
@@ -428,7 +476,9 @@ export default function InchargesShow({
             weight_category: '',
             gender_class: '',
             medal_type: '',
+            event_type: 'team',
             position: '',
+            achieved_on: '',
             remarks: '',
         });
         achievementForm.clearErrors();
@@ -453,98 +503,86 @@ export default function InchargesShow({
     function submitAchievement(event: FormEvent): void {
         event.preventDefault();
 
+        const title = achievementForm.data.title.trim();
+        const eventDate = normalizeDateInput(achievementForm.data.event_date);
+        const achievedOn = normalizeDateInput(
+            achievementForm.data.achieved_on,
+        );
+
+        achievementForm.clearErrors(
+            'title',
+            'event_date',
+            'achieved_on',
+            'sport_id',
+            'event_type',
+        );
+
+        const clientErrors: Partial<
+            Record<keyof AchievementFormState, string>
+        > = {};
+
+        if (!title) {
+            clientErrors.title = t('Title is required.');
+        }
+
+        if (!achievementForm.data.sport_id) {
+            clientErrors.sport_id = t('Sport is required.');
+        }
+
+        if (!achievementForm.data.event_date.trim()) {
+            clientErrors.event_date = t('Event date is required.');
+        } else if (eventDate === null) {
+            clientErrors.event_date = t(
+                'Enter a valid date in dd/mm/yyyy format.',
+            );
+        }
+
+        if (achievedOn === null) {
+            clientErrors.achieved_on = t(
+                'Enter a valid date in dd/mm/yyyy format.',
+            );
+        }
+
+        if (!achievementForm.data.event_type) {
+            clientErrors.event_type = t('Event type is required.');
+        }
+
+        if (Object.keys(clientErrors).length > 0) {
+            achievementForm.setError(clientErrors);
+
+            return;
+        }
+
         const payload = {
-            title: (achievementForm.data.title ?? '').trim(),
-            period: 'POST_RECRUITMENT',
-            level: (achievementForm.data.level ?? '').trim(),
-            competition_details: (
-                achievementForm.data.competition_details ?? ''
-            ).trim(),
-            event_date: normalizeIsoDate(achievementForm.data.event_date || ''),
-            venue: (achievementForm.data.venue ?? '').trim() || null,
+            title,
+            period: achievementForm.data.period ?? 'POST_RECRUITMENT',
+            level: achievementForm.data.level.trim(),
+            competition_details:
+                achievementForm.data.competition_details.trim(),
+            event_date: eventDate ?? '',
+            venue: achievementForm.data.venue.trim() || null,
+            sport_id: Number(achievementForm.data.sport_id),
             sport_discipline:
-                (achievementForm.data.sport_id
-                    ? sportNameById.get(achievementForm.data.sport_id)
-                    : (achievementForm.data.sport_discipline ?? '').trim()
-                )?.trim() || null,
-            event: (achievementForm.data.event ?? '').trim() || null,
-            discipline: (achievementForm.data.discipline ?? '').trim() || null,
+                sportNameById.get(achievementForm.data.sport_id)?.trim() ||
+                null,
+            event: achievementForm.data.event.trim() || null,
+            discipline: achievementForm.data.discipline.trim() || null,
             weight_category:
-                (achievementForm.data.weight_category ?? '').trim() || null,
+                achievementForm.data.weight_category.trim() || null,
             gender_class: achievementForm.data.gender_class || null,
             medal_type: achievementForm.data.medal_type || null,
+            event_type: achievementForm.data.event_type,
             position: achievementForm.data.position
                 ? Number(achievementForm.data.position)
                 : null,
-            remarks: (achievementForm.data.remarks ?? '').trim(),
+            achieved_on: achievedOn ?? '',
+            remarks: achievementForm.data.remarks.trim(),
         };
 
-        if (!payload.level) {
-            achievementForm.setError('level', t('Level is required.'));
-
-            return;
-        }
-
-        if (!payload.title) {
-            achievementForm.setError('title', t('Title is required.'));
-
-            return;
-        }
-
-        if (!payload.competition_details) {
-            achievementForm.setError(
-                'competition_details',
-                t('Competition details are required.'),
-            );
-
-            return;
-        }
-
-        if (!payload.sport_discipline) {
-            achievementForm.setError(
-                'sport_discipline',
-                t('Sport is required.'),
-            );
-
-            return;
-        }
-
-        if (!payload.event_date) {
-            achievementForm.setError(
-                'event_date',
-                t('Event date is required.'),
-            );
-
-            return;
-        }
-
-        if (
-            payload.medal_type !== null &&
-            !ACHIEVEMENT_MEDALS.includes(
-                payload.medal_type as (typeof ACHIEVEMENT_MEDALS)[number],
-            )
-        ) {
-            achievementForm.setError('medal_type', t('Invalid medal type.'));
-
-            return;
-        }
-
-        if (
-            payload.position !== null &&
-            (!Number.isInteger(payload.position) ||
-                payload.position < 1 ||
-                payload.position > 9999)
-        ) {
-            achievementForm.setError('position', t('Enter a valid position.'));
-
-            return;
-        }
-
-        if (payload.event_date !== null && !isIsoDate(payload.event_date)) {
-            achievementForm.setError('event_date', t('Use YYYY-MM-DD format.'));
-
-            return;
-        }
+        const options = {
+            onSuccess: clearAchievementForm,
+            preserveScroll: true,
+        };
 
         if (editingAchievementId) {
             setConfirmation({
@@ -557,8 +595,7 @@ export default function InchargesShow({
                         `/incharges/${incharge.id}/achievements/${editingAchievementId}`,
                         {
                             data: payload,
-                            onSuccess: clearAchievementForm,
-                            preserveScroll: true,
+                            ...options,
                         },
                     ),
             });
@@ -568,8 +605,7 @@ export default function InchargesShow({
 
         achievementForm.post(`/incharges/${incharge.id}/achievements`, {
             data: payload,
-            onSuccess: clearAchievementForm,
-            preserveScroll: true,
+            ...options,
         });
     }
 
@@ -831,10 +867,6 @@ export default function InchargesShow({
                                             )}
                                             {detail(t('Rank'), incharge.rank)}
                                             {detail(
-                                                t('Designation'),
-                                                incharge.designation,
-                                            )}
-                                            {detail(
                                                 t('Mobile'),
                                                 incharge.mobile,
                                             )}
@@ -867,11 +899,6 @@ export default function InchargesShow({
                                             {detail(
                                                 t('Current teams'),
                                                 summary?.current_teams_count ??
-                                                    0,
-                                            )}
-                                            {detail(
-                                                t('Total assignments'),
-                                                summary?.total_assignments_count ??
                                                     0,
                                             )}
                                         </dl>
@@ -989,7 +1016,7 @@ export default function InchargesShow({
                                     setAddingAchievement(true);
                                     achievementForm.setData({
                                         period: 'POST_RECRUITMENT',
-                                        level: '',
+                                        level: 'NATIONAL',
                                         sport_id: '',
                                         title: '',
                                         competition_details: '',
@@ -1001,7 +1028,9 @@ export default function InchargesShow({
                                         weight_category: '',
                                         gender_class: '',
                                         medal_type: '',
+                                        event_type: 'team',
                                         position: '',
+                                        achieved_on: '',
                                         remarks: '',
                                     });
                                     achievementForm.clearErrors();
@@ -1053,8 +1082,60 @@ export default function InchargesShow({
 
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         <div className="grid gap-3">
+                                            <Label htmlFor="achievement_period">
+                                                {t('Period')}
+                                            </Label>
+                                            <Select
+                                                value={
+                                                    achievementForm.data.period
+                                                }
+                                                onValueChange={(value) => {
+                                                    achievementForm.setData(
+                                                        'period',
+                                                        value as
+                                                            | 'PRE_RECRUITMENT'
+                                                            | 'POST_RECRUITMENT',
+                                                    );
+                                                    achievementForm.clearErrors(
+                                                        'period',
+                                                    );
+                                                }}
+                                            >
+                                                <SelectTrigger id="achievement_period">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {PERIOD_OPTIONS.map(
+                                                        (period) => (
+                                                            <SelectItem
+                                                                key={period}
+                                                                value={period}
+                                                            >
+                                                                {period ===
+                                                                'PRE_RECRUITMENT'
+                                                                    ? t(
+                                                                          'Pre-recruitment',
+                                                                      )
+                                                                    : t(
+                                                                          'Post-recruitment',
+                                                                      )}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            <InputError
+                                                message={
+                                                    achievementForm.errors.period
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-3">
                                             <Label htmlFor="achievement_level">
-                                                {t('Level')}
+                                                {t('Level')}{' '}
+                                                <span className="text-destructive">
+                                                    *
+                                                </span>
                                             </Label>
                                             <Combobox
                                                 id="achievement_level"
@@ -1070,6 +1151,9 @@ export default function InchargesShow({
                                                     achievementForm.setData(
                                                         'level',
                                                         value,
+                                                    );
+                                                    achievementForm.clearErrors(
+                                                        'level',
                                                     );
                                                 }}
                                                 items={achievementLevels.map(
@@ -1093,29 +1177,39 @@ export default function InchargesShow({
                                                 }
                                             />
                                         </div>
-                                        <div className="grid gap-3">
-                                            <Label htmlFor="achievement_title">
-                                                {t('Competition title')}
-                                            </Label>
-                                            <Input
-                                                id="achievement_title"
-                                                value={
-                                                    achievementForm.data
-                                                        .title ?? ''
-                                                }
-                                                onChange={(event) =>
-                                                    achievementForm.setData(
-                                                        'title',
-                                                        event.target.value,
-                                                    )
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    achievementForm.errors.title
-                                                }
-                                            />
-                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-3">
+                                        <Label htmlFor="achievement_title">
+                                            {t('Title')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                        <Input
+                                            id="achievement_title"
+                                            value={
+                                                achievementForm.data.title ?? ''
+                                            }
+                                            onChange={(event) => {
+                                                achievementForm.setData(
+                                                    'title',
+                                                    event.target.value,
+                                                );
+                                                achievementForm.clearErrors(
+                                                    'title',
+                                                );
+                                            }}
+                                            maxLength={150}
+                                            placeholder={t(
+                                                'Example: All India Police Sports Meet',
+                                            )}
+                                        />
+                                        <InputError
+                                            message={
+                                                achievementForm.errors.title
+                                            }
+                                        />
                                     </div>
 
                                     <div className="grid gap-3">
@@ -1128,13 +1222,16 @@ export default function InchargesShow({
                                                 achievementForm.data
                                                     .competition_details ?? ''
                                             }
-                                            onChange={(event) =>
+                                            onChange={(event) => {
                                                 achievementForm.setData(
                                                     'competition_details',
                                                     event.target.value,
-                                                )
-                                            }
-                                            rows={3}
+                                                );
+                                                achievementForm.clearErrors(
+                                                    'competition_details',
+                                                );
+                                            }}
+                                            rows={2}
                                         />
                                         <InputError
                                             message={
@@ -1147,7 +1244,10 @@ export default function InchargesShow({
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         <div className="grid gap-3">
                                             <Label htmlFor="achievement_event_date">
-                                                {t('Event date')}
+                                                {t('Event date')}{' '}
+                                                <span className="text-destructive">
+                                                    *
+                                                </span>
                                             </Label>
                                             <DatePicker
                                                 id="achievement_event_date"
@@ -1155,17 +1255,161 @@ export default function InchargesShow({
                                                     achievementForm.data
                                                         .event_date ?? ''
                                                 }
-                                                onChange={(value) =>
+                                                onChange={(value) => {
                                                     achievementForm.setData(
                                                         'event_date',
                                                         value,
-                                                    )
-                                                }
+                                                    );
+                                                    achievementForm.clearErrors(
+                                                        'event_date',
+                                                    );
+                                                }}
                                             />
                                             <InputError
                                                 message={
                                                     achievementForm.errors
                                                         .event_date
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-3">
+                                            <Label htmlFor="achievement_achieved_on">
+                                                {t('Achieved on')}
+                                            </Label>
+                                            <DatePicker
+                                                id="achievement_achieved_on"
+                                                value={
+                                                    achievementForm.data
+                                                        .achieved_on ?? ''
+                                                }
+                                                onChange={(value) => {
+                                                    achievementForm.setData(
+                                                        'achieved_on',
+                                                        value,
+                                                    );
+                                                    achievementForm.clearErrors(
+                                                        'achieved_on',
+                                                    );
+                                                }}
+                                            />
+                                            <InputError
+                                                message={
+                                                    achievementForm.errors
+                                                        .achieved_on
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-3">
+                                        <Label htmlFor="achievement_sport_id">
+                                            {t('Sport')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                        <Combobox
+                                            id="achievement_sport_id"
+                                            value={
+                                                achievementForm.data.sport_id ??
+                                                ''
+                                            }
+                                            onValueChange={(value) => {
+                                                achievementForm.setData(
+                                                    'sport_id',
+                                                    value,
+                                                );
+                                                achievementForm.setData(
+                                                    'sport_discipline',
+                                                    value
+                                                        ? (sportNameById.get(
+                                                              value,
+                                                          ) ?? '')
+                                                        : '',
+                                                );
+                                                achievementForm.clearErrors(
+                                                    'sport_id',
+                                                );
+                                            }}
+                                            items={(sports ?? []).map(
+                                                (sport) => ({
+                                                    value: String(sport.id),
+                                                    label: sport.name,
+                                                    badge: sport.category
+                                                        ? t(sport.category)
+                                                        : undefined,
+                                                }),
+                                            )}
+                                            placeholder={t('Select sport')}
+                                            searchPlaceholder={t(
+                                                'Search sports…',
+                                            )}
+                                            emptyMessage={t(
+                                                'No sports found.',
+                                            )}
+                                            className="bg-background"
+                                        />
+                                        <InputError
+                                            message={
+                                                achievementForm.errors.sport_id ??
+                                                achievementForm.errors
+                                                    .sport_discipline
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-3">
+                                        <Label htmlFor="achievement_venue">
+                                            {t('Venue')}
+                                        </Label>
+                                        <Input
+                                            id="achievement_venue"
+                                            value={
+                                                achievementForm.data.venue ?? ''
+                                            }
+                                            onChange={(event) => {
+                                                achievementForm.setData(
+                                                    'venue',
+                                                    event.target.value,
+                                                );
+                                                achievementForm.clearErrors(
+                                                    'venue',
+                                                );
+                                            }}
+                                            maxLength={255}
+                                        />
+                                        <InputError
+                                            message={
+                                                achievementForm.errors.venue
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-4">
+                                        <div className="grid gap-3">
+                                            <Label htmlFor="achievement_event">
+                                                {t('Event')}
+                                            </Label>
+                                            <Input
+                                                id="achievement_event"
+                                                value={
+                                                    achievementForm.data.event ??
+                                                    ''
+                                                }
+                                                onChange={(event) => {
+                                                    achievementForm.setData(
+                                                        'event',
+                                                        event.target.value,
+                                                    );
+                                                    achievementForm.clearErrors(
+                                                        'event',
+                                                    );
+                                                }}
+                                                maxLength={100}
+                                            />
+                                            <InputError
+                                                message={
+                                                    achievementForm.errors.event
                                                 }
                                             />
                                         </div>
@@ -1194,6 +1438,9 @@ export default function InchargesShow({
                                                             value
                                                         ] ?? '',
                                                     );
+                                                    achievementForm.clearErrors(
+                                                        'medal_type',
+                                                    );
                                                 }}
                                                 items={ACHIEVEMENT_MEDALS.map(
                                                     (medal) => ({
@@ -1217,9 +1464,57 @@ export default function InchargesShow({
                                                 }
                                             />
                                         </div>
-                                    </div>
-
-                                    <div className="grid gap-3 sm:grid-cols-4">
+                                        <div className="grid gap-3">
+                                            <Label htmlFor="achievement_event_type">
+                                                {t('Event type')}{' '}
+                                                <span className="text-destructive">
+                                                    *
+                                                </span>
+                                            </Label>
+                                            <Select
+                                                value={
+                                                    achievementForm.data
+                                                        .event_type
+                                                }
+                                                onValueChange={(value) => {
+                                                    achievementForm.setData(
+                                                        'event_type',
+                                                        value as
+                                                            | 'team'
+                                                            | 'individual',
+                                                    );
+                                                    achievementForm.clearErrors(
+                                                        'event_type',
+                                                    );
+                                                }}
+                                            >
+                                                <SelectTrigger id="achievement_event_type">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {EVENT_TYPE_OPTIONS.map(
+                                                        (type) => (
+                                                            <SelectItem
+                                                                key={type}
+                                                                value={type}
+                                                            >
+                                                                {type === 'team'
+                                                                    ? t('Team')
+                                                                    : t(
+                                                                          'Individual',
+                                                                      )}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            <InputError
+                                                message={
+                                                    achievementForm.errors
+                                                        .event_type
+                                                }
+                                            />
+                                        </div>
                                         <div className="grid gap-3">
                                             <Label htmlFor="achievement_position">
                                                 {t('Position')}
@@ -1243,6 +1538,9 @@ export default function InchargesShow({
                                                                 value
                                                             ] ?? '',
                                                     });
+                                                    achievementForm.clearErrors(
+                                                        'position',
+                                                    );
                                                 }}
                                             />
                                             <InputError
@@ -1252,6 +1550,9 @@ export default function InchargesShow({
                                                 }
                                             />
                                         </div>
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-3">
                                         <div className="grid gap-3">
                                             <Label htmlFor="achievement_gender_class">
                                                 {t('Gender class')}
@@ -1295,80 +1596,6 @@ export default function InchargesShow({
                                                 }
                                             />
                                         </div>
-                                        <div className="grid gap-3 sm:col-span-2">
-                                            <Label htmlFor="achievement_event">
-                                                {t('Event')}
-                                            </Label>
-                                            <Input
-                                                id="achievement_event"
-                                                value={
-                                                    achievementForm.data
-                                                        .event ?? ''
-                                                }
-                                                onChange={(event) =>
-                                                    achievementForm.setData(
-                                                        'event',
-                                                        event.target.value,
-                                                    )
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    achievementForm.errors.event
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-3 sm:grid-cols-3">
-                                        <div className="grid gap-3">
-                                            <Label htmlFor="achievement_sport_id">
-                                                {t('Sport')}
-                                            </Label>
-                                            <Combobox
-                                                id="achievement_sport_id"
-                                                value={
-                                                    achievementForm.data
-                                                        .sport_id ?? ''
-                                                }
-                                                onValueChange={(value) => {
-                                                    achievementForm.setData(
-                                                        'sport_id',
-                                                        value,
-                                                    );
-                                                    achievementForm.setData(
-                                                        'sport_discipline',
-                                                        value
-                                                            ? (sportNameById.get(
-                                                                  value,
-                                                              ) ?? '')
-                                                            : '',
-                                                    );
-                                                }}
-                                                items={(sports ?? []).map(
-                                                    (sport) => ({
-                                                        value: String(sport.id),
-                                                        label: sport.name,
-                                                    }),
-                                                )}
-                                                placeholder={t('Select sport')}
-                                                searchPlaceholder={t(
-                                                    'Search sports…',
-                                                )}
-                                                emptyMessage={t(
-                                                    'No sports found.',
-                                                )}
-                                                className="bg-background"
-                                            />
-                                            <InputError
-                                                message={
-                                                    achievementForm.errors
-                                                        .sport_id ??
-                                                    achievementForm.errors
-                                                        .sport_discipline
-                                                }
-                                            />
-                                        </div>
                                         <div className="grid gap-3">
                                             <Label htmlFor="achievement_weight_category">
                                                 {t('Weight category')}
@@ -1379,12 +1606,16 @@ export default function InchargesShow({
                                                     achievementForm.data
                                                         .weight_category ?? ''
                                                 }
-                                                onChange={(event) =>
+                                                onChange={(event) => {
                                                     achievementForm.setData(
                                                         'weight_category',
                                                         event.target.value,
-                                                    )
-                                                }
+                                                    );
+                                                    achievementForm.clearErrors(
+                                                        'weight_category',
+                                                    );
+                                                }}
+                                                maxLength={100}
                                             />
                                             <InputError
                                                 message={
@@ -1403,12 +1634,16 @@ export default function InchargesShow({
                                                     achievementForm.data
                                                         .discipline ?? ''
                                                 }
-                                                onChange={(event) =>
+                                                onChange={(event) => {
                                                     achievementForm.setData(
                                                         'discipline',
                                                         event.target.value,
-                                                    )
-                                                }
+                                                    );
+                                                    achievementForm.clearErrors(
+                                                        'discipline',
+                                                    );
+                                                }}
+                                                maxLength={255}
                                             />
                                             <InputError
                                                 message={
@@ -1417,29 +1652,6 @@ export default function InchargesShow({
                                                 }
                                             />
                                         </div>
-                                    </div>
-
-                                    <div className="grid gap-3">
-                                        <Label htmlFor="achievement_venue">
-                                            {t('Venue')}
-                                        </Label>
-                                        <Input
-                                            id="achievement_venue"
-                                            value={
-                                                achievementForm.data.venue ?? ''
-                                            }
-                                            onChange={(event) =>
-                                                achievementForm.setData(
-                                                    'venue',
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
-                                        <InputError
-                                            message={
-                                                achievementForm.errors.venue
-                                            }
-                                        />
                                     </div>
 
                                     <div className="grid gap-3">
@@ -1452,13 +1664,16 @@ export default function InchargesShow({
                                                 achievementForm.data.remarks ??
                                                 ''
                                             }
-                                            onChange={(event) =>
+                                            onChange={(event) => {
                                                 achievementForm.setData(
                                                     'remarks',
                                                     event.target.value,
-                                                )
-                                            }
-                                            rows={2}
+                                                );
+                                                achievementForm.clearErrors(
+                                                    'remarks',
+                                                );
+                                            }}
+                                            rows={3}
                                         />
                                         <InputError
                                             message={
@@ -1510,7 +1725,7 @@ export default function InchargesShow({
                                                 {t('Level')}
                                             </TableHead>
                                             <TableHead className="min-w-40">
-                                                {t('Sport / Discipline')}
+                                                {t('Sport')}
                                             </TableHead>
                                             <TableHead className="min-w-40">
                                                 {t('Event')}
@@ -1519,6 +1734,7 @@ export default function InchargesShow({
                                             <TableHead>
                                                 {t('Event Date')}
                                             </TableHead>
+                                            <TableHead>{t('Event type')}</TableHead>
                                             <TableHead>{t('Medal')}</TableHead>
                                             <TableHead className="text-right">
                                                 {t('Actions')}
@@ -1556,7 +1772,9 @@ export default function InchargesShow({
                                                     <TableCell className="text-sm">
                                                         <div>
                                                             {displayValue(
-                                                                achievement.sport_discipline,
+                                                                achievement.sport
+                                                                    ?.name ??
+                                                                    achievement.sport_discipline,
                                                             )}
                                                         </div>
                                                         {achievement.discipline ? (
@@ -1580,6 +1798,20 @@ export default function InchargesShow({
                                                     <TableCell>
                                                         {displayValue(
                                                             achievement.event_date,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {achievement.event_type ? (
+                                                            <Badge variant="secondary">
+                                                                {achievement.event_type ===
+                                                                'team'
+                                                                    ? t('Team')
+                                                                    : t(
+                                                                          'Individual',
+                                                                      )}
+                                                            </Badge>
+                                                        ) : (
+                                                            '—'
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
@@ -1620,22 +1852,28 @@ export default function InchargesShow({
                                                                     );
                                                                     achievementForm.setData(
                                                                         {
-                                                                            period: 'POST_RECRUITMENT',
+                                                                            period:
+                                                                                achievement.period ??
+                                                                                'POST_RECRUITMENT',
                                                                             level:
                                                                                 achievement.level ??
-                                                                                '',
+                                                                                'NATIONAL',
                                                                             sport_id:
-                                                                                Array.from(
-                                                                                    sportNameById.entries(),
-                                                                                ).find(
-                                                                                    ([
-                                                                                        ,
-                                                                                        name,
-                                                                                    ]) =>
-                                                                                        name ===
-                                                                                        achievement.sport_discipline,
-                                                                                )?.[0] ??
-                                                                                '',
+                                                                                achievement.sport_id
+                                                                                    ? String(
+                                                                                          achievement.sport_id,
+                                                                                      )
+                                                                                    : Array.from(
+                                                                                            sportNameById.entries(),
+                                                                                        ).find(
+                                                                                            ([
+                                                                                                ,
+                                                                                                name,
+                                                                                            ]) =>
+                                                                                                name ===
+                                                                                                achievement.sport_discipline,
+                                                                                        )?.[0] ??
+                                                                                        '',
                                                                             title: achievement.title,
                                                                             competition_details:
                                                                                 achievement.competition_details ??
@@ -1667,12 +1905,21 @@ export default function InchargesShow({
                                                                             medal_type:
                                                                                 achievement.medal_type ??
                                                                                 '',
+                                                                            event_type:
+                                                                                achievement.event_type ??
+                                                                                'team',
                                                                             position:
                                                                                 achievement.position
                                                                                     ? String(
                                                                                           achievement.position,
                                                                                       )
                                                                                     : '',
+                                                                            achieved_on:
+                                                                                normalizeIsoDate(
+                                                                                    achievement.achieved_on ??
+                                                                                        '',
+                                                                                ) ??
+                                                                                '',
                                                                             remarks:
                                                                                 achievement.remarks ??
                                                                                 '',

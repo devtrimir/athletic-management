@@ -457,7 +457,6 @@ class TeamProfileData
             'current_incharge_rank' => null,
             'current_incharge_name' => null,
             'current_incharge_pno' => null,
-            'current_incharge_designation' => null,
             'current_incharge_mobile' => null,
             'sport' => null,
             'location_label' => null,
@@ -529,7 +528,6 @@ class TeamProfileData
                 'full_name' => $assignment->full_name,
                 'pno' => $assignment->pno,
                 'rank' => $assignment->rank,
-                'designation' => $assignment->designation,
                 'mobile' => $assignment->mobile,
                 'email' => $assignment->email,
                 'assigned_at' => $assignment->assigned_at?->toDateTimeString(),
@@ -555,7 +553,7 @@ class TeamProfileData
     {
         return Incharge::active()
             ->orderBy('full_name')
-            ->get(['id', 'full_name', 'pno', 'rank', 'designation', 'mobile', 'email'])
+            ->get(['id', 'full_name', 'pno', 'rank', 'mobile', 'email'])
             ->all();
     }
 }

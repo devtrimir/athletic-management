@@ -402,7 +402,6 @@
     "Team assignments": "Team assignments",
     "Team prabhari history": "Team prabhari history",
     "Teams": "Teams",
-    "Total assignments": "Total assignments",
     "Total records": "Total records",
     "Unable to refresh the team after save.": "Unable to refresh the team after save.",
     "Unassigned": "Unassigned",
@@ -414,5 +413,6 @@
     "Use YYYY-MM-DD format.": "Use YYYY-MM-DD format.",
     "Weight category": "Weight category",
     "team prabhari": "team prabhari",
-    "—": "—"
+    "—": "—",
+    "Search team prabhari by name, PNO, or rank": "Search team prabhari by name, PNO, or rank"
 }

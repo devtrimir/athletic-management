@@ -10,11 +10,9 @@ import type { InchargeFormRecord, MasterOption } from './form';
 export default function InchargesEdit({
     incharge,
     ranks,
-    designations,
 }: {
     incharge: InchargeFormRecord & { id: number };
     ranks: MasterOption[];
-    designations: MasterOption[];
 }) {
     const { t } = useTranslation();
 
@@ -34,11 +32,7 @@ export default function InchargesEdit({
                         </Link>
                     </Button>
                 </div>
-                <InchargeForm
-                    incharge={incharge}
-                    ranks={ranks}
-                    designations={designations}
-                />
+                <InchargeForm incharge={incharge} ranks={ranks} />
             </div>
         </>
     );

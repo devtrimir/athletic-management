@@ -9,10 +9,8 @@ import type { MasterOption } from './form';
 
 export default function InchargesCreate({
     ranks,
-    designations,
 }: {
     ranks: MasterOption[];
-    designations: MasterOption[];
 }) {
     const { t } = useTranslation();
 
@@ -34,7 +32,7 @@ export default function InchargesCreate({
                         </Link>
                     </Button>
                 </div>
-                <InchargeForm ranks={ranks} designations={designations} />
+                <InchargeForm ranks={ranks} />
             </div>
         </>
     );

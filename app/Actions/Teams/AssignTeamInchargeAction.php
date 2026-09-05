@@ -31,7 +31,6 @@ class AssignTeamInchargeAction
                 'full_name' => $incharge->full_name,
                 'pno' => $incharge->pno,
                 'rank' => $incharge->rank,
-                'designation' => $incharge->designation,
                 'mobile' => $incharge->mobile,
                 'email' => $incharge->email,
                 'assigned_at' => isset($data['assigned_at']) ? Carbon::parse($data['assigned_at']) : now(),

@@ -28,7 +28,6 @@ class InchargeProfileData
             'activeTab' => 'overview',
             'summary' => [
                 'current_teams_count' => $incharge->currentAssignments()->count(),
-                'total_assignments_count' => $incharge->assignments()->count(),
             ],
         ];
     }
@@ -41,7 +40,6 @@ class InchargeProfileData
             'activeTab' => 'profile',
             'summary' => [
                 'current_teams_count' => $incharge->currentAssignments()->count(),
-                'total_assignments_count' => $incharge->assignments()->count(),
             ],
         ];
     }
@@ -55,7 +53,6 @@ class InchargeProfileData
             'achievements' => $this->achievementsPayload($incharge),
             'summary' => [
                 'current_teams_count' => $incharge->currentAssignments()->count(),
-                'total_assignments_count' => $incharge->assignments()->count(),
             ],
         ];
     }
@@ -114,7 +111,6 @@ class InchargeProfileData
                 'full_name' => $incharge->full_name,
                 'pno' => $incharge->pno,
                 'rank' => $incharge->rank,
-                'designation' => $incharge->designation,
                 'mobile' => $incharge->mobile,
                 'email' => $incharge->email,
                 'is_active' => $incharge->is_active,
@@ -124,7 +120,7 @@ class InchargeProfileData
             'sports' => Sport::query()
                 ->where('organization_id', $incharge->organization_id)
                 ->orderBy('name')
-                ->get(['id', 'name']),
+                ->get(['id', 'name', 'category']),
             'achievement_levels' => $this->achievementLevels(),
         ];
     }
@@ -172,7 +168,6 @@ class InchargeProfileData
                 'full_name' => $assignment->full_name,
                 'pno' => $assignment->pno,
                 'rank' => $assignment->rank,
-                'designation' => $assignment->designation,
                 'mobile' => $assignment->mobile,
                 'email' => $assignment->email,
                 'assigned_at' => $assignment->assigned_at?->toDateTimeString(),
@@ -202,6 +197,7 @@ class InchargeProfileData
     {
         $achievements = InchargeAchievement::query()
             ->where('incharge_id', $incharge->id)
+            ->with(['sport:id,name'])
             ->orderByDesc('event_date')
             ->orderByDesc('id')
             ->get();
@@ -221,12 +217,15 @@ class InchargeProfileData
                     'event_date' => $achievement->event_date?->toDateString()
                         ?? $achievement->achieved_on?->toDateString(),
                     'venue' => $achievement->venue,
+                    'sport_id' => $achievement->sport_id,
+                    'sport' => $achievement->sport ? ['id' => $achievement->sport->id, 'name' => $achievement->sport->name] : null,
                     'sport_discipline' => $achievement->sport_discipline,
                     'event' => $achievement->event,
                     'discipline' => $achievement->discipline,
                     'weight_category' => $achievement->weight_category,
                     'gender_class' => $achievement->gender_class,
                     'medal_type' => $achievement->medal_type,
+                    'event_type' => $achievement->event_type,
                     'position' => $achievement->position,
                     'description' => $achievement->description,
                     'achieved_on' => $achievement->achieved_on?->toDateString(),
