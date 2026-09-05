@@ -51,6 +51,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - You must follow all existing code conventions used in this application. When creating or editing a file, check sibling files for the correct structure, approach, and naming.
 - Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
 - Check for existing components to reuse before writing a new one.
+- Translation completeness: before finishing any task, audit every translation key the change touches (labels, buttons, table headers, validation messages) against the application's selected language (English/Hindi). If a key is missing or untranslated for the active locale, add or fix it in the relevant `resources/lang` files so the UI never shows raw keys.
 
 ## Verification Scripts
 
