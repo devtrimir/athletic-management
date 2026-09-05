@@ -54,9 +54,9 @@ function strictParseTypedDate(value: string): Date | undefined {
     const trimmed = value.trim();
 
     // Accept only fully-formed dates; partial input must never parse.
-    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-    const dmySlash = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
-    const dmyDash = /^(\d{2})-(\d{2})-(\d{4})$/.exec(trimmed);
+    const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
+    const dmySlash = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+    const dmyDash = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(trimmed);
     // Bare 8 digits: ddmmyyyy (placeholder format dd/mm/yyyy).
     const dmyCompact = /^(\d{2})(\d{2})(\d{4})$/.exec(trimmed);
 
@@ -106,21 +106,28 @@ const yearOptions = Array.from({ length: 101 }, (_, index) =>
 
 function maskTypedDate(value: string): string {
     // Pasted ISO dates pass through untouched.
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(value.trim())) {
         return value.trim();
     }
 
-    const digits = value.replace(/\D/g, '').slice(0, 8);
+    // Digits-only input: auto-insert the dd/mm/yyyy separators.
+    if (/^\d+$/.test(value)) {
+        const digits = value.slice(0, 8);
 
-    if (digits.length <= 2) {
-        return digits;
+        if (digits.length <= 2) {
+            return digits;
+        }
+
+        if (digits.length <= 4) {
+            return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+        }
+
+        return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
     }
 
-    if (digits.length <= 4) {
-        return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    }
-
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    // Input already contains separators (e.g. editing an existing date):
+    // keep the user's cursor-level edit, only strip invalid characters.
+    return value.replace(/[^\d/-]/g, '').slice(0, 10);
 }
 
 export function DatePicker({
