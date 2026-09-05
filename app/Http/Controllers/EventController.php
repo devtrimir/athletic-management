@@ -214,7 +214,15 @@ class EventController extends Controller
      */
     private function participantCandidates(Tournament $tournament, Event $event): Collection
     {
-        $existingMemberIds = $event->participations()->pluck('member_id');
+        $participations = $event->participations()->select(['member_id', 'lineup_member_ids'])->get();
+        $existingMemberIds = $participations->pluck('member_id')->filter()->unique()->values()->all();
+        $existingLineupMemberIds = $participations
+            ->flatMap(fn (Participation $participation): array => (array) ($participation->lineup_member_ids ?? []))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $excludedMemberIds = array_values(array_unique(array_merge($existingMemberIds, $existingLineupMemberIds)));
         $gender = $this->candidateGender($event->gender_class);
 
         return Team::query()
@@ -226,7 +234,7 @@ class EventController extends Controller
             ->with(['teamMembers' => fn ($query) => $query
                 ->select(['id', 'team_id', 'member_id', 'session_id', 'role', 'left_on'])
                 ->whereNull('left_on')
-                ->whereNotIn('member_id', $existingMemberIds)
+                ->when(count($excludedMemberIds) > 0, fn ($query) => $query->whereNotIn('member_id', $excludedMemberIds))
                 ->when($gender !== null, fn ($query) => $query->whereHas(
                     'member',
                     fn ($query) => $query->where('gender', $gender),

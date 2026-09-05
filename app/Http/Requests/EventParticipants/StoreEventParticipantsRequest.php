@@ -63,9 +63,6 @@ class StoreEventParticipantsRequest extends FormRequest
                 }
 
                 $eventType = $event->event_type;
-                $requiredCount = $event->participants_required;
-                $variantMin = (int) ($event->sportEventVariant?->min_participants ?? 0);
-                $variantMax = (int) ($event->sportEventVariant?->max_participants ?? 0);
                 $rows = (array) $this->input('participants', []);
                 $teamRows = 0;
                 $usedTeamIds = [];
@@ -162,20 +159,6 @@ class StoreEventParticipantsRequest extends FormRequest
                                 );
                             }
                         }
-                    }
-                }
-
-                if ($eventType === 'individual') {
-                    $individualCount = count(
-                        array_filter($rows, static fn (array $row): bool => isset($row['member_id']) && (int) $row['member_id'] > 0),
-                    );
-
-                    if ($requiredCount !== null && $individualCount !== (int) $requiredCount) {
-                        $validator->errors()->add('participants', __('This event needs exactly :count participants.')->replace(':count', (string) $requiredCount));
-                    } elseif ($requiredCount === null && $variantMin > 0 && $individualCount < $variantMin) {
-                        $validator->errors()->add('participants', __('Minimum :count participants are required.')->replace(':count', (string) $variantMin));
-                    } elseif ($variantMax > 0 && $individualCount > $variantMax) {
-                        $validator->errors()->add('participants', __('No more than :count participants are allowed.')->replace(':count', (string) $variantMax));
                     }
                 }
 
