@@ -334,7 +334,10 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [x] **P6-T39** Coach playing-career achievements (standalone table, isolated from all medal tallies) with CRUD section in Achievements tab; sports-master select, date validation, full-width venue; special + playing achievements wired into print preview and quick view — PR #192
 - [x] **P6-T40** Playing career achievements event-derived for member-linked coaches (read-only, Team/Individual badge); legacy free-form fallback for unlinked coaches — PR #193
 - [ ] **P6-T41** Member → Coach/Prabhari conversion with auto-sync (plan parked in journal; not started)
-- [ ] **P6-T42** Playing achievements event-structured standalone records: event_type (team/individual) form field, source_achievement_id provenance column reserved for future copy-from-member — PR #194
+
+- [x] **P6-T43** DatePicker direct-typing fix in shared component (local draft, strict full-date parsing, blur revert) — global across 23 usages — PR #195
+- [x] **P6-T42** Playing achievements event-structured standalone records: event_type (team/individual) form field, source_achievement_id provenance column reserved for future copy-from-member — PR #194
+
 - [x] **P6-T36** Print preview polish: remove duplicate name heading (both pages), drop 'Display name' row from coach print, full rank names on office print, 23 missing Hindi keys + From/To rank translation fixes — PR #187
 - [x] **P6-T35** Redesign coach profile print preview to match the member print design (letterhead + frame + watermark, pill section toggles, member print helpers, cloned print window) — PR #186
 - [x] **P6-T34** Full-view document modal (shared ConfidentialDocumentPreview) + coach posting unit/district mutual exclusivity (prohibits validation + clear/disable UI, mirrors member module) — PR #185
