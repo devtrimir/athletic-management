@@ -639,6 +639,18 @@ export default function CoachesShow({
         return rankItems.find((rank) => rank.value === value)?.label ?? value;
     }
 
+    function coachRoleLabel(role: string | null | undefined): string {
+        if (role === 'HEAD') {
+            return t('Head Coach');
+        }
+
+        if (role === 'ASSISTANT') {
+            return t('Assistant Coach');
+        }
+
+        return role ?? '';
+    }
+
     function hasPromotionFields(promotion: CoachPromotion): boolean {
         return Boolean(
             promotion.promotion_date ||
@@ -1940,7 +1952,9 @@ export default function CoachesShow({
                                                             ''}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {assignment.role}
+                                                        {coachRoleLabel(
+                                                            assignment.role,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell>
                                                         {assignment.is_current
