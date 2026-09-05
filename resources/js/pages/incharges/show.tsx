@@ -206,12 +206,7 @@ const POSITION_TO_MEDAL: Record<string, string> = {
     '2': 'SILVER',
     '3': 'BRONZE',
 };
-const GENDER_CLASS_ITEMS: Array<{ value: string; label: string }> = [
-    { value: 'M', label: 'Male' },
-    { value: 'F', label: 'Female' },
-    { value: 'MIXED', label: 'Mixed' },
-    { value: 'OPEN', label: 'Open' },
-];
+const GENDER_CLASS_ITEMS: string[] = ['M', 'F', 'MIXED', 'OPEN'];
 
 type AchievementFormState = {
     period: 'POST_RECRUITMENT';
@@ -242,7 +237,7 @@ type SpecialAchievementFormState = {
     remarks: string;
 };
 
-function specialAchievementTypeLabel(
+export function specialAchievementTypeLabel(
     value: string,
     t: (key: string) => string,
 ): string {
@@ -1080,7 +1075,7 @@ export default function InchargesShow({
                                                 items={achievementLevels.map(
                                                     (level) => ({
                                                         value: level,
-                                                        label: level,
+                                                        label: t(level),
                                                     }),
                                                 )}
                                                 placeholder={t('Level')}
@@ -1203,7 +1198,7 @@ export default function InchargesShow({
                                                 items={ACHIEVEMENT_MEDALS.map(
                                                     (medal) => ({
                                                         value: medal,
-                                                        label: medal,
+                                                        label: t(medal),
                                                     }),
                                                 )}
                                                 placeholder={t('Medal')}
@@ -1282,14 +1277,12 @@ export default function InchargesShow({
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {GENDER_CLASS_ITEMS.map(
-                                                        (item) => (
+                                                        (value) => (
                                                             <SelectItem
-                                                                key={item.value}
-                                                                value={
-                                                                    item.value
-                                                                }
+                                                                key={value}
+                                                                value={value}
                                                             >
-                                                                {item.label}
+                                                                {t(value)}
                                                             </SelectItem>
                                                         ),
                                                     )}
@@ -1554,9 +1547,11 @@ export default function InchargesShow({
                                                         ) : null}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
-                                                        {displayValue(
-                                                            achievement.level,
-                                                        )}
+                                                        {achievement.level
+                                                            ? t(
+                                                                  achievement.level,
+                                                              )
+                                                            : '—'}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
                                                         <div>
@@ -1590,7 +1585,13 @@ export default function InchargesShow({
                                                     <TableCell>
                                                         <div className="font-medium">
                                                             {displayValue(
-                                                                `${achievement.medal_type ?? ''} ${achievement.position ?? ''}`.trim(),
+                                                                `${
+                                                                    achievement.medal_type
+                                                                        ? t(
+                                                                              achievement.medal_type,
+                                                                          )
+                                                                        : ''
+                                                                } ${achievement.position ?? ''}`.trim(),
                                                             )}
                                                         </div>
                                                         {achievement.weight_category ? (

@@ -8,6 +8,7 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import { useTranslation } from '@/hooks/use-translation';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
 
 export function Breadcrumbs({
@@ -15,6 +16,8 @@ export function Breadcrumbs({
 }: {
     breadcrumbs: BreadcrumbItemType[];
 }) {
+    const { t } = useTranslation();
+
     return (
         <>
             {breadcrumbs.length > 0 && (
@@ -28,7 +31,7 @@ export function Breadcrumbs({
                                     <BreadcrumbItem className="min-w-0">
                                         {isLast ? (
                                             <BreadcrumbPage className="truncate rounded-md bg-sidebar-accent/40 px-2 py-1 text-sm font-medium text-foreground">
-                                                {item.title}
+                                                {t(item.title)}
                                             </BreadcrumbPage>
                                         ) : (
                                             <BreadcrumbLink asChild>
@@ -36,7 +39,7 @@ export function Breadcrumbs({
                                                     href={item.href}
                                                     className="truncate rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
                                                 >
-                                                    {item.title}
+                                                    {t(item.title)}
                                                 </Link>
                                             </BreadcrumbLink>
                                         )}
