@@ -980,160 +980,217 @@ function LegacyPlayingAchievementsList({
         );
     }
 
+    const groups: {
+        key: string;
+        label: string;
+        rows: PlayingAchievementRow[];
+    }[] = [
+        {
+            key: 'POST_RECRUITMENT',
+            label: t('Post-recruitment'),
+            rows: records.filter((r) => r.period === 'POST_RECRUITMENT'),
+        },
+        {
+            key: 'PRE_RECRUITMENT',
+            label: t('Pre-recruitment'),
+            rows: records.filter((r) => r.period === 'PRE_RECRUITMENT'),
+        },
+        {
+            key: 'OTHER',
+            label: t('Other'),
+            rows: records.filter(
+                (r) =>
+                    r.period !== 'POST_RECRUITMENT' &&
+                    r.period !== 'PRE_RECRUITMENT',
+            ),
+        },
+    ].filter((group) => group.rows.length > 0);
+
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead className="w-12">{t('S. No.')}</TableHead>
-                    <TableHead>{t('Medal')}</TableHead>
-                    <TableHead>{t('Title / Competition')}</TableHead>
-                    <TableHead>{t('Sport')}</TableHead>
-                    <TableHead>{t('Event')}</TableHead>
-                    <TableHead>{t('Type')}</TableHead>
-                    <TableHead>{t('Level')}</TableHead>
-                    <TableHead>{t('Date')}</TableHead>
-                    <TableHead>{t('Venue')}</TableHead>
-                    <TableHead>{t('Position')}</TableHead>
-                    <TableHead className="text-right">{t('Actions')}</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {records.map((row, index) => (
-                    <TableRow key={row.id}>
-                        <TableCell className="text-muted-foreground">
-                            {index + 1}
-                        </TableCell>
-                        <TableCell>
-                            {row.medal_type ? (
-                                <Badge
-                                    variant="outline"
-                                    className={`gap-1.5 ${medalBadgeClass(row.medal_type)}`}
-                                >
-                                    <Award className="size-3.5" />
-                                    {t(row.medal_type)}
-                                </Badge>
-                            ) : (
-                                <span className="text-muted-foreground">—</span>
-                            )}
-                        </TableCell>
-                        <TableCell className="max-w-[18rem]">
-                            <div
-                                className="truncate font-medium"
-                                title={row.title}
-                            >
-                                {row.title}
-                            </div>
-                            {row.competition_details ? (
-                                <div
-                                    className="truncate text-xs text-muted-foreground"
-                                    title={row.competition_details}
-                                >
-                                    {row.competition_details}
-                                </div>
-                            ) : null}
-                            {row.remarks ? (
-                                <div
-                                    className="truncate text-xs text-muted-foreground"
-                                    title={row.remarks}
-                                >
-                                    {row.remarks}
-                                </div>
-                            ) : null}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                            {row.sport?.name ?? '—'}
-                        </TableCell>
-                        <TableCell className="max-w-[12rem]">
-                            <span
-                                className="block truncate"
-                                title={row.event ?? undefined}
-                            >
-                                {row.event ?? '—'}
-                            </span>
-                        </TableCell>
-                        <TableCell>
-                            {row.event_type ? (
-                                <Badge variant="secondary">
-                                    {row.event_type === 'team'
-                                        ? t('Team')
-                                        : t('Individual')}
-                                </Badge>
-                            ) : (
-                                <span className="text-muted-foreground">—</span>
-                            )}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                            {row.level ? t(row.level) : '—'}
-                            {row.period ? (
-                                <div className="text-xs text-muted-foreground">
-                                    {periodLabel(row.period, t)}
-                                </div>
-                            ) : null}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                            {formatDate(row.event_date)}
-                            {row.achieved_on ? (
-                                <div className="text-xs text-muted-foreground">
-                                    {t('Achieved on')}:{' '}
-                                    {formatDate(row.achieved_on)}
-                                </div>
-                            ) : null}
-                        </TableCell>
-                        <TableCell className="max-w-[12rem]">
-                            <span
-                                className="block truncate"
-                                title={row.venue ?? undefined}
-                            >
-                                {row.venue ?? '—'}
-                            </span>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                            {row.position !== null ? `#${row.position}` : '—'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                                <PlayingAchievementDialog
-                                    coach={coach}
-                                    row={row}
-                                    sports={sports}
-                                />
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="size-8 text-destructive hover:text-destructive"
-                                    onClick={() =>
-                                        router.delete(
-                                            destroyPlayingAchievement.url({
-                                                coach,
-                                                playingAchievement: row,
-                                            }),
-                                            {
-                                                preserveScroll: true,
-                                                preserveState: (page: {
-                                                    props: {
-                                                        errors?: Record<
-                                                            string,
-                                                            string
-                                                        >;
-                                                    };
-                                                }) =>
-                                                    Object.keys(
-                                                        page.props.errors ?? {},
-                                                    ).length > 0,
-                                            },
-                                        )
-                                    }
-                                >
-                                    <Trash2 className="size-4" />
-                                    <span className="sr-only">
-                                        {t('Delete')}
-                                    </span>
-                                </Button>
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+        <div className="divide-y">
+            {groups.map((group) => (
+                <div key={group.key} className="py-3">
+                    <div className="flex items-center gap-2 px-4 pb-2">
+                        <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                            {group.label}
+                        </h4>
+                        <span className="text-xs text-muted-foreground">
+                            {group.rows.length}
+                        </span>
+                    </div>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-12">
+                                    {t('S. No.')}
+                                </TableHead>
+                                <TableHead>{t('Medal')}</TableHead>
+                                <TableHead>
+                                    {t('Title / Competition')}
+                                </TableHead>
+                                <TableHead>{t('Event')}</TableHead>
+                                <TableHead>{t('Type')}</TableHead>
+                                <TableHead>{t('Level')}</TableHead>
+                                <TableHead>{t('Date')}</TableHead>
+                                <TableHead>{t('Venue')}</TableHead>
+                                <TableHead className="text-right">
+                                    {t('Actions')}
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {group.rows.map((row, index) => (
+                                <TableRow key={row.id}>
+                                    <TableCell className="text-muted-foreground">
+                                        {index + 1}
+                                    </TableCell>
+                                    <TableCell>
+                                        {row.medal_type ? (
+                                            <Badge
+                                                variant="outline"
+                                                className={`gap-1.5 ${medalBadgeClass(row.medal_type)}`}
+                                            >
+                                                <Award className="size-3.5" />
+                                                {t(row.medal_type)}
+                                                {row.position !== null
+                                                    ? ` · #${row.position}`
+                                                    : ''}
+                                            </Badge>
+                                        ) : row.position !== null ? (
+                                            <span className="whitespace-nowrap">
+                                                #{row.position}
+                                            </span>
+                                        ) : (
+                                            <span className="text-muted-foreground">
+                                                —
+                                            </span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="max-w-[18rem]">
+                                        <div
+                                            className="truncate font-medium"
+                                            title={row.title}
+                                        >
+                                            {row.title}
+                                        </div>
+                                        {row.competition_details ? (
+                                            <div
+                                                className="truncate text-xs text-muted-foreground"
+                                                title={row.competition_details}
+                                            >
+                                                {row.competition_details}
+                                            </div>
+                                        ) : null}
+                                        {row.sport ? (
+                                            <div className="truncate text-xs text-muted-foreground">
+                                                {row.sport.name}
+                                            </div>
+                                        ) : null}
+                                        {row.remarks ? (
+                                            <div
+                                                className="truncate text-xs text-muted-foreground"
+                                                title={row.remarks}
+                                            >
+                                                {row.remarks}
+                                            </div>
+                                        ) : null}
+                                    </TableCell>
+                                    <TableCell className="max-w-[12rem]">
+                                        <span
+                                            className="block truncate"
+                                            title={row.event ?? undefined}
+                                        >
+                                            {row.event ?? '—'}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell>
+                                        {row.event_type ? (
+                                            <Badge variant="secondary">
+                                                {row.event_type === 'team'
+                                                    ? t('Team')
+                                                    : t('Individual')}
+                                            </Badge>
+                                        ) : (
+                                            <span className="text-muted-foreground">
+                                                —
+                                            </span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap">
+                                        {row.level ? t(row.level) : '—'}
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap">
+                                        {formatDate(row.event_date)}
+                                        {row.achieved_on ? (
+                                            <div className="text-xs text-muted-foreground">
+                                                {t('Achieved on')}:{' '}
+                                                {formatDate(row.achieved_on)}
+                                            </div>
+                                        ) : null}
+                                    </TableCell>
+                                    <TableCell className="max-w-[12rem]">
+                                        <span
+                                            className="block truncate"
+                                            title={row.venue ?? undefined}
+                                        >
+                                            {row.venue ?? '—'}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-1">
+                                            <PlayingAchievementDialog
+                                                coach={coach}
+                                                row={row}
+                                                sports={sports}
+                                            />
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="size-8 text-destructive hover:text-destructive"
+                                                onClick={() =>
+                                                    router.delete(
+                                                        destroyPlayingAchievement.url(
+                                                            {
+                                                                coach,
+                                                                playingAchievement:
+                                                                    row,
+                                                            },
+                                                        ),
+                                                        {
+                                                            preserveScroll: true,
+                                                            preserveState:
+                                                                (page: {
+                                                                    props: {
+                                                                        errors?: Record<
+                                                                            string,
+                                                                            string
+                                                                        >;
+                                                                    };
+                                                                }) =>
+                                                                    Object.keys(
+                                                                        page
+                                                                            .props
+                                                                            .errors ??
+                                                                            {},
+                                                                    ).length >
+                                                                    0,
+                                                        },
+                                                    )
+                                                }
+                                            >
+                                                <Trash2 className="size-4" />
+                                                <span className="sr-only">
+                                                    {t('Delete')}
+                                                </span>
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            ))}
+        </div>
     );
 }
