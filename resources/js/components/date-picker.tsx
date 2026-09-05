@@ -127,7 +127,20 @@ function maskTypedDate(value: string): string {
 
     // Input already contains separators (e.g. editing an existing date):
     // keep the user's cursor-level edit, only strip invalid characters.
-    return value.replace(/[^\d/-]/g, '').slice(0, 10);
+    const sanitized = value.replace(/[^\d/-]/g, '').slice(0, 10);
+
+    // Sequential typing continues past the month segment (e.g. "12/052"):
+    // the digits-only mask never sees this because of the first slash, so
+    // insert the second separator here.
+    if (/^\d{2}\/\d{1,4}$/.test(sanitized)) {
+        const digits = sanitized.replace(/\D/g, '').slice(0, 8);
+
+        if (digits.length > 4) {
+            return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+        }
+    }
+
+    return sanitized;
 }
 
 export function DatePicker({
