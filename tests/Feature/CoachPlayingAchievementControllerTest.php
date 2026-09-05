@@ -45,6 +45,7 @@ test('user without coaches.managePlayingAchievements cannot store', function ():
         ->post(route('coaches.playing-achievements.store', $coach), [
             'title' => 'National Police Games',
             'level' => 'NATIONAL',
+            'event_type' => 'individual',
             'event_date' => '2010-02-15',
             'sport_id' => $sport->id,
         ])
@@ -67,6 +68,7 @@ test('user with coaches.managePlayingAchievements can store a record', function 
             'sport_id' => $sport->id,
             'event' => '100m Sprint',
             'medal_type' => 'GOLD',
+            'event_type' => 'individual',
             'position' => 1,
             'achieved_on' => '2010-02-15',
             'remarks' => 'Personal best.',
@@ -78,6 +80,8 @@ test('user with coaches.managePlayingAchievements can store a record', function 
     expect($record->title)->toBe('All India Police Sports Meet')
         ->and($record->level)->toBe('NATIONAL')
         ->and($record->medal_type)->toBe('GOLD')
+        ->and($record->event_type)->toBe('individual')
+        ->and($record->source_achievement_id)->toBeNull()
         ->and($record->sport_id)->toBe($sport->id)
         ->and($record->organization_id)->toBe($coach->organization_id);
 });
@@ -91,6 +95,7 @@ test('user with coaches.update can store a record without the dedicated permissi
         ->post(route('coaches.playing-achievements.store', $coach), [
             'title' => 'State Championship',
             'level' => 'STATE',
+            'event_type' => 'team',
             'event_date' => '2012-05-10',
             'sport_id' => $sport->id,
         ])
@@ -113,7 +118,26 @@ test('store validates required fields and allowed values', function (): void {
             'position' => 0,
         ])
         ->assertRedirect(route('coaches.achievements', $coach))
-        ->assertSessionHasErrors(['title', 'level', 'period', 'medal_type', 'position', 'event_date', 'sport_id']);
+        ->assertSessionHasErrors(['title', 'level', 'period', 'medal_type', 'position', 'event_date', 'sport_id', 'event_type']);
+
+    expect(CoachPlayingAchievement::query()->where('coach_id', $coach->id)->exists())->toBeFalse();
+});
+
+test('store rejects an invalid event_type', function (): void {
+    $user = coachPlayingAchievementUser('coaches.view', 'coaches.managePlayingAchievements');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->from(route('coaches.achievements', $coach))
+        ->post(route('coaches.playing-achievements.store', $coach), [
+            'title' => 'All India Police Sports Meet',
+            'level' => 'NATIONAL',
+            'event_type' => 'relay',
+            'event_date' => '2010-02-15',
+            'sport_id' => $sport->id,
+        ])
+        ->assertSessionHasErrors(['event_type']);
 
     expect(CoachPlayingAchievement::query()->where('coach_id', $coach->id)->exists())->toBeFalse();
 });
@@ -197,6 +221,46 @@ test('update modifies the record and redirects', function (): void {
         ->and($achievement->fresh()->medal_type)->toBe('SILVER');
 });
 
+test('update can change the event_type', function (): void {
+    $user = coachPlayingAchievementUser('coaches.view', 'coaches.managePlayingAchievements');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $achievement = CoachPlayingAchievement::factory()->forCoach($coach)->create([
+        'event_type' => 'team',
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('coaches.playing-achievements.update', [$coach, $achievement]), [
+            'event_type' => 'individual',
+        ])
+        ->assertRedirect(route('coaches.achievements', $coach));
+
+    expect($achievement->fresh()->event_type)->toBe('individual');
+});
+
+test('update rejects an invalid event_type but stays valid when omitted', function (): void {
+    $user = coachPlayingAchievementUser('coaches.view', 'coaches.managePlayingAchievements');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $achievement = CoachPlayingAchievement::factory()->forCoach($coach)->create([
+        'event_type' => 'team',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('coaches.achievements', $coach))
+        ->patch(route('coaches.playing-achievements.update', [$coach, $achievement]), [
+            'event_type' => 'pairs',
+        ])
+        ->assertSessionHasErrors(['event_type']);
+
+    $this->actingAs($user)
+        ->patch(route('coaches.playing-achievements.update', [$coach, $achievement]), [
+            'title' => 'Renamed Championship',
+        ])
+        ->assertRedirect(route('coaches.achievements', $coach));
+
+    expect($achievement->fresh()->title)->toBe('Renamed Championship')
+        ->and($achievement->fresh()->event_type)->toBe('team');
+});
+
 test('update returns 404 for achievement belonging to another coach', function (): void {
     $user = coachPlayingAchievementUser('coaches.view', 'coaches.managePlayingAchievements');
     $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
@@ -270,6 +334,7 @@ test('storing a playing achievement does not touch the achievements medal tally 
             'title' => 'All India Police Sports Meet',
             'level' => 'NATIONAL',
             'medal_type' => 'GOLD',
+            'event_type' => 'individual',
             'event_date' => '2010-02-15',
             'sport_id' => $sport->id,
         ])
@@ -289,6 +354,7 @@ test('achievements tab exposes playing achievements separate from coached achiev
         'title' => 'National Police Games',
         'level' => 'NATIONAL',
         'medal_type' => 'GOLD',
+        'event_type' => 'team',
         'event_date' => '2010-02-15',
         'sport_id' => $sport->id,
     ]);
@@ -307,6 +373,8 @@ test('achievements tab exposes playing achievements separate from coached achiev
             ->has('playingAchievements.records', 1)
             ->where('playingAchievements.records.0.title', 'National Police Games')
             ->where('playingAchievements.records.0.medal_type', 'GOLD')
+            ->where('playingAchievements.records.0.event_type', 'team')
+            ->where('playingAchievements.records.0.source_achievement_id', null)
             ->where('playingAchievements.records.0.sport.name', $sportName)
             ->has('playingAchievements.sports')
             ->where('playingAchievements.summary.total', 1)

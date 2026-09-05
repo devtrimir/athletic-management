@@ -163,6 +163,7 @@ type PlayingAchievementRecord = {
     sport: { id: number; name: string } | null;
     event: string | null;
     medal_type: string | null;
+    event_type: 'team' | 'individual' | null;
     position: number | null;
     achieved_on: string | null;
     remarks: string | null;
@@ -920,6 +921,7 @@ export default function CoachPrintPreview({
                                             t('Medal'),
                                             t('Title'),
                                             t('Level'),
+                                            t('Kind'),
                                             t('Competition'),
                                             t('Event date'),
                                             t('Venue'),
@@ -933,6 +935,11 @@ export default function CoachPrintPreview({
                                                 : '—',
                                             record.title,
                                             record.level,
+                                            record.event_type
+                                                ? record.event_type === 'team'
+                                                    ? t('Team')
+                                                    : t('Individual')
+                                                : '—',
                                             [
                                                 record.competition_details,
                                                 record.event,
