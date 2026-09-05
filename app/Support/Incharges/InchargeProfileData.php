@@ -120,7 +120,7 @@ class InchargeProfileData
             'sports' => Sport::query()
                 ->where('organization_id', $incharge->organization_id)
                 ->orderBy('name')
-                ->get(['id', 'name']),
+                ->get(['id', 'name', 'category']),
             'achievement_levels' => $this->achievementLevels(),
         ];
     }
@@ -197,6 +197,7 @@ class InchargeProfileData
     {
         $achievements = InchargeAchievement::query()
             ->where('incharge_id', $incharge->id)
+            ->with(['sport:id,name'])
             ->orderByDesc('event_date')
             ->orderByDesc('id')
             ->get();
@@ -216,12 +217,15 @@ class InchargeProfileData
                     'event_date' => $achievement->event_date?->toDateString()
                         ?? $achievement->achieved_on?->toDateString(),
                     'venue' => $achievement->venue,
+                    'sport_id' => $achievement->sport_id,
+                    'sport' => $achievement->sport ? ['id' => $achievement->sport->id, 'name' => $achievement->sport->name] : null,
                     'sport_discipline' => $achievement->sport_discipline,
                     'event' => $achievement->event,
                     'discipline' => $achievement->discipline,
                     'weight_category' => $achievement->weight_category,
                     'gender_class' => $achievement->gender_class,
                     'medal_type' => $achievement->medal_type,
+                    'event_type' => $achievement->event_type,
                     'position' => $achievement->position,
                     'description' => $achievement->description,
                     'achieved_on' => $achievement->achieved_on?->toDateString(),

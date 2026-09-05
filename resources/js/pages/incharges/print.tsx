@@ -48,12 +48,15 @@ type Achievement = {
     competition_details: string | null;
     event_date: string | null;
     venue: string | null;
+    sport_id: number | null;
+    sport: { id: number; name: string } | null;
     sport_discipline: string | null;
     event: string | null;
     discipline: string | null;
     weight_category: string | null;
     gender_class: string | null;
     medal_type: string | null;
+    event_type: 'team' | 'individual' | null;
     position: number | null;
     description: string | null;
     achieved_on: string | null;
@@ -718,10 +721,11 @@ export default function InchargePrintPreview({
                                             {achievementRecords.map(
                                                 (row, index) => {
                                                     const sportEventLine = [
-                                                        printValue(
-                                                            row.sport_discipline,
-                                                            t,
-                                                        ),
+                                                        row.sport?.name ??
+                                                            printValue(
+                                                                row.sport_discipline,
+                                                                t,
+                                                            ),
                                                         row.event,
                                                         row.discipline,
                                                     ]
@@ -731,6 +735,14 @@ export default function InchargePrintPreview({
                                                         .join(' · ');
 
                                                     const resultLine = [
+                                                        row.event_type
+                                                            ? t(
+                                                                  row.event_type ===
+                                                                      'team'
+                                                                      ? 'Team'
+                                                                      : 'Individual',
+                                                              )
+                                                            : null,
                                                         printValue(
                                                             row.medal_type,
                                                             t,

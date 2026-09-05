@@ -7,11 +7,12 @@ namespace App\Models;
 use App\Concerns\Auditable;
 use App\Concerns\Tenanted;
 use App\Observers\AuditObserver;
+use Database\Factories\InchargeAchievementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 #[Fillable([
     'organization_id',
@@ -23,12 +24,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
     'competition_details',
     'event_date',
     'venue',
+    'sport_id',
     'sport_discipline',
     'event',
     'discipline',
     'weight_category',
     'gender_class',
     'medal_type',
+    'event_type',
     'position',
     'achieved_on',
     'remarks',
@@ -36,7 +39,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 #[ObservedBy([AuditObserver::class])]
 class InchargeAchievement extends Model
 {
-    /** @use HasFactory<\Database\Factories\InchargeAchievementFactory> */
+    /** @use HasFactory<InchargeAchievementFactory> */
     use Auditable, HasFactory, Tenanted;
 
     protected function casts(): array
@@ -52,6 +55,12 @@ class InchargeAchievement extends Model
     public function incharge(): BelongsTo
     {
         return $this->belongsTo(Incharge::class);
+    }
+
+    /** @return BelongsTo<Sport, $this> */
+    public function sport(): BelongsTo
+    {
+        return $this->belongsTo(Sport::class);
     }
 
     /** @return BelongsTo<Organization, $this> */

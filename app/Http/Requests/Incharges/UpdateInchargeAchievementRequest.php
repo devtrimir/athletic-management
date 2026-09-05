@@ -29,20 +29,26 @@ class UpdateInchargeAchievementRequest extends FormRequest
      */
     public function rules(): array
     {
+        $orgId = (int) $this->user()->organization_id;
+
         return [
-            'period' => ['sometimes', 'required', Rule::in(['POST_RECRUITMENT'])],
-            'level' => ['sometimes', 'required', Rule::in($this->levelOptions())],
             'title' => ['sometimes', 'required', 'string', 'max:150'],
-            'competition_details' => ['sometimes', 'required', 'string'],
+            'period' => ['sometimes', 'nullable', Rule::in(['PRE_RECRUITMENT', 'POST_RECRUITMENT'])],
+            'level' => ['sometimes', 'required', Rule::in($this->levelOptions())],
+            'competition_details' => ['sometimes', 'nullable', 'string'],
             'event_date' => ['sometimes', 'required', Rule::date()->format('Y-m-d')],
             'venue' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'sport_id' => ['sometimes', 'required', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'sport_discipline' => ['sometimes', 'nullable', 'string', 'max:100'],
             'event' => ['sometimes', 'nullable', 'string', 'max:100'],
             'discipline' => ['sometimes', 'nullable', 'string', 'max:255'],
             'weight_category' => ['sometimes', 'nullable', 'string', 'max:100'],
             'gender_class' => ['sometimes', 'nullable', Rule::in(['M', 'F', 'MIXED', 'OPEN'])],
             'medal_type' => ['sometimes', 'nullable', Rule::in(['GOLD', 'SILVER', 'BRONZE', 'MERIT', 'CERTIFICATE'])],
+            'event_type' => ['sometimes', 'required', Rule::in(['team', 'individual'])],
             'position' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:9999'],
+            'description' => ['sometimes', 'nullable', 'string'],
+            'achieved_on' => ['sometimes', 'nullable', Rule::date()->format('Y-m-d')],
             'remarks' => ['sometimes', 'nullable', 'string'],
         ];
     }
