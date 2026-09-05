@@ -109,6 +109,7 @@ test('coach preview includes special achievements and playing achievements', fun
         'title' => 'National Police Games',
         'level' => 'NATIONAL',
         'medal_type' => 'GOLD',
+        'event_type' => 'team',
         'event_date' => '2010-02-15',
     ]);
 
@@ -121,6 +122,8 @@ test('coach preview includes special achievements and playing achievements', fun
         ->assertJsonPath('playing_achievements.0.title', 'National Police Games')
         ->assertJsonPath('playing_achievements.0.medal_type', 'GOLD')
         ->assertJsonPath('playing_achievements.0.level', 'NATIONAL')
+        ->assertJsonPath('playing_achievements.0.event_type', 'team')
+        ->assertJsonPath('playing_achievements.0.source_achievement_id', null)
         ->assertJsonStructure([
             'special_achievements' => [
                 '*' => ['id', 'achievement_type', 'title', 'awarded_on', 'issuing_authority', 'place', 'remarks'],
@@ -128,7 +131,8 @@ test('coach preview includes special achievements and playing achievements', fun
             'playing_achievements' => [
                 '*' => [
                     'id', 'title', 'period', 'level', 'competition_details', 'event_date',
-                    'venue', 'sport_id', 'sport', 'event', 'medal_type', 'position', 'achieved_on', 'remarks',
+                    'venue', 'sport_id', 'sport', 'event', 'medal_type', 'event_type',
+                    'source_achievement_id', 'position', 'achieved_on', 'remarks',
                 ],
             ],
         ]);

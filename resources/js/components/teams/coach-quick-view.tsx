@@ -85,6 +85,7 @@ type PlayingAchievementItem = {
     sport_discipline: string | null;
     event: string | null;
     medal_type: string | null;
+    event_type: 'team' | 'individual' | null;
     position: number | null;
     achieved_on: string | null;
     remarks: string | null;
@@ -217,7 +218,7 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
               )
             : (data.playing_achievements as PlayingAchievementItem[]).map(
                   (a) =>
-                      `<tr><td>${a.medal_type ?? ''}</td><td>${a.title}</td><td>${a.level ?? ''}</td><td>${a.competition_details ?? ''}</td><td>${a.event_date ?? ''}</td><td>${a.venue ?? ''}</td><td>${a.position ?? ''}</td></tr>`,
+                      `<tr><td>${a.medal_type ?? ''}</td><td>${a.title}</td><td>${a.level ?? ''}</td><td>${a.event_type ? (a.event_type === 'team' ? t('Team') : t('Individual')) : ''}</td><td>${a.competition_details ?? ''}</td><td>${a.event_date ?? ''}</td><td>${a.venue ?? ''}</td><td>${a.position ?? ''}</td></tr>`,
               )
     ).join('');
 
@@ -287,7 +288,7 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     <table><thead><tr>${
         data.playing_achievements_source === 'member'
             ? `<th>${t('Medal')}</th><th>${t('Tournament')}</th><th>${t('Event')}</th><th>${t('Kind')}</th><th>${t('Date')}</th><th>${t('Venue')}</th><th>${t('Position')}</th>`
-            : `<th>${t('Medal')}</th><th>${t('Title')}</th><th>${t('Level')}</th><th>${t('Competition')}</th><th>${t('Event date')}</th><th>${t('Venue')}</th><th>${t('Position')}</th>`
+            : `<th>${t('Medal')}</th><th>${t('Title')}</th><th>${t('Level')}</th><th>${t('Kind')}</th><th>${t('Competition')}</th><th>${t('Event date')}</th><th>${t('Venue')}</th><th>${t('Position')}</th>`
     }</tr></thead>
     <tbody>${playingAchievementRows}</tbody></table>`
             : ''
@@ -688,6 +689,9 @@ export function CoachQuickView({
                                                             {t('Level')}
                                                         </TableHead>
                                                         <TableHead>
+                                                            {t('Kind')}
+                                                        </TableHead>
+                                                        <TableHead>
                                                             {t('Competition')}
                                                         </TableHead>
                                                         <TableHead>
@@ -787,6 +791,18 @@ export function CoachQuickView({
                                                                         <TableCell>
                                                                             {row.level ??
                                                                                 ''}
+                                                                        </TableCell>
+                                                                        <TableCell>
+                                                                            {row.event_type
+                                                                                ? row.event_type ===
+                                                                                  'team'
+                                                                                    ? t(
+                                                                                          'Team',
+                                                                                      )
+                                                                                    : t(
+                                                                                          'Individual',
+                                                                                      )
+                                                                                : ''}
                                                                         </TableCell>
                                                                         <TableCell>
                                                                             {row.competition_details ??

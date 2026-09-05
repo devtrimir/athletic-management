@@ -138,6 +138,8 @@ class CoachPreviewController extends Controller
                     'sport' => $achievement->sport?->name,
                     'event' => $achievement->event,
                     'medal_type' => $achievement->medal_type,
+                    'event_type' => $achievement->event_type,
+                    'source_achievement_id' => $achievement->source_achievement_id,
                     'position' => $achievement->position,
                     'achieved_on' => $achievement->achieved_on?->toDateString(),
                     'remarks' => $achievement->remarks,
