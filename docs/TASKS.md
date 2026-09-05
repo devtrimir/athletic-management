@@ -332,7 +332,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [x] **P6-T37** Member rank/initial-rank localized against ranks master (name/name_en) across listing, show, quick-view, print preview, print listing and Excel export; export rows map category/level raw keys to localized labels — PR #188
 - [x] **P6-T38** Coach special achievements: standalone `coach_special_achievements` table (separate from member), CRUD + private order document (upload/preview modal/download), route-backed tab on coach profile, RBAC permission, audit wiring, en+hi keys — PR #191
 - [x] **P6-T39** Coach playing-career achievements (standalone table, isolated from all medal tallies) with CRUD section in Achievements tab; sports-master select, date validation, full-width venue; special + playing achievements wired into print preview and quick view — PR #192
-- [ ] **P6-T40** Playing career achievements event-derived for member-linked coaches (read-only, Team/Individual badge); legacy free-form fallback for unlinked coaches — PR #193
+- [x] **P6-T40** Playing career achievements event-derived for member-linked coaches (read-only, Team/Individual badge); legacy free-form fallback for unlinked coaches — PR #193
 - [ ] **P6-T41** Member → Coach/Prabhari conversion with auto-sync (plan parked in journal; not started)
 - [x] **P6-T36** Print preview polish: remove duplicate name heading (both pages), drop 'Display name' row from coach print, full rank names on office print, 23 missing Hindi keys + From/To rank translation fixes — PR #187
 - [x] **P6-T35** Redesign coach profile print preview to match the member print design (letterhead + frame + watermark, pill section toggles, member print helpers, cloned print window) — PR #186
