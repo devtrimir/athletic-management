@@ -10,9 +10,11 @@ use App\Models\Achievement;
 use App\Models\Event;
 use App\Models\Participation;
 use App\Models\Tournament;
+use App\Services\PromotionDependencyGuard;
 use App\Support\Participations\ParticipationTeamResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -110,7 +112,7 @@ class EventParticipantController extends Controller
         return to_route('tournaments.events.show', [$tournament, $event]);
     }
 
-    public function update(UpdateParticipantRequest $request, Tournament $tournament, Event $event, Participation $participation): RedirectResponse
+    public function update(UpdateParticipantRequest $request, Tournament $tournament, Event $event, Participation $participation, PromotionDependencyGuard $guard): RedirectResponse
     {
         Gate::authorize('update', $tournament);
 
@@ -136,7 +138,22 @@ class EventParticipantController extends Controller
                 ],
             );
         } else {
-            $participation->achievement?->delete();
+            $achievement = $participation->achievement;
+
+            if ($achievement !== null) {
+                $dependents = $guard->forAchievement($achievement);
+
+                if ($dependents->isNotEmpty()) {
+                    Inertia::flash('toast', [
+                        'type' => 'error',
+                        'message' => $this->dependencyMessage($dependents),
+                    ]);
+
+                    return back();
+                }
+
+                $achievement->delete();
+            }
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant updated.')]);
@@ -144,7 +161,7 @@ class EventParticipantController extends Controller
         return back();
     }
 
-    public function destroy(Tournament $tournament, Event $event, Participation $participation, Request $request): RedirectResponse
+    public function destroy(Tournament $tournament, Event $event, Participation $participation, Request $request, PromotionDependencyGuard $guard): RedirectResponse
     {
         Gate::authorize('update', $tournament);
 
@@ -172,6 +189,17 @@ class EventParticipantController extends Controller
             );
 
             if (count($updated) === 0) {
+                $dependents = $guard->forParticipation($participation);
+
+                if ($dependents->isNotEmpty()) {
+                    Inertia::flash('toast', [
+                        'type' => 'error',
+                        'message' => $this->dependencyMessage($dependents),
+                    ]);
+
+                    return back();
+                }
+
                 $participation->delete();
                 Inertia::flash('toast', ['type' => 'success', 'message' => __('Team participation removed as no players remain.')]);
 
@@ -184,10 +212,31 @@ class EventParticipantController extends Controller
             return back();
         }
 
+        $dependents = $guard->forParticipation($participation);
+
+        if ($dependents->isNotEmpty()) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => $this->dependencyMessage($dependents),
+            ]);
+
+            return back();
+        }
+
         $participation->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant removed.')]);
 
         return back();
+    }
+
+    /**
+     * @param  Collection<int, array{type: string, name: string, id: int}>  $dependents
+     */
+    private function dependencyMessage(Collection $dependents): string
+    {
+        $names = $dependents->pluck('name')->unique()->implode(', ');
+
+        return __('Cannot delete because it is used as evidence for promotions/rewards of: :names.', ['names' => $names]);
     }
 }
