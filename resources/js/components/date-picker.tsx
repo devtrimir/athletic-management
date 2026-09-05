@@ -104,6 +104,25 @@ const yearOptions = Array.from({ length: 101 }, (_, index) =>
     String(1950 + index),
 );
 
+function maskTypedDate(value: string): string {
+    // Pasted ISO dates pass through untouched.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+        return value.trim();
+    }
+
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+
+    if (digits.length <= 2) {
+        return digits;
+    }
+
+    if (digits.length <= 4) {
+        return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    }
+
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
 export function DatePicker({
     value,
     onChange,
@@ -210,7 +229,7 @@ export function DatePicker({
                 aria-describedby={ariaDescribedBy}
                 placeholder={placeholder ?? 'dd/mm/yyyy'}
                 onChange={(event) => {
-                    const nextValue = event.target.value;
+                    const nextValue = maskTypedDate(event.target.value);
                     setDraft(nextValue);
 
                     if (!nextValue.trim()) {
