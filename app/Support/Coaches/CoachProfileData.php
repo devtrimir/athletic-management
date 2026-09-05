@@ -322,7 +322,10 @@ class CoachProfileData
                     return false;
                 }
 
-                if (! $membershipKeys->has($this->memberTeamSessionKey($participation->member_id, $participation->team_id, $participation->session_id))) {
+                // Team-event participations carry no member_id; the lineup is
+                // validated separately, so only the assignment window applies.
+                if ($participation->member_id !== null
+                    && ! $membershipKeys->has($this->memberTeamSessionKey($participation->member_id, $participation->team_id, $participation->session_id))) {
                     return false;
                 }
 
@@ -335,6 +338,8 @@ class CoachProfileData
         if ($achievements->isEmpty()) {
             return $this->emptyAchievementsPayload();
         }
+
+        $lineupMembers = $this->lineupMembersFor($achievements, $coach);
 
         $rewardEvidenceByKey = CoachPromotionEvidence::query()
             ->with('coachPromotion:id,cash_reward_amount,cash_reward_date,cash_reward_reference')
@@ -366,8 +371,8 @@ class CoachProfileData
                 $achievement->participation->event->id,
                 $achievement->participation->team_id,
             ])->join(':'))
-            ->map(function (Collection $group) use ($rewardEvidenceByKey, $seenRewardIds): array {
-                $payload = $this->coachAchievementGroupPayload($group, $rewardEvidenceByKey);
+            ->map(function (Collection $group) use ($rewardEvidenceByKey, $seenRewardIds, $lineupMembers): array {
+                $payload = $this->coachAchievementGroupPayload($group, $rewardEvidenceByKey, $lineupMembers);
                 $payload['rewards'] = collect($payload['rewards'])
                     ->reject(function (array $reward) use ($seenRewardIds): bool {
                         if ($seenRewardIds->has($reward['id'])) {
@@ -400,7 +405,20 @@ class CoachProfileData
                     ->map(fn (Achievement $achievement): string => $achievement->participation->event_id.':'.$achievement->participation->team_id.':'.$achievement->participation->session_id)
                     ->unique()
                     ->count(),
-                'medal_winning_players' => $countableAchievements->pluck('participation.member_id')->unique()->count(),
+                'medal_winning_players' => $countableAchievements
+                    ->flatMap(function (Achievement $achievement) use ($lineupMembers): array {
+                        $participation = $achievement->participation;
+
+                        if ($participation->member_id !== null) {
+                            return [$participation->member_id];
+                        }
+
+                        return collect(array_map('intval', (array) ($participation->lineup_member_ids ?? [])))
+                            ->filter(fn (int $memberId): bool => $lineupMembers->has($memberId))
+                            ->all();
+                    })
+                    ->unique()
+                    ->count(),
             ],
             'groups' => $groups,
         ];
@@ -681,8 +699,9 @@ class CoachProfileData
     /**
      * @param  Collection<int, Achievement>  $achievements
      * @param  Collection<string, Collection<int, CoachPromotionEvidence>>  $rewardEvidenceByKey
+     * @param  Collection<int, Member>  $lineupMembers
      */
-    private function coachAchievementGroupPayload(Collection $achievements, Collection $rewardEvidenceByKey): array
+    private function coachAchievementGroupPayload(Collection $achievements, Collection $rewardEvidenceByKey, Collection $lineupMembers): array
     {
         $first = $achievements->first();
         $participation = $first->participation;
@@ -745,24 +764,85 @@ class CoachProfileData
             'medal_counts' => $medalCounts,
             'rewards' => $this->coachRewardEvidencePayload($rewardEvidenceByKey->get($rewardKey, collect())->merge($rewardEvidenceByKey->get($rewardTournamentKey, collect()))),
             'players' => $achievements
-                ->sortBy(fn (Achievement $achievement): string => $achievement->participation->member->full_name)
-                ->map(fn (Achievement $achievement): array => [
-                    'achievement_id' => $achievement->id,
-                    'participation_id' => $achievement->participation_id,
-                    'member' => [
-                        'id' => $achievement->participation->member->id,
-                        'full_name' => $achievement->participation->member->full_name,
-                        'pno' => $achievement->participation->member->pno,
-                    ],
-                    'medal_type' => $achievement->medal_type,
-                    'position' => $achievement->position,
-                    'participation_position' => $achievement->participation->position,
-                    'remarks' => $achievement->remarks,
-                    'benefits' => $this->achievementBenefitsPayload($achievement->benefits),
-                ])
+                ->flatMap(fn (Achievement $achievement): array => $this->achievementPlayerRows($achievement, $lineupMembers))
+                ->sortBy(fn (array $player): string => mb_strtolower((string) ($player['member']['full_name'] ?? '')))
                 ->values()
                 ->all(),
         ];
+    }
+
+    /**
+     * One player row per achievement for member participations; one row per
+     * lineup member for team-event participations, sharing the team medal.
+     *
+     * @param  Collection<int, Member>  $lineupMembers
+     * @return array<int, array<string, mixed>>
+     */
+    private function achievementPlayerRows(Achievement $achievement, Collection $lineupMembers): array
+    {
+        $participation = $achievement->participation;
+        $base = [
+            'achievement_id' => $achievement->id,
+            'participation_id' => $achievement->participation_id,
+            'medal_type' => $achievement->medal_type,
+            'position' => $achievement->position,
+            'participation_position' => $participation->position,
+            'remarks' => $achievement->remarks,
+            'benefits' => $this->achievementBenefitsPayload($achievement->benefits),
+        ];
+
+        if ($participation->member_id !== null) {
+            $member = $participation->member;
+
+            return $member === null ? [] : [[
+                ...$base,
+                'member' => [
+                    'id' => $member->id,
+                    'full_name' => $member->full_name,
+                    'pno' => $member->pno,
+                ],
+            ]];
+        }
+
+        return collect(array_map('intval', (array) ($participation->lineup_member_ids ?? [])))
+            ->map(fn (int $memberId): ?Member => $lineupMembers->get($memberId))
+            ->filter()
+            ->map(fn (Member $member): array => [
+                ...$base,
+                'member' => [
+                    'id' => $member->id,
+                    'full_name' => $member->full_name,
+                    'pno' => $member->pno,
+                ],
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Org-scoped lineup members for team-event participations, keyed by id.
+     *
+     * @param  Collection<int, Achievement>  $achievements
+     * @return Collection<int, Member>
+     */
+    private function lineupMembersFor(Collection $achievements, Coach $coach): Collection
+    {
+        $lineupMemberIds = $achievements
+            ->flatMap(fn (Achievement $achievement): array => $achievement->participation->member_id === null
+                ? array_map('intval', (array) ($achievement->participation->lineup_member_ids ?? []))
+                : [])
+            ->unique()
+            ->values();
+
+        if ($lineupMemberIds->isEmpty()) {
+            return collect();
+        }
+
+        return Member::query()
+            ->where('organization_id', $coach->organization_id)
+            ->whereIn('id', $lineupMemberIds)
+            ->get(['id', 'full_name', 'pno'])
+            ->keyBy('id');
     }
 
     /** @param  Collection<int, CoachPromotionEvidence>  $evidences */

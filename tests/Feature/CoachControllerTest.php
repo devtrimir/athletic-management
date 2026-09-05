@@ -123,6 +123,62 @@ function coachedMedal(array $overrides = []): Achievement
     ]);
 }
 
+function coachedTeamMedal(array $overrides = []): Achievement
+{
+    $organization = $overrides['organization'] ?? Organization::factory()->create();
+    $session = $overrides['session'] ?? SportSession::factory()->create(['organization_id' => $organization->id]);
+    $sport = $overrides['sport'] ?? Sport::factory()->create(['organization_id' => $organization->id]);
+    $team = $overrides['team'] ?? Team::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+    ]);
+    $lineupMembers = $overrides['lineup_members'] ?? [
+        Member::factory()->create(['organization_id' => $organization->id, 'full_name' => 'Lineup Player One']),
+        Member::factory()->create(['organization_id' => $organization->id, 'full_name' => 'Lineup Player Two']),
+    ];
+    $tier = $overrides['tier'] ?? TournamentTier::firstOrCreate(
+        ['code' => $overrides['tier_code'] ?? 'NATIONAL'],
+        ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
+    );
+    $tournament = $overrides['tournament'] ?? Tournament::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'tier_id' => $tier->id,
+        'name' => $overrides['tournament_name'] ?? 'National Police Games',
+        'date_from' => $overrides['date_from'] ?? '2026-02-10',
+    ]);
+    $event = $overrides['event'] ?? Event::factory()->forTournament($tournament)->create([
+        'name' => $overrides['event_name'] ?? 'Team Event',
+        'event_type' => 'team',
+    ]);
+
+    if (($overrides['create_membership'] ?? true) === true) {
+        foreach ($lineupMembers as $lineupMember) {
+            TeamMember::factory()->create([
+                'team_id' => $team->id,
+                'member_id' => $lineupMember->id,
+                'session_id' => $session->id,
+            ]);
+        }
+    }
+
+    $participation = Participation::factory()->forEvent($event)->create([
+        'member_id' => null,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'lineup_member_ids' => collect($lineupMembers)->map(fn (Member $member): int => $member->id)->all(),
+        'position' => $overrides['participation_position'] ?? 1,
+    ]);
+
+    return Achievement::factory()->forParticipation($participation)->create([
+        'medal_type' => $overrides['medal_type'] ?? 'GOLD',
+        'position' => $overrides['position'] ?? 1,
+        'remarks' => $overrides['remarks'] ?? null,
+    ]);
+}
+
 // ---------------------------------------------------------------------------
 // index
 // ---------------------------------------------------------------------------
@@ -1469,6 +1525,104 @@ test('coach achievements exclude auto-resolved individual medals when assigned a
             ->where('coachAchievements.summary.GOLD', 0)
             ->where('coachAchievements.summary.total_events', 0)
             ->etc()
+        );
+});
+
+test('coach achievements tab includes team event medals with lineup players', function () {
+    $user = coachUser('coaches.view');
+    $organization = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create(['organization_id' => $organization->id]);
+    $sport = Sport::factory()->create(['organization_id' => $organization->id]);
+    $team = Team::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+    ]);
+    $coach = Coach::factory()->create(['organization_id' => $organization->id]);
+    CoachAssignment::factory()->head()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'assigned_at' => '2026-01-01 00:00:00',
+    ]);
+    $firstLineup = Member::factory()->create([
+        'organization_id' => $organization->id,
+        'full_name' => 'Lineup Player A',
+    ]);
+    $secondLineup = Member::factory()->create([
+        'organization_id' => $organization->id,
+        'full_name' => 'Lineup Player B',
+    ]);
+    $achievement = coachedTeamMedal([
+        'organization' => $organization,
+        'session' => $session,
+        'sport' => $sport,
+        'team' => $team,
+        'lineup_members' => [$firstLineup, $secondLineup],
+        'event_name' => 'Volleyball Team',
+        'medal_type' => 'GOLD',
+    ]);
+
+    expect($achievement->participation->member_id)->toBeNull()
+        ->and($achievement->participation->lineup_member_ids)
+        ->toBe([$firstLineup->id, $secondLineup->id]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.achievements', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/show')
+            ->where('coachAchievements.summary.GOLD', 1)
+            ->where('coachAchievements.summary.total_events', 1)
+            ->where('coachAchievements.summary.medal_winning_players', 2)
+            ->where('coachAchievements.groups.0.event.name', 'Volleyball Team')
+            ->where('coachAchievements.groups.0.medal_counts.GOLD', 1)
+            ->has('coachAchievements.groups.0.players', 2)
+            ->where('coachAchievements.groups.0.players.0.member.id', $firstLineup->id)
+            ->where('coachAchievements.groups.0.players.0.member.full_name', 'Lineup Player A')
+            ->where('coachAchievements.groups.0.players.0.medal_type', 'GOLD')
+            ->where('coachAchievements.groups.0.players.1.member.id', $secondLineup->id)
+            ->where('coachAchievements.groups.0.players.1.member.full_name', 'Lineup Player B')
+            ->etc()
+        );
+});
+
+test('coach achievements exclude team event medals when assigned after the tournament date', function () {
+    $user = coachUser('coaches.view');
+    $organization = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create(['organization_id' => $organization->id]);
+    $sport = Sport::factory()->create(['organization_id' => $organization->id]);
+    $team = Team::factory()->create([
+        'organization_id' => $organization->id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+    ]);
+    $coach = Coach::factory()->create(['organization_id' => $organization->id]);
+    CoachAssignment::factory()->head()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'assigned_at' => '2026-03-01 00:00:00',
+    ]);
+    coachedTeamMedal([
+        'organization' => $organization,
+        'session' => $session,
+        'sport' => $sport,
+        'team' => $team,
+        'event_name' => 'Volleyball Team',
+        'date_from' => '2026-02-10',
+        'medal_type' => 'GOLD',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.achievements', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/show')
+            ->where('coachAchievements.summary.GOLD', 0)
+            ->where('coachAchievements.summary.total_events', 0)
+            ->where('coachAchievements.summary.medal_winning_players', 0)
+            ->where('coachAchievements.groups', [])
         );
 });
 
