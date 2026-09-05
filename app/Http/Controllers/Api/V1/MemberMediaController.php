@@ -12,6 +12,7 @@ use App\Models\Participation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -30,18 +31,41 @@ use Illuminate\Support\Facades\Gate;
  */
 class MemberMediaController extends Controller
 {
+    /**
+     * @return Collection<int, int>
+     */
+    private function memberParticipationIds(Member $member): Collection
+    {
+        $directIds = $member->participations()->pluck('id');
+
+        $teamIds = Participation::query()
+            ->whereExists(function ($query) use ($member): void {
+                $query->select(DB::raw(1))
+                    ->from('team_members')
+                    ->whereColumn('team_members.team_id', 'participations.team_id')
+                    ->whereColumn('team_members.session_id', 'participations.session_id')
+                    ->where('team_members.member_id', $member->id)
+                    ->whereNull('team_members.left_on');
+            })
+            ->pluck('id');
+
+        return $directIds->merge($teamIds)->unique()->values();
+    }
+
     public function __invoke(Request $request, Member $member): JsonResponse
     {
         Gate::authorize('view', $member);
 
-        // Base: all media for participations this member has
+        $participationIds = $this->memberParticipationIds($member);
+
+        // Base: all media for participations this member has (direct or team lineup)
         $query = MediaFile::with(['uploader:id,name', 'mediable'])
             ->where('organization_id', $member->organization_id)
-            ->where(function ($q) use ($member) {
+            ->where(function ($q) use ($participationIds) {
                 // Media on Participation
-                $q->where(function ($q2) use ($member) {
+                $q->where(function ($q2) use ($participationIds) {
                     $q2->where('mediable_type', Participation::class)
-                        ->whereIn('mediable_id', $member->participations()->pluck('id'));
+                        ->whereIn('mediable_id', $participationIds);
                 });
             })
             ->orderByDesc('created_at');
@@ -62,38 +86,38 @@ class MemberMediaController extends Controller
 
         if (! empty($filters['tournament_id'])) {
             $tournamentId = (int) $filters['tournament_id'];
-            $participationIds = $member->participations()
+            $filteredIds = Participation::whereIn('id', $participationIds)
                 ->whereHas('event', fn ($q) => $q->where('tournament_id', $tournamentId))
                 ->pluck('id');
             $query->where('mediable_type', Participation::class)
-                ->whereIn('mediable_id', $participationIds);
+                ->whereIn('mediable_id', $filteredIds);
         }
 
         if (! empty($filters['sport_id'])) {
             $sportId = (int) $filters['sport_id'];
-            $participationIds = $member->participations()
+            $filteredIds = Participation::whereIn('id', $participationIds)
                 ->whereHas('event', fn ($q) => $q->where('sport_id', $sportId))
                 ->pluck('id');
             $query->where('mediable_type', Participation::class)
-                ->whereIn('mediable_id', $participationIds);
+                ->whereIn('mediable_id', $filteredIds);
         }
 
         if (! empty($filters['session_id'])) {
             $sessionId = (int) $filters['session_id'];
-            $participationIds = $member->participations()
+            $filteredIds = Participation::whereIn('id', $participationIds)
                 ->where('session_id', $sessionId)
                 ->pluck('id');
             $query->where('mediable_type', Participation::class)
-                ->whereIn('mediable_id', $participationIds);
+                ->whereIn('mediable_id', $filteredIds);
         }
 
         if (! empty($filters['medal_type'])) {
             $medalType = strtoupper($filters['medal_type']);
-            $participationIds = $member->participations()
+            $filteredIds = Participation::whereIn('id', $participationIds)
                 ->whereHas('achievement', fn ($q) => $q->where('medal_type', $medalType))
                 ->pluck('id');
             $query->where('mediable_type', Participation::class)
-                ->whereIn('mediable_id', $participationIds);
+                ->whereIn('mediable_id', $filteredIds);
         }
 
         $mediaFiles = $query->get();
