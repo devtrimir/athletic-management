@@ -850,6 +850,7 @@ function MemberPlayingAchievementsList({
         <Table>
             <TableHeader>
                 <TableRow>
+                    <TableHead className="w-12">{t('S. No.')}</TableHead>
                     <TableHead>{t('Medal')}</TableHead>
                     <TableHead>{t('Tournament')}</TableHead>
                     <TableHead>{t('Event')}</TableHead>
@@ -861,8 +862,11 @@ function MemberPlayingAchievementsList({
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {records.map((row) => (
+                {records.map((row, index) => (
                     <TableRow key={row.id}>
+                        <TableCell className="text-muted-foreground">
+                            {index + 1}
+                        </TableCell>
                         <TableCell>
                             {row.medal_type ? (
                                 <Badge
@@ -980,6 +984,7 @@ function LegacyPlayingAchievementsList({
         <Table>
             <TableHeader>
                 <TableRow>
+                    <TableHead className="w-12">{t('S. No.')}</TableHead>
                     <TableHead>{t('Medal')}</TableHead>
                     <TableHead>{t('Title / Competition')}</TableHead>
                     <TableHead>{t('Sport')}</TableHead>
@@ -993,8 +998,11 @@ function LegacyPlayingAchievementsList({
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {records.map((row) => (
+                {records.map((row, index) => (
                     <TableRow key={row.id}>
+                        <TableCell className="text-muted-foreground">
+                            {index + 1}
+                        </TableCell>
                         <TableCell>
                             {row.medal_type ? (
                                 <Badge
