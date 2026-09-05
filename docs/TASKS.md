@@ -342,6 +342,7 @@ This is the largest single phase — broken into 6 logical sub-sprints.
 - [x] **P6-T46** team_id stored on individual-event participations (resolved from active team membership; backfill migration); team-vs-individual classification moved to events.event_type; individual medals now reach coach achievements — PR #201/#202 (final merge `22950076`)
 - [x] **P6-T47** Fix team-event participation media not appearing on member media tab; one participation per team with `lineup_member_ids`; participant candidate list excludes already-lined-up members — PR #203
 - [x] **P6-T48** Fix shared `ConfidentialDocumentPreview` modal width on desktop: override `sm:max-w-lg` so modal uses full viewport width at all breakpoints — PR #204
+- [~] **P6-T49** Audit and fix missing Hindi translations on coach promotion/reward tab and related profile pages
 
 - [x] **P6-T36** Print preview polish: remove duplicate name heading (both pages), drop 'Display name' row from coach print, full rank names on office print, 23 missing Hindi keys + From/To rank translation fixes — PR #187
 - [x] **P6-T35** Redesign coach profile print preview to match the member print design (letterhead + frame + watermark, pill section toggles, member print helpers, cloned print window) — PR #186
