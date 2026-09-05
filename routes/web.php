@@ -7,6 +7,7 @@ use App\Http\Controllers\CoachCertificationController;
 use App\Http\Controllers\CoachController;
 use App\Http\Controllers\CoachExportController;
 use App\Http\Controllers\CoachPhotoController;
+use App\Http\Controllers\CoachPlayingAchievementController;
 use App\Http\Controllers\CoachProfileTabController;
 use App\Http\Controllers\CoachPromotionController;
 use App\Http\Controllers\CoachSpecialAchievementController;
@@ -130,6 +131,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('coaches/{coach}/special-achievements/{specialAchievement}', [CoachSpecialAchievementController::class, 'destroy'])->name('coaches.special-achievements.destroy');
     Route::get('coaches/{coach}/special-achievements/{specialAchievement}/order-document', [CoachSpecialAchievementController::class, 'orderDocument'])->name('coaches.special-achievements.order-document');
     Route::get('coaches/{coach}/special-achievements/{specialAchievement}/order-document/preview', [CoachSpecialAchievementController::class, 'previewOrderDocument'])->name('coaches.special-achievements.order-document.preview');
+    Route::post('coaches/{coach}/playing-achievements', [CoachPlayingAchievementController::class, 'store'])->name('coaches.playing-achievements.store');
+    Route::patch('coaches/{coach}/playing-achievements/{playingAchievement}', [CoachPlayingAchievementController::class, 'update'])->name('coaches.playing-achievements.update');
+    Route::delete('coaches/{coach}/playing-achievements/{playingAchievement}', [CoachPlayingAchievementController::class, 'destroy'])->name('coaches.playing-achievements.destroy');
     Route::get('coaches/{coach}/promotions', [CoachProfileTabController::class, 'promotions'])->name('coaches.promotions');
     Route::get('coaches/{coach}/media', [CoachProfileTabController::class, 'media'])->name('coaches.media');
     Route::get('coaches/{coach}/aliases', [CoachProfileTabController::class, 'aliases'])->name('coaches.aliases');

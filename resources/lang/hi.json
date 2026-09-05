@@ -1327,7 +1327,6 @@
     "Special Recognition": "विशेष मान्यता",
     "Issuing authority": "जारी करने वाला प्राधिकरण",
     "Order document": "आदेश दस्तावेज़",
-    "Order reference": "आदेश संदर्भ",
     "Upload order document": "आदेश दस्तावेज़ अपलोड करें",
     "Private document": "निजी दस्तावेज़",
     "Attached": "संलग्न",
@@ -1340,5 +1339,16 @@
     "Enter a valid date in dd/mm/yyyy format.": "dd/mm/yyyy प्रारूप में मान्य तिथि दर्ज करें।",
     "Standalone departmental recognitions, separate from medals and legacy achievements.": "पदक और विरासत उपलब्धियों से अलग, स्वतंत्र विभागीय मान्यताएँ।",
     "Track the order, authority, place, and protected document for each recognition.": "प्रत्येक मान्यता के लिए आदेश, प्राधिकरण, स्थान और संरक्षित दस्तावेज़ ट्रैक करें।",
-    "Add commendation discs, appreciation letters, honour certificates, or other standalone recognitions here.": "यहाँ सराहना डिस्क, प्रशंसा पत्र, सम्मान प्रमाणपत्र या अन्य स्वतंत्र मान्यताएँ जोड़ें।"
+    "Add commendation discs, appreciation letters, honour certificates, or other standalone recognitions here.": "यहाँ सराहना डिस्क, प्रशंसा पत्र, सम्मान प्रमाणपत्र या अन्य स्वतंत्र मान्यताएँ जोड़ें।",
+    "Playing career achievements": "खेल-जीवन उपलब्धियाँ",
+    "Add playing career achievement": "खेल-जीवन उपलब्धि जोड़ें",
+    "Edit playing career achievement": "खेल-जीवन उपलब्धि संपादित करें",
+    "Achieved on": "प्राप्ति तिथि",
+    "Medals and positions earned by the coach while still a player, separate from all medal tallies.": "खिलाड़ी रहते हुए कोच द्वारा जीते गए पदक और स्थान, सभी पदक गणनाओं से अलग।",
+    "No playing career achievements recorded": "कोई खेल-जीवन उपलब्धि दर्ज नहीं है",
+    "Add medals, positions, or certificates the coach earned as a player here.": "यहाँ कोच द्वारा खिलाड़ी के रूप में अर्जित पदक, स्थान या प्रमाणपत्र जोड़ें।",
+    "Playing career achievement recorded.": "खेल-जीवन उपलब्धि दर्ज की गई।",
+    "Playing career achievement updated.": "खेल-जीवन उपलब्धि अपडेट की गई।",
+    "Playing career achievement removed.": "खेल-जीवन उपलब्धि हटा दी गई।",
+    "Example: All India Police Sports Meet": "उदाहरण: अखिल भारतीय पुलिस खेलकूद प्रतियोगिता"
 }

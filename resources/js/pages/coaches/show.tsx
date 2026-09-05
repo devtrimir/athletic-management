@@ -59,6 +59,8 @@ import {
 } from '@/actions/App/Http/Controllers/CoachSportController';
 import { store as storeCoachStatus } from '@/actions/App/Http/Controllers/CoachStatusController';
 import { events as memberEvents } from '@/actions/App/Http/Controllers/MemberProfileTabController';
+import { CoachPlayingAchievementsSection } from '@/components/coaches/playing-achievements-section';
+import type { PlayingAchievementsData } from '@/components/coaches/playing-achievements-section';
 import { CoachSpecialAchievementsTab } from '@/components/coaches/special-achievements-tab';
 import type { SpecialAchievementsData } from '@/components/coaches/special-achievements-tab';
 import { Combobox } from '@/components/combobox';
@@ -425,6 +427,7 @@ export default function CoachesShow({
     coachAchievements,
     rewardEvidenceOptions = [],
     specialAchievements,
+    playingAchievements,
 }: {
     coach: Coach;
     activeTab?: CoachShowTab;
@@ -437,6 +440,7 @@ export default function CoachesShow({
     coachAchievements?: CoachAchievementsData;
     rewardEvidenceOptions?: RewardEvidenceSessionOption[];
     specialAchievements?: SpecialAchievementsData;
+    playingAchievements?: PlayingAchievementsData;
 }) {
     const { t } = useTranslation();
 
@@ -2620,6 +2624,11 @@ export default function CoachesShow({
                                     </Table>
                                 </div>
                             )}
+
+                            <CoachPlayingAchievementsSection
+                                coach={coach}
+                                data={playingAchievements}
+                            />
                         </div>
                     </TabsContent>
 

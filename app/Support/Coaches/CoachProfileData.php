@@ -10,6 +10,7 @@ use App\Http\Resources\CoachStatusHistoryResource;
 use App\Models\Achievement;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
+use App\Models\CoachPlayingAchievement;
 use App\Models\CoachPromotionEvidence;
 use App\Models\CoachSpecialAchievement;
 use App\Models\Rank;
@@ -92,6 +93,7 @@ class CoachProfileData
             ...$this->shell($coach),
             'activeTab' => 'achievements',
             'coachAchievements' => $this->achievementsPayload($coach),
+            'playingAchievements' => $this->playingAchievementsPayload($coach),
         ];
     }
 
@@ -203,6 +205,8 @@ class CoachProfileData
             'coachTeams' => $this->assignmentsPayload($coach),
             'statusHistory' => CoachStatusHistoryResource::collection($coach->statusHistory)->resolve(),
             'coachAchievements' => $this->achievementsPayload($coach),
+            'specialAchievements' => $this->specialAchievementsPayload($coach),
+            'playingAchievements' => $this->playingAchievementsPayload($coach),
         ];
     }
 
@@ -433,6 +437,49 @@ class CoachProfileData
                 'total' => count($records),
                 'commendation_discs' => collect($records)
                     ->where('achievement_type', 'COMMENDATION_DISC')
+                    ->count(),
+            ],
+        ];
+    }
+
+    /**
+     * Playing-career achievements from when the coach was a player. Completely
+     * standalone: no link to achievements, participations, or medal tallies.
+     *
+     * @return array<string, mixed>
+     */
+    private function playingAchievementsPayload(Coach $coach): array
+    {
+        $records = $coach->playingAchievements()
+            ->get()
+            ->map(fn (CoachPlayingAchievement $achievement): array => [
+                'id' => $achievement->id,
+                'title' => $achievement->title,
+                'period' => $achievement->period,
+                'level' => $achievement->level,
+                'competition_details' => $achievement->competition_details,
+                'event_date' => $achievement->event_date?->toDateString(),
+                'venue' => $achievement->venue,
+                'sport_discipline' => $achievement->sport_discipline,
+                'event' => $achievement->event,
+                'discipline' => $achievement->discipline,
+                'weight_category' => $achievement->weight_category,
+                'gender_class' => $achievement->gender_class,
+                'medal_type' => $achievement->medal_type,
+                'position' => $achievement->position,
+                'description' => $achievement->description,
+                'achieved_on' => $achievement->achieved_on?->toDateString(),
+                'remarks' => $achievement->remarks,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'records' => $records,
+            'summary' => [
+                'total' => count($records),
+                'medals' => collect($records)
+                    ->whereIn('medal_type', ['GOLD', 'SILVER', 'BRONZE', 'MERIT'])
                     ->count(),
             ],
         ];
