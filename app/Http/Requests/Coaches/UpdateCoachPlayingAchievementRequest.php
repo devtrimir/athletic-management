@@ -44,6 +44,7 @@ class UpdateCoachPlayingAchievementRequest extends FormRequest
             'weight_category' => ['sometimes', 'nullable', 'string', 'max:100'],
             'gender_class' => ['sometimes', 'nullable', Rule::in(['M', 'F', 'MIXED', 'OPEN'])],
             'medal_type' => ['sometimes', 'nullable', Rule::in(['GOLD', 'SILVER', 'BRONZE', 'MERIT', 'CERTIFICATE'])],
+            'event_type' => ['sometimes', Rule::in(['team', 'individual'])],
             'position' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:9999'],
             'description' => ['sometimes', 'nullable', 'string'],
             'achieved_on' => ['sometimes', 'nullable', Rule::date()->format('Y-m-d')],

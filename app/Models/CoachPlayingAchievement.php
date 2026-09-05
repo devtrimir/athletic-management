@@ -35,6 +35,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $weight_category
  * @property string|null $gender_class
  * @property string|null $medal_type
+ * @property string|null $event_type
+ * @property int|null $source_achievement_id
  * @property int|null $position
  * @property string|null $description
  * @property Carbon|null $achieved_on
@@ -42,6 +44,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Coach $coach
+ * @property-read Achievement|null $sourceAchievement
  * @property-read Organization $organization
  * @property-read Sport $sport
  */
@@ -60,6 +63,8 @@ use Illuminate\Support\Carbon;
     'weight_category',
     'gender_class',
     'medal_type',
+    'event_type',
+    'source_achievement_id',
     'position',
     'description',
     'achieved_on',
@@ -79,8 +84,15 @@ class CoachPlayingAchievement extends Model
         return [
             'event_date' => 'date',
             'achieved_on' => 'date',
+            'event_type' => 'string',
             'position' => 'integer',
         ];
+    }
+
+    /** @return BelongsTo<Achievement, $this> */
+    public function sourceAchievement(): BelongsTo
+    {
+        return $this->belongsTo(Achievement::class, 'source_achievement_id');
     }
 
     /** @return BelongsTo<Coach, $this> */

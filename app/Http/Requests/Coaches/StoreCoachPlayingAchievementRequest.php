@@ -44,6 +44,7 @@ class StoreCoachPlayingAchievementRequest extends FormRequest
             'weight_category' => ['nullable', 'string', 'max:100'],
             'gender_class' => ['nullable', Rule::in(['M', 'F', 'MIXED', 'OPEN'])],
             'medal_type' => ['nullable', Rule::in(['GOLD', 'SILVER', 'BRONZE', 'MERIT', 'CERTIFICATE'])],
+            'event_type' => ['required', Rule::in(['team', 'individual'])],
             'position' => ['nullable', 'integer', 'min:1', 'max:9999'],
             'description' => ['nullable', 'string'],
             'achieved_on' => ['nullable', Rule::date()->format('Y-m-d')],

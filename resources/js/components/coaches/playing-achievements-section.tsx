@@ -72,6 +72,8 @@ export type PlayingAchievementRow = {
     weight_category: string | null;
     gender_class: string | null;
     medal_type: string | null;
+    event_type: 'team' | 'individual' | null;
+    source_achievement_id: number | null;
     position: number | null;
     description: string | null;
     achieved_on: string | null;
@@ -129,6 +131,7 @@ type PlayingAchievementFormData = {
     sport_id: string;
     event: string;
     medal_type: string;
+    event_type: string;
     position: string;
     achieved_on: string;
     remarks: string;
@@ -149,6 +152,7 @@ function defaults(row?: PlayingAchievementRow): PlayingAchievementFormData {
         sport_id: row?.sport ? String(row.sport.id) : '',
         event: row?.event ?? '',
         medal_type: row?.medal_type ?? '',
+        event_type: row?.event_type ?? 'team',
         position:
             row?.position !== null && row?.position !== undefined
                 ? String(row.position)
@@ -605,7 +609,7 @@ function PlayingAchievementDialog({
                         </div>
                     </div>
 
-                    <div className="grid min-w-0 gap-x-5 gap-y-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                    <div className="grid min-w-0 gap-x-5 gap-y-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                         <div className="grid min-w-0 gap-2">
                             <Label>{t('Event')}</Label>
                             <Input
@@ -646,6 +650,33 @@ function PlayingAchievementDialog({
                                 </SelectContent>
                             </Select>
                             <InputError message={visibleErrors.medal_type} />
+                        </div>
+
+                        <div className="grid min-w-0 gap-2">
+                            <Label>
+                                {t('Event type')}{' '}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                                value={form.data.event_type}
+                                onValueChange={(value) => {
+                                    form.setData('event_type', value);
+                                    clearFieldError('event_type');
+                                }}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="team">
+                                        {t('Team')}
+                                    </SelectItem>
+                                    <SelectItem value="individual">
+                                        {t('Individual')}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <InputError message={visibleErrors.event_type} />
                         </div>
 
                         <div className="grid min-w-0 gap-2">
@@ -951,6 +982,13 @@ function LegacyPlayingAchievementsList({
                                 >
                                     <Award className="size-3.5" />
                                     {t(row.medal_type)}
+                                </Badge>
+                            ) : null}
+                            {row.event_type ? (
+                                <Badge variant="secondary">
+                                    {row.event_type === 'team'
+                                        ? t('Team')
+                                        : t('Individual')}
                                 </Badge>
                             ) : null}
                             {row.level ? (

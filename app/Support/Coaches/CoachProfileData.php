@@ -487,6 +487,8 @@ class CoachProfileData
                 'weight_category' => $achievement->weight_category,
                 'gender_class' => $achievement->gender_class,
                 'medal_type' => $achievement->medal_type,
+                'event_type' => $achievement->event_type,
+                'source_achievement_id' => $achievement->source_achievement_id,
                 'position' => $achievement->position,
                 'description' => $achievement->description,
                 'achieved_on' => $achievement->achieved_on?->toDateString(),
