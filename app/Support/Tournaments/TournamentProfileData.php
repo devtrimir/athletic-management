@@ -95,7 +95,7 @@ class TournamentProfileData
             ->select(
                 'event_id',
                 DB::raw(
-                    'COALESCE(SUM(CASE WHEN team_id IS NOT NULL THEN COALESCE(JSON_LENGTH(lineup_member_ids), CASE WHEN member_id IS NOT NULL THEN 1 ELSE 0 END) ELSE 1 END), 0) as total',
+                    $this->lineupCountTotalExpression(),
                 ),
             )
             ->whereIn('event_id', $eventIds)
@@ -220,7 +220,7 @@ class TournamentProfileData
             ->select(
                 'event_id',
                 DB::raw(
-                    'COALESCE(SUM(CASE WHEN team_id IS NOT NULL THEN COALESCE(JSON_LENGTH(lineup_member_ids), CASE WHEN member_id IS NOT NULL THEN 1 ELSE 0 END) ELSE 1 END), 0) as total',
+                    $this->lineupCountTotalExpression(),
                 ),
             )
             ->whereIn('event_id', $eventIds)
@@ -296,7 +296,7 @@ class TournamentProfileData
             ->select(
                 'event_id',
                 DB::raw(
-                    'COALESCE(SUM(CASE WHEN team_id IS NOT NULL THEN COALESCE(JSON_LENGTH(lineup_member_ids), CASE WHEN member_id IS NOT NULL THEN 1 ELSE 0 END) ELSE 1 END), 0) as total',
+                    $this->lineupCountTotalExpression(),
                 ),
             )
             ->whereIn('event_id', $eventIds)
@@ -820,5 +820,23 @@ class TournamentProfileData
             'participation_status' => in_array($participationStatus, ['with', 'without'], true) ? (string) $participationStatus : null,
             'event_type' => in_array($eventType, ['individual', 'team'], true) ? (string) $eventType : null,
         ];
+    }
+
+    /**
+     * Lineup-size expression for participation counts. JSON_LENGTH is
+     * MySQL-only; PostgreSQL needs JSONB_ARRAY_LENGTH with an explicit
+     * jsonb cast, and SQLite ships JSON_ARRAY_LENGTH.
+     */
+    private function lineupCountTotalExpression(): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        $lineupLength = match ($driver) {
+            'pgsql' => 'JSONB_ARRAY_LENGTH(lineup_member_ids::jsonb)',
+            'sqlite' => 'JSON_ARRAY_LENGTH(lineup_member_ids)',
+            default => 'JSON_LENGTH(lineup_member_ids)',
+        };
+
+        return "COALESCE(SUM(CASE WHEN team_id IS NOT NULL THEN COALESCE({$lineupLength}, CASE WHEN member_id IS NOT NULL THEN 1 ELSE 0 END) ELSE 1 END), 0) as total";
     }
 }
