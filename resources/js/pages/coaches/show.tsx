@@ -2522,9 +2522,7 @@ export default function CoachesShow({
 
                                                                                                                             return (
                                                                                                                                 <TableRow
-                                                                                                                                    key={
-                                                                                                                                        player.achievement_id
-                                                                                                                                    }
+                                                                                                                                    key={`${player.achievement_id}-${player.member.id}`}
                                                                                                                                     className="bg-background/80"
                                                                                                                                 >
                                                                                                                                     <TableCell className="pl-8 text-muted-foreground">
