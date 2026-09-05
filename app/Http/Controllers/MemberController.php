@@ -139,7 +139,7 @@ class MemberController extends Controller
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'rank_order']),
             'totalCount' => Member::count(),
         ]);
     }
@@ -206,7 +206,7 @@ class MemberController extends Controller
                 ->orderByDesc('start_year')
                 ->orderByDesc('id')
                 ->get(),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'rank_order']),
         ]);
     }
 
@@ -255,7 +255,7 @@ class MemberController extends Controller
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'rank_order']),
         ]);
     }
 
@@ -431,7 +431,7 @@ class MemberController extends Controller
                 ->orderByDesc('start_year')
                 ->orderByDesc('id')
                 ->get(),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'rank_order']),
             'memberTeams' => Inertia::defer(fn () => TeamMember::where('member_id', $member->id)
                 ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
                 ->orderByDesc('id')

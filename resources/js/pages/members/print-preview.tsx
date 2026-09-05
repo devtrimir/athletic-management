@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
+import type { RankOption } from '@/lib/ranks';
+import { resolveRankLabel } from '@/lib/ranks';
 import type { BreadcrumbItem } from '@/types';
 
 type Member = {
@@ -203,6 +205,7 @@ type Props = {
     externalCoaching?: ExternalCoachingData;
     promotions?: PromotionRow[];
     auditLog?: AuditEntry[];
+    ranks?: RankOption[];
 };
 
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
@@ -1103,6 +1106,7 @@ export default function PrintPreview({
     externalCoaching,
     promotions,
     auditLog,
+    ranks,
 }: Props) {
     const { t } = useTranslation();
     const { locale } = usePage().props as { locale: string };
@@ -1543,7 +1547,13 @@ export default function PrintPreview({
                                     },
                                     {
                                         label: uiText('Rank', locale),
-                                        value: member.rank,
+                                        value: member.rank
+                                            ? resolveRankLabel(
+                                                  member.rank,
+                                                  ranks ?? [],
+                                                  locale,
+                                              )
+                                            : null,
                                     },
                                     {
                                         label: uiText('Home district', locale),
@@ -1562,7 +1572,13 @@ export default function PrintPreview({
                                     },
                                     {
                                         label: uiText('Initial rank', locale),
-                                        value: member.initial_rank,
+                                        value: member.initial_rank
+                                            ? resolveRankLabel(
+                                                  member.initial_rank,
+                                                  ranks ?? [],
+                                                  locale,
+                                              )
+                                            : null,
                                     },
                                 ]}
                             />

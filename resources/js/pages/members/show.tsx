@@ -90,6 +90,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { resolveRankLabel } from '@/lib/ranks';
 
 type Member = {
     id: number;
@@ -346,6 +347,7 @@ type PromotionRow = {
 type RankOption = {
     code: string;
     name: string;
+    name_en: string | null;
     short_name: string | null;
 };
 
@@ -2005,7 +2007,16 @@ export default function MembersShow({
                                                 )}
                                             </Badge>,
                                         )}
-                                        {detail(t('Rank'), member.rank)}
+                                        {detail(
+                                            t('Rank'),
+                                            member.rank
+                                                ? resolveRankLabel(
+                                                      member.rank,
+                                                      ranks ?? [],
+                                                      pageLocale,
+                                                  )
+                                                : null,
+                                        )}
                                         {detail(
                                             t('Joining date'),
                                             formatDisplayDate(
@@ -2032,7 +2043,11 @@ export default function MembersShow({
                                         {member.initial_rank &&
                                             detail(
                                                 t('Initial rank'),
-                                                member.initial_rank,
+                                                resolveRankLabel(
+                                                    member.initial_rank,
+                                                    ranks ?? [],
+                                                    pageLocale,
+                                                ),
                                             )}
                                         {member.promotion_date &&
                                             detail(

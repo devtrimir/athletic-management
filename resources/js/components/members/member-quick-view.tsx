@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { useHttp } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { ExternalLink, Printer } from 'lucide-react';
 import { startTransition, useEffect, useRef, useState } from 'react';
 import MemberPreviewController from '@/actions/App/Http/Controllers/Api/V1/MemberPreviewController';
@@ -23,6 +24,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import type { RankOption } from '@/lib/ranks';
+import { resolveRankLabel } from '@/lib/ranks';
 
 type StatusHistoryItem = {
     status: string;
@@ -84,6 +87,7 @@ type MemberPreview = {
     status_history: StatusHistoryItem[];
     team_history: TeamHistoryItem[];
     achievements: AchievementItem[];
+    ranks?: RankOption[];
 };
 
 const STATUS_VARIANT: Record<
@@ -189,7 +193,12 @@ function normalizePreview(data: MemberPreview): MemberPreview {
     };
 }
 
-function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
+function buildPrintHtml(
+    data: MemberPreview,
+    t: (k: string) => string,
+    ranks: RankOption[],
+    locale: string,
+): string {
     const row = (label: string, value: string | null | undefined) =>
         value
             ? `<div class="row"><span class="label">${label}</span><span class="val">${value}</span></div>`
@@ -245,11 +254,11 @@ function buildPrintHtml(data: MemberPreview, t: (k: string) => string): string {
     ${row(t('Mobile'), data.mobile)}
     ${row(t('Home district'), data.home_district?.name)}
     <h2>${t('Service')}</h2>
-    ${row(t('Rank'), data.rank ? t(data.rank) : null)}
+    ${row(t('Rank'), data.rank ? resolveRankLabel(data.rank, ranks, locale) : null)}
     ${row(t('Posting'), postingLocation(data))}
     ${row(t('Joining date'), formatDisplayDate(data.joining_date, 'hi'))}
     ${row(t('Promotion date'), formatDisplayDate(data.promotion_date, 'hi'))}
-    ${row(t('Initial rank'), data.initial_rank)}
+    ${row(t('Initial rank'), data.initial_rank ? resolveRankLabel(data.initial_rank, ranks, locale) : null)}
     ${row(t('Sport'), data.sport?.name)}
     ${data.playable_sports.length ? `<div class="section"><h2>${t('Playable sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name}</span><span class="val">${[sport.role, sport.sport_event, sport.weight, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
     ${row(t('Home address'), data.home_address)}
@@ -291,6 +300,7 @@ export function MemberQuickView({
     onClose: () => void;
 }) {
     const { t } = useTranslation();
+    const { locale } = usePage().props as { locale: string };
     const [data, setData] = useState<MemberPreview | null>(null);
     const [error, setError] = useState(false);
     const { get, processing } = useHttp<Record<string, never>, MemberPreview>(
@@ -326,7 +336,7 @@ export function MemberQuickView({
             return;
         }
 
-        win.document.write(buildPrintHtml(data, t));
+        win.document.write(buildPrintHtml(data, t, data.ranks ?? [], locale));
         win.document.close();
         setTimeout(() => {
             win.focus();
@@ -373,7 +383,11 @@ export function MemberQuickView({
                                 )}
                                 {data.rank && (
                                     <span className="text-xs font-medium">
-                                        {t(data.rank)}
+                                        {resolveRankLabel(
+                                            data.rank,
+                                            data.ranks ?? [],
+                                            locale,
+                                        )}
                                     </span>
                                 )}
                                 <Badge
@@ -459,7 +473,15 @@ export function MemberQuickView({
                                 />
                                 <InfoRow
                                     label={t('Initial rank')}
-                                    value={data.initial_rank}
+                                    value={
+                                        data.initial_rank
+                                            ? resolveRankLabel(
+                                                  data.initial_rank,
+                                                  data.ranks ?? [],
+                                                  locale,
+                                              )
+                                            : null
+                                    }
                                 />
                                 <InfoRow
                                     label={t('Sport')}

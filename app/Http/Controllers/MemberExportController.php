@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Exports\ReportExport;
 use App\Models\Member;
+use App\Models\Rank;
+use App\Models\TournamentTier;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -65,6 +67,12 @@ class MemberExportController extends Controller
         })->implode(' | ');
     }
 
+    /** @var Collection<string, Rank>|null */
+    private ?Collection $rankLookup = null;
+
+    /** @var Collection<string, TournamentTier>|null */
+    private ?Collection $tierLookup = null;
+
     private function formatDate(?CarbonInterface $value): ?string
     {
         if ($value === null) {
@@ -72,6 +80,68 @@ class MemberExportController extends Controller
         }
 
         return $value->format('d M Y');
+    }
+
+    /**
+     * Resolve a free-text rank value against the ranks master, localized by the
+     * current app locale. Case-insensitive match on `name_en` and `short_name`;
+     * falls back to the raw value when no master row matches.
+     */
+    private function resolveRankLabel(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return $value;
+        }
+
+        $this->rankLookup ??= Rank::active()
+            ->get(['name', 'name_en', 'short_name'])
+            ->reduce(function (Collection $carry, Rank $rank): Collection {
+                foreach (array_filter([$rank->name_en, $rank->short_name]) as $key) {
+                    $carry->put(mb_strtolower(trim((string) $key)), $rank);
+                }
+
+                return $carry;
+            }, new Collection);
+
+        $rank = $this->rankLookup->get(mb_strtolower(trim($value)));
+
+        if (! $rank instanceof Rank) {
+            return $value;
+        }
+
+        return app()->getLocale() === 'hi'
+            ? ($rank->name ?? $rank->name_en ?? $rank->short_name ?? $value)
+            : ($rank->name_en ?? $rank->short_name ?? $rank->name ?? $value);
+    }
+
+    private function resolvePlayerCategoryLabel(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        return __($value === 'SKILLED' ? 'SPORTS_QUOTA' : $value);
+    }
+
+    private function resolvePlayerLevelLabel(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        $this->tierLookup ??= TournamentTier::query()
+            ->get(['code', 'label_en', 'label_hi'])
+            ->keyBy('code');
+
+        $tier = $this->tierLookup->get($value);
+
+        if (! $tier instanceof TournamentTier) {
+            return $value;
+        }
+
+        return app()->getLocale() === 'hi'
+            ? ($tier->label_hi ?? $tier->label_en ?? $value)
+            : ($tier->label_en ?? $tier->label_hi ?? $value);
     }
 
     public function index(Request $request): BinaryFileResponse
@@ -212,6 +282,9 @@ class MemberExportController extends Controller
                 'posting_district' => $member->postingDistrict?->name ?? $member->currentUnit?->name,
                 'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
                 'playable_sports' => $this->playableSportsSummary($member),
+                'rank', 'initial_rank' => $this->resolveRankLabel($member->{$col}),
+                'player_category' => $this->resolvePlayerCategoryLabel($member->player_category),
+                'player_level' => $this->resolvePlayerLevelLabel($member->player_level),
                 default => $member->{$col},
             };
         }
@@ -264,20 +337,7 @@ class MemberExportController extends Controller
         $validColumns = array_intersect($columns, array_keys(self::COLUMN_LABELS));
         $headings = array_map(fn (string $col) => self::COLUMN_LABELS[$col], $validColumns);
 
-        $rows = collect([[]])->map(function () use ($member, $validColumns) {
-            $row = [];
-            foreach ($validColumns as $col) {
-                $row[$col] = match ($col) {
-                    'home_district' => $member->homeDistrict?->name,
-                    'posting_district' => $member->postingDistrict?->name ?? $member->currentUnit?->name,
-                    'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
-                    'playable_sports' => $this->playableSportsSummary($member),
-                    default => $member->{$col},
-                };
-            }
-
-            return $row;
-        });
+        $rows = collect([$this->memberRow($member, array_values($validColumns))]);
 
         $filename = 'member-'.$member->member_code.'-'.now()->format('Y-m-d').'.xlsx';
 

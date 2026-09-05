@@ -161,6 +161,7 @@ class MemberProfileData
             'externalCoaching' => $this->externalCoachingPayload($member),
             'promotions' => $this->promotionsPayload($member),
             'auditLog' => $this->auditLogBuilder->forMember($member),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'rank_order']),
         ];
     }
 
@@ -285,7 +286,7 @@ class MemberProfileData
                     ] : null,
                 ])
                 ->all(),
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'rank_order']),
         ];
     }
 
