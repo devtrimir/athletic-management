@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Models\Coach;
 use App\Models\CoachPlayingAchievement;
+use App\Models\Sport;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -25,6 +26,7 @@ class CoachPlayingAchievementFactory extends Factory
         return [
             'organization_id' => $coach->organization_id,
             'coach_id' => $coach->id,
+            'sport_id' => Sport::factory()->state(['organization_id' => $coach->organization_id]),
             'title' => fake()->randomElement([
                 'National Police Games',
                 'All India Police Sports Meet',
@@ -33,9 +35,8 @@ class CoachPlayingAchievementFactory extends Factory
             'period' => fake()->randomElement(['PRE_RECRUITMENT', 'POST_RECRUITMENT']),
             'level' => fake()->randomElement(['NATIONAL', 'AIPSC', 'STATE']),
             'competition_details' => fake()->sentence(),
-            'event_date' => fake()->optional(0.85)->dateTimeBetween('-25 years', 'now'),
+            'event_date' => fake()->dateTimeBetween('-25 years', 'now'),
             'venue' => fake()->optional(0.8)->city(),
-            'sport_discipline' => fake()->optional(0.7)->randomElement(['Athletics', 'Boxing', 'Wrestling']),
             'event' => fake()->optional(0.6)->randomElement(['100m Sprint', 'Heavy Weight', 'Freestyle 74kg']),
             'discipline' => null,
             'weight_category' => null,

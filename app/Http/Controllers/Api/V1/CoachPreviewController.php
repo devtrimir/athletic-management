@@ -20,7 +20,7 @@ class CoachPreviewController extends Controller
             'certifications',
             'sports',
             'specialAchievements',
-            'playingAchievements',
+            'playingAchievements.sport:id,name',
             'assignmentHistory' => fn ($query) => $query
                 ->with(['team', 'session'])
                 ->orderByDesc('is_current')
@@ -87,7 +87,8 @@ class CoachPreviewController extends Controller
                 'competition_details' => $achievement->competition_details,
                 'event_date' => $achievement->event_date?->toDateString(),
                 'venue' => $achievement->venue,
-                'sport_discipline' => $achievement->sport_discipline,
+                'sport_id' => $achievement->sport_id,
+                'sport' => $achievement->sport?->name,
                 'event' => $achievement->event,
                 'medal_type' => $achievement->medal_type,
                 'position' => $achievement->position,

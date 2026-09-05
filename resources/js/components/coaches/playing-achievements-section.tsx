@@ -14,6 +14,7 @@ import {
     update as updatePlayingAchievement,
     destroy as destroyPlayingAchievement,
 } from '@/actions/App/Http/Controllers/CoachPlayingAchievementController';
+import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -64,7 +65,8 @@ export type PlayingAchievementRow = {
     competition_details: string | null;
     event_date: string | null;
     venue: string | null;
-    sport_discipline: string | null;
+    sport_id: number;
+    sport: { id: number; name: string } | null;
     event: string | null;
     discipline: string | null;
     weight_category: string | null;
@@ -76,8 +78,15 @@ export type PlayingAchievementRow = {
     remarks: string | null;
 };
 
+export type PlayingAchievementSportOption = {
+    id: number;
+    name: string;
+    category?: string | null;
+};
+
 export type PlayingAchievementsData = {
     records: PlayingAchievementRow[];
+    sports?: PlayingAchievementSportOption[];
     summary: {
         total: number;
         medals: number;
@@ -91,7 +100,7 @@ type PlayingAchievementFormData = {
     competition_details: string;
     event_date: string;
     venue: string;
-    sport_discipline: string;
+    sport_id: string;
     event: string;
     medal_type: string;
     position: string;
@@ -111,7 +120,7 @@ function defaults(row?: PlayingAchievementRow): PlayingAchievementFormData {
         competition_details: row?.competition_details ?? '',
         event_date: row?.event_date ?? '',
         venue: row?.venue ?? '',
-        sport_discipline: row?.sport_discipline ?? '',
+        sport_id: row?.sport ? String(row.sport.id) : '',
         event: row?.event ?? '',
         medal_type: row?.medal_type ?? '',
         position:
@@ -217,9 +226,11 @@ function normalizeDateInput(value: string): string | null {
 function PlayingAchievementDialog({
     coach,
     row,
+    sports,
 }: {
     coach: { id: number };
     row?: PlayingAchievementRow;
+    sports: PlayingAchievementSportOption[];
 }) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
@@ -227,6 +238,11 @@ function PlayingAchievementDialog({
         useState<PlayingAchievementFormErrors>({});
     const form = useForm<PlayingAchievementFormData>(defaults(row));
     const dialogOpen = open || Object.keys(visibleErrors).length > 0;
+    const sportItems = sports.map((sport) => ({
+        value: String(sport.id),
+        label: sport.name,
+        badge: sport.category ? t(sport.category) : undefined,
+    }));
 
     function reset(): void {
         form.setData(defaults(row));
@@ -254,14 +270,20 @@ function PlayingAchievementDialog({
         const achievedOn = normalizeDateInput(form.data.achieved_on);
         const clientErrors: PlayingAchievementFormErrors = {};
 
-        form.clearErrors('title', 'event_date', 'achieved_on');
+        form.clearErrors('title', 'event_date', 'achieved_on', 'sport_id');
         setVisibleErrors({});
 
         if (!title) {
             clientErrors.title = t('Title is required.');
         }
 
-        if (eventDate === null) {
+        if (!form.data.sport_id) {
+            clientErrors.sport_id = t('Sport is required.');
+        }
+
+        if (!form.data.event_date.trim()) {
+            clientErrors.event_date = t('Event date is required.');
+        } else if (eventDate === null) {
             clientErrors.event_date = t(
                 'Enter a valid date in dd/mm/yyyy format.',
             );
@@ -304,6 +326,7 @@ function PlayingAchievementDialog({
         const payload = {
             ...form.data,
             title,
+            sport_id: form.data.sport_id,
             event_date: eventDate ?? '',
             achieved_on: achievedOn ?? '',
             position: form.data.position.trim(),
@@ -468,7 +491,8 @@ function PlayingAchievementDialog({
                             <Label
                                 htmlFor={`playing-achievement-event-date-${row?.id ?? 'new'}`}
                             >
-                                {t('Event date')}
+                                {t('Event date')}{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
                             <DatePicker
                                 id={`playing-achievement-event-date-${row?.id ?? 'new'}`}
@@ -515,8 +539,35 @@ function PlayingAchievementDialog({
 
                     <div className="grid min-w-0 gap-x-5 gap-y-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                         <div className="grid min-w-0 gap-2">
-                            <Label>{t('Venue')}</Label>
+                            <Label>
+                                {t('Sport')}{' '}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <Combobox
+                                id={`playing-achievement-sport-${row?.id ?? 'new'}`}
+                                value={form.data.sport_id}
+                                onValueChange={(value) => {
+                                    form.setData('sport_id', value);
+                                    clearFieldError('sport_id');
+                                }}
+                                items={sportItems}
+                                placeholder={t('Select sport')}
+                                searchPlaceholder={t('Search sports…')}
+                            />
+                            <InputError
+                                id={`playing-achievement-sport-error-${row?.id ?? 'new'}`}
+                                message={visibleErrors.sport_id}
+                            />
+                        </div>
+
+                        <div className="grid min-w-0 gap-2 sm:col-span-2">
+                            <Label
+                                htmlFor={`playing-achievement-venue-${row?.id ?? 'new'}`}
+                            >
+                                {t('Venue')}
+                            </Label>
                             <Input
+                                id={`playing-achievement-venue-${row?.id ?? 'new'}`}
                                 value={form.data.venue}
                                 onChange={(event) => {
                                     form.setData('venue', event.target.value);
@@ -525,24 +576,6 @@ function PlayingAchievementDialog({
                                 maxLength={255}
                             />
                             <InputError message={visibleErrors.venue} />
-                        </div>
-
-                        <div className="grid min-w-0 gap-2">
-                            <Label>{t('Sport discipline')}</Label>
-                            <Input
-                                value={form.data.sport_discipline}
-                                onChange={(event) => {
-                                    form.setData(
-                                        'sport_discipline',
-                                        event.target.value,
-                                    );
-                                    clearFieldError('sport_discipline');
-                                }}
-                                maxLength={100}
-                            />
-                            <InputError
-                                message={visibleErrors.sport_discipline}
-                            />
                         </div>
                     </div>
 
@@ -648,6 +681,7 @@ export function CoachPlayingAchievementsSection({
 }) {
     const { t } = useTranslation();
     const records = data?.records ?? [];
+    const sports = data?.sports ?? [];
     const total = data?.summary.total ?? 0;
     const medals = data?.summary.medals ?? 0;
 
@@ -688,7 +722,7 @@ export function CoachPlayingAchievementsSection({
                             {medals}
                         </div>
                     </div>
-                    <PlayingAchievementDialog coach={coach} />
+                    <PlayingAchievementDialog coach={coach} sports={sports} />
                 </div>
             </div>
 
@@ -707,7 +741,10 @@ export function CoachPlayingAchievementsSection({
                             )}
                         </p>
                         <div className="mt-5">
-                            <PlayingAchievementDialog coach={coach} />
+                            <PlayingAchievementDialog
+                                coach={coach}
+                                sports={sports}
+                            />
                         </div>
                     </div>
                 ) : (
@@ -780,7 +817,7 @@ export function CoachPlayingAchievementsSection({
                                                 </div>
                                                 <div className="truncate">
                                                     {[
-                                                        row.sport_discipline,
+                                                        row.sport?.name ?? null,
                                                         row.event,
                                                     ]
                                                         .filter(Boolean)
@@ -827,6 +864,7 @@ export function CoachPlayingAchievementsSection({
                                     <PlayingAchievementDialog
                                         coach={coach}
                                         row={row}
+                                        sports={sports}
                                     />
                                     <Button
                                         size="icon"

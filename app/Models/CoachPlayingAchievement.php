@@ -29,7 +29,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $competition_details
  * @property Carbon|null $event_date
  * @property string|null $venue
- * @property string|null $sport_discipline
+ * @property int $sport_id
  * @property string|null $event
  * @property string|null $discipline
  * @property string|null $weight_category
@@ -43,6 +43,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $updated_at
  * @property-read Coach $coach
  * @property-read Organization $organization
+ * @property-read Sport $sport
  */
 #[Fillable([
     'organization_id',
@@ -53,7 +54,7 @@ use Illuminate\Support\Carbon;
     'competition_details',
     'event_date',
     'venue',
-    'sport_discipline',
+    'sport_id',
     'event',
     'discipline',
     'weight_category',
@@ -92,5 +93,11 @@ class CoachPlayingAchievement extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /** @return BelongsTo<Sport, $this> */
+    public function sport(): BelongsTo
+    {
+        return $this->belongsTo(Sport::class);
     }
 }

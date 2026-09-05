@@ -796,7 +796,7 @@ class AuditLogBuilder
                 'competition_details' => 'Competition details',
                 'event_date' => 'Event date',
                 'venue' => 'Venue',
-                'sport_discipline' => 'Sport discipline',
+                'sport_id' => 'Sport',
                 'event' => 'Event',
                 'discipline' => 'Discipline',
                 'weight_category' => 'Weight category',

@@ -33,7 +33,7 @@ return new class extends Migration
             $table->text('competition_details')->nullable();
             $table->date('event_date')->nullable();
             $table->string('venue', 255)->nullable();
-            $table->string('sport_discipline', 100)->nullable();
+            $table->foreignId('sport_id')->constrained('sports')->restrictOnDelete();
             $table->string('event', 100)->nullable();
             $table->string('discipline', 255)->nullable();
             $table->string('weight_category', 100)->nullable();
@@ -71,7 +71,7 @@ return new class extends Migration
             'competition_details' => fn (Blueprint $table) => $table->text('competition_details')->nullable()->after('level'),
             'event_date' => fn (Blueprint $table) => $table->date('event_date')->nullable()->after('competition_details'),
             'venue' => fn (Blueprint $table) => $table->string('venue', 255)->nullable()->after('event_date'),
-            'sport_discipline' => fn (Blueprint $table) => $table->string('sport_discipline', 100)->nullable()->after('venue'),
+            'sport_id' => fn (Blueprint $table) => $table->foreignId('sport_id')->after('venue')->constrained('sports')->restrictOnDelete(),
             'event' => fn (Blueprint $table) => $table->string('event', 100)->nullable()->after('sport_discipline'),
             'discipline' => fn (Blueprint $table) => $table->string('discipline', 255)->nullable()->after('event'),
             'weight_category' => fn (Blueprint $table) => $table->string('weight_category', 100)->nullable()->after('discipline'),

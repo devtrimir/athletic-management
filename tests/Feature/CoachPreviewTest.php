@@ -121,7 +121,7 @@ test('coach preview includes special achievements and playing achievements', fun
             'playing_achievements' => [
                 '*' => [
                     'id', 'title', 'period', 'level', 'competition_details', 'event_date',
-                    'venue', 'sport_discipline', 'event', 'medal_type', 'position', 'achieved_on', 'remarks',
+                    'venue', 'sport_id', 'sport', 'event', 'medal_type', 'position', 'achieved_on', 'remarks',
                 ],
             ],
         ]);

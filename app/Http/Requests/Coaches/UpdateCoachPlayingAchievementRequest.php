@@ -29,14 +29,16 @@ class UpdateCoachPlayingAchievementRequest extends FormRequest
      */
     public function rules(): array
     {
+        $orgId = (int) $this->user()->organization_id;
+
         return [
             'title' => ['sometimes', 'required', 'string', 'max:150'],
             'period' => ['sometimes', 'nullable', Rule::in(['PRE_RECRUITMENT', 'POST_RECRUITMENT'])],
             'level' => ['sometimes', 'required', Rule::in($this->levelOptions())],
             'competition_details' => ['sometimes', 'nullable', 'string'],
-            'event_date' => ['sometimes', 'nullable', Rule::date()->format('Y-m-d')],
+            'event_date' => ['sometimes', 'required', Rule::date()->format('Y-m-d')],
             'venue' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'sport_discipline' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'sport_id' => ['sometimes', 'required', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'event' => ['sometimes', 'nullable', 'string', 'max:100'],
             'discipline' => ['sometimes', 'nullable', 'string', 'max:255'],
             'weight_category' => ['sometimes', 'nullable', 'string', 'max:100'],

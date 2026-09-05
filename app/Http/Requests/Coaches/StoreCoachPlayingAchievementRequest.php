@@ -29,14 +29,16 @@ class StoreCoachPlayingAchievementRequest extends FormRequest
      */
     public function rules(): array
     {
+        $orgId = (int) $this->user()->organization_id;
+
         return [
             'title' => ['required', 'string', 'max:150'],
             'period' => ['nullable', Rule::in(['PRE_RECRUITMENT', 'POST_RECRUITMENT'])],
             'level' => ['required', Rule::in($this->levelOptions())],
             'competition_details' => ['nullable', 'string'],
-            'event_date' => ['nullable', Rule::date()->format('Y-m-d')],
+            'event_date' => ['required', Rule::date()->format('Y-m-d')],
             'venue' => ['nullable', 'string', 'max:255'],
-            'sport_discipline' => ['nullable', 'string', 'max:100'],
+            'sport_id' => ['required', 'integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
             'event' => ['nullable', 'string', 'max:100'],
             'discipline' => ['nullable', 'string', 'max:255'],
             'weight_category' => ['nullable', 'string', 'max:100'],

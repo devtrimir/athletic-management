@@ -264,6 +264,8 @@
     "Preview": "Preview",
     "Example: Commendation Disc": "Example: Commendation Disc",
     "Title is required.": "Title is required.",
+    "Sport is required.": "Sport is required.",
+    "Event date is required.": "Event date is required.",
     "Enter a valid date in dd/mm/yyyy format.": "Enter a valid date in dd/mm/yyyy format.",
     "Standalone departmental recognitions, separate from medals and legacy achievements.": "Standalone departmental recognitions, separate from medals and legacy achievements.",
     "Track the order, authority, place, and protected document for each recognition.": "Track the order, authority, place, and protected document for each recognition.",

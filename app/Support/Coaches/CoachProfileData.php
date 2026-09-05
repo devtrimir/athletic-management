@@ -451,6 +451,7 @@ class CoachProfileData
     private function playingAchievementsPayload(Coach $coach): array
     {
         $records = $coach->playingAchievements()
+            ->with('sport:id,name')
             ->get()
             ->map(fn (CoachPlayingAchievement $achievement): array => [
                 'id' => $achievement->id,
@@ -460,7 +461,11 @@ class CoachProfileData
                 'competition_details' => $achievement->competition_details,
                 'event_date' => $achievement->event_date?->toDateString(),
                 'venue' => $achievement->venue,
-                'sport_discipline' => $achievement->sport_discipline,
+                'sport_id' => $achievement->sport_id,
+                'sport' => $achievement->sport ? [
+                    'id' => $achievement->sport->id,
+                    'name' => $achievement->sport->name,
+                ] : null,
                 'event' => $achievement->event,
                 'discipline' => $achievement->discipline,
                 'weight_category' => $achievement->weight_category,
@@ -476,6 +481,11 @@ class CoachProfileData
 
         return [
             'records' => $records,
+            'sports' => Sport::query()
+                ->select(['id', 'name', 'category'])
+                ->where('organization_id', $coach->organization_id)
+                ->orderBy('name')
+                ->get(),
             'summary' => [
                 'total' => count($records),
                 'medals' => collect($records)

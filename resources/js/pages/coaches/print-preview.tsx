@@ -159,7 +159,8 @@ type PlayingAchievementRecord = {
     competition_details: string | null;
     event_date: string | null;
     venue: string | null;
-    sport_discipline: string | null;
+    sport_id: number;
+    sport: { id: number; name: string } | null;
     event: string | null;
     medal_type: string | null;
     position: number | null;
