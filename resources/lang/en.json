@@ -15,6 +15,7 @@
     "Search and select rank": "Search and select rank",
     "Search ranks by code or name…": "Search ranks by code or name…",
     "Select at least one evidence item.": "Select at least one evidence item.",
+    "S. No.": "S. No.",
     "Uploading…": "Uploading…",
     "Upload file": "Upload file",
     "Loading…": "Loading…",
@@ -58,6 +59,7 @@
     "No promotions or rewards recorded yet.": "No promotions or rewards recorded yet.",
     "No promotions, rewards, or benefit ledger entries recorded yet.": "No promotions, rewards, or benefit ledger entries recorded yet.",
     "Old name or spelling variant": "Old name or spelling variant",
+    "Other": "Other",
     "Posting unit / district": "Posting unit / district",
     "Promotions and Rewards": "Promotions and Rewards",
     "Promotions, Rewards and Benefits": "Promotions, Rewards and Benefits",
@@ -314,5 +316,7 @@
     "Derived from member record": "Derived from member record",
     "Derived from the member's recorded tournament achievements.": "Derived from the member's recorded tournament achievements.",
     "Manually recorded playing-career entries (no linked member record).": "Manually recorded playing-career entries (no linked member record).",
-    "No tournament achievements are recorded for the linked member yet.": "No tournament achievements are recorded for the linked member yet."
+    "No tournament achievements are recorded for the linked member yet.": "No tournament achievements are recorded for the linked member yet.",
+    "Tier": "Tier",
+    "Title / Competition": "Title / Competition"
 }
