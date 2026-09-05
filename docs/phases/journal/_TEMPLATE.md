@@ -84,6 +84,7 @@ Queries run via the `laravel-boost` MCP server before planning. Record query →
 - [ ] Authorization gate / Policy added or updated
 - [ ] Audit log fires (if applicable)
 - [ ] No new hard-coded user-facing strings (from P9 onward)
+- [ ] Translation audit done: every key touched by the task exists and is translated for the active locale(s) — no raw keys shown in the UI
 - [ ] Phase file route/page table updated
 - [ ] ADR filed if non-obvious decision made
 - [ ] Screenshots attached (UI changes)
