@@ -314,5 +314,7 @@
     "Derived from member record": "Derived from member record",
     "Derived from the member's recorded tournament achievements.": "Derived from the member's recorded tournament achievements.",
     "Manually recorded playing-career entries (no linked member record).": "Manually recorded playing-career entries (no linked member record).",
-    "No tournament achievements are recorded for the linked member yet.": "No tournament achievements are recorded for the linked member yet."
+    "No tournament achievements are recorded for the linked member yet.": "No tournament achievements are recorded for the linked member yet.",
+    "Tier": "Tier",
+    "Title / Competition": "Title / Competition"
 }

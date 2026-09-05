@@ -842,7 +842,7 @@
     "Total Medals": "कुल पदक",
     "Total Members": "कुल सदस्य",
     "Total records": "कुल रिकॉर्ड",
-    "Tournament": "टूर्नामेंट",
+    "Tournament": "प्रतियोगिता",
     "Tournament Name (Hindi)": "प्रतियोगिता नाम",
     "Tournament Records": "प्रतियोगिता अभिलेख",
     "Tournament Tiers": "टूर्नामेंट स्तर",
@@ -1354,9 +1354,9 @@
     "Playing career achievement removed.": "खेल-जीवन उपलब्धि हटा दी गई।",
     "Example: All India Police Sports Meet": "उदाहरण: अखिल भारतीय पुलिस खेलकूद प्रतियोगिता",
     "Kind": "प्रकार",
-    "Tournament": "प्रतियोगिता",
     "Derived from member record": "सदस्य रिकॉर्ड से प्राप्त",
     "Derived from the member's recorded tournament achievements.": "सदस्य की दर्ज प्रतियोगिता उपलब्धियों से प्राप्त।",
     "Manually recorded playing-career entries (no linked member record).": "मैन्युअल रूप से दर्ज खेल-जीवन प्रविष्टियाँ (कोई लिंक्ड सदस्य रिकॉर्ड नहीं)।",
-    "No tournament achievements are recorded for the linked member yet.": "लिंक्ड सदस्य के लिए अभी तक कोई प्रतियोगिता उपलब्धि दर्ज नहीं है।"
+    "No tournament achievements are recorded for the linked member yet.": "लिंक्ड सदस्य के लिए अभी तक कोई प्रतियोगिता उपलब्धि दर्ज नहीं है।",
+    "Title / Competition": "शीर्षक / प्रतियोगिता"
 }
