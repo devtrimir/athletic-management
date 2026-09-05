@@ -1706,7 +1706,7 @@ test('user with coach promotions permission can add promotion and reward from pr
     ]);
     expect($coach->fresh()->rank_master_id)->toBe($toRank->id);
     expect(collect(app(AuditLogBuilder::class)->forCoach($coach))
-        ->contains(fn (array $entry): bool => $entry['subject'] === 'Promotion'))
+        ->contains(fn (array $entry): bool => $entry['subject'] === 'Promotion + Reward'))
         ->toBeTrue();
     expect(collect(app(AuditLogBuilder::class)->forCoach($coach))
         ->contains(fn (array $entry): bool => $entry['subject'] === 'Reward event'))

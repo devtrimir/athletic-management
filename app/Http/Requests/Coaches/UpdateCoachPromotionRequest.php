@@ -47,6 +47,53 @@ class UpdateCoachPromotionRequest extends FormRequest
             $toRank = $this->input('to_rank', $promotion?->to_rank);
             $cashRewardAmount = $this->input('cash_reward_amount', $promotion?->cash_reward_amount);
 
+            $hasPromotionFields = $this->filled('promotion_date')
+                || $this->filled('to_rank')
+                || $this->filled('from_rank')
+                || $this->filled('reason')
+                || $this->filled('remarks');
+
+            $hasRewardFields = $this->filled('cash_reward_amount')
+                || $this->filled('cash_reward_date')
+                || $this->filled('cash_reward_reference')
+                || $this->filled('cash_reward_remarks');
+
+            $isPromotionRecord = $promotion?->to_rank !== null
+                || $promotion?->promotion_date !== null
+                || $promotion?->from_rank !== null
+                || $promotion?->reason !== null
+                || $promotion?->remarks !== null;
+
+            $isRewardRecord = $promotion?->cash_reward_amount !== null
+                || $promotion?->cash_reward_date !== null
+                || $promotion?->cash_reward_reference !== null
+                || $promotion?->cash_reward_remarks !== null;
+
+            if ($hasPromotionFields || $isPromotionRecord) {
+                if (! $toRank) {
+                    $validator->errors()->add(
+                        'to_rank',
+                        __('The target rank is required.'),
+                    );
+                }
+
+                $promotionDate = $this->input('promotion_date', $promotion?->promotion_date);
+
+                if (! $promotionDate) {
+                    $validator->errors()->add(
+                        'promotion_date',
+                        __('The promotion date is required.'),
+                    );
+                }
+            }
+
+            if (($hasRewardFields || $isRewardRecord) && ! $cashRewardAmount) {
+                $validator->errors()->add(
+                    'cash_reward_amount',
+                    __('The cash reward amount is required.'),
+                );
+            }
+
             if (! $toRank && ! $cashRewardAmount) {
                 $validator->errors()->add(
                     'to_rank',

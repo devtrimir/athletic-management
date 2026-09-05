@@ -1,6 +1,9 @@
 {
     "Benefit recorded": "Benefit recorded",
     "No date": "No date",
+    "The promotion date is required.": "The promotion date is required.",
+    "The target rank is required.": "The target rank is required.",
+    "The cash reward amount is required.": "The cash reward amount is required.",
     "No documents uploaded.": "No documents uploaded.",
     "No events.": "No events.",
     "No promotions yet.": "No promotions yet.",
