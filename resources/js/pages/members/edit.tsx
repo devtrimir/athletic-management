@@ -798,7 +798,7 @@ export default function MembersEdit({
                                     <div className="grid gap-5 sm:grid-cols-3">
                                         <div className="grid gap-2">
                                             <Label htmlFor="current_unit_id">
-                                                {t('Unit')}
+                                                {t('Posting unit')}
                                             </Label>
                                             <Combobox
                                                 id="current_unit_id"
@@ -835,7 +835,7 @@ export default function MembersEdit({
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="posting_district_id">
-                                                {t('Posting unit / district')}
+                                                {t('Posting district')}
                                             </Label>
                                             <Combobox
                                                 id="posting_district_id"

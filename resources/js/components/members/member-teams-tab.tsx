@@ -23,7 +23,6 @@ export type MemberTeamRow = {
 
 type Props = {
     teams: MemberTeamRow[] | undefined;
-    locale: string;
 };
 
 function parseDateValue(value: string): Date | null {
@@ -41,7 +40,6 @@ function parseDateValue(value: string): Date | null {
 
 function formatDisplayDate(
     value: string | null | undefined,
-    locale: string,
 ): string | null {
     if (!value) {
         return null;
@@ -53,7 +51,7 @@ function formatDisplayDate(
         return value;
     }
 
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+    return new Intl.DateTimeFormat('en-IN', {
         dateStyle: 'medium',
     }).format(date);
 }
@@ -72,7 +70,7 @@ function roleBadgeVariant(
     return 'outline';
 }
 
-export function MemberTeamsTab({ teams, locale }: Props) {
+export function MemberTeamsTab({ teams }: Props) {
     const { t } = useTranslation();
     const rows = teams ?? [];
 
@@ -125,11 +123,10 @@ export function MemberTeamsTab({ teams, locale }: Props) {
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
-                                    {formatDisplayDate(row.joined_on, locale) ??
-                                        '—'}
+                                    {formatDisplayDate(row.joined_on) ?? '—'}
                                 </TableCell>
                                 <TableCell>
-                                    {formatDisplayDate(row.left_on, locale) ??
+                                    {formatDisplayDate(row.left_on) ??
                                         '—'}
                                 </TableCell>
                                 <TableCell>

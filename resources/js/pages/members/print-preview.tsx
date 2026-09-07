@@ -493,6 +493,9 @@ function formatDateValue(
     locale: string,
     dateStyle: Intl.DateTimeFormatOptions['dateStyle'] = 'long',
 ): string | null {
+    // Dates are always displayed in English.
+    void locale;
+
     if (!value) {
         return null;
     }
@@ -503,12 +506,15 @@ function formatDateValue(
         return value;
     }
 
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+    return new Intl.DateTimeFormat('en-IN', {
         dateStyle,
     }).format(date);
 }
 
 function formatTimelineTime(value: string, locale: string): string {
+    // Dates are always displayed in English.
+    void locale;
+
     const date = parseDateValue(value);
 
     if (!date) {
@@ -517,7 +523,7 @@ function formatTimelineTime(value: string, locale: string): string {
 
     const hasTime = !/^\d{4}-\d{2}-\d{2}$/.test(value);
 
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+    return new Intl.DateTimeFormat('en-IN', {
         dateStyle: 'long',
         ...(hasTime ? { timeStyle: 'short' as const } : {}),
     }).format(date);

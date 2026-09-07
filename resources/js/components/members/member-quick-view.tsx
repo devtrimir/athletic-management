@@ -158,7 +158,6 @@ function parseDateValue(value: string): Date | null {
 
 function formatDisplayDate(
     value: string | null | undefined,
-    locale: string,
 ): string | null {
     if (!value) {
         return null;
@@ -170,7 +169,7 @@ function formatDisplayDate(
         return value;
     }
 
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+    return new Intl.DateTimeFormat('en-IN', {
         dateStyle: 'medium',
     }).format(date);
 }
@@ -207,21 +206,21 @@ function buildPrintHtml(
     const statusRows = data.status_history
         .map(
             (h) =>
-                `<tr><td>${formatDisplayDate(h.effective_on, 'hi') ?? '—'}</td><td>${t(h.status)}</td><td>${h.reason ?? '—'}</td></tr>`,
+                `<tr><td>${formatDisplayDate(h.effective_on) ?? '—'}</td><td>${t(h.status)}</td><td>${h.reason ?? '—'}</td></tr>`,
         )
         .join('');
 
     const teamRows = data.team_history
         .map(
             (th) =>
-                `<tr><td>${th.team_name ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${formatDisplayDate(th.joined_on, 'hi') ?? '—'}</td><td>${formatDisplayDate(th.left_on, 'hi') ?? t('Present')}</td></tr>`,
+                `<tr><td>${th.team_name ?? '—'}</td><td>${th.session_name ?? '—'}</td><td>${t(th.role)}</td><td>${formatDisplayDate(th.joined_on) ?? '—'}</td><td>${formatDisplayDate(th.left_on) ?? t('Present')}</td></tr>`,
         )
         .join('');
 
     const achievementRows = data.achievements
         .map(
             (a) =>
-                `<tr><td>${t(a.level)}</td><td>${a.competition_details}</td><td>${a.event ?? '—'}</td><td>${a.medal_type ? t(a.medal_type) : '—'}</td><td>${formatDisplayDate(a.event_date, 'hi') ?? '—'}</td></tr>`,
+                `<tr><td>${t(a.level)}</td><td>${a.competition_details}</td><td>${a.event ?? '—'}</td><td>${a.medal_type ? t(a.medal_type) : '—'}</td><td>${formatDisplayDate(a.event_date) ?? '—'}</td></tr>`,
         )
         .join('');
 
@@ -247,7 +246,7 @@ function buildPrintHtml(
     </div>
     <h2>${t('Personal')}</h2>
     ${row(t("Father's name"), data.father_name)}
-    ${row(t('Date of birth'), formatDisplayDate(data.dob, 'hi'))}
+    ${row(t('Date of birth'), formatDisplayDate(data.dob))}
     ${row(t('Gender'), data.gender ? t(data.gender) : null)}
     ${row(t('Blood group'), data.blood_group)}
     ${row(t('Caste'), data.caste)}
@@ -256,8 +255,8 @@ function buildPrintHtml(
     <h2>${t('Service')}</h2>
     ${row(t('Rank'), data.rank ? resolveRankLabel(data.rank, ranks, locale) : null)}
     ${row(t('Posting'), postingLocation(data))}
-    ${row(t('Joining date'), formatDisplayDate(data.joining_date, 'hi'))}
-    ${row(t('Promotion date'), formatDisplayDate(data.promotion_date, 'hi'))}
+    ${row(t('Joining date'), formatDisplayDate(data.joining_date))}
+    ${row(t('Promotion date'), formatDisplayDate(data.promotion_date))}
     ${row(t('Initial rank'), data.initial_rank ? resolveRankLabel(data.initial_rank, ranks, locale) : null)}
     ${row(t('Sport'), data.sport?.name)}
     ${data.playable_sports.length ? `<div class="section"><h2>${t('Playable sports')}</h2>${data.playable_sports.map((sport) => `<div class="row"><span class="label">${sport.name}</span><span class="val">${[sport.role, sport.sport_event, sport.weight, sport.position, sport.notes].filter(Boolean).join(' · ') || '—'}</span></div>`).join('')}</div>` : ''}
@@ -428,7 +427,7 @@ export function MemberQuickView({
                                 />
                                 <InfoRow
                                     label={t('Date of birth')}
-                                    value={formatDisplayDate(data.dob, 'hi')}
+                                    value={formatDisplayDate(data.dob)}
                                 />
                                 <InfoRow
                                     label={t('Gender')}
@@ -459,16 +458,12 @@ export function MemberQuickView({
                                 />
                                 <InfoRow
                                     label={t('Joining date')}
-                                    value={formatDisplayDate(
-                                        data.joining_date,
-                                        'hi',
-                                    )}
+                                    value={formatDisplayDate(data.joining_date)}
                                 />
                                 <InfoRow
                                     label={t('Promotion date')}
                                     value={formatDisplayDate(
                                         data.promotion_date,
-                                        'hi',
                                     )}
                                 />
                                 <InfoRow
@@ -567,7 +562,6 @@ export function MemberQuickView({
                                                     <span className="font-mono text-xs text-muted-foreground">
                                                         {formatDisplayDate(
                                                             h.effective_on,
-                                                            'hi',
                                                         )}
                                                     </span>
                                                     <p className="font-semibold">
@@ -622,13 +616,11 @@ export function MemberQuickView({
                                                     <TableCell className="font-mono text-xs">
                                                         {formatDisplayDate(
                                                             th.joined_on,
-                                                            'hi',
                                                         ) ?? '—'}
                                                     </TableCell>
                                                     <TableCell className="font-mono text-xs">
                                                         {formatDisplayDate(
                                                             th.left_on,
-                                                            'hi',
                                                         ) ?? t('Present')}
                                                     </TableCell>
                                                 </TableRow>
@@ -682,7 +674,6 @@ export function MemberQuickView({
                                                     <TableCell className="font-mono text-xs">
                                                         {formatDisplayDate(
                                                             a.event_date,
-                                                            'hi',
                                                         ) ?? '—'}
                                                     </TableCell>
                                                 </TableRow>

@@ -307,6 +307,26 @@ function sessionStartDate(
     return match ? `${match[1]}-01-01` : undefined;
 }
 
+function formatDisplayDate(
+    value: string | null | undefined,
+): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const match = /^\d{4}-\d{2}-\d{2}/.exec(value);
+    const datePart = match ? match[0] : value;
+    const date = new Date(datePart);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat('en-IN', {
+        dateStyle: 'medium',
+    }).format(date);
+}
+
 function isOtherTierEvent(tierCode?: string | null): boolean {
     return tierCode?.trim().toUpperCase() === 'OTHER';
 }
@@ -2079,7 +2099,9 @@ export function PromotionDialog({
                                     <span className="font-medium">
                                         {t('Promotion date')}:
                                     </span>{' '}
-                                    {form.data.promotion_date || '—'}
+                                    {formatDisplayDate(
+                                        form.data.promotion_date,
+                                    ) || '—'}
                                 </p>
                             )}
                             {(form.data.cash_reward_amount ||
@@ -2100,7 +2122,10 @@ export function PromotionDialog({
                                         {form.data.cash_reward_date ? (
                                             <li className="rounded border px-2 py-1">
                                                 {t('Date')}:{' '}
-                                                {form.data.cash_reward_date}
+                                                {formatDisplayDate(
+                                                    form.data
+                                                        .cash_reward_date,
+                                                )}
                                             </li>
                                         ) : null}
                                         {form.data.cash_reward_reference ? (
@@ -2500,7 +2525,9 @@ export function PromotionsTab({
                     }
 
                     if (benefit.benefit_date) {
-                        parts.push(benefit.benefit_date);
+                        parts.push(
+                            formatDisplayDate(benefit.benefit_date) ?? '',
+                        );
                     }
 
                     if (benefit.order_reference) {
@@ -2785,8 +2812,9 @@ export function PromotionsTab({
                                                     ) || t('Unknown')}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    {promotion.promotion_date ||
-                                                        '—'}
+                                                    {formatDisplayDate(
+                                                        promotion.promotion_date,
+                                                    ) || '—'}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
                                                     <div className="space-y-1">
@@ -3121,9 +3149,12 @@ export function PromotionsTab({
                                                     </Badge>
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    {promotion.cash_reward_date ||
-                                                        promotion.promotion_date ||
-                                                        '—'}
+                                                    {formatDisplayDate(
+                                                        promotion
+                                                            .cash_reward_date ??
+                                                            promotion
+                                                                .promotion_date,
+                                                    ) || '—'}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
                                                     {promotion.cash_reward_amount ? (

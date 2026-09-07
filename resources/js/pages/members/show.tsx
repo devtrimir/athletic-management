@@ -258,7 +258,6 @@ function parseDateValue(value: string): Date | null {
 
 function formatDisplayDate(
     value: string | null | undefined,
-    locale: string,
 ): string | null {
     if (!value) {
         return null;
@@ -270,7 +269,7 @@ function formatDisplayDate(
         return value;
     }
 
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
+    return new Intl.DateTimeFormat('en-IN', {
         dateStyle: 'medium',
     }).format(date);
 }
@@ -1689,7 +1688,7 @@ export default function MembersShow({
                           ? t('Female')
                           : t('Other gender');
                 case 'dob':
-                    return formatDisplayDate(member.dob, pageLocale) ?? '';
+                    return formatDisplayDate(member.dob) ?? '';
                 case 'rank':
                     return member.rank ?? '';
                 case 'mobile':
@@ -1706,7 +1705,7 @@ export default function MembersShow({
                     return member.home_district?.name ?? '';
                 case 'joining_date':
                     return (
-                        formatDisplayDate(member.joining_date, pageLocale) ?? ''
+                        formatDisplayDate(member.joining_date) ?? ''
                     );
                 case 'blood_group':
                     return member.blood_group ?? '';
@@ -1729,12 +1728,12 @@ export default function MembersShow({
                         .join(' | ');
                 case 'promotion_date':
                     return (
-                        formatDisplayDate(member.promotion_date, pageLocale) ??
+                        formatDisplayDate(member.promotion_date) ??
                         ''
                     );
                 case 'team_since':
                     return (
-                        formatDisplayDate(member.team_since, pageLocale) ?? ''
+                        formatDisplayDate(member.team_since) ?? ''
                     );
                 default:
                     return '';
@@ -1971,10 +1970,7 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Date of birth'),
-                                            formatDisplayDate(
-                                                member.dob,
-                                                pageLocale,
-                                            ),
+                                            formatDisplayDate(member.dob),
                                         )}
                                         {detail(t('Mobile'), member.mobile)}
                                         {member.blood_group &&
@@ -2019,10 +2015,7 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Joining date'),
-                                            formatDisplayDate(
-                                                member.joining_date,
-                                                pageLocale,
-                                            ),
+                                            formatDisplayDate(member.joining_date),
                                         )}
                                         {detail(
                                             t('Home district'),
@@ -2054,7 +2047,6 @@ export default function MembersShow({
                                                 t('Promotion date'),
                                                 formatDisplayDate(
                                                     member.promotion_date,
-                                                    pageLocale,
                                                 ),
                                             )}
                                         {member.team_since &&
@@ -2062,7 +2054,6 @@ export default function MembersShow({
                                                 t('Team since'),
                                                 formatDisplayDate(
                                                     member.team_since,
-                                                    pageLocale,
                                                 ),
                                             )}
                                         {member.home_address &&
@@ -2221,10 +2212,7 @@ export default function MembersShow({
                                 </div>
                             }
                         >
-                            <MemberTeamsTab
-                                teams={memberTeams}
-                                locale={pageLocale}
-                            />
+                            <MemberTeamsTab teams={memberTeams} />
                         </Deferred>
                     </TabsContent>
 
@@ -3260,7 +3248,6 @@ export default function MembersShow({
                                                     <p>
                                                         {formatDisplayDate(
                                                             row.effective_on,
-                                                            pageLocale,
                                                         )}
                                                     </p>
                                                     {row.recorded_by_name && (
@@ -4015,12 +4002,10 @@ export default function MembersShow({
                                             formatDisplayDate(
                                                 achievementPreview.tournament
                                                     .date_from,
-                                                pageLocale,
                                             ),
                                             formatDisplayDate(
                                                 achievementPreview.tournament
                                                     .date_to,
-                                                pageLocale,
                                             ),
                                         ]
                                             .filter(Boolean)

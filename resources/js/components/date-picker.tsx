@@ -41,11 +41,13 @@ type Props = {
 };
 
 function parseDateValue(value: string): Date | undefined {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const datePart = /^\d{4}-\d{2}-\d{2}/.exec(value.trim());
+
+    if (!datePart) {
         return undefined;
     }
 
-    const parsed = parseISO(value);
+    const parsed = parseISO(datePart[0]);
 
     return isValid(parsed) ? parsed : undefined;
 }

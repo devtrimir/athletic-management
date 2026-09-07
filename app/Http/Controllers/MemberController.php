@@ -250,8 +250,15 @@ class MemberController extends Controller
     {
         Gate::authorize('update', $member);
 
+        $member->load(['playableSports']);
+
         return Inertia::render('members/edit', [
-            'member' => $member->load(['playableSports']),
+            'member' => array_merge($member->toArray(), [
+                'dob' => $member->dob?->toDateString(),
+                'joining_date' => $member->joining_date?->toDateString(),
+                'promotion_date' => $member->promotion_date?->toDateString(),
+                'team_since' => $member->team_since?->toDateString(),
+            ]),
             'districts' => District::orderBy('name')->get(['id', 'name']),
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
