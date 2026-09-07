@@ -967,13 +967,14 @@ class AuditLogBuilder
                 }
             }
 
-            $at = $log->at->clone()->timezone(config('app.timezone'));
+            $rawAt = $log->getAttributes()['at'];
+            $at = Carbon::parse($rawAt, 'UTC')->timezone(config('app.timezone'));
 
             return [
                 'id' => $log->id,
                 'action' => $log->action,
                 'subject' => $subject,
-                'at' => $log->at->toIso8601String(),
+                'at' => $at->toIso8601String(),
                 'date' => $at->format('Y-m-d'),
                 'year' => $at->format('Y'),
                 'displayDate' => $at->format('d M Y'),
