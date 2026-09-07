@@ -97,45 +97,47 @@ export default function Welcome() {
 
                     {/* Content card */}
                     <div
-                        className={`relative z-10 w-full max-w-xl transition-transform duration-700 ease-in-out motion-safe:animate-in motion-safe:duration-1000 motion-safe:slide-in-from-bottom-10 motion-safe:zoom-in-95 motion-safe:fade-in ${
-                            isTennis ? 'lg:translate-x-[18vw]' : 'translate-x-0'
+                        className={`relative z-10 w-full max-w-md transition-transform duration-700 ease-in-out motion-safe:animate-in motion-safe:duration-1000 motion-safe:slide-in-from-bottom-10 motion-safe:zoom-in-95 motion-safe:fade-in sm:max-w-lg lg:max-w-xl ${
+                            isTennis
+                                ? 'lg:translate-x-[8vw] xl:translate-x-[14vw] 2xl:translate-x-[18vw]'
+                                : 'translate-x-0'
                         }`}
                     >
-                        <div className="relative rounded-[2rem] bg-white p-8 pb-10 shadow-2xl sm:p-10 sm:pb-12 lg:p-12 lg:pb-14">
-                            <div className="absolute -top-14 left-1/2 z-20 -translate-x-1/2 motion-safe:animate-in motion-safe:delay-100 motion-safe:zoom-in-95 motion-safe:fade-in sm:-top-16">
+                        <div className="relative max-h-[85svh] overflow-y-auto rounded-[1.5rem] bg-white p-6 pb-8 shadow-2xl sm:rounded-[2rem] sm:p-8 sm:pb-10 lg:p-10 lg:pb-12">
+                            <div className="absolute -top-12 left-1/2 z-20 -translate-x-1/2 motion-safe:animate-in motion-safe:delay-100 motion-safe:zoom-in-95 motion-safe:fade-in sm:-top-14 lg:-top-16">
                                 <div className="rounded-full bg-white p-2 shadow-xl">
                                     <img
                                         src="/logo.jpg"
                                         alt="UP Police Sports Control Board"
-                                        className="h-24 w-24 rounded-full object-cover ring-2 ring-white/20 sm:h-28 sm:w-28"
+                                        className="h-20 w-20 rounded-full object-cover ring-2 ring-white/20 sm:h-24 sm:w-24 lg:h-28 lg:w-28"
                                     />
                                 </div>
                             </div>
 
-                            <div className="flex flex-col items-center pt-14 text-center sm:pt-16">
-                                <p className="text-base font-medium text-[#0b1e6b] motion-safe:animate-in motion-safe:delay-200 motion-safe:fade-in motion-safe:slide-in-from-bottom-3 sm:text-lg">
+                            <div className="flex flex-col items-center pt-12 text-center sm:pt-14 lg:pt-16">
+                                <p className="text-sm font-medium text-[#0b1e6b] motion-safe:animate-in motion-safe:delay-200 motion-safe:fade-in motion-safe:slide-in-from-bottom-3 sm:text-base lg:text-lg">
                                     {t(
                                         'UP Police Sports Control Board (UPPSCB)',
                                     )}
                                 </p>
 
-                                <h1 className="mt-3 text-2xl font-bold tracking-tight text-neutral-900 motion-safe:animate-in motion-safe:delay-300 motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:text-3xl lg:text-4xl">
+                                <h1 className="mt-2 text-xl font-bold tracking-tight text-neutral-900 motion-safe:animate-in motion-safe:delay-300 motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:mt-3 sm:text-2xl lg:text-3xl">
                                     {t(
                                         'Sports records, teams, and performance in one secure system.',
                                     )}
                                 </h1>
 
-                                <p className="mt-5 text-base text-neutral-600 motion-safe:animate-in motion-safe:delay-400 motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:text-lg">
+                                <p className="mt-3 text-sm text-neutral-600 motion-safe:animate-in motion-safe:delay-400 motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:mt-4 sm:text-base lg:mt-5">
                                     {t(
                                         'Choose the sign-in area for your role.',
                                     )}
                                 </p>
 
-                                <div className="mt-6 grid w-full gap-4 motion-safe:animate-in motion-safe:delay-500 motion-safe:fade-in motion-safe:slide-in-from-bottom-6">
+                                <div className="mt-4 grid w-full gap-3 motion-safe:animate-in motion-safe:delay-500 motion-safe:fade-in motion-safe:slide-in-from-bottom-6 sm:mt-5 sm:gap-4 lg:mt-6">
                                     {auth.user ? (
                                         <Button
                                             asChild
-                                            className="h-14 w-full rounded-xl bg-[#0b1e6b] text-base hover:bg-[#0b1e6b]/90"
+                                            className="h-12 w-full rounded-xl bg-[#0b1e6b] text-sm hover:bg-[#0b1e6b]/90 sm:text-base lg:h-14"
                                             size="lg"
                                         >
                                             <Link href={dashboard()}>
@@ -146,7 +148,7 @@ export default function Welcome() {
                                         <>
                                             <Button
                                                 asChild
-                                                className="h-14 w-full rounded-xl bg-[#0b1e6b] text-base hover:bg-[#0b1e6b]/90"
+                                                className="h-12 w-full rounded-xl bg-[#0b1e6b] text-sm hover:bg-[#0b1e6b]/90 sm:text-base lg:h-14"
                                                 size="lg"
                                             >
                                                 <Link href={login()}>
@@ -155,7 +157,7 @@ export default function Welcome() {
                                             </Button>
                                             <Button
                                                 asChild
-                                                className="h-14 w-full rounded-xl border-2 border-[#0b1e6b] bg-white text-base text-[#0b1e6b] hover:bg-[#0b1e6b]/5"
+                                                className="h-12 w-full rounded-xl border-2 border-[#0b1e6b] bg-white text-sm text-[#0b1e6b] hover:bg-[#0b1e6b]/5 sm:text-base lg:h-14"
                                                 size="lg"
                                                 variant="outline"
                                             >
@@ -169,11 +171,11 @@ export default function Welcome() {
                                     )}
                                 </div>
 
-                                <div className="mt-8 w-full motion-safe:animate-in motion-safe:delay-600 motion-safe:fade-in">
+                                <div className="mt-6 w-full motion-safe:animate-in motion-safe:delay-600 motion-safe:fade-in sm:mt-7 lg:mt-8">
                                     <div className="border-t border-neutral-200" />
                                 </div>
 
-                                <p className="mt-6 max-w-lg text-sm leading-relaxed text-neutral-500 motion-safe:animate-in motion-safe:delay-700 motion-safe:fade-in sm:text-base">
+                                <p className="mt-4 max-w-lg text-xs leading-relaxed text-neutral-500 motion-safe:animate-in motion-safe:delay-700 motion-safe:fade-in sm:mt-5 sm:text-sm lg:mt-6">
                                     {t(
                                         'Use this portal to manage members, coaches, teams, tournaments, attendance, and reports.',
                                     )}
