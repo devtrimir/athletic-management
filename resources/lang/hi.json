@@ -724,6 +724,7 @@
     "Select district": "जिला चुनें",
     "Select designation": "पदनाम चुनें",
     "Select gender": "लिंग चुनें",
+    "Select home background": "होम पृष्ठ पृष्ठभूमि चुनें",
     "Select level": "स्तर चुनें",
     "Select medal": "पदक चुनें",
     "Select recruitment type": "भर्ती प्रकार चुनें",
@@ -1498,5 +1499,7 @@
     "Use YYYY-MM-DD format.": "YYYY-MM-DD प्रारूप का प्रयोग करें।",
     "team prabhari": "टीम प्रभारी",
     "—": "—",
+    "Court": "कोर्ट",
+    "Stadium": "स्टेडियम",
     "Search team prabhari by name, PNO, or rank": "नाम, पीएनओ या रैंक द्वारा टीम प्रभारी खोजें"
 }
