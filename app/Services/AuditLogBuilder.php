@@ -35,6 +35,7 @@ use App\Models\TeamSessionStatus;
 use App\Models\Tournament;
 use App\Models\Unit;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class AuditLogBuilder
@@ -42,7 +43,7 @@ class AuditLogBuilder
     /**
      * Build the audit timeline for a member.
      *
-     * @return array<int, array{id: int, action: string, subject: string, at: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
+     * @return array<int, array{id: int, action: string, subject: string, at: string, date: string, year: string, displayDate: string, displayAt: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
      */
     public function forMember(Member $member): array
     {
@@ -182,7 +183,7 @@ class AuditLogBuilder
             return match ($normaliseEvidenceType(is_string($type) ? $type : null)) {
                 'participation' => $participationLabelMap->get((int) $value) ?? 'Tournament participation record',
                 'achievement' => $achievementLabelMap->get((int) $value) ?? 'Achievement record',
-                default => (string) $value,
+                default => $this->formatAuditValue($value),
             };
         };
 
@@ -331,7 +332,7 @@ class AuditLogBuilder
                 $entity === 'PromotionEvidence' && $field === 'evidencable_type' => $evidenceTypeLabel($value),
                 $entity === 'PromotionEvidence' && $field === 'evidencable_id' => $resolveEvidenceLabel($value, $diff),
                 is_array($value) || is_object($value) => json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[complex value]',
-                default => (string) $value,
+                default => $this->formatAuditValue($value),
             };
         };
 
@@ -344,7 +345,7 @@ class AuditLogBuilder
      * Covers the team's own edits, player (TeamMember) assignments, and
      * coach (CoachAssignment) assignments.
      *
-     * @return array<int, array{id: int, action: string, subject: string, at: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
+     * @return array<int, array{id: int, action: string, subject: string, at: string, date: string, year: string, displayDate: string, displayAt: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
      */
     public function forTeam(Team $team): array
     {
@@ -468,7 +469,7 @@ class AuditLogBuilder
                 $field === 'session_id' || $field === 'carried_forward_to_session_id' => $sessionMap->get((int) $value) ?? (string) $value,
                 $field === 'member_id' => $memberMap->get((int) $value) ?? (string) $value,
                 $field === 'coach_id' => $coachMap->get((int) $value) ?? (string) $value,
-                default => (string) $value,
+                default => $this->formatAuditValue($value),
             };
         };
 
@@ -478,7 +479,7 @@ class AuditLogBuilder
     /**
      * Build the audit timeline for an incharge and their team assignments.
      *
-     * @return array<int, array{id: int, action: string, subject: string, at: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
+     * @return array<int, array{id: int, action: string, subject: string, at: string, date: string, year: string, displayDate: string, displayAt: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
      */
     public function forIncharge(Incharge $incharge): array
     {
@@ -597,7 +598,7 @@ class AuditLogBuilder
                 $field === 'team_id' => $teamMap->get((int) $value) ?? (string) $value,
                 $field === 'incharge_id' => (int) $value === $incharge->id ? $incharge->full_name : (string) $value,
                 is_bool($value) => $value ? 'Yes' : 'No',
-                default => (string) $value,
+                default => $this->formatAuditValue($value),
             };
         };
 
@@ -610,7 +611,7 @@ class AuditLogBuilder
      * Covers the coach's own profile edits and all team assignments
      * (CoachAssignment created/updated/deleted).
      *
-     * @return array<int, array{id: int, action: string, subject: string, at: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
+     * @return array<int, array{id: int, action: string, subject: string, at: string, date: string, year: string, displayDate: string, displayAt: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
      */
     public function forCoach(Coach $coach): array
     {
@@ -847,7 +848,7 @@ class AuditLogBuilder
                 $entity === 'CoachSpecialAchievement' && $field === 'order_document_size_bytes' => number_format((int) $value).' bytes',
                 $entity === 'CoachSpecialAchievement' && $field === 'id' => $coachSpecialAchievementLabelMap->get((int) $value) ?? (string) $value,
                 $entity === 'CoachPlayingAchievement' && $field === 'id' => $coachPlayingAchievementLabelMap->get((int) $value) ?? (string) $value,
-                default => (string) $value,
+                default => $this->formatAuditValue($value),
             };
         };
 
@@ -887,6 +888,29 @@ class AuditLogBuilder
     }
 
     /**
+     * Format a raw audit value for display. Date/datetime strings are returned
+     * as "d M Y" so the changelog never shows ISO / timezone strings.
+     */
+    private function formatAuditValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $string = (string) $value;
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $string)) {
+            try {
+                return Carbon::parse($string)->format('d M Y');
+            } catch (\Throwable) {
+                // fall through to raw string
+            }
+        }
+
+        return $string;
+    }
+
+    /**
      * Map raw AuditLog collection to the frontend-consumable shape.
      *
      * @param  Collection<int, AuditLog>  $logs
@@ -895,7 +919,7 @@ class AuditLogBuilder
      * @param  array<string, list<string>>  $hiddenFields
      * @param  callable(string, string, mixed, array<string, mixed>): ?string  $resolve
      * @param  Collection<int, string>  $userMap
-     * @return array<int, array{id: int, action: string, subject: string, at: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
+     * @return array<int, array{id: int, action: string, subject: string, at: string, date: string, year: string, displayDate: string, displayAt: string, by: string|null, changes: array<int, array{field: string, old: string|null, new: string|null}>}>
      */
     private function mapLogs(
         Collection $logs,
@@ -943,11 +967,17 @@ class AuditLogBuilder
                 }
             }
 
+            $at = $log->at->clone()->timezone(config('app.timezone'));
+
             return [
                 'id' => $log->id,
                 'action' => $log->action,
                 'subject' => $subject,
                 'at' => $log->at->toIso8601String(),
+                'date' => $at->format('Y-m-d'),
+                'year' => $at->format('Y'),
+                'displayDate' => $at->format('d M Y'),
+                'displayAt' => $at->format('d M Y, h:i A'),
                 'by' => $log->user_id ? ($userMap->get($log->user_id) ?? '#'.$log->user_id) : null,
                 'changes' => $changes,
             ];

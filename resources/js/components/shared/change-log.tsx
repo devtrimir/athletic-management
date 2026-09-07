@@ -1,3 +1,4 @@
+import { format, parseISO } from 'date-fns';
 import {
     AlignLeft,
     Check,
@@ -36,6 +37,10 @@ export type AuditEntry = {
     action: string;
     subject: string;
     at: string;
+    date: string;
+    year: string;
+    displayDate: string;
+    displayAt: string;
     by: string | null;
     changes: AuditChange[];
 };
@@ -73,7 +78,7 @@ function humanizeValue(value: string | null): string {
     }
 
     if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(trimmed)) {
-        return trimmed;
+        return format(parseISO(trimmed), 'd MMM yyyy');
     }
 
     if (!/^[a-zA-Z]/.test(trimmed)) {
@@ -261,7 +266,6 @@ export function ChangeLog({
     endpoint,
 }: ChangeLogProps) {
     const { t } = useTranslation();
-    const displayLocale = 'en-US';
     const [remoteEntries, setRemoteEntries] = useState<
         AuditEntry[] | undefined
     >(undefined);
@@ -333,7 +337,9 @@ export function ChangeLog({
         return params.toString();
     }
 
-    function normalizePeriod(selected: 'month' | 'quarter' | 'half_year' | 'year' | undefined): void {
+    function normalizePeriod(
+        selected: 'month' | 'quarter' | 'half_year' | 'year' | undefined,
+    ): void {
         if (selected === undefined) {
             return;
         }
@@ -347,6 +353,7 @@ export function ChangeLog({
     }
 
     useEffect(() => {
+        /* eslint-disable react-hooks/set-state-in-effect */
         if (!endpoint) {
             return;
         }
@@ -370,19 +377,19 @@ export function ChangeLog({
                 }) => {
                     if (!alive) {
                         return;
-                }
+                    }
 
-                setRemoteEntries((current) =>
-                    page === 1
-                        ? payload.data ?? []
-                        : [...(current ?? []), ...(payload.data ?? [])],
-                );
-                setHasMore(payload.meta?.has_more ?? false);
-                setLoading(false);
-                setLoadingMore(false);
-            },
-        )
-        .catch(() => {
+                    setRemoteEntries((current) =>
+                        page === 1
+                            ? (payload.data ?? [])
+                            : [...(current ?? []), ...(payload.data ?? [])],
+                    );
+                    setHasMore(payload.meta?.has_more ?? false);
+                    setLoading(false);
+                    setLoadingMore(false);
+                },
+            )
+            .catch(() => {
                 if (!alive) {
                     return;
                 }
@@ -399,9 +406,23 @@ export function ChangeLog({
         return () => {
             alive = false;
         };
-    }, [endpoint, page, perPage, search, year, period, fromDate, toDate, action, subject]);
+        /* eslint-enable react-hooks/set-state-in-effect */
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        endpoint,
+        page,
+        perPage,
+        search,
+        year,
+        period,
+        fromDate,
+        toDate,
+        action,
+        subject,
+    ]);
 
     useEffect(() => {
+        /* eslint-disable react-hooks/set-state-in-effect */
         if (!endpoint) {
             return;
         }
@@ -409,6 +430,7 @@ export function ChangeLog({
         setRemoteEntries(undefined);
         setHasMore(false);
         setPage(1);
+        /* eslint-enable react-hooks/set-state-in-effect */
     }, [search, year, period, fromDate, toDate, action, subject, endpoint]);
 
     const sourceEntries = endpoint ? remoteEntries : entries;
@@ -419,11 +441,7 @@ export function ChangeLog({
         }
 
         const years = [
-            ...new Set(
-                sourceEntries.map((e) =>
-                    new Date(e.at).getFullYear().toString(),
-                ),
-            ),
+            ...new Set(sourceEntries.map((e) => e.year)),
         ]
             .sort()
             .reverse();
@@ -459,15 +477,16 @@ export function ChangeLog({
         }
 
         return sourceEntries.filter((entry) => {
-            const entryDate = new Date(entry.at);
-
-            if (year && new Date(entry.at).getFullYear().toString() !== year) {
+            if (year && entry.year !== year) {
                 return false;
             }
 
             const periodStart = getPeriodStart(period);
 
-            if (periodStart && entryDate < periodStart) {
+            if (
+                periodStart &&
+                entry.date < periodStart.toISOString().slice(0, 10)
+            ) {
                 return false;
             }
 
@@ -499,7 +518,15 @@ export function ChangeLog({
         });
     }, [sourceEntries, year, period, action, subject, search]);
 
-    const anyFilter = !!(year || period || action || subject || search || fromDate || toDate);
+    const anyFilter = !!(
+        year ||
+        period ||
+        action ||
+        subject ||
+        search ||
+        fromDate ||
+        toDate
+    );
 
     const summary = useMemo(() => {
         const total = visible.length;
@@ -519,9 +546,7 @@ export function ChangeLog({
         const groups = new Map<string, AuditEntry[]>();
 
         for (const entry of visible) {
-            const key = new Date(entry.at).toLocaleDateString(displayLocale, {
-                dateStyle: 'long',
-            });
+            const key = entry.displayDate;
             const current = groups.get(key) ?? [];
             current.push(entry);
             groups.set(key, current);
@@ -556,10 +581,10 @@ export function ChangeLog({
                         />
                     </FilterPill>
 
-                        <FilterPill
-                            label={t('Period')}
-                            activeLabel={
-                                period
+                    <FilterPill
+                        label={t('Period')}
+                        activeLabel={
+                            period
                                 ? t(
                                       period === 'month'
                                           ? 'Last one month'
@@ -570,15 +595,15 @@ export function ChangeLog({
                                               : 'Last year',
                                   )
                                 : undefined
-                            }
-                            onClear={() => {
-                                setPeriod(undefined);
-                                setFromDate('');
-                                setToDate('');
-                            }}
-                        >
-                            <OptionList
-                                options={[
+                        }
+                        onClear={() => {
+                            setPeriod(undefined);
+                            setFromDate('');
+                            setToDate('');
+                        }}
+                    >
+                        <OptionList
+                            options={[
                                 { value: 'month', label: t('Last one month') },
                                 { value: 'quarter', label: t('Last quarter') },
                                 {
@@ -586,29 +611,29 @@ export function ChangeLog({
                                     label: t('Last half year'),
                                 },
                                 { value: 'year', label: t('Last year') },
-                                ]}
-                                value={period}
-                                onSelect={(v) => {
-                                    const selected = v as
-                                        | 'month'
-                                        | 'quarter'
-                                        | 'half_year'
-                                        | 'year'
-                                        | undefined;
+                            ]}
+                            value={period}
+                            onSelect={(v) => {
+                                const selected = v as
+                                    | 'month'
+                                    | 'quarter'
+                                    | 'half_year'
+                                    | 'year'
+                                    | undefined;
 
-                                    setPeriod(selected);
+                                setPeriod(selected);
 
-                                    if (selected) {
-                                        normalizePeriod(selected);
-                                    }
+                                if (selected) {
+                                    normalizePeriod(selected);
+                                }
 
-                                    if (!selected) {
-                                        setFromDate('');
-                                        setToDate('');
-                                    }
-                                }}
-                            />
-                        </FilterPill>
+                                if (!selected) {
+                                    setFromDate('');
+                                    setToDate('');
+                                }
+                            }}
+                        />
+                    </FilterPill>
 
                     <div className="flex items-center gap-2">
                         <label className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
@@ -789,13 +814,7 @@ export function ChangeLog({
                             {visible.map((entry) => (
                                 <TableRow key={entry.id}>
                                     <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
-                                        {new Date(entry.at).toLocaleString(
-                                            displayLocale,
-                                            {
-                                                dateStyle: 'medium',
-                                                timeStyle: 'short',
-                                            },
-                                        )}
+                                        {entry.displayAt}
                                     </TableCell>
                                     <TableCell className="text-xs">
                                         {entry.by ?? '—'}
@@ -828,7 +847,10 @@ export function ChangeLog({
                                                 {entry.changes.map((ch, i) => (
                                                     <li key={i}>
                                                         <span className="font-medium">
-                                                        {humanizeField(ch.field)}:
+                                                            {humanizeField(
+                                                                ch.field,
+                                                            )}
+                                                            :
                                                         </span>{' '}
                                                         {ch.old !== null ? (
                                                             <>
@@ -839,16 +861,16 @@ export function ChangeLog({
                                                                 </span>
                                                                 {' → '}
                                                                 <span>
-                                                                {humanizeValue(
-                                                                    ch.new,
-                                                                ) || '—'}
+                                                                    {humanizeValue(
+                                                                        ch.new,
+                                                                    ) || '—'}
                                                                 </span>
                                                             </>
                                                         ) : (
                                                             <span>
-                                                            {humanizeValue(
-                                                                ch.new,
-                                                            ) || '—'}
+                                                                {humanizeValue(
+                                                                    ch.new,
+                                                                ) || '—'}
                                                             </span>
                                                         )}
                                                     </li>
@@ -869,10 +891,7 @@ export function ChangeLog({
                             className="flex items-center gap-3 px-4 py-2.5"
                         >
                             <time className="w-36 shrink-0 text-xs text-muted-foreground">
-                                {new Date(entry.at).toLocaleString(displayLocale, {
-                                    dateStyle: 'medium',
-                                    timeStyle: 'short',
-                                })}
+                                {entry.displayAt}
                             </time>
                             <span className="hidden w-28 shrink-0 truncate text-xs text-muted-foreground sm:block">
                                 {entry.by ?? ''}
@@ -916,12 +935,7 @@ export function ChangeLog({
                                         <span className="absolute -start-2 flex h-4 w-4 items-center justify-center rounded-full bg-muted ring-2 ring-background" />
                                         <div className="mb-1 flex items-center gap-2">
                                             <time className="text-xs text-muted-foreground">
-                                                {new Date(
-                                                    entry.at,
-                                                ).toLocaleString(displayLocale, {
-                                                    dateStyle: 'medium',
-                                                    timeStyle: 'short',
-                                                })}
+                                                {entry.displayAt}
                                             </time>
                                             {entry.by && (
                                                 <span className="text-xs text-muted-foreground">
@@ -944,17 +958,20 @@ export function ChangeLog({
                                                 </Badge>
                                             )}
                                         </div>
-                                                {entry.changes.length > 0 && (
-                                                    <ul className="mt-1 space-y-1">
-                                                        {entry.changes.map((ch, i) => (
-                                                            <li
-                                                                key={i}
-                                                                className="text-sm"
-                                                            >
-                                                                <span className="font-medium">
-                                                            {humanizeField(ch.field)}:
-                                                            </span>{' '}
-                                                                {ch.old !== null ? (
+                                        {entry.changes.length > 0 && (
+                                            <ul className="mt-1 space-y-1">
+                                                {entry.changes.map((ch, i) => (
+                                                    <li
+                                                        key={i}
+                                                        className="text-sm"
+                                                    >
+                                                        <span className="font-medium">
+                                                            {humanizeField(
+                                                                ch.field,
+                                                            )}
+                                                            :
+                                                        </span>{' '}
+                                                        {ch.old !== null ? (
                                                             <>
                                                                 <span className="text-muted-foreground line-through">
                                                                     {humanizeValue(
