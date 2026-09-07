@@ -75,11 +75,10 @@ class TeamPreviewController extends Controller
                 'session_name' => $ca->session?->name,
             ]),
             'ranks' => Rank::active()->ordered()->get([
-                'code', 'name', 'name_en', 'short_name', 'rank_order',
+                'code', 'name', 'short_name', 'rank_order',
             ])->map(fn ($rank) => [
                 'code' => $rank->code,
                 'name' => $rank->name,
-                'name_en' => $rank->name_en,
                 'short_name' => $rank->short_name,
                 'rank_order' => $rank->rank_order,
             ]),

@@ -494,8 +494,8 @@ class MembersImport implements ToCollection, WithMultipleSheets
 
         $map = [];
 
-        foreach (Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'aliases']) as $rank) {
-            foreach (array_filter([$rank->code, $rank->short_name, $rank->name, $rank->name_en, ...($rank->aliases ?? [])]) as $value) {
+        foreach (Rank::active()->ordered()->get(['code', 'name', 'short_name', 'aliases']) as $rank) {
+            foreach (array_filter([$rank->code, $rank->short_name, $rank->name, ...($rank->aliases ?? [])]) as $value) {
                 $map[strtoupper(str_replace([' ', '-'], '_', $value))] = $rank->code;
             }
         }

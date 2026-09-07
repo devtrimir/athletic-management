@@ -81,7 +81,7 @@ class MemberPreviewController extends Controller
             ]),
             'team_history' => $teamHistory,
             'achievements' => [],
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
         ]);
     }
 }

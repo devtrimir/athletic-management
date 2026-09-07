@@ -26,7 +26,7 @@ class AchievementHistoryController
             'data' => $data,
             'filters' => $filters,
             'ranks' => Rank::active()->ordered()->get([
-                'code', 'name', 'name_en', 'short_name', 'rank_order',
+                'code', 'name', 'short_name', 'rank_order',
             ]),
         ]);
     }

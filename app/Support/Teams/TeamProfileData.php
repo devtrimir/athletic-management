@@ -139,7 +139,7 @@ class TeamProfileData
             'team' => (new TeamResource($team))->resolve(),
             'sessions' => $this->sessions($organizationId),
             'selectedSessionId' => $selectedSessionId,
-            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'name_en', 'short_name', 'rank_order']),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'sessionStatus' => [
                 'status' => $sessionStatus->status,
                 'label' => match ($sessionStatus->status) {

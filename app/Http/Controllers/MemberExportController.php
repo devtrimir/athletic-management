@@ -83,9 +83,8 @@ class MemberExportController extends Controller
     }
 
     /**
-     * Resolve a free-text rank value against the ranks master, localized by the
-     * current app locale. Case-insensitive match on `name_en` and `short_name`;
-     * falls back to the raw value when no master row matches.
+     * Resolve a free-text rank value against the ranks master. Always returns
+     * the stored rank name; falls back to the raw value when no master row matches.
      */
     private function resolveRankLabel(?string $value): ?string
     {
@@ -94,9 +93,9 @@ class MemberExportController extends Controller
         }
 
         $this->rankLookup ??= Rank::active()
-            ->get(['name', 'name_en', 'short_name'])
+            ->get(['code', 'name', 'short_name'])
             ->reduce(function (Collection $carry, Rank $rank): Collection {
-                foreach (array_filter([$rank->name_en, $rank->short_name]) as $key) {
+                foreach (array_filter([$rank->code, $rank->name, $rank->short_name]) as $key) {
                     $carry->put(mb_strtolower(trim((string) $key)), $rank);
                 }
 
@@ -109,9 +108,7 @@ class MemberExportController extends Controller
             return $value;
         }
 
-        return app()->getLocale() === 'hi'
-            ? ($rank->name ?? $rank->name_en ?? $rank->short_name ?? $value)
-            : ($rank->name_en ?? $rank->short_name ?? $rank->name ?? $value);
+        return $rank->name ?? $value;
     }
 
     private function resolvePlayerCategoryLabel(?string $value): ?string

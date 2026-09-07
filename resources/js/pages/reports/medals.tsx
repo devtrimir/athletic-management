@@ -34,7 +34,6 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
@@ -995,54 +994,6 @@ function EventSearchFilter({
     );
 }
 
-// ── Print orientation dialog ──────────────────────────────────────────────────
-
-function PrintDialog({
-    open,
-    onOpenChange,
-    onPrint,
-}: {
-    open: boolean;
-    onOpenChange: (v: boolean) => void;
-    onPrint: (orientation: 'portrait' | 'landscape') => void;
-}) {
-    const { t } = useTranslation();
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-xs" aria-describedby={undefined}>
-                <DialogHeader>
-                    <DialogTitle>{t('Page orientation')}</DialogTitle>
-                </DialogHeader>
-                <p className="text-sm text-muted-foreground">
-                    {t('Choose the print orientation for the report.')}
-                </p>
-                <DialogFooter className="flex-col gap-2 sm:flex-col">
-                    <Button
-                        className="w-full"
-                        onClick={() => {
-                            onPrint('portrait');
-                            onOpenChange(false);
-                        }}
-                    >
-                        {t('Portrait')} (A4)
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                            onPrint('landscape');
-                            onOpenChange(false);
-                        }}
-                    >
-                        {t('Landscape')} (A4)
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 // ── Detail row modal ──────────────────────────────────────────────────────────
 
 // ── Sub-modal: Related Medals ─────────────────────────────────────────────────
@@ -1066,7 +1017,12 @@ function buildQueryString(params: FilterQuery): string {
     return query.toString();
 }
 
-function exportRelatedCsv(rows: MedalRow[], filename: string): void {
+function exportRelatedCsv(
+    rows: MedalRow[],
+    filename: string,
+    ranks: RankOption[],
+    locale: string,
+): void {
     const header = [
         'Medal',
         'Name',
@@ -1087,7 +1043,9 @@ function exportRelatedCsv(rows: MedalRow[], filename: string): void {
                 r.medal_type,
                 r.member.full_name,
                 r.member.pno ?? '',
-                r.member.rank ?? '',
+                r.member.rank
+                    ? resolveRankLabel(r.member.rank, ranks, locale)
+                    : '',
                 r.member.unit_name ?? '',
                 r.sport.name,
                 r.event.name,
@@ -1232,6 +1190,8 @@ function RelatedMedalsModal({
     exportUrl,
     open,
     onOpenChange,
+    ranks,
+    locale,
 }: {
     title: string;
     description: string;
@@ -1239,6 +1199,8 @@ function RelatedMedalsModal({
     exportUrl?: string;
     open: boolean;
     onOpenChange: (v: boolean) => void;
+    ranks: RankOption[];
+    locale: string;
 }) {
     const { t } = useTranslation();
     const [relatedData, setRelatedData] = useState<RelatedResponse | null>(
@@ -1436,7 +1398,7 @@ function RelatedMedalsModal({
                                 onClick={() =>
                                     exportUrl
                                         ? (window.location.href = exportUrl)
-                                        : exportRelatedCsv(rows, title)
+                                        : exportRelatedCsv(rows, title, ranks, locale)
                                 }
                             >
                                 <Download className="size-3.5" />
@@ -1518,12 +1480,15 @@ function MedalDetailModal({
     row,
     open,
     onOpenChange,
+    ranks,
 }: {
     row: MedalRow | null;
     open: boolean;
     onOpenChange: (v: boolean) => void;
+    ranks: RankOption[];
 }) {
     const { t } = useTranslation();
+    const { locale } = usePage().props as { locale: string };
     const [subModal, setSubModal] = useState<
         'tournament' | 'event' | 'athlete' | null
     >(null);
@@ -1560,6 +1525,8 @@ function MedalDetailModal({
                 title={row.tournament.name}
                 description={t('All medal records from this tournament')}
                 params={{ tournament_id: String(row.tournament.id) }}
+                ranks={ranks}
+                locale={locale}
             />
             <RelatedMedalsModal
                 open={subModal === 'event'}
@@ -1572,6 +1539,8 @@ function MedalDetailModal({
                     tournament_id: String(row.tournament.id),
                     event_id: String(row.event.id),
                 }}
+                ranks={ranks}
+                locale={locale}
             />
             {row.member.pno && (
                 <RelatedMedalsModal
@@ -1580,6 +1549,8 @@ function MedalDetailModal({
                     title={row.member.full_name}
                     description={t('All medal records for this athlete')}
                     params={{ pno: row.member.pno }}
+                    ranks={ranks}
+                    locale={locale}
                 />
             )}
             <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1760,7 +1731,15 @@ function MedalDetailModal({
                             />
                             <DetailRow
                                 label={t('Rank')}
-                                value={row.member.rank}
+                                value={
+                                    row.member.rank
+                                        ? resolveRankLabel(
+                                              row.member.rank,
+                                              ranks,
+                                              locale,
+                                          )
+                                        : null
+                                }
                             />
                             <DetailRow
                                 label={t('Gender')}
@@ -1830,11 +1809,27 @@ function MedalDetailModal({
                                 />
                                 <DetailRow
                                     label={t('Promoted from')}
-                                    value={row.benefit.promoted_from_rank}
+                                    value={
+                                        row.benefit.promoted_from_rank
+                                            ? resolveRankLabel(
+                                                  row.benefit.promoted_from_rank,
+                                                  ranks,
+                                                  locale,
+                                              )
+                                            : null
+                                    }
                                 />
                                 <DetailRow
                                     label={t('Promoted to')}
-                                    value={row.benefit.promoted_to_rank}
+                                    value={
+                                        row.benefit.promoted_to_rank
+                                            ? resolveRankLabel(
+                                                  row.benefit.promoted_to_rank,
+                                                  ranks,
+                                                  locale,
+                                              )
+                                            : null
+                                    }
                                 />
                                 {row.benefit.remarks && (
                                     <DetailRow
@@ -3481,8 +3476,15 @@ export default function ReportsMedals({
                                                             </TableCell>
                                                             <TableCell className="text-sm">
                                                                 {row.member
-                                                                    .rank ??
-                                                                    '—'}
+                                                                    .rank
+                                                                    ? resolveRankLabel(
+                                                                          row
+                                                                              .member
+                                                                              .rank,
+                                                                          ranks,
+                                                                          locale,
+                                                                      )
+                                                                    : '—'}
                                                             </TableCell>
                                                             <TableCell className="text-sm">
                                                                 {row.member
@@ -3688,6 +3690,7 @@ export default function ReportsMedals({
                 row={selectedRow}
                 open={modalOpen}
                 onOpenChange={setModalOpen}
+                ranks={ranks}
             />
         </>
     );

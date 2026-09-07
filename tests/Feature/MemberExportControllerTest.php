@@ -30,8 +30,7 @@ beforeEach(function () {
 
     Rank::create([
         'code' => 'CONSTABLE',
-        'name' => 'आरक्षी',
-        'name_en' => 'Constable',
+        'name' => 'Constable',
         'short_name' => 'Constable',
         'rank_order' => 10,
         'is_active' => true,
@@ -39,8 +38,7 @@ beforeEach(function () {
 
     Rank::create([
         'code' => 'HC',
-        'name' => 'हेड कांस्टेबल',
-        'name_en' => 'Head Constable',
+        'name' => 'Head Constable',
         'short_name' => 'HC',
         'rank_order' => 20,
         'is_active' => true,
@@ -120,8 +118,8 @@ test('print listing rows use hindi labels when locale is hi', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('members/print')
-            ->where('rows.0.rank', 'हेड कांस्टेबल')
-            ->where('rows.0.initial_rank', 'आरक्षी')
+            ->where('rows.0.rank', 'Head Constable')
+            ->where('rows.0.initial_rank', 'Constable')
             ->where('rows.0.player_category', 'खेल कोटा')
             ->where('rows.0.player_level', 'राष्ट्रीय')
         );
@@ -188,7 +186,7 @@ test('excel export resolves the same localized rows', function () {
 // Index payload
 // ---------------------------------------------------------------------------
 
-test('index ranks payload includes name_en', function () {
+test('index ranks payload includes name', function () {
     $user = exportListingUser('hi');
     makeRankedMember($user);
 
@@ -198,9 +196,9 @@ test('index ranks payload includes name_en', function () {
         ->assertInertia(fn ($page) => $page
             ->component('members/index')
             ->where('ranks.0.code', 'CONSTABLE')
-            ->where('ranks.0.name_en', 'Constable')
+            ->where('ranks.0.name', 'Constable')
             ->where('ranks.1.code', 'HC')
-            ->where('ranks.1.name_en', 'Head Constable')
+            ->where('ranks.1.name', 'Head Constable')
         );
 });
 
@@ -212,5 +210,5 @@ test('member preview payload includes ranks for label resolution', function () {
         ->getJson(route('v1.members.preview', $member))
         ->assertOk()
         ->assertJsonPath('ranks.0.code', 'CONSTABLE')
-        ->assertJsonPath('ranks.0.name_en', 'Constable');
+        ->assertJsonPath('ranks.0.name', 'Constable');
 });

@@ -1,7 +1,6 @@
 export type RankOption = {
     code: string;
     name: string;
-    name_en?: string | null;
     short_name: string | null;
 };
 
@@ -25,7 +24,6 @@ export function resolveRankLabel(
         (rank) =>
             rank.code.trim().toLowerCase() === normalized ||
             rank.name.trim().toLowerCase() === normalized ||
-            rank.name_en?.trim().toLowerCase() === normalized ||
             rank.short_name?.trim().toLowerCase() === normalized,
     );
 

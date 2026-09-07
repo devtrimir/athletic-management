@@ -61,7 +61,7 @@ class ReportsMedalsController extends Controller
         $detailCounts = $this->detailReport->countByType($orgId, $filters);
         $ranks = Rank::active()
             ->ordered()
-            ->get(['code', 'name', 'name_en', 'short_name']);
+            ->get(['code', 'name', 'short_name']);
 
         return Inertia::render('reports/medals/print', [
             'ranks' => $ranks,
@@ -111,7 +111,7 @@ class ReportsMedalsController extends Controller
 
         $ranks = Rank::active()
             ->ordered()
-            ->get(['code', 'name', 'name_en', 'short_name']);
+            ->get(['code', 'name', 'short_name']);
 
         $eventOptions = DB::table('events as e')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')
