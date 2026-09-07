@@ -21,6 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
+import { coachRoleLabel } from '@/lib/coach';
 
 type Team = {
     id: number;
@@ -46,10 +47,6 @@ export function AddCoachDialog({ open, onOpenChange, team }: Props) {
         role: 'ASSISTANT',
         assigned_at: '',
     });
-
-    function coachRoleLabel(role: string): string {
-        return role === 'HEAD' ? t('Head Coach') : t('Assistant Coach');
-    }
 
     function handleCoachChange(c: CoachOption | null) {
         setPickedCoach(c);
@@ -114,7 +111,7 @@ export function AddCoachDialog({ open, onOpenChange, team }: Props) {
                                 <SelectContent>
                                     {COACH_ROLES.map((r) => (
                                         <SelectItem key={r} value={r}>
-                                            {coachRoleLabel(r)}
+                                            {coachRoleLabel(r, t)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

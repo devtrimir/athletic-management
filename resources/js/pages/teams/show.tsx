@@ -108,6 +108,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { coachRoleLabel } from '@/lib/coach';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
 import { cn } from '@/lib/utils';
@@ -1259,18 +1260,6 @@ export default function TeamsShow({
         );
     }
 
-    function coachRoleLabel(role: string | null): string {
-        if (role === 'HEAD') {
-            return t('Head Coach');
-        }
-
-        if (role === 'ASSISTANT') {
-            return t('Assistant Coach');
-        }
-
-        return role ? t(role) : '';
-    }
-
     const tableFallback = (
         <div className="space-y-2">
             {[1, 2, 3].map((n) => (
@@ -2056,6 +2045,7 @@ export default function TeamsShow({
                                                                     <span className="ml-2 text-xs text-muted-foreground">
                                                                         {coachRoleLabel(
                                                                             row.role,
+                                                                            t,
                                                                         )}
                                                                     </span>
                                                                 </span>
@@ -3555,7 +3545,7 @@ export default function TeamsShow({
                                                         key={r}
                                                         value={r}
                                                     >
-                                                        {coachRoleLabel(r)}
+                                                        {coachRoleLabel(r, t)}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -3793,6 +3783,7 @@ export default function TeamsShow({
                                                                     <TableCell>
                                                                         {coachRoleLabel(
                                                                             row.role,
+                                                                            t,
                                                                         )}
                                                                     </TableCell>
                                                                     <TableCell className="min-w-44">

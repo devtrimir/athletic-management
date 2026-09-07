@@ -57,6 +57,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { coachRoleLabel } from '@/lib/coach';
 
 type PaginationLink = {
     url: string | null;
@@ -363,20 +364,6 @@ function buildCoachTeamSportRows(
         return 2;
     };
 
-    const formatRole = (role: string | null): string => {
-        const normalizedRole = role?.trim().toLowerCase();
-
-        if (normalizedRole === 'head') {
-            return t('Head Coach');
-        }
-
-        if (normalizedRole === 'assistant') {
-            return t('Assistant Coach');
-        }
-
-        return role ? role : t('Coach');
-    };
-
     const grouped = new Map<string, SportTeamGroupRow>();
     const unassigned: SportTeamGroupRow[] = [];
 
@@ -443,7 +430,8 @@ function buildCoachTeamSportRows(
                         .filter(Boolean)
                         .join(' - '),
                     team: assignment.team?.name ?? t('Unspecified team'),
-                    role: formatRole(assignment.role),
+                    role:
+                        coachRoleLabel(assignment.role, t) || t('Coach'),
                     nis_master_name: coach.nis_master?.name ?? null,
                 });
             }

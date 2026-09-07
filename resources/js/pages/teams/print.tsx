@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useEffect } from 'react';
 import { useTranslation } from '@/hooks/use-translation';
+import { coachRoleLabel } from '@/lib/coach';
 
 type Team = {
     id: number;
@@ -271,7 +272,7 @@ export default function TeamsPrint({
     };
 
     const memberRank = (member: TeamMemberRow): string =>
-        cleanText(member.member?.rank);
+        rankLabel(member.member?.rank, ranks);
 
     const eventProfileParts = (member: TeamMemberRow): string[] => {
         const profile = member.member?.playable_profile;
@@ -299,7 +300,7 @@ export default function TeamsPrint({
                         <td class="compact-col">${escapeHtml(memberRank(member))}</td>
                         <td class="compact-col">${escapeHtml(player?.pno)}</td>
                         <td class="name-col">${escapeHtml(name)}</td>
-                        <td class="compact-col">${escapeHtml(cleanText(member.role))}</td>
+                        <td class="compact-col">${escapeHtml(member.role ? t(member.role) : '')}</td>
                         <td class="posting-col">${escapeHtml(posting || '')}</td>
                         <td class="compact-col">${escapeHtml(normalizeDate(member.joined_on))}</td>
                         ${showLeftOnColumn ? `<td class="compact-col">${escapeHtml(formatLeftDate(member))}</td>` : ''}
@@ -317,7 +318,7 @@ export default function TeamsPrint({
                             <td>${escapeHtml(coachAssignment.coach?.full_name)}</td>
                             <td>${escapeHtml(coachAssignment.coach?.pno)}</td>
                             <td>${escapeHtml(cleanText(coachAssignment.coach?.sport_profile?.sport_event))}</td>
-                            <td>${escapeHtml(cleanText(coachAssignment.role))}</td>
+                            <td>${escapeHtml(coachRoleLabel(coachAssignment.role, t))}</td>
                             <td>${escapeHtml(cleanText(coachAssignment.session?.name))}</td>
                         </tr>`)
             .join('');

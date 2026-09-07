@@ -6,6 +6,7 @@ import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTranslation } from '@/hooks/use-translation';
+import { coachRoleLabel } from '@/lib/coach';
 
 type Coach = {
     id: number;
@@ -743,7 +744,7 @@ export default function CoachPrintPreview({
                                     assignment.team?.name,
                                     assignment.sport?.name,
                                     assignment.session?.name,
-                                    humanize(assignment.role),
+                                    coachRoleLabel(assignment.role, t),
                                     formatDate(assignment.assigned_at),
                                     formatDate(assignment.removed_at),
                                     assignment.is_current

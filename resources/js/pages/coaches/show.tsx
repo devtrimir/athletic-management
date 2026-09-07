@@ -101,6 +101,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { coachRoleLabel } from '@/lib/coach';
 
 type CoachCertification = {
     id: number;
@@ -637,18 +638,6 @@ export default function CoachesShow({
         }
 
         return rankItems.find((rank) => rank.value === value)?.label ?? value;
-    }
-
-    function coachRoleLabel(role: string | null | undefined): string {
-        if (role === 'HEAD') {
-            return t('Head Coach');
-        }
-
-        if (role === 'ASSISTANT') {
-            return t('Assistant Coach');
-        }
-
-        return role ?? '';
     }
 
     function hasPromotionFields(promotion: CoachPromotion): boolean {
@@ -1958,6 +1947,7 @@ export default function CoachesShow({
                                                     <TableCell>
                                                         {coachRoleLabel(
                                                             assignment.role,
+                                                            t,
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
