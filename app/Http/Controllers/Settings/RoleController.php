@@ -25,6 +25,8 @@ class RoleController extends Controller
 
         $orgId = (int) $request->user()->organization_id;
 
+        $permissionCount = Permission::count();
+
         $roles = Role::where('organization_id', $orgId)
             ->withCount(['permissions'])
             ->orderBy('name_en')
@@ -35,7 +37,7 @@ class RoleController extends Controller
                 'name_hi' => $r->name_hi,
                 'name_en' => $r->name_en,
                 'is_system' => $r->is_system,
-                'permissions_count' => $r->permissions_count,
+                'permissions_count' => $r->code === 'admin' ? $permissionCount : $r->permissions_count,
                 'user_count' => UserRole::where('role_id', $r->id)->where('organization_id', $orgId)->count(),
             ]);
 
@@ -75,7 +77,11 @@ class RoleController extends Controller
         $orgId = (int) $request->user()->organization_id;
 
         $allPermissions = Permission::orderBy('group')->orderBy('name_en')->get();
-        $rolePermIds = $role->permissions()->pluck('permissions.id')->map(fn ($id) => (int) $id)->all();
+        // Admin roles bypass permission checks and are granted every permission by
+        // the RBAC service, so the show page should render every checkbox checked.
+        $rolePermIds = $role->code === 'admin'
+            ? $allPermissions->pluck('id')->map(fn ($id) => (int) $id)->all()
+            : $role->permissions()->pluck('permissions.id')->map(fn ($id) => (int) $id)->all();
 
         return Inertia::render('settings/roles/show', [
             'role' => [
