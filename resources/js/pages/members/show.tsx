@@ -707,21 +707,7 @@ export default function MembersShow({
 
     const formatReadableDate = useCallback(
         (value: string | null): string | null => {
-            if (!value) {
-                return null;
-            }
-
-            const date = new Date(value);
-
-            if (Number.isNaN(date.getTime())) {
-                return value;
-            }
-
-            return new Intl.DateTimeFormat('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-            }).format(date);
+            return formatDisplayDate(value);
         },
         [],
     );
@@ -1690,7 +1676,13 @@ export default function MembersShow({
                 case 'dob':
                     return formatDisplayDate(member.dob) ?? '';
                 case 'rank':
-                    return member.rank ?? '';
+                    return member.rank
+                        ? resolveRankLabel(
+                              member.rank,
+                              ranks ?? [],
+                              pageLocale,
+                          )
+                        : '';
                 case 'mobile':
                     return member.mobile ?? '';
                 case 'current_status':
@@ -1712,7 +1704,13 @@ export default function MembersShow({
                 case 'caste':
                     return member.caste ?? '';
                 case 'initial_rank':
-                    return member.initial_rank ?? '';
+                    return member.initial_rank
+                        ? resolveRankLabel(
+                              member.initial_rank,
+                              ranks ?? [],
+                              pageLocale,
+                          )
+                        : '';
                 case 'playable_sports':
                     return member.playable_sports
                         .map((sport) =>

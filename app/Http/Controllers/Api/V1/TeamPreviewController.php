@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Rank;
 use App\Models\SportSession;
 use App\Models\Team;
 use Illuminate\Http\JsonResponse;
@@ -72,6 +73,15 @@ class TeamPreviewController extends Controller
                 'pno' => $ca->coach?->pno,
                 'role' => $ca->role,
                 'session_name' => $ca->session?->name,
+            ]),
+            'ranks' => Rank::active()->ordered()->get([
+                'code', 'name', 'name_en', 'short_name', 'rank_order',
+            ])->map(fn ($rank) => [
+                'code' => $rank->code,
+                'name' => $rank->name,
+                'name_en' => $rank->name_en,
+                'short_name' => $rank->short_name,
+                'rank_order' => $rank->rank_order,
             ]),
         ]);
     }

@@ -108,6 +108,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import type { RankOption } from '@/lib/ranks';
+import { resolveRankLabel } from '@/lib/ranks';
 import { cn } from '@/lib/utils';
 import {
     changelog as teamChangelogRoute,
@@ -277,6 +279,7 @@ export default function TeamsShow({
     inchargeHistory,
     auditLog,
     incharges,
+    ranks,
 }: {
     team: Team;
     activeTab: TeamProfileTab;
@@ -292,8 +295,10 @@ export default function TeamsShow({
     inchargeHistory?: InchargeHistoryRow[];
     auditLog?: AuditEntry[];
     incharges: InchargeOption[];
+    ranks: RankOption[];
 }) {
     const { t } = useTranslation();
+    const { locale: pageLocale } = usePage().props as { locale: string };
     const page = usePage<{
         errors?: {
             assignIncharge?: Record<string, string>;
@@ -1185,7 +1190,9 @@ export default function TeamsShow({
             return '';
         }
 
-        const rankLabel = member.rank ? t(member.rank) : '';
+        const rankLabel = member.rank
+            ? resolveRankLabel(member.rank, ranks, pageLocale)
+            : '';
 
         return rankLabel
             ? `${rankLabel} ${member.full_name}`

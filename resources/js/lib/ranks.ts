@@ -7,14 +7,15 @@ export type RankOption = {
 
 /**
  * Resolve a free-text rank value (e.g. `members.rank`) against the ranks
- * master, localized by the given locale. Case-insensitive match on `name_en`
- * and `short_name`; falls back to the raw value when nothing matches.
+ * master. Always returns the stored rank name; codes and locale are ignored.
  */
 export function resolveRankLabel(
     rankValue: string | null | undefined,
     ranks: RankOption[],
     locale: string,
 ): string {
+    void locale;
+
     if (!rankValue) {
         return '';
     }
@@ -22,6 +23,8 @@ export function resolveRankLabel(
     const normalized = rankValue.trim().toLowerCase();
     const match = ranks.find(
         (rank) =>
+            rank.code.trim().toLowerCase() === normalized ||
+            rank.name.trim().toLowerCase() === normalized ||
             rank.name_en?.trim().toLowerCase() === normalized ||
             rank.short_name?.trim().toLowerCase() === normalized,
     );
@@ -30,7 +33,5 @@ export function resolveRankLabel(
         return rankValue;
     }
 
-    return locale === 'hi'
-        ? (match.name ?? match.name_en ?? match.short_name ?? rankValue)
-        : (match.name_en ?? match.short_name ?? match.name ?? rankValue);
+    return match.name;
 }

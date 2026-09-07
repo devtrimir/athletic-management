@@ -8,6 +8,7 @@ use App\Exports\ReportExport;
 use App\Jobs\ExportReportJob;
 use App\Models\District;
 use App\Models\Member;
+use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Tournament;
@@ -402,6 +403,9 @@ class ReportController extends Controller
             'districts' => District::select(['id', 'name'])
                 ->orderBy('name')
                 ->get(),
+            'ranks' => Rank::active()->ordered()->get([
+                'code', 'name', 'name_en', 'short_name', 'rank_order',
+            ]),
         ];
     }
 

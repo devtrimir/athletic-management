@@ -59,8 +59,12 @@ class ReportsMedalsController extends Controller
         $detailPaginator = $this->detailReport->run($orgId, $filters, 10000);
         $detailRows = $detailPaginator->items();
         $detailCounts = $this->detailReport->countByType($orgId, $filters);
+        $ranks = Rank::active()
+            ->ordered()
+            ->get(['code', 'name', 'name_en', 'short_name']);
 
         return Inertia::render('reports/medals/print', [
+            'ranks' => $ranks,
             'tab' => $tab,
             'groupBy' => $groupBy,
             'pageMode' => $pageMode,
@@ -107,7 +111,7 @@ class ReportsMedalsController extends Controller
 
         $ranks = Rank::active()
             ->ordered()
-            ->get(['code', 'name', 'short_name']);
+            ->get(['code', 'name', 'name_en', 'short_name']);
 
         $eventOptions = DB::table('events as e')
             ->join('tournaments as t', 't.id', '=', 'e.tournament_id')

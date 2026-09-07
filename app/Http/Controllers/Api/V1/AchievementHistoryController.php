@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Requests\ReportFilterRequest;
+use App\Models\Rank;
 use App\Models\User;
 use App\Services\Reports\AchievementHistoryReport;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +22,12 @@ class AchievementHistoryController
         $filters = $request->filters();
         $data = $this->report->run($user->organization_id, $filters);
 
-        return response()->json(['data' => $data, 'filters' => $filters]);
+        return response()->json([
+            'data' => $data,
+            'filters' => $filters,
+            'ranks' => Rank::active()->ordered()->get([
+                'code', 'name', 'name_en', 'short_name', 'rank_order',
+            ]),
+        ]);
     }
 }

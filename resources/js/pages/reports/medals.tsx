@@ -54,6 +54,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import type { RankOption } from '@/lib/ranks';
+import { resolveRankLabel } from '@/lib/ranks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +64,6 @@ type Tier = { id: number; code: string; label_hi: string; label_en: string };
 type Unit = { id: number; name: string };
 type Session = { id: number; name: string; is_current: boolean };
 type District = { id: number; name: string };
-type RankOption = { code: string; name: string; short_name: string | null };
 type TournamentOption = {
     id: number;
     session_id: number | null;
@@ -1117,6 +1118,8 @@ function printRelated(
     rows: MedalRow[],
     title: string,
     t: (key: string) => string,
+    ranks: RankOption[],
+    locale: string,
 ): void {
     if (!rows.length) {
         return;
@@ -1142,7 +1145,7 @@ function printRelated(
             <td style="color:${MEDAL_COLOR[r.medal_type] ?? '#000'};font-weight:600">${r.medal_type}</td>
             <td>${r.member?.full_name ?? ''}</td>
             <td>${r.member?.pno ?? ''}</td>
-            <td>${r.member?.rank ?? ''}</td>
+            <td>${r.member?.rank ? resolveRankLabel(r.member.rank, ranks, locale) : ''}</td>
             <td>${r.member?.unit_name ?? ''}</td>
             <td>${r.sport?.name ?? ''}</td>
             <td>${r.event?.name ?? ''}</td>
@@ -1362,7 +1365,13 @@ function RelatedMedalsModal({
                                                     {r.member?.pno ?? '—'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {r.member?.rank ?? '—'}
+                                                    {r.member?.rank
+                                                        ? resolveRankLabel(
+                                                              r.member.rank,
+                                                              ranks,
+                                                              locale,
+                                                          )
+                                                        : '—'}
                                                 </TableCell>
                                                 <TableCell>
                                                     {r.member?.unit_name ?? '—'}
@@ -1437,7 +1446,7 @@ function RelatedMedalsModal({
                                 size="sm"
                                 variant="outline"
                                 className="gap-1.5"
-                                onClick={() => printRelated(rows, title, t)}
+                                onClick={() => printRelated(rows, title, t, ranks, locale)}
                             >
                                 <Printer className="size-3.5" />
                                 {t('Print / PDF')}
@@ -1632,7 +1641,13 @@ function MedalDetailModal({
                                     </span>
                                 )}
                                 {row.member.rank && (
-                                    <span>{row.member.rank}</span>
+                                    <span>
+                                        {resolveRankLabel(
+                                            row.member.rank,
+                                            ranks,
+                                            locale,
+                                        )}
+                                    </span>
                                 )}
                                 {row.member.unit_name && (
                                     <span>{row.member.unit_name}</span>
@@ -2158,7 +2173,7 @@ export default function ReportsMedals({
     }));
     const rankOptions = ranks.map((rank) => ({
         value: rank.code,
-        label: [rank.name, rank.short_name].filter(Boolean).join(' · '),
+        label: rank.name,
     }));
     const selectedTournamentId = filters.tournament_ids[0] ?? ALL;
     const venueOptions = venues.map((venue) => ({

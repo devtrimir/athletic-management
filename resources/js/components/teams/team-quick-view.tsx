@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { useHttp } from '@inertiajs/react';
 import { CalendarDays, ExternalLink, Printer } from 'lucide-react';
 import { startTransition, useEffect, useState } from 'react';
@@ -23,6 +23,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { resolveRankLabel } from '@/lib/ranks';
+import type { RankOption } from '@/lib/ranks';
 
 type TeamMemberRow = {
     pno: string | null;
@@ -54,6 +56,7 @@ type TeamPreview = {
     unit: { name: string } | null;
     members: TeamMemberRow[];
     coaches: TeamCoachRow[];
+    ranks: RankOption[];
 };
 
 function InfoRow({
@@ -75,9 +78,15 @@ function InfoRow({
     );
 }
 
-function buildPrintHtml(data: TeamPreview, t: (k: string) => string): string {
+function buildPrintHtml(
+    data: TeamPreview,
+    t: (k: string) => string,
+    locale: string,
+): string {
     const formatMemberName = (member: TeamMemberRow) => {
-        const rankLabel = member.rank ? t(member.rank) : '';
+        const rankLabel = member.rank
+            ? resolveRankLabel(member.rank, data.ranks ?? [], locale)
+            : '';
         const fullName = member.full_name ?? '';
 
         return rankLabel ? `${rankLabel} ${fullName}` : fullName;
@@ -154,11 +163,14 @@ export function TeamQuickView({
     onClose: () => void;
 }) {
     const { t } = useTranslation();
+    const { locale } = usePage().props as { locale: string };
     const [data, setData] = useState<TeamPreview | null>(null);
     const [error, setError] = useState(false);
 
     function memberNameWithRank(member: TeamMemberRow): string {
-        const rankLabel = member.rank ? t(member.rank) : '';
+        const rankLabel = member.rank
+            ? resolveRankLabel(member.rank, data?.ranks ?? [], locale)
+            : '';
 
         return rankLabel
             ? `${rankLabel} ${member.full_name ?? ''}`
@@ -204,7 +216,7 @@ export function TeamQuickView({
             return;
         }
 
-        win.document.write(buildPrintHtml(data, t));
+        win.document.write(buildPrintHtml(data, t, locale));
         win.document.close();
         setTimeout(() => {
             win.focus();

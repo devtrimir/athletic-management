@@ -365,7 +365,9 @@ function ListRow({
                 </p>
                 <p className="text-xs text-muted-foreground">
                     {formatBytes(file.size_bytes)} ·{' '}
-                    {new Date(file.created_at).toLocaleDateString('en-IN')}
+                    {new Intl.DateTimeFormat('en-IN', {
+                        dateStyle: 'medium',
+                    }).format(new Date(file.created_at))}
                 </p>
             </div>
 

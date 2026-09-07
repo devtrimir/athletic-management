@@ -307,6 +307,21 @@ function sessionStartDate(
     return match ? `${match[1]}-01-01` : undefined;
 }
 
+function parseDateValue(value: string): Date | null {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const match = /^\d{4}-\d{2}-\d{2}/.exec(value);
+    const datePart = match ? match[0] : value;
+    const date = new Date(datePart);
+
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function formatDisplayDate(
     value: string | null | undefined,
 ): string | null {
@@ -314,11 +329,9 @@ function formatDisplayDate(
         return null;
     }
 
-    const match = /^\d{4}-\d{2}-\d{2}/.exec(value);
-    const datePart = match ? match[0] : value;
-    const date = new Date(datePart);
+    const date = parseDateValue(value);
 
-    if (Number.isNaN(date.getTime())) {
+    if (!date) {
         return value;
     }
 
@@ -523,9 +536,7 @@ function isBeforeDate(value: string, minDate?: string): boolean {
 }
 
 function rankDisplay(rank: RankOption): string {
-    const label = rank.name;
-
-    return `${rank.code} · ${label}${rank.short_name ? ` · ${rank.short_name}` : ''}`;
+    return rank.name;
 }
 
 function resolveRankInputValue(
@@ -548,15 +559,7 @@ function resolveRankInputValue(
 }
 
 function rankDisplaySimple(rank: RankOption): string {
-    if (rank.short_name) {
-        return rank.short_name;
-    }
-
-    if (rank.name) {
-        return rank.name;
-    }
-
-    return rank.code;
+    return rank.name;
 }
 
 function resolveRankLabelSimple(
@@ -655,7 +658,7 @@ function resolveRankLabel(value: string | null, ranks: RankOption[]): string {
             item.short_name === value,
     );
 
-    return rank ? rankDisplay(rank) : value;
+    return rank ? rankDisplaySimple(rank) : value;
 }
 function getCsrfToken(): string {
     return (

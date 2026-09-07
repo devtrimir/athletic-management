@@ -1,10 +1,12 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     show as showMedalsReportExport,
     store as storeMedalsReportExport,
 } from '@/actions/App/Http/Controllers/MedalsReportExportController';
 import { useTranslation } from '@/hooks/use-translation';
+import type { RankOption } from '@/lib/ranks';
+import { resolveRankLabel } from '@/lib/ranks';
 
 type MedalCounts = {
     GOLD: number;
@@ -163,6 +165,7 @@ export default function MedalsPrint({
     detailCounts,
     detailTotal,
     reportMeta,
+    ranks,
 }: {
     tab: 'tally' | 'detail';
     groupBy: 'tier' | 'team';
@@ -176,8 +179,10 @@ export default function MedalsPrint({
         title: string;
         printedAt: string;
     };
+    ranks: RankOption[];
 }) {
     const { t } = useTranslation();
+    const { locale } = usePage().props as { locale: string };
     const printTargetRef = useRef<HTMLDivElement>(null);
 
     const [sections, setSections] = useState<SectionToggle>(() =>
@@ -1329,7 +1334,15 @@ export default function MedalsPrint({
                                                         )}
                                                         <td>{row.member.full_name}</td>
                                                         <td>{row.member.pno ?? ''}</td>
-                                                        <td>{row.member.rank ?? ''}</td>
+                                                        <td>
+                                                            {row.member.rank
+                                                                ? resolveRankLabel(
+                                                                      row.member.rank,
+                                                                      ranks,
+                                                                      locale,
+                                                                  )
+                                                                : ''}
+                                                        </td>
                                                         <td>{row.member.unit_name ?? ''}</td>
                                                         {startsSport && (
                                                             <td rowSpan={sportRowSpan}>

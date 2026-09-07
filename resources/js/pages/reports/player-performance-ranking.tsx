@@ -1,4 +1,4 @@
-import { Head, router, setLayoutProps, useHttp } from '@inertiajs/react';
+import { Head, router, setLayoutProps, useHttp, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import * as ReportController from '@/actions/App/Http/Controllers/ReportController';
 import Heading from '@/components/heading';
@@ -34,6 +34,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import type { RankOption } from '@/lib/ranks';
+import { resolveRankLabel } from '@/lib/ranks';
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
@@ -185,6 +187,7 @@ export default function PlayerPerformanceRanking({
     units,
     districts,
     selected_members: selectedMembersProp,
+    ranks,
 }: {
     report: ReportMeta;
     data: ReportData;
@@ -195,8 +198,10 @@ export default function PlayerPerformanceRanking({
     units: Unit[];
     districts: District[];
     selected_members: MemberOption[];
+    ranks: RankOption[];
 }) {
     const { t } = useTranslation();
+    const { locale } = usePage().props as { locale: string };
     const { get: getMemberDetail, processing: detailLoading } = useHttp<
         Record<string, never>,
         MemberPerformanceDetail
@@ -578,7 +583,16 @@ export default function PlayerPerformanceRanking({
                                         {row.member.full_name}
                                     </button>
                                     <div className="text-xs text-muted-foreground">
-                                        {[row.member.pno, row.member.rank]
+                                        {[
+                                            row.member.pno,
+                                            row.member.rank
+                                                ? resolveRankLabel(
+                                                      row.member.rank,
+                                                      ranks,
+                                                      locale,
+                                                  )
+                                                : null,
+                                        ]
                                             .filter(Boolean)
                                             .join(' / ') || '—'}
                                     </div>
@@ -1091,7 +1105,16 @@ export default function PlayerPerformanceRanking({
                         </DialogTitle>
                         <DialogDescription id="member-performance-detail">
                             {detail?.member
-                                ? [detail.member.pno, detail.member.rank]
+                                ? [
+                                      detail.member.pno,
+                                      detail.member.rank
+                                          ? resolveRankLabel(
+                                                detail.member.rank,
+                                                ranks,
+                                                locale,
+                                            )
+                                          : null,
+                                  ]
                                       .filter(Boolean)
                                       .join(' / ') || t('Member')
                                 : t('Player performance details')}

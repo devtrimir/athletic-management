@@ -1,4 +1,4 @@
-import { Head, Link, setLayoutProps, useHttp } from '@inertiajs/react';
+import { Head, Link, setLayoutProps, useHttp, usePage } from '@inertiajs/react';
 import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import AchievementHistoryController from '@/actions/App/Http/Controllers/Api/V1/AchievementHistoryController';
@@ -33,6 +33,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import type { RankOption } from '@/lib/ranks';
+import { resolveRankLabel } from '@/lib/ranks';
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
@@ -61,7 +63,7 @@ type AchievementRow = {
     position: number | null;
 };
 
-type ApiResponse = { data: AchievementRow[] };
+type ApiResponse = { data: AchievementRow[]; ranks: RankOption[] };
 
 const ALL = 'all';
 
@@ -80,6 +82,7 @@ export default function AchievementHistory({
     tiers,
     units,
     tournaments,
+    ranks,
 }: {
     data: AchievementRow[];
     filters: {
@@ -97,8 +100,10 @@ export default function AchievementHistory({
     tiers: Tier[];
     units: Unit[];
     tournaments: Tournament[];
+    ranks: RankOption[];
 }) {
     const { t } = useTranslation();
+    const { locale } = usePage().props as { locale: string };
 
     setLayoutProps({
         breadcrumbs: [
@@ -137,6 +142,7 @@ export default function AchievementHistory({
         filters.event_name ?? '',
     );
     const [rows, setRows] = useState<AchievementRow[]>(data);
+    const [rankOptions, setRankOptions] = useState<RankOption[]>(ranks);
     const [selectedRow, setSelectedRow] = useState<AchievementRow | null>(null);
     const isFirstRender = useRef(true);
     const { get } = useHttp<Record<string, never>, ApiResponse>({});
@@ -204,6 +210,7 @@ export default function AchievementHistory({
             onSuccess: (res) => {
                 const r = res as unknown as ApiResponse;
                 setRows(r?.data ?? []);
+                setRankOptions(r?.ranks ?? ranks);
             },
             onError: () => setRows([]),
         });
@@ -217,6 +224,7 @@ export default function AchievementHistory({
         pno,
         eventName,
         get,
+        ranks,
     ]);
 
     const hasFilters =
@@ -402,7 +410,16 @@ export default function AchievementHistory({
                                         {row.member.full_name}
                                     </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">
-                                        {[row.member.pno, row.member.rank]
+                                        {[
+                                            row.member.pno,
+                                            row.member.rank
+                                                ? resolveRankLabel(
+                                                      row.member.rank,
+                                                      rankOptions,
+                                                      locale,
+                                                  )
+                                                : null,
+                                        ]
                                             .filter(Boolean)
                                             .join(' / ')}
                                     </TableCell>
@@ -469,7 +486,11 @@ export default function AchievementHistory({
                                         ? ` · ${t('PNO')}: ${selectedRow.member.pno}`
                                         : ''}
                                     {selectedRow.member.rank
-                                        ? ` · ${t('Rank')}: ${selectedRow.member.rank}`
+                                        ? ` · ${t('Rank')}: ${resolveRankLabel(
+                                              selectedRow.member.rank,
+                                              rankOptions,
+                                              locale,
+                                          )}`
                                         : ''}
                                 </p>
                                 <Button

@@ -564,11 +564,8 @@ export default function MembersIndex({
     );
 
     const rankMasterLabel = useCallback(
-        (rank: MasterOption): string =>
-            locale === 'en'
-                ? (rank.name_en ?? rank.name ?? rank.code)
-                : (rank.name ?? rank.name_en ?? rank.code),
-        [locale],
+        (rank: MasterOption): string => rank.name,
+        [],
     );
 
     const [query, setQuery] = useState(filters.q ?? '');
