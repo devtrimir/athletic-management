@@ -759,6 +759,40 @@ test('update rejects posting a coach at both a unit and a district', function ()
         ->and($coach->district_id)->toBeNull();
 });
 
+test('store shows a clear error message when unit and district are both selected', function () {
+    $user = coachUser('coaches.create');
+    $district = District::factory()->create();
+    $unit = Unit::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->post(route('coaches.store'), [
+            'full_name' => 'राम प्रसाद',
+            'unit_id' => $unit->id,
+            'district_id' => $district->id,
+        ])
+        ->assertSessionHasErrors([
+            'unit_id' => __('Please select either a unit or a district, not both.'),
+            'district_id' => __('Please select either a unit or a district, not both.'),
+        ]);
+});
+
+test('update shows a clear error message when unit and district are both selected', function () {
+    $user = coachUser('coaches.update');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $district = District::factory()->create();
+    $unit = Unit::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->patch(route('coaches.update', $coach), [
+            'unit_id' => $unit->id,
+            'district_id' => $district->id,
+        ])
+        ->assertSessionHasErrors([
+            'unit_id' => __('Please select either a unit or a district, not both.'),
+            'district_id' => __('Please select either a unit or a district, not both.'),
+        ]);
+});
+
 // ---------------------------------------------------------------------------
 // show
 // ---------------------------------------------------------------------------
@@ -818,6 +852,24 @@ test('show includes nis master name when coach has nis info', function () {
         ->assertInertia(fn ($page) => $page
             ->where('coach.nis_master.id', $nisMaster->id)
             ->where('coach.nis_master.name', 'NIS diploma')
+        );
+});
+
+test('show includes rank master name when coach has a rank', function () {
+    $user = coachUser('coaches.view');
+    $rank = coachRank('INSPECTOR', 1);
+
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank_master_id' => $rank->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.show', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('coach.rank_master.id', $rank->id)
+            ->where('coach.rank_master.name', 'Inspector')
         );
 });
 
@@ -1921,6 +1973,22 @@ test('user with coaches.update sees edit form', function () {
         ->assertInertia(fn ($page) => $page
             ->component('coaches/edit')
             ->has('coach')
+        );
+});
+
+test('edit page formats date of birth as a date string without time or timezone', function () {
+    $user = coachUser('coaches.update');
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'date_of_birth' => '1985-06-15',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.edit', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/edit')
+            ->where('coach.date_of_birth', '1985-06-15')
         );
 });
 

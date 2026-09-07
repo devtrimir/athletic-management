@@ -83,6 +83,7 @@ class InchargeController extends Controller
         return Inertia::render('incharges/index', [
             'incharges' => $incharges,
             'filters' => $filters,
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
         ]);
     }
 

@@ -69,6 +69,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 
+type RankOption = {
+    code: string;
+    name: string;
+    short_name: string | null;
+};
+
 type Incharge = {
     id: number;
     full_name: string;
@@ -376,6 +382,19 @@ function detail(label: string, value: ReactNode) {
     );
 }
 
+function rankLabel(
+    rankCode: string | null | undefined,
+    ranks: RankOption[],
+): string {
+    if (!rankCode) {
+        return '';
+    }
+
+    const rank = ranks.find((option) => option.code === rankCode);
+
+    return rank?.name ?? rankCode;
+}
+
 export default function InchargesShow({
     incharge,
     activeTab,
@@ -387,6 +406,7 @@ export default function InchargesShow({
     specialAchievements,
     achievement_levels,
     sports,
+    ranks = [],
 }: {
     incharge: Incharge;
     activeTab:
@@ -404,6 +424,7 @@ export default function InchargesShow({
     specialAchievements?: InchargeSpecialAchievementPayload;
     achievement_levels?: string[];
     sports?: { id: number; name: string; category?: string | null }[];
+    ranks?: RankOption[];
 }) {
     const { t } = useTranslation();
     const sportNameById = new Map(
@@ -865,7 +886,10 @@ export default function InchargesShow({
                                                     {incharge.pno}
                                                 </span>,
                                             )}
-                                            {detail(t('Rank'), incharge.rank)}
+                                            {detail(
+                                                t('Rank'),
+                                                rankLabel(incharge.rank, ranks),
+                                            )}
                                             {detail(
                                                 t('Mobile'),
                                                 incharge.mobile,

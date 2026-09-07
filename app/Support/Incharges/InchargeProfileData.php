@@ -7,6 +7,7 @@ namespace App\Support\Incharges;
 use App\Models\Incharge;
 use App\Models\InchargeAchievement;
 use App\Models\InchargeSpecialAchievement;
+use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
@@ -122,6 +123,7 @@ class InchargeProfileData
                 ->orderBy('name')
                 ->get(['id', 'name', 'category']),
             'achievement_levels' => $this->achievementLevels(),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
         ];
     }
 

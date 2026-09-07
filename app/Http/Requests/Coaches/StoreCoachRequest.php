@@ -62,4 +62,15 @@ class StoreCoachRequest extends FormRequest
             'sports.*.notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'district_id.prohibits' => __('Please select either a unit or a district, not both.'),
+            'unit_id.prohibits' => __('Please select either a unit or a district, not both.'),
+        ];
+    }
 }

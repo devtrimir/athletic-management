@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Coaches\StoreCoachRequest;
 use App\Http\Requests\Coaches\UpdateCoachRequest;
+use App\Http\Resources\CoachResource;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\CoachCertification;
@@ -816,7 +817,7 @@ class CoachController extends Controller
         Gate::authorize('update', $coach);
 
         return Inertia::render('coaches/edit', [
-            'coach' => $coach,
+            'coach' => (new CoachResource($coach))->resolve(),
             'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
             'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),

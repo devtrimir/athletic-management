@@ -22,6 +22,12 @@ type PaginationLink = {
     active: boolean;
 };
 
+type RankOption = {
+    code: string;
+    name: string;
+    short_name: string | null;
+};
+
 type Incharge = {
     id: number;
     full_name: string;
@@ -65,12 +71,27 @@ function displayValue(value: string | number | null | undefined): string {
         : String(value);
 }
 
+function rankLabel(
+    rankCode: string | null | undefined,
+    ranks: RankOption[],
+): string {
+    if (!rankCode) {
+        return '';
+    }
+
+    const rank = ranks.find((option) => option.code === rankCode);
+
+    return rank?.name ?? rankCode;
+}
+
 export default function InchargesIndex({
     incharges,
     filters,
+    ranks = [],
 }: {
     incharges: PaginatedIncharges;
     filters: Filters;
+    ranks?: RankOption[];
 }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState(filters.q ?? '');
@@ -179,7 +200,12 @@ export default function InchargesIndex({
                                                 </a>
                                             </TableCell>
                                             <TableCell>
-                                                {displayValue(incharge.rank)}
+                                                {displayValue(
+                                                    rankLabel(
+                                                        incharge.rank,
+                                                        ranks,
+                                                    ),
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <a

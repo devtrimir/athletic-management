@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\AuditLog;
 use App\Models\Incharge;
 use App\Models\Organization;
+use App\Models\Rank;
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
 use Illuminate\Support\Facades\Schema;
@@ -150,4 +151,57 @@ test('can soft delete an incharge', function (): void {
         ->assertRedirect(route('incharges.index'));
 
     $this->assertSoftDeleted($incharge);
+});
+
+test('index provides rank master data so the listing can show the rank name', function (): void {
+    $user = rcUser('incharges.view');
+    $rank = Rank::create([
+        'code' => 'INSPECTOR',
+        'name' => 'निरीक्षक',
+        'short_name' => 'INS',
+        'rank_order' => 1,
+        'is_active' => true,
+    ]);
+    $incharge = Incharge::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank' => $rank->code,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('incharges.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('incharges/index')
+            ->has('ranks')
+            ->where('ranks.0.code', $rank->code)
+            ->where('ranks.0.name', 'निरीक्षक')
+            ->where('incharges.data.0.rank', $rank->code)
+            ->where('incharges.data.0.full_name', $incharge->full_name)
+        );
+});
+
+test('show provides rank master data so the profile can show the rank name', function (): void {
+    $user = rcUser('incharges.view');
+    $rank = Rank::create([
+        'code' => 'INSPECTOR',
+        'name' => 'निरीक्षक',
+        'short_name' => 'INS',
+        'rank_order' => 1,
+        'is_active' => true,
+    ]);
+    $incharge = Incharge::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank' => $rank->code,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('incharges.show', $incharge))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('incharges/show')
+            ->has('ranks')
+            ->where('ranks.0.code', $rank->code)
+            ->where('ranks.0.name', 'निरीक्षक')
+            ->where('incharge.rank', $rank->code)
+        );
 });

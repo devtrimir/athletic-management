@@ -10,6 +10,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useTranslation } from '@/hooks/use-translation';
 import { specialAchievementTypeLabel } from '@/pages/incharges/show';
 
+type RankOption = {
+    code: string;
+    name: string;
+    short_name: string | null;
+};
+
 type Incharge = {
     id: number;
     full_name: string;
@@ -248,16 +254,31 @@ function DetailsTable({
     );
 }
 
+function rankLabel(
+    rankCode: string | null | undefined,
+    ranks: RankOption[],
+): string {
+    if (!rankCode) {
+        return '';
+    }
+
+    const rank = ranks.find((option) => option.code === rankCode);
+
+    return rank?.name ?? rankCode;
+}
+
 export default function InchargePrintPreview({
     incharge,
     assignments = [],
     achievements,
     specialAchievements,
+    ranks = [],
 }: {
     incharge?: Incharge;
     assignments?: Assignment[];
     achievements?: InchargeAchievementPayload;
     specialAchievements?: SpecialAchievementPayload;
+    ranks?: RankOption[];
 }) {
     const { t } = useTranslation();
     const { locale } = usePage().props as { locale: string };
@@ -525,7 +546,10 @@ export default function InchargePrintPreview({
                                             },
                                             {
                                                 label: t('Rank'),
-                                                value: inchargeRecord.rank,
+                                                value: rankLabel(
+                                                    inchargeRecord.rank,
+                                                    ranks,
+                                                ),
                                             },
                                             {
                                                 label: t('Mobile'),

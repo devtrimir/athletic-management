@@ -401,6 +401,7 @@ export default function CoachesEdit({
                                         placeholder={t('Select unit')}
                                         searchPlaceholder={t('Search units…')}
                                     />
+                                    <InputError message={errors.unit_id} />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="district_id">
@@ -429,6 +430,7 @@ export default function CoachesEdit({
                                             'Posted at a unit or a district — not both.',
                                         )}
                                     </p>
+                                    <InputError message={errors.district_id} />
                                 </div>
                             </div>
 

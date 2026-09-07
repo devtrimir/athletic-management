@@ -1606,6 +1606,10 @@ export default function CoachesShow({
                                         t('NIS info'),
                                         coach.nis_master?.name ?? '',
                                     )}
+                                    {detail(
+                                        t('Rank'),
+                                        coach.rank_master?.name ?? '',
+                                    )}
                                     {detail(t('Email'), coach.email ?? '')}
                                     {detail(
                                         t('Gender'),
