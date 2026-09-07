@@ -36,6 +36,12 @@ type Session = {
     name: string;
 };
 
+type RankOption = {
+    code: string;
+    name: string;
+    short_name: string | null;
+};
+
 type TeamMemberRow = {
     id: number;
     role: string | null;
@@ -135,6 +141,19 @@ function slugifyFileName(value: string): string {
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
 const PRINT_HEADING = 'UP Police Sports Control Board (UPPSCB)';
 
+function rankLabel(
+    rankCode: string | null | undefined,
+    ranks: RankOption[],
+): string {
+    if (!rankCode) {
+        return '';
+    }
+
+    const rank = ranks.find((option) => option.code === rankCode);
+
+    return rank?.name ?? rankCode;
+}
+
 export default function TeamsPrint({
     team,
     sessions = [],
@@ -143,6 +162,7 @@ export default function TeamsPrint({
     removedMembers = [],
     coaches = [],
     printTeams = [],
+    ranks = [],
 }: {
     team: Team;
     sessions?: Session[];
@@ -151,6 +171,7 @@ export default function TeamsPrint({
     removedMembers?: TeamMemberRow[];
     coaches?: TeamCoachRow[];
     printTeams?: TeamPrintReport[];
+    ranks?: RankOption[];
 }) {
     const { t } = useTranslation();
 
@@ -303,9 +324,10 @@ export default function TeamsPrint({
 
     const inchargeLineFor = (printTeam: Team): string => {
         const inchargeName = printTeam.current_incharge_name || printTeam.in_charge;
+        const inchargeRank = rankLabel(printTeam.current_incharge_rank, ranks);
         const inchargeTitle =
-            printTeam.current_incharge_rank && inchargeName
-                ? `${printTeam.current_incharge_rank} ${inchargeName}`
+            inchargeRank && inchargeName
+                ? `${inchargeRank} ${inchargeName}`
                 : inchargeName;
 
         return [

@@ -9,6 +9,7 @@ use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\Incharge;
 use App\Models\Member;
+use App\Models\Rank;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
@@ -74,6 +75,7 @@ class TeamProfileData
             'members' => [],
             'removedMembers' => [],
             'coaches' => [],
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
             'printTeams' => $teams
                 ->values()
                 ->map(fn (Team $team): array => $this->printTeamPayload($team, $selectedSessionId))
