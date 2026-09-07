@@ -1504,5 +1504,14 @@
     "—": "—",
     "Court": "कोर्ट",
     "Stadium": "स्टेडियम",
-    "Search team prabhari by name, PNO, or rank": "नाम, पीएनओ या रैंक द्वारा टीम प्रभारी खोजें"
+    "Search team prabhari by name, PNO, or rank": "नाम, पीएनओ या रैंक द्वारा टीम प्रभारी खोजें",
+    "Available unassigned athletes": "उपलब्ध असंबद्ध खिलाड़ी",
+    "No unassigned athletes found for this sport.": "इस खेल के लिए कोई असंबद्ध खिलाड़ी नहीं मिला।",
+    "Try changing filters or use the manual search below.": "फ़िल्टर बदलें या नीचे मैन्युअल खोज का उपयोग करें।",
+    "Search by name, PNO, or code…": "नाम, पीएनओ या कोड से खोजें…",
+    "Deselect all": "सभी अचयनित करें",
+    "Clear all": "सभी हटाएं",
+    "Search other athletes outside this list": "इस सूची के बाहर अन्य खिलाड़ियों को खोजें",
+    "Hide other athletes search": "अन्य खिलाड़ियों की खोज छिपाएं",
+    "Select sport": "खेल चुनें"
 }

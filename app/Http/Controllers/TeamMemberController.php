@@ -26,6 +26,100 @@ class TeamMemberController extends Controller
         private readonly TeamSessionStatusManager $teamSessionStatusManager,
     ) {}
 
+    public function available(Request $request, Team $team): JsonResponse
+    {
+        Gate::authorize('view', $team);
+
+        $orgId = (int) $request->user()->organization_id;
+
+        $sportId = null;
+        if ($request->has('sport_id')) {
+            $val = $request->input('sport_id');
+            if ($val !== '' && $val !== null && $val !== '_all') {
+                $sportId = (int) $val;
+            }
+        } else {
+            $sportId = $team->sport_id ? (int) $team->sport_id : null;
+        }
+
+        $sessionId = (int) ($request->input('session_id') ?: $team->session_id);
+        $category = $request->input('player_category');
+        $level = $request->input('player_level');
+        $q = trim((string) $request->input('q', ''));
+
+        $query = Member::query()
+            ->where('organization_id', $orgId)
+            ->whereNull('deleted_at')
+            ->whereIn('current_status', ['ACTIVE', 'INACTIVE']);
+
+        if ($sportId !== null && $sportId > 0) {
+            $query->where(function ($sub) use ($sportId): void {
+                $sub->where('sport_id', $sportId)
+                    ->orWhereHas('playableSports', fn ($ps) => $ps->where('sports.id', $sportId));
+            });
+        }
+
+        if (! empty($category) && $category !== '_all') {
+            $query->where('player_category', $category);
+        }
+
+        if (! empty($level) && $level !== '_all') {
+            $query->where('player_level', $level);
+        }
+
+        // Inactive players: those who are not associated with any team right now
+        $query->whereDoesntHave('teamMemberships', function ($tm): void {
+            $tm->whereNull('left_on')
+                ->whereHas('team', fn ($t) => $t->where('is_active', true)->whereNull('deleted_at'));
+        });
+
+        // Also ensure not already active on this team for the selected session
+        if ($sessionId > 0) {
+            $query->whereDoesntHave('teamMemberships', function ($tm) use ($team, $sessionId): void {
+                $tm->where('team_id', $team->id)
+                    ->where('session_id', $sessionId)
+                    ->whereNull('left_on');
+            });
+        }
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q): void {
+                $sub->where('full_name', 'like', "%{$q}%")
+                    ->orWhere('pno', 'like', "%{$q}%")
+                    ->orWhere('member_code', 'like', "%{$q}%");
+            });
+        }
+
+        $members = $query->select([
+            'id',
+            'member_code',
+            'pno',
+            'full_name',
+            'rank',
+            'player_category',
+            'player_level',
+            'current_status',
+            'sport_id',
+        ])
+            ->orderBy('full_name')
+            ->limit(100)
+            ->get();
+
+        return response()->json([
+            'data' => $members->map(fn (Member $m): array => [
+                'id' => $m->id,
+                'member_code' => $m->member_code,
+                'pno' => $m->pno,
+                'full_name' => $m->full_name,
+                'rank' => $m->rank,
+                'player_category' => $m->player_category,
+                'player_level' => $m->player_level,
+                'current_status' => $m->current_status,
+                'active_team' => null,
+            ]),
+        ]);
+    }
+
     public function store(StoreTeamMemberRequest $request, Team $team, TeamRosterService $roster): RedirectResponse
     {
         Gate::authorize('update', $team);

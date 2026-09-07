@@ -281,12 +281,14 @@ export default function TeamsShow({
     auditLog,
     incharges,
     ranks,
+    sports,
 }: {
     team: Team;
     activeTab: TeamProfileTab;
     counts?: Counts;
     sessionStatus: TeamSessionStatus;
     sessions: Session[];
+    sports?: { id: number; name: string; name_en?: string | null }[];
     selectedSessionId: number | null;
     members?: TeamMemberRow[];
     removedMembers?: TeamMemberRow[];
@@ -2294,6 +2296,7 @@ export default function TeamsShow({
                 onOpenChange={setAddMemberOpen}
                 team={team}
                 sessions={sessions}
+                sports={sports}
                 selectedSessionId={selectedSessionId}
                 onAdded={handleMembersAdded}
             />

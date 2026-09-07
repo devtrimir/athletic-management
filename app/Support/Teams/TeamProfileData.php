@@ -10,6 +10,7 @@ use App\Models\CoachAssignment;
 use App\Models\Incharge;
 use App\Models\Member;
 use App\Models\Rank;
+use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
@@ -138,6 +139,7 @@ class TeamProfileData
         return [
             'team' => (new TeamResource($team))->resolve(),
             'sessions' => $this->sessions($organizationId),
+            'sports' => $this->sports($organizationId),
             'selectedSessionId' => $selectedSessionId,
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'sessionStatus' => [
@@ -163,6 +165,16 @@ class TeamProfileData
             ->where('organization_id', $organizationId)
             ->orderByDesc('start_year')
             ->orderByDesc('id')
+            ->get();
+    }
+
+    /** @return Collection<int, Sport> */
+    private function sports(int $organizationId): Collection
+    {
+        return Sport::select(['id', 'name', 'name_en'])
+            ->where('organization_id', $organizationId)
+            ->where('is_active', true)
+            ->orderBy('name')
             ->get();
     }
 

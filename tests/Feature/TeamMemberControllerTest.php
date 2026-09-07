@@ -6,6 +6,7 @@ use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamMember;
@@ -838,4 +839,124 @@ test('re-adding a removed member reactivates the same row and marks member activ
         'role' => 'CAPTAIN',
         'source' => 'manual',
     ]);
+});
+
+// ---------------------------------------------------------------------------
+// teams.members.available (unassigned inactive members by sport)
+// ---------------------------------------------------------------------------
+
+test('unauthenticated GET to teams.members.available redirects to login', function (): void {
+    $org = Organization::factory()->create();
+    $team = teamWithOrg($org);
+
+    $this->get(route('teams.members.available', $team))
+        ->assertRedirect(route('login'));
+});
+
+test('user without teams.view gets 403 on teams.members.available', function (): void {
+    $user = teamUser('members.view');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+
+    $this->actingAs($user)
+        ->get(route('teams.members.available', $team))
+        ->assertForbidden();
+});
+
+test('available members returns unassigned members associated with the sport', function (): void {
+    $user = teamUser('teams.view');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+
+    // Member 1: Has team sport in playableSports, no team -> should be available
+    $unassignedMember = playableMember($org, $team, ['full_name' => 'अनिल कुमार']);
+
+    // Member 2: Associated with another sport -> should NOT be available
+    $otherSport = Sport::factory()->create(['organization_id' => $org->id]);
+    $otherMember = Member::factory()->create([
+        'organization_id' => $org->id,
+        'full_name' => 'सुनील कुमार',
+        'sport_id' => $otherSport->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('teams.members.available', ['team' => $team, 'sport_id' => $team->sport_id]))
+        ->assertOk()
+        ->assertJsonStructure(['data' => [['id', 'full_name', 'pno', 'member_code', 'current_status']]]);
+
+    $data = $response->json('data');
+    $ids = collect($data)->pluck('id')->all();
+
+    expect($ids)->toContain($unassignedMember->id)
+        ->and($ids)->not->toContain($otherMember->id);
+});
+
+test('available members excludes members currently assigned to an active team', function (): void {
+    $user = teamUser('teams.view');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+
+    // Member currently in another active team
+    $otherTeam = Team::factory()->forOrganization($org)->create(['is_active' => true]);
+    $activePlayer = playableMember($org, $team, ['full_name' => 'सक्रिय खिलाड़ी']);
+    TeamMember::factory()->create([
+        'team_id' => $otherTeam->id,
+        'member_id' => $activePlayer->id,
+        'session_id' => $otherTeam->session_id,
+        'left_on' => null,
+    ]);
+
+    // Member who left a team in the past -> should be available
+    $formerPlayer = playableMember($org, $team, ['full_name' => 'भूतपूर्व खिलाड़ी']);
+    TeamMember::factory()->create([
+        'team_id' => $otherTeam->id,
+        'member_id' => $formerPlayer->id,
+        'session_id' => $otherTeam->session_id,
+        'left_on' => '2025-12-31',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->getJson(route('teams.members.available', ['team' => $team, 'sport_id' => $team->sport_id]))
+        ->assertOk();
+
+    $ids = collect($response->json('data'))->pluck('id')->all();
+
+    expect($ids)->toContain($formerPlayer->id)
+        ->and($ids)->not->toContain($activePlayer->id);
+});
+
+test('available members filters by category, level, and query string', function (): void {
+    $user = teamUser('teams.view');
+    $org = Organization::find($user->organization_id);
+    $team = teamWithOrg($org);
+
+    $gdMember = playableMember($org, $team, [
+        'full_name' => 'सुरेश सिंह',
+        'pno' => '092837461',
+        'player_category' => 'GD',
+        'player_level' => 'ZONAL',
+    ]);
+
+    $quotaMember = playableMember($org, $team, [
+        'full_name' => 'महेश सिंह',
+        'pno' => '123847562',
+        'player_category' => 'SPORTS_QUOTA',
+        'player_level' => 'NATIONAL',
+    ]);
+
+    // Filter category = GD
+    $resCat = $this->actingAs($user)
+        ->getJson(route('teams.members.available', ['team' => $team, 'player_category' => 'GD']))
+        ->assertOk();
+    $catIds = collect($resCat->json('data'))->pluck('id')->all();
+    expect($catIds)->toContain($gdMember->id)
+        ->and($catIds)->not->toContain($quotaMember->id);
+
+    // Filter query = Mahesh
+    $resQuery = $this->actingAs($user)
+        ->getJson(route('teams.members.available', ['team' => $team, 'q' => 'महेश']))
+        ->assertOk();
+    $queryIds = collect($resQuery->json('data'))->pluck('id')->all();
+    expect($queryIds)->toContain($quotaMember->id)
+        ->and($queryIds)->not->toContain($gdMember->id);
 });

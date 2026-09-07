@@ -1,11 +1,16 @@
 import { useForm } from '@inertiajs/react';
-import { UserCheck, UserPlus, X } from 'lucide-react';
+import { Search, UserCheck, UserPlus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { store as storeTeamMember } from '@/actions/App/Http/Controllers/TeamMemberController';
+import {
+    available as availableTeamMembers,
+    store as storeTeamMember,
+} from '@/actions/App/Http/Controllers/TeamMemberController';
 import InputError from '@/components/input-error';
 import { MemberPicker } from '@/components/member-picker';
 import type { MemberOption } from '@/components/member-picker';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -21,9 +26,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
+import { cn } from '@/lib/utils';
 
 type Session = { id: number; name: string };
+type SportOption = { id: number; name: string; name_en?: string | null };
 type Team = {
     id: number;
     sport: { id: number; name: string } | null;
@@ -35,6 +43,7 @@ interface Props {
     onOpenChange: (open: boolean) => void;
     team: Team;
     sessions: Session[];
+    sports?: SportOption[];
     selectedSessionId: number | null;
     onAdded?: (members: MemberOption[]) => void;
 }
@@ -58,14 +67,25 @@ export function AddMemberDialog({
     onOpenChange,
     team,
     sessions,
+    sports,
     selectedSessionId,
     onAdded,
 }: Props) {
     const { t } = useTranslation();
     const [pickedMember, setPickedMember] = useState<MemberOption | null>(null);
     const [selectedMembers, setSelectedMembers] = useState<MemberOption[]>([]);
+    const [fetchedSports, setFetchedSports] = useState<SportOption[]>([]);
+    const [filterSport, setFilterSport] = useState<string>(
+        team.sport?.id ? String(team.sport.id) : '',
+    );
     const [filterCategory, setFilterCategory] = useState('');
     const [filterLevel, setFilterLevel] = useState('');
+    const [availableMembers, setAvailableMembers] = useState<MemberOption[]>(
+        [],
+    );
+    const [loadingAvailable, setLoadingAvailable] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showManualSearch, setShowManualSearch] = useState(false);
 
     const { data, setData, post, errors, processing, reset } = useForm<{
         member_ids: string[];
@@ -85,6 +105,145 @@ export function AddMemberDialog({
             selectedSessionId ? String(selectedSessionId) : '',
         );
     }, [selectedSessionId, setData]);
+
+    useEffect(() => {
+        if (open) {
+            setFilterSport(team.sport?.id ? String(team.sport.id) : '');
+        }
+    }, [open, team.sport?.id]);
+
+    useEffect(() => {
+        if (sports && sports.length > 0) {
+            return;
+        }
+
+        if (open && fetchedSports.length === 0) {
+            fetch('/api/v1/sports', {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+                .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+                .then((json: { data: SportOption[] }) => {
+                    if (json?.data) {
+                        setFetchedSports(json.data);
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [open, sports, fetchedSports.length]);
+
+    const allSports = sports && sports.length > 0 ? sports : fetchedSports;
+
+    // Fetch inactive members for the selected sport/filters
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        const controller = new AbortController();
+        setLoadingAvailable(true);
+
+        const timer = setTimeout(
+            () => {
+                const queryParams: Record<string, string> = {};
+                if (filterSport) {
+                    queryParams.sport_id = filterSport;
+                }
+                if (data.session_id) {
+                    queryParams.session_id = data.session_id;
+                }
+                if (filterCategory) {
+                    queryParams.player_category = filterCategory;
+                }
+                if (filterLevel) {
+                    queryParams.player_level = filterLevel;
+                }
+                if (searchQuery.trim()) {
+                    queryParams.q = searchQuery.trim();
+                }
+
+                const url = availableTeamMembers.url(team, {
+                    query: queryParams,
+                });
+
+                fetch(url, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    signal: controller.signal,
+                })
+                    .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+                    .then((json: { data: MemberOption[] }) => {
+                        setAvailableMembers(json.data ?? []);
+                        setLoadingAvailable(false);
+                    })
+                    .catch((err) => {
+                        if (err.name !== 'AbortError') {
+                            setLoadingAvailable(false);
+                        }
+                    });
+            },
+            searchQuery ? 250 : 0,
+        );
+
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [
+        open,
+        team,
+        filterSport,
+        filterCategory,
+        filterLevel,
+        data.session_id,
+        searchQuery,
+    ]);
+
+    function toggleMemberSelection(member: MemberOption) {
+        const isSelected = selectedMembers.some((m) => m.id === member.id);
+        const next = isSelected
+            ? selectedMembers.filter((m) => m.id !== member.id)
+            : [...selectedMembers, member];
+
+        setSelectedMembers(next);
+        setData(
+            'member_ids',
+            next.map((m) => String(m.id)),
+        );
+    }
+
+    function handleToggleSelectAll() {
+        const unselectedVisible = availableMembers.filter(
+            (m) => !selectedMembers.some((s) => s.id === m.id),
+        );
+
+        if (unselectedVisible.length > 0) {
+            const next = [...selectedMembers, ...unselectedVisible];
+            setSelectedMembers(next);
+            setData(
+                'member_ids',
+                next.map((m) => String(m.id)),
+            );
+        } else {
+            const visibleIds = new Set(availableMembers.map((m) => m.id));
+            const next = selectedMembers.filter((m) => !visibleIds.has(m.id));
+            setSelectedMembers(next);
+            setData(
+                'member_ids',
+                next.map((m) => String(m.id)),
+            );
+        }
+    }
+
+    const allVisibleSelected =
+        availableMembers.length > 0 &&
+        availableMembers.every((m) =>
+            selectedMembers.some((s) => s.id === m.id),
+        );
 
     function handleMemberChange(m: MemberOption | null) {
         setPickedMember(m);
@@ -122,6 +281,8 @@ export function AddMemberDialog({
                 setSelectedMembers([]);
                 setFilterCategory('');
                 setFilterLevel('');
+                setSearchQuery('');
+                setShowManualSearch(false);
                 reset();
                 onOpenChange(false);
             },
@@ -134,6 +295,8 @@ export function AddMemberDialog({
             setSelectedMembers([]);
             setFilterCategory('');
             setFilterLevel('');
+            setSearchQuery('');
+            setShowManualSearch(false);
             reset();
         }
 
@@ -141,8 +304,11 @@ export function AddMemberDialog({
     }
 
     const extraFilters: Record<string, string> = {};
-
     extraFilters.available_for_team_id = String(team.id);
+
+    if (filterSport) {
+        extraFilters.sport_id = filterSport;
+    }
 
     if (data.session_id) {
         extraFilters.available_for_session_id = data.session_id;
@@ -158,7 +324,10 @@ export function AddMemberDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
+            <DialogContent
+                className="max-h-[92vh] overflow-y-auto sm:max-w-2xl"
+                aria-describedby={undefined}
+            >
                 <DialogHeader>
                     <div className="mb-1 inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium tracking-wide text-sky-700 dark:border-sky-900/50 dark:bg-sky-950 dark:text-sky-200">
                         <UserPlus className="mr-1.5 h-3.5 w-3.5" />
@@ -178,6 +347,27 @@ export function AddMemberDialog({
                         {t('Filter available athletes')}
                     </p>
                     <div className="flex flex-wrap gap-2">
+                        <Select
+                            value={filterSport || '_all'}
+                            onValueChange={(v) =>
+                                setFilterSport(v === '_all' ? '' : v)
+                            }
+                        >
+                            <SelectTrigger className="h-8 w-auto min-w-32 gap-2 px-2.5">
+                                <SelectValue placeholder={t('Sport')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="_all">
+                                    {t('All sports')}
+                                </SelectItem>
+                                {allSports.map((s) => (
+                                    <SelectItem key={s.id} value={String(s.id)}>
+                                        {s.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
                         <Select
                             value={filterCategory || '_all'}
                             onValueChange={(v) =>
@@ -223,49 +413,207 @@ export function AddMemberDialog({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="dlg-add-member">{t('Athlete')}</Label>
-                        <MemberPicker
-                            id="dlg-add-member"
-                            value={pickedMember}
-                            onChange={handleMemberChange}
-                            placeholder={
-                                team.sport
-                                    ? t(
-                                          'Search active or inactive :sport athletes…',
-                                      ).replace(':sport', team.sport.name)
-                                    : t('Search active or inactive athletes…')
-                            }
-                            extraFilters={extraFilters}
-                        />
-                        <InputError
-                            message={
-                                errors.member_ids ??
-                                (errors as Record<string, string>)[
-                                    'member_ids.0'
-                                ]
-                            }
-                        />
+                    {/* Available inactive athletes section */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <Label className="text-sm font-semibold">
+                                    {t('Available unassigned athletes')}
+                                </Label>
+                                <Badge
+                                    variant="secondary"
+                                    className="h-5 px-1.5 font-mono text-xs font-normal"
+                                >
+                                    {availableMembers.length}
+                                </Badge>
+                            </div>
+                            {availableMembers.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleToggleSelectAll}
+                                    className="text-xs font-medium text-sky-600 hover:text-sky-800 hover:underline dark:text-sky-400 dark:hover:text-sky-300"
+                                >
+                                    {allVisibleSelected
+                                        ? t('Deselect all')
+                                        : t('Select all')}
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Quick search input within available members */}
+                        <div className="relative">
+                            <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                placeholder={t('Search by name, PNO, or code…')}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="h-9 pl-8 text-sm"
+                            />
+                        </div>
+
+                        {/* List of unassigned athletes */}
+                        <div className="max-h-52 divide-y divide-border/40 overflow-y-auto rounded-lg border border-border/70 bg-card p-1 shadow-2xs">
+                            {loadingAvailable ? (
+                                <div className="space-y-2 p-2">
+                                    <Skeleton className="h-8 w-full" />
+                                    <Skeleton className="h-8 w-full" />
+                                    <Skeleton className="h-8 w-3/4" />
+                                </div>
+                            ) : availableMembers.length === 0 ? (
+                                <div className="py-6 text-center text-sm text-muted-foreground">
+                                    <p>
+                                        {t(
+                                            'No unassigned athletes found for this sport.',
+                                        )}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground/80">
+                                        {t(
+                                            'Try changing filters or use the manual search below.',
+                                        )}
+                                    </p>
+                                </div>
+                            ) : (
+                                availableMembers.map((member) => {
+                                    const isSelected = selectedMembers.some(
+                                        (m) => m.id === member.id,
+                                    );
+
+                                    return (
+                                        <div
+                                            key={member.id}
+                                            onClick={() =>
+                                                toggleMemberSelection(member)
+                                            }
+                                            className={cn(
+                                                'flex cursor-pointer items-center justify-between gap-3 rounded-md p-2 transition-colors',
+                                                isSelected
+                                                    ? 'bg-sky-50/90 dark:bg-sky-950/60'
+                                                    : 'hover:bg-accent/60',
+                                            )}
+                                        >
+                                            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                                                <Checkbox
+                                                    checked={isSelected}
+                                                    onCheckedChange={() =>
+                                                        toggleMemberSelection(
+                                                            member,
+                                                        )
+                                                    }
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
+                                                />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="truncate text-sm font-medium">
+                                                            {member.full_name}
+                                                        </span>
+                                                        {member.pno && (
+                                                            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                                                                {member.pno}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-0.5 flex flex-wrap gap-1.5">
+                                                        {member.player_category && (
+                                                            <Badge
+                                                                variant="secondary"
+                                                                className="h-4 px-1.5 py-0 text-[10px]"
+                                                            >
+                                                                {t(
+                                                                    member.player_category,
+                                                                )}
+                                                            </Badge>
+                                                        )}
+                                                        {member.player_level && (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="h-4 px-1.5 py-0 text-[10px]"
+                                                            >
+                                                                {t(
+                                                                    member.player_level,
+                                                                )}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
                     </div>
+
+                    {/* Manual search fallback toggle */}
+                    <div className="pt-0.5">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setShowManualSearch(!showManualSearch)
+                            }
+                            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                            {showManualSearch
+                                ? t('Hide other athletes search')
+                                : t(
+                                      '+ Search other athletes outside this list',
+                                  )}
+                        </button>
+
+                        {showManualSearch && (
+                            <div className="mt-2 grid gap-2">
+                                <MemberPicker
+                                    id="dlg-add-member"
+                                    value={pickedMember}
+                                    onChange={handleMemberChange}
+                                    placeholder={t(
+                                        'Search athlete by name or PNO…',
+                                    )}
+                                    extraFilters={extraFilters}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <InputError
+                        message={
+                            errors.member_ids ??
+                            (errors as Record<string, string>)['member_ids.0']
+                        }
+                    />
 
                     {selectedMembers.length > 0 && (
                         <div className="grid gap-2 rounded-lg border border-sky-200/70 bg-sky-50/70 p-3 dark:border-sky-900/50 dark:bg-sky-950/30">
                             <div className="flex items-center justify-between gap-2">
-                                <Label className="text-sky-900 dark:text-sky-200">
+                                <Label className="text-xs font-medium text-sky-900 dark:text-sky-200">
                                     {t('Selected athletes')}
                                 </Label>
-                                <span className="text-xs text-sky-700 dark:text-sky-200/80">
-                                    {selectedMembers.length}{' '}
-                                    {selectedMembers.length > 1
-                                        ? t('athletes selected')
-                                        : t('athlete selected')}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-sky-700 dark:text-sky-200/80">
+                                        {selectedMembers.length}{' '}
+                                        {selectedMembers.length > 1
+                                            ? t('athletes selected')
+                                            : t('athlete selected')}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedMembers([]);
+                                            setData('member_ids', []);
+                                        }}
+                                        className="text-xs text-rose-600 hover:text-rose-800 hover:underline dark:text-rose-400"
+                                    >
+                                        {t('Clear all')}
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex max-h-28 flex-wrap gap-2 overflow-y-auto">
                                 {selectedMembers.map((member) => (
                                     <span
                                         key={member.id}
-                                        className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-xs dark:border-sky-900 dark:bg-slate-900/80"
+                                        className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-xs shadow-2xs dark:border-sky-900 dark:bg-slate-900/80"
                                     >
                                         <UserCheck className="h-3.5 w-3.5 text-sky-600 dark:text-sky-300" />
                                         <span className="font-medium">
@@ -292,7 +640,7 @@ export function AddMemberDialog({
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="grid gap-2">
                             <Label htmlFor="dlg-add-member-session">
                                 {t('Session')}

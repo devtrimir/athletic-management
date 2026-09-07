@@ -213,6 +213,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('tournaments.events.participants.update')->scopeBindings();
     Route::delete('tournaments/{tournament}/events/{event}/participants/{participation}', [EventParticipantController::class, 'destroy'])
         ->name('tournaments.events.participants.destroy')->scopeBindings();
+    Route::get('teams/{team}/members/available', [TeamMemberController::class, 'available'])->name('teams.members.available');
     Route::post('teams/{team}/members/backfill/preview', [TeamMemberController::class, 'previewBackfill'])->name('teams.members.backfill.preview');
     Route::post('teams/{team}/members/backfill', [TeamMemberController::class, 'backfill'])->name('teams.members.backfill');
     Route::post('teams/{team}/members', [TeamMemberController::class, 'store'])->name('teams.members.store');

@@ -427,5 +427,14 @@
     "Court": "Court",
     "Stadium": "Stadium",
     "Uttar Pradesh Police Sports Control Board": "Uttar Pradesh Police Sports Control Board",
-    "Please select either a unit or a district, not both.": "Please select either a unit or a district, not both."
+    "Please select either a unit or a district, not both.": "Please select either a unit or a district, not both.",
+    "Available unassigned athletes": "Available unassigned athletes",
+    "No unassigned athletes found for this sport.": "No unassigned athletes found for this sport.",
+    "Try changing filters or use the manual search below.": "Try changing filters or use the manual search below.",
+    "Search by name, PNO, or code…": "Search by name, PNO, or code…",
+    "Deselect all": "Deselect all",
+    "Clear all": "Clear all",
+    "Search other athletes outside this list": "Search other athletes outside this list",
+    "Hide other athletes search": "Hide other athletes search",
+    "Select sport": "Select sport"
 }
