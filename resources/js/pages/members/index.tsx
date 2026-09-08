@@ -528,6 +528,7 @@ export default function MembersIndex({
     sports,
     ranks,
     totalCount,
+    statusCounts,
     perPage,
 }: {
     members: PaginatedMembers;
@@ -538,6 +539,7 @@ export default function MembersIndex({
     sports: SportOption[];
     ranks: MasterOption[];
     totalCount: number;
+    statusCounts: { active: number; inactive: number };
     perPage: number;
 }) {
     const { t } = useTranslation();
@@ -948,6 +950,9 @@ export default function MembersIndex({
                                     replace
                                 >
                                     {t(tab.label)}
+                                    <span className="rounded-full border border-muted bg-muted/80 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                        {statusCounts[tab.value]}
+                                    </span>
                                 </Link>
                             </TabsTrigger>
                         ))}

@@ -185,6 +185,22 @@ test('index treats active status member without active team as inactive', functi
         );
 });
 
+test('index exposes active and inactive roster counts for status tabs', function () {
+    $user = memberUser('members.view');
+    connectMemberToActiveTeam(Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']));
+    Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'RETIRED']);
+    Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);
+
+    $this->actingAs($user)
+        ->get(route('members.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/index')
+            ->where('statusCounts.active', 1)
+            ->where('statusCounts.inactive', 2)
+        );
+});
+
 test('index allows explicit inactive status filter', function () {
     $user = memberUser('members.view');
     Member::factory()->create(['organization_id' => $user->organization_id, 'current_status' => 'ACTIVE']);

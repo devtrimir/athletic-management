@@ -141,6 +141,10 @@ class MemberController extends Controller
             'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
             'totalCount' => Member::count(),
+            'statusCounts' => [
+                'active' => Member::query()->rosterActive()->count(),
+                'inactive' => Member::query()->rosterInactive()->count(),
+            ],
         ]);
     }
 
