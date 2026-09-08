@@ -10,6 +10,7 @@ use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\TeamSessionStatus;
+use App\Support\Members\PlayerCategory;
 use App\Support\Teams\TeamSessionStatusManager;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
@@ -728,7 +729,7 @@ class TeamExportController extends Controller
             'joined_on' => $this->formatDate($teamMember->joined_on),
             'left_on' => $showLeftOn ? $this->formatDate($teamMember->left_on) : null,
             'mobile' => $member?->mobile,
-            'level' => $this->translatedValue($member?->player_category),
+            'level' => PlayerCategory::label($member?->player_category),
         ]);
     }
 

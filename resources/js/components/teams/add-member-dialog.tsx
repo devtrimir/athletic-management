@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
+import { playerCategoryLabel } from '@/lib/player-category';
 import { cn } from '@/lib/utils';
 
 type Session = { id: number; name: string };
@@ -52,7 +53,7 @@ const MEMBER_ROLES = ['PLAYER', 'CAPTAIN', 'RESERVE'] as const;
 
 const CATEGORIES = [
     { value: 'GD', label: 'GD' },
-    { value: 'SPORTS_QUOTA', label: 'Sports quota' },
+    { value: 'SPORTS_QUOTA', label: 'SPORTS_QUOTA' },
 ] as const;
 
 const LEVELS = [
@@ -383,7 +384,7 @@ export function AddMemberDialog({
                                 </SelectItem>
                                 {CATEGORIES.map((c) => (
                                     <SelectItem key={c.value} value={c.value}>
-                                        {t(c.label)}
+                                        {playerCategoryLabel(c.label, t)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -521,8 +522,9 @@ export function AddMemberDialog({
                                                                 variant="secondary"
                                                                 className="h-4 px-1.5 py-0 text-[10px]"
                                                             >
-                                                                {t(
+                                                                {playerCategoryLabel(
                                                                     member.player_category,
+                                                                    t,
                                                                 )}
                                                             </Badge>
                                                         )}

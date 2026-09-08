@@ -61,6 +61,11 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import {
+    normalizePlayerCategory,
+    PLAYER_CATEGORIES,
+    playerCategoryLabel,
+} from '@/lib/player-category';
 import { resolveRankLabel } from '@/lib/ranks';
 
 type PaginationLink = {
@@ -177,7 +182,6 @@ const DEFAULT_EXPORT_COLUMNS = [
     'playable_sports',
 ];
 
-const CATEGORY_OPTIONS = ['GD', 'SPORTS_QUOTA'] as const;
 const GENDER_OPTIONS: { value: string; label: string }[] = [
     { value: 'M', label: 'Male' },
     { value: 'F', label: 'Female' },
@@ -212,10 +216,6 @@ const LEVEL_BADGE_CLASS: Record<string, string> = {
     INTERNATIONAL:
         'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300',
 };
-
-function displayCategory(category: string): string {
-    return category === 'SKILLED' ? 'SPORTS_QUOTA' : category;
-}
 
 function localeName(entity: { name: string }, locale: string): string {
     return locale === 'en' ? entity.name : (entity.name ?? entity.name);
@@ -977,7 +977,10 @@ export default function MembersIndex({
                         label={t('Category')}
                         activeLabel={
                             filters.player_category
-                                ? t(filters.player_category)
+                                ? playerCategoryLabel(
+                                      filters.player_category,
+                                      t,
+                                  )
                                 : undefined
                         }
                         onClear={() =>
@@ -985,9 +988,9 @@ export default function MembersIndex({
                         }
                     >
                         <OptionList
-                            options={CATEGORY_OPTIONS.map((c) => ({
+                            options={PLAYER_CATEGORIES.map((c) => ({
                                 value: c,
-                                label: t(c),
+                                label: playerCategoryLabel(c, t),
                             }))}
                             value={filters.player_category}
                             onSelect={(v) =>
@@ -1448,16 +1451,16 @@ export default function MembersIndex({
                                                 variant="outline"
                                                 className={
                                                     CATEGORY_BADGE_CLASS[
-                                                        displayCategory(
+                                                        normalizePlayerCategory(
                                                             member.player_category,
-                                                        )
+                                                        ) ??
+                                                            member.player_category
                                                     ]
                                                 }
                                             >
-                                                {t(
-                                                    displayCategory(
-                                                        member.player_category,
-                                                    ),
+                                                {playerCategoryLabel(
+                                                    member.player_category,
+                                                    t,
                                                 )}
                                             </Badge>
                                         </TableCell>

@@ -47,6 +47,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { playerCategoryLabel } from '@/lib/player-category';
 import { players as teamPlayersRoute } from '@/routes/teams';
 
 type PaginationLink = {
@@ -1169,7 +1170,7 @@ export default function TeamsIndex({
                                                                 }
                                                             </div>
                                                             <div className="text-[11px] text-blue-700/80 tabular-nums dark:text-blue-200/80">
-                                                                {t('GD')}:{' '}
+                                                                {playerCategoryLabel('GD', t)}:{' '}
                                                                 {
                                                                     team.men_gd_players_count
                                                                 }{' '}
@@ -1191,7 +1192,7 @@ export default function TeamsIndex({
                                                                 }
                                                             </div>
                                                             <div className="text-[11px] text-rose-700/80 tabular-nums dark:text-rose-200/80">
-                                                                {t('GD')}:{' '}
+                                                                {playerCategoryLabel('GD', t)}:{' '}
                                                                 {
                                                                     team.women_gd_players_count
                                                                 }{' '}
@@ -1581,7 +1582,7 @@ function ExportDialog({
                                     }))
                                 }
                             />
-                            <Label htmlFor="export-section-gd">{t('GD')}</Label>
+                            <Label htmlFor="export-section-gd">{playerCategoryLabel('GD', t)}</Label>
                         </div>
                         <div className="flex items-center gap-2">
                             <Checkbox
@@ -1735,7 +1736,7 @@ function TeamPrintDialog({
                                     }))
                                 }
                             />
-                            <Label htmlFor="team-print-gd">{t('GD')}</Label>
+                            <Label htmlFor="team-print-gd">{playerCategoryLabel('GD', t)}</Label>
                         </div>
                         <div className="flex items-center gap-2">
                             <Checkbox

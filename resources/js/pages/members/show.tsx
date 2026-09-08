@@ -90,6 +90,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { playerCategoryLabel } from '@/lib/player-category';
 import { resolveRankLabel } from '@/lib/ranks';
 
 type Member = {
@@ -1688,7 +1689,7 @@ export default function MembersShow({
                 case 'current_status':
                     return statusLabel(member.current_status, t);
                 case 'player_category':
-                    return member.player_category ?? '';
+                    return playerCategoryLabel(member.player_category, t);
                 case 'player_level':
                     return member.player_level ?? '';
                 case 'unit':
@@ -2025,7 +2026,10 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Category'),
-                                            t(member.player_category),
+                                            playerCategoryLabel(
+                                                member.player_category,
+                                                t,
+                                            ),
                                         )}
                                         {detail(
                                             t('Level'),

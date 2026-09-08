@@ -69,6 +69,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { playerCategoryLabel } from '@/lib/player-category';
 import { cn } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -203,7 +204,7 @@ const MEDAL_TYPES = ['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const;
 const GENDER_CLASSES = ['M', 'F', 'MIXED', 'OPEN'] as const;
 const PLAYER_CATEGORY_OPTIONS: FilterOption[] = [
     { value: 'GD', label: 'GD' },
-    { value: 'SPORTS_QUOTA', label: 'Sports Quota' },
+    { value: 'SPORTS_QUOTA', label: 'SPORTS_QUOTA' },
 ];
 
 const MEDAL_CLASSES: Record<string, string> = {
@@ -1385,7 +1386,10 @@ function AddParticipantDialog({
                                     options={PLAYER_CATEGORY_OPTIONS.map(
                                         (option) => ({
                                             ...option,
-                                            label: t(option.label),
+                                            label: playerCategoryLabel(
+                                                option.label,
+                                                t,
+                                            ),
                                         }),
                                     )}
                                     counts={categoryCounts}

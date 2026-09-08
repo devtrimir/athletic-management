@@ -21,6 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
+import { playerCategoryLabel } from '@/lib/player-category';
 
 type Athlete = {
     id: number;
@@ -173,7 +174,10 @@ export default function ExternalCoachAthleteShow({
                                     ) : null}
                                     {athlete.player_category ? (
                                         <span className="rounded-md border px-2 py-1">
-                                            {t(athlete.player_category)}
+                                            {playerCategoryLabel(
+                                                athlete.player_category,
+                                                t,
+                                            )}
                                         </span>
                                     ) : null}
                                 </div>

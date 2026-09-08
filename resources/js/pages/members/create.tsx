@@ -21,6 +21,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { playerCategoryLabel } from '@/lib/player-category';
 
 type District = { id: number; name: string };
 type Unit = { id: number; name: string };
@@ -791,10 +792,16 @@ export default function MembersCreate({
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="GD">
-                                                        {t('GD')}
+                                                        {playerCategoryLabel(
+                                                            'GD',
+                                                            t,
+                                                        )}
                                                     </SelectItem>
                                                     <SelectItem value="SPORTS_QUOTA">
-                                                        {t('SPORTS_QUOTA')}
+                                                        {playerCategoryLabel(
+                                                            'SPORTS_QUOTA',
+                                                            t,
+                                                        )}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
