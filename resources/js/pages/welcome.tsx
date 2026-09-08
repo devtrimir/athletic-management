@@ -20,11 +20,11 @@ const PRESETS: Record<
 > = {
     tennis: {
         label: 'Court',
-        image: '/images/home-bg/tennis.png',
+        image: '/images/home-bg/tennis-1.png',
     },
     'multi-sport': {
         label: 'Stadium',
-        image: '/images/home-bg/multi-sport.png',
+        image: '/images/home-bg/multi-sport-1.png',
     },
 };
 
