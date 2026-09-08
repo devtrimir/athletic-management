@@ -67,6 +67,10 @@ type TeamMemberRow = {
             id: number;
             name: string;
         } | null;
+        posting_district: {
+            id: number;
+            name: string;
+        } | null;
     } | null;
     session: {
         id: number;
@@ -290,7 +294,13 @@ export default function TeamsPrint({
             .map((member, index) => {
                 const player = member.member;
                 const name = cleanText(player?.full_name);
-                const posting = [cleanText(player?.designation), cleanText(player?.current_unit?.name)]
+                const posting = [
+                    cleanText(player?.designation),
+                    cleanText(
+                        player?.posting_district?.name ??
+                            player?.current_unit?.name,
+                    ),
+                ]
                     .filter(Boolean)
                     .join(' / ');
 

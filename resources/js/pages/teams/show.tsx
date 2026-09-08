@@ -177,6 +177,10 @@ type TeamMemberRow = {
             id: number;
             name: string;
         } | null;
+        posting_district: {
+            id: number;
+            name: string;
+        } | null;
     } | null;
     session: { id: number; name: string } | null;
 };
@@ -1214,6 +1218,14 @@ export default function TeamsShow({
         return normalized.length > 0 && normalized !== member.full_name
             ? normalized
             : null;
+    }
+
+    function memberPostingLocation(
+        member: TeamMemberRow['member'] | null,
+    ): string {
+        return (
+            member?.posting_district?.name ?? member?.current_unit?.name ?? ''
+        );
     }
 
     function memberProfileSummary(
@@ -2989,11 +3001,9 @@ export default function TeamsShow({
                                                                     ) : null}
                                                                     <TableCell className="hidden lg:table-cell">
                                                                         <div className="text-sm">
-                                                                            {row
-                                                                                .member
-                                                                                ?.current_unit
-                                                                                ?.name ??
-                                                                                ''}
+                                                                            {memberPostingLocation(
+                                                                                row.member,
+                                                                            )}
                                                                         </div>
                                                                     </TableCell>
                                                                     <TableCell className="hidden lg:table-cell">
@@ -3303,11 +3313,9 @@ export default function TeamsShow({
                                                                         </TableCell>
                                                                     ) : null}
                                                                     <TableCell className="hidden lg:table-cell">
-                                                                        {row
-                                                                            .member
-                                                                            ?.current_unit
-                                                                            ?.name ??
-                                                                            ''}
+                                                                        {memberPostingLocation(
+                                                                            row.member,
+                                                                        )}
                                                                     </TableCell>
                                                                     <TableCell className="hidden lg:table-cell">
                                                                         {row

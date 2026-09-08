@@ -215,8 +215,9 @@ class TeamProfileData
 
         return $team->teamMembers()
             ->with([
-                'member:id,full_name,member_code,pno,player_category,rank,mobile,current_unit_id',
+                'member:id,full_name,member_code,pno,player_category,rank,mobile,current_unit_id,posting_district_id',
                 'member.currentUnit:id,name',
+                'member.postingDistrict:id,name',
                 'member.playableSports' => fn ($query) => $query
                     ->select(['sports.id', 'sports.name'])
                     ->withPivot(['sport_event', 'weight', 'role', 'position']),
@@ -244,6 +245,10 @@ class TeamProfileData
                     'current_unit' => $teamMember->member->currentUnit ? [
                         'id' => $teamMember->member->currentUnit->id,
                         'name' => $teamMember->member->currentUnit->name,
+                    ] : null,
+                    'posting_district' => $teamMember->member->postingDistrict ? [
+                        'id' => $teamMember->member->postingDistrict->id,
+                        'name' => $teamMember->member->postingDistrict->name,
                     ] : null,
                 ] : null,
                 'session' => $teamMember->session ? [

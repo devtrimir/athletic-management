@@ -295,6 +295,70 @@ test('teams cannot be deleted through the resource route', function (): void {
     ]);
 });
 
+test('team show and print expose district or unit posting for each player', function (): void {
+    $user = teamIndexUser('teams.view');
+    $org = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create([
+        'organization_id' => $org->id,
+        'is_current' => true,
+    ]);
+    $team = Team::factory()->forOrganization($org)->create([
+        'session_id' => $session->id,
+    ]);
+
+    $district = District::factory()->create(['name' => 'जिला पोस्टिंग']);
+    $unit = Unit::factory()->create([
+        'organization_id' => $org->id,
+        'name' => 'यूनिट पोस्टिंग',
+    ]);
+
+    $districtPostedMember = Member::factory()->create([
+        'organization_id' => $org->id,
+        'posting_district_id' => $district->id,
+        'current_unit_id' => null,
+    ]);
+    $unitPostedMember = Member::factory()->create([
+        'organization_id' => $org->id,
+        'posting_district_id' => null,
+        'current_unit_id' => $unit->id,
+    ]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $districtPostedMember->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $unitPostedMember->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('teams.show', $team))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('teams/show')
+            ->where('members.0.member.posting_district.name', 'जिला पोस्टिंग')
+            ->where('members.0.member.current_unit', null)
+            ->where('members.1.member.current_unit.name', 'यूनिट पोस्टिंग')
+            ->where('members.1.member.posting_district', null)
+        );
+
+    $this->actingAs($user)
+        ->get(route('teams.print'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('teams/print')
+            ->where('printTeams.0.members.0.member.posting_district.name', 'जिला पोस्टिंग')
+            ->where('printTeams.0.members.0.member.current_unit', null)
+            ->where('printTeams.0.members.1.member.current_unit.name', 'यूनिट पोस्टिंग')
+            ->where('printTeams.0.members.1.member.posting_district', null)
+        );
+});
+
 test('teams export supports redesigned listing columns', function (): void {
     Excel::fake();
 

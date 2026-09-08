@@ -711,7 +711,7 @@ class TeamExportController extends Controller
         $member = $teamMember->member;
         $posting = collect([
             $member?->designation,
-            $member?->currentUnit?->name,
+            $member?->postingDistrict?->name ?? $member?->currentUnit?->name,
         ])->filter()->implode(' / ');
 
         return $this->printRow([
