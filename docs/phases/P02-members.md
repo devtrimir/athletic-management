@@ -92,6 +92,7 @@ Schema + helpers (T01..T05)
 - **T24** Concurrency test for code generator: spawn N parallel inserts via Pest's `concurrently` helper (or a `pcntl_fork` test); assert no duplicates.
 - **T25** Pest Browser E2E: login → create member → see in list → open → edit name → change status → soft-delete → confirm absence from default list.
 - **T26** Vitest for `MemberPicker` and `StatusChangeModal` — keyboard a11y assertions.
+- **P2D-T01** Member soft-delete with connection impact analysis & graceful disengagement (`GET /members/{member}/deletion-impact`, `DELETE /members/{member}`).
 
 ---
 
@@ -108,6 +109,7 @@ Schema + helpers (T01..T05)
 | `GET /{locale}/members/{member}/edit` | web | `Members/Edit` |
 | `PATCH /{locale}/members/{member}` | web | update |
 | `DELETE /{locale}/members/{member}` | web | soft-delete |
+| `GET /members/{member}/deletion-impact` | web | pre-deletion connection impact analysis |
 | `POST /{locale}/members/{member}/status` | web | status change |
 | `POST /{locale}/members/{member}/aliases` | web | add alias |
 | `DELETE /{locale}/members/{member}/aliases/{alias}` | web | remove alias |
