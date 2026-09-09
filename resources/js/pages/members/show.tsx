@@ -13,8 +13,9 @@ import {
     ExternalLink,
     Medal,
     Minus,
-    Trophy,
     Printer,
+    Trash2,
+    Trophy,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
@@ -48,6 +49,7 @@ import AlertError from '@/components/alert-error';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
+import { DeleteMemberDialog } from '@/components/members/delete-member-dialog';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
 import { MemberPerformanceTab } from '@/components/members/member-performance-tab';
 import type { MemberPerformanceData } from '@/components/members/member-performance-tab';
@@ -556,6 +558,7 @@ export default function MembersShow({
     const page = usePage();
     const permissions = page.props.auth.permissions;
     const canManageMemberBenefits = permissions.includes('members.manageBenefits');
+    const canDeleteMember = permissions.includes('members.delete');
     const { t } = useTranslation();
     const { locale: pageLocale } = page.props;
     const canDeleteMedia = permissions.includes('media.delete');
@@ -1881,6 +1884,21 @@ export default function MembersShow({
                                         {t('Print preview')}
                                     </Link>
                                 </Button>
+                                {canDeleteMember && (
+                                    <DeleteMemberDialog
+                                        member={member}
+                                        trigger={
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                            >
+                                                <Trash2 className="mr-1.5 h-4 w-4" />
+                                                {t('Delete')}
+                                            </Button>
+                                        }
+                                    />
+                                )}
                             </div>
                         </div>
                     </div>

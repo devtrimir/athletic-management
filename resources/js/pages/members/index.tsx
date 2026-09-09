@@ -11,6 +11,7 @@ import {
     Printer,
     Search,
     ShieldCheck,
+    Trash2,
     Upload,
     UserCheck,
     X,
@@ -23,6 +24,7 @@ import {
 } from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
+import { DeleteMemberDialog } from '@/components/members/delete-member-dialog';
 import { MemberImportDialog } from '@/components/members/member-import-dialog';
 import { MemberQuickView } from '@/components/members/member-quick-view';
 import { OptionMultiSelect } from '@/components/option-multi-select';
@@ -551,6 +553,7 @@ export default function MembersIndex({
         };
     };
     const canImport = auth.permissions.includes('imports.run');
+    const canDeleteMember = auth.permissions.includes('members.delete');
     const organizationId = auth.user?.organization_id ?? null;
 
     const levelLabel = useCallback(
@@ -1522,6 +1525,28 @@ export default function MembersIndex({
                                                         <Eye className="h-4 w-4" />
                                                     </Link>
                                                 </Button>
+                                                {canDeleteMember && (
+                                                    <DeleteMemberDialog
+                                                        member={member}
+                                                        trigger={
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                title={t(
+                                                                    'Delete',
+                                                                )}
+                                                                className="text-muted-foreground hover:text-destructive"
+                                                                onClick={(
+                                                                    e,
+                                                                ) =>
+                                                                    e.stopPropagation()
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        }
+                                                    />
+                                                )}
                                             </div>
                                         </TableCell>
                                     </TableRow>

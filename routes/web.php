@@ -106,6 +106,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('members/import/template', [MemberImportController::class, 'template'])->name('members.import.template');
     Route::post('members/import', [MemberImportController::class, 'store'])->name('members.import.store');
     Route::get('imports/{import}/errors', [MemberImportController::class, 'errors'])->name('imports.errors');
+    Route::get('members/{member}/deletion-impact', [MemberController::class, 'deletionImpact'])->name('members.deletion-impact');
     Route::resource('members', MemberController::class);
     Route::get('members/{member}/teams', [MemberProfileTabController::class, 'teams'])->name('members.teams');
     Route::get('members/{member}/events', [MemberProfileTabController::class, 'events'])->name('members.events');

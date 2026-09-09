@@ -25,8 +25,10 @@ use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\AuditLogBuilder;
 use App\Services\MemberCodeGenerator;
+use App\Services\Members\MemberDeletionService;
 use App\Services\Performance\MemberPerformanceService;
 use App\Support\Members\MemberProfileData;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -292,13 +294,25 @@ class MemberController extends Controller
         return to_route('members.show', $member);
     }
 
-    public function destroy(Member $member): RedirectResponse
+    public function deletionImpact(Member $member, MemberDeletionService $deletionService): JsonResponse
     {
         Gate::authorize('delete', $member);
 
-        $member->delete();
+        return response()->json($deletionService->getImpact($member));
+    }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Member deleted.')]);
+    public function destroy(Member $member, MemberDeletionService $deletionService): RedirectResponse
+    {
+        Gate::authorize('delete', $member);
+
+        $deletionService->delete($member, auth()->user());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Member :name has been safely archived and removed from active rosters.', [
+                'name' => $member->full_name,
+            ]),
+        ]);
 
         return to_route('members.index');
     }
