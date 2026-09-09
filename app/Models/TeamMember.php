@@ -62,7 +62,7 @@ class TeamMember extends Model
     /** @return BelongsTo<Member, $this> */
     public function member(): BelongsTo
     {
-        return $this->belongsTo(Member::class);
+        return $this->belongsTo(Member::class)->withTrashed();
     }
 
     /** @return BelongsTo<SportSession, $this> */

@@ -133,6 +133,9 @@ See [phases/P02-members.md](phases/P02-members.md) for the full breakdown.
 - [x] ~~**P2-T25** Pest Browser: full member create → show → edit → status change → soft-delete flow~~ — **skipped**: manual browser testing instead
 - [x] ~~**P2-T26** Vitest: `MemberPicker`, `StatusChangeModal`~~ — **moved** to Phase FT
 
+### Extensions & Deletion Lifecycle
+- [x] **P2D-T01** Member soft-delete with connection impact analysis & graceful disengagement
+
 ---
 
 ## Phase 2B — Member Profile Extension & Legacy Achievements

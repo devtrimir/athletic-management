@@ -6,6 +6,7 @@ import {
     useForm,
     usePage,
 } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import {
     index as membersIndex,
@@ -20,6 +21,7 @@ import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { DeleteMemberDialog } from '@/components/members/delete-member-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -157,6 +159,11 @@ export default function MembersEdit({
             ? (member.initial_rank ?? '')
             : '',
     );
+
+    const page = usePage();
+    const permissions =
+        (page.props.auth as { permissions?: string[] })?.permissions ?? [];
+    const canDeleteMember = permissions.includes('members.delete');
 
     setLayoutProps({
         breadcrumbs: [
@@ -1297,6 +1304,33 @@ export default function MembersEdit({
                         </Button>
                     </div>
                 </form>
+
+                {canDeleteMember && (
+                    <div className="mt-8 rounded-lg border border-destructive/20 bg-destructive/5 p-6 dark:border-destructive/30 dark:bg-destructive/10">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="space-y-1">
+                                <h3 className="flex items-center gap-2 text-base font-semibold text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                    {t('Danger Zone')}
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                    {t(
+                                        'Archive this member and cleanly remove them from active squads and coaching roles.',
+                                    )}
+                                </p>
+                            </div>
+                            <DeleteMemberDialog
+                                member={member}
+                                trigger={
+                                    <Button variant="destructive">
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        {t('Delete Member')}
+                                    </Button>
+                                }
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

@@ -215,7 +215,7 @@ class TeamProfileData
 
         return $team->teamMembers()
             ->with([
-                'member:id,full_name,member_code,pno,player_category,rank,mobile,current_unit_id,posting_district_id',
+                'member:id,full_name,full_name_normalized,member_code,pno,player_category,rank,mobile,current_unit_id,posting_district_id,deleted_at',
                 'member.currentUnit:id,name',
                 'member.postingDistrict:id,name',
                 'member.playableSports' => fn ($query) => $query
@@ -241,6 +241,8 @@ class TeamProfileData
                     'player_category' => $teamMember->member->player_category,
                     'rank' => $teamMember->member->rank,
                     'mobile' => $teamMember->member->mobile,
+                    'is_deleted' => $teamMember->member->trashed(),
+                    'deleted_at' => $teamMember->member->deleted_at?->toDateString(),
                     'playable_profile' => $this->memberPlayableProfile($teamMember->member, $teamSportId, $teamSportName),
                     'current_unit' => $teamMember->member->currentUnit ? [
                         'id' => $teamMember->member->currentUnit->id,
@@ -507,7 +509,7 @@ class TeamProfileData
         return TeamMemberMovement::query()
             ->where('team_id', $team->id)
             ->where('session_id', $selectedSessionId)
-            ->with(['member:id,full_name,member_code,pno', 'createdBy:id,name'])
+            ->with(['member:id,full_name,member_code,pno,deleted_at', 'createdBy:id,name'])
             ->latest()
             ->limit(100)
             ->get()
@@ -525,6 +527,7 @@ class TeamProfileData
                     'full_name' => $movement->member->full_name,
                     'member_code' => $movement->member->member_code,
                     'pno' => $movement->member->pno,
+                    'is_deleted' => $movement->member->trashed(),
                 ] : null,
                 'created_by' => $movement->createdBy ? [
                     'id' => $movement->createdBy->id,

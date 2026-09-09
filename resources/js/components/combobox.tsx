@@ -38,6 +38,7 @@ type Props = {
     className?: string;
     popoverClassName?: string;
     disabled?: boolean;
+    modal?: boolean;
 };
 
 function searchableText(value: string): string {
@@ -78,6 +79,7 @@ export function Combobox({
     className,
     popoverClassName,
     disabled,
+    modal = false,
 }: Props) {
     const { t } = useTranslation();
     const [open, setOpen] = React.useState(false);
@@ -105,7 +107,7 @@ export function Combobox({
     };
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={setOpen} modal={modal}>
             <PopoverTrigger asChild>
                 <Button
                     id={id}

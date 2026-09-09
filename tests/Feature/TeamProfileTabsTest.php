@@ -39,10 +39,10 @@ test('team overview route returns a focused profile shell without heavy tab prop
             ->where('team.id', $team->id)
             ->where('selectedSessionId', $session->id)
             ->has('counts')
-            ->missing('members')
-            ->missing('removedMembers')
+            ->has('members')
+            ->has('removedMembers')
             ->missing('memberMovements')
-            ->missing('coaches')
+            ->has('coaches')
             ->missing('inchargeHistory')
             ->missing('auditLog')
         );
@@ -85,7 +85,7 @@ test('team players tab returns player roster payload only', function (): void {
             ->has('members', 1)
             ->has('removedMembers')
             ->has('memberMovements', 1)
-            ->missing('coaches')
+            ->has('coaches')
             ->missing('inchargeHistory')
             ->missing('auditLog')
         );
@@ -195,4 +195,84 @@ test('team profile tab routes do not expose another organization team', function
     $this->actingAs($user)
         ->get(route('teams.players', $team))
         ->assertNotFound();
+});
+
+test('team players tab properly loads soft-deleted members in removed roster with is_deleted flag', function (): void {
+    $user = rcUser('teams.view');
+    $organization = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create([
+        'organization_id' => $organization->id,
+        'is_current' => true,
+    ]);
+    $team = Team::factory()->forOrganization($organization)->create([
+        'session_id' => $session->id,
+    ]);
+    $member = Member::factory()->create([
+        'organization_id' => $organization->id,
+        'full_name' => 'Archived Player',
+        'pno' => 'PNO99999',
+    ]);
+
+    $teamMember = TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'member_id' => $member->id,
+        'left_on' => now()->toDateString(),
+    ]);
+
+    // Soft delete the member
+    $member->delete();
+
+    $this->actingAs($user)
+        ->get(route('teams.players', ['team' => $team, 'filter' => ['session_id' => $session->id]]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('teams/show')
+            ->where('activeTab', 'players')
+            ->where('removedMembers.0.id', $teamMember->id)
+            ->where('removedMembers.0.member.full_name', 'Archived Player')
+            ->where('removedMembers.0.member.pno', 'PNO99999')
+            ->where('removedMembers.0.member.is_deleted', true)
+        );
+});
+
+test('team players tab loads soft-deleted members in memberMovements with is_deleted flag and accurate action', function (): void {
+    $user = rcUser('teams.view');
+    $organization = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create([
+        'organization_id' => $organization->id,
+        'is_current' => true,
+    ]);
+    $team = Team::factory()->forOrganization($organization)->create([
+        'session_id' => $session->id,
+    ]);
+    $member = Member::factory()->create([
+        'organization_id' => $organization->id,
+        'full_name' => 'Archived Player',
+        'pno' => 'PNO99999',
+    ]);
+
+    TeamMemberMovement::create([
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'member_id' => $member->id,
+        'action' => 'REMOVED',
+        'role' => 'PLAYER',
+        'effective_on' => now()->toDateString(),
+        'source' => 'member_deletion',
+        'created_by' => $user->id,
+    ]);
+
+    $member->delete();
+
+    $this->actingAs($user)
+        ->get(route('teams.players', ['team' => $team, 'filter' => ['session_id' => $session->id]]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('teams/show')
+            ->where('activeTab', 'players')
+            ->where('memberMovements.0.action', 'REMOVED')
+            ->where('memberMovements.0.member.full_name', 'Archived Player')
+            ->where('memberMovements.0.member.is_deleted', true)
+        );
 });
