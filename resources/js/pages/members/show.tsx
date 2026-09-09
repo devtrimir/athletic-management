@@ -109,7 +109,13 @@ type Member = {
     player_category: string;
     player_level: string;
     current_status: string;
-    home_district: { id: number; name: string } | null;
+    home_district: {
+        id: number | null;
+        name: string;
+        is_other?: boolean;
+    } | null;
+    other_home_district?: string | null;
+    resolved_home_district?: string | null;
     posting_district: { id: number; name: string } | null;
     current_unit: { id: number; name: string } | null;
     photo_path: string | null;
@@ -227,7 +233,10 @@ function isEventGenderCompatible(
     const normalizedMemberGender = (memberGender ?? '').toUpperCase();
     const normalizedEventGender = (eventGender ?? '').toUpperCase();
 
-    if (normalizedEventGender === '' || ['OPEN', 'MIXED'].includes(normalizedEventGender)) {
+    if (
+        normalizedEventGender === '' ||
+        ['OPEN', 'MIXED'].includes(normalizedEventGender)
+    ) {
         return true;
     }
 
@@ -259,9 +268,7 @@ function parseDateValue(value: string): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatDisplayDate(
-    value: string | null | undefined,
-): string | null {
+function formatDisplayDate(value: string | null | undefined): string | null {
     if (!value) {
         return null;
     }
@@ -557,7 +564,9 @@ export default function MembersShow({
     const loadingAchievements = false;
     const page = usePage();
     const permissions = page.props.auth.permissions;
-    const canManageMemberBenefits = permissions.includes('members.manageBenefits');
+    const canManageMemberBenefits = permissions.includes(
+        'members.manageBenefits',
+    );
     const canDeleteMember = permissions.includes('members.delete');
     const { t } = useTranslation();
     const { locale: pageLocale } = page.props;
@@ -812,16 +821,21 @@ export default function MembersShow({
             position: '',
             medal_position: '',
             remarks: '',
-            provisional_reason: 'Match not found in system, create new context.',
+            provisional_reason:
+                'Match not found in system, create new context.',
             allow_inactive_member: '',
         };
     }, [sessions]);
 
-    const quickAddSelectedSessionId = Number.parseInt(quickAddForm.session_id || '0', 10) || 0;
-    const quickAddSelectedSportId = Number.parseInt(
-        (quickAddForm.event_sport_id || quickAddForm.sport_id || '0') as string,
-        10,
-    ) || 0;
+    const quickAddSelectedSessionId =
+        Number.parseInt(quickAddForm.session_id || '0', 10) || 0;
+    const quickAddSelectedSportId =
+        Number.parseInt(
+            (quickAddForm.event_sport_id ||
+                quickAddForm.sport_id ||
+                '0') as string,
+            10,
+        ) || 0;
     const quickAddSelectedEvent = useMemo(
         () =>
             events.find(
@@ -861,42 +875,39 @@ export default function MembersShow({
             ) ?? null,
         [quickAddForm.tournament_id, tournaments],
     );
-    const quickAddTournamentItems = useMemo(
-        () => {
-            if (!canSelectQuickAddTournament) {
-                return [];
-            }
+    const quickAddTournamentItems = useMemo(() => {
+        if (!canSelectQuickAddTournament) {
+            return [];
+        }
 
-            return tournaments
-                .filter((tournament): boolean =>
-                    quickAddSelectedSessionId > 0
-                        ? tournament.session_id === quickAddSelectedSessionId
-                        : true,
-                )
-                .filter((tournament): boolean =>
-                    quickAddForm.tier_id
-                        ? String(tournament.tier_id) === quickAddForm.tier_id
-                        : true,
-                )
-                .map((tournament) => ({
-                    value: String(tournament.id),
-                    label: tournament.name,
-                    description: [
-                        tournament.venue,
-                        tournament.date_from,
-                        tournament.sports.map((sport) => sport.name).join(', '),
-                    ]
-                        .filter(Boolean)
-                        .join(' · '),
-                }));
-        },
-        [
-            canSelectQuickAddTournament,
-            quickAddForm.tier_id,
-            quickAddSelectedSessionId,
-            tournaments,
-        ],
-    );
+        return tournaments
+            .filter((tournament): boolean =>
+                quickAddSelectedSessionId > 0
+                    ? tournament.session_id === quickAddSelectedSessionId
+                    : true,
+            )
+            .filter((tournament): boolean =>
+                quickAddForm.tier_id
+                    ? String(tournament.tier_id) === quickAddForm.tier_id
+                    : true,
+            )
+            .map((tournament) => ({
+                value: String(tournament.id),
+                label: tournament.name,
+                description: [
+                    tournament.venue,
+                    tournament.date_from,
+                    tournament.sports.map((sport) => sport.name).join(', '),
+                ]
+                    .filter(Boolean)
+                    .join(' · '),
+            }));
+    }, [
+        canSelectQuickAddTournament,
+        quickAddForm.tier_id,
+        quickAddSelectedSessionId,
+        tournaments,
+    ]);
     const quickAddSportItems = useMemo(() => {
         const tournamentSports = quickAddSelectedTournament?.sports ?? [];
         const attachedSportIds = new Set(
@@ -925,7 +936,8 @@ export default function MembersShow({
             events
                 .filter((event): boolean =>
                     quickAddForm.tournament_id
-                        ? String(event.tournament_id) === quickAddForm.tournament_id
+                        ? String(event.tournament_id) ===
+                          quickAddForm.tournament_id
                         : false,
                 )
                 .filter((event): boolean =>
@@ -939,7 +951,9 @@ export default function MembersShow({
                 .map((event) => ({
                     value: String(event.id),
                     label: event.name,
-                    badge: t(event.event_type === 'team' ? 'Team' : 'Individual'),
+                    badge: t(
+                        event.event_type === 'team' ? 'Team' : 'Individual',
+                    ),
                     badgeTone:
                         event.event_type === 'team'
                             ? ('team' as const)
@@ -953,12 +967,20 @@ export default function MembersShow({
                         .filter(Boolean)
                         .join(' · '),
                 })),
-        [events, member.gender, quickAddForm.tournament_id, quickAddSelectedSportId, t],
+        [
+            events,
+            member.gender,
+            quickAddForm.tournament_id,
+            quickAddSelectedSportId,
+            t,
+        ],
     );
 
     const quickAddTeamItems = useMemo(() => {
         const teams = (eventTeams ?? [])
-            .filter((team): boolean => (isQuickAddHistorical ? true : team.is_active))
+            .filter((team): boolean =>
+                isQuickAddHistorical ? true : team.is_active,
+            )
             .filter((team): boolean =>
                 quickAddSelectedSessionId > 0 && team.session?.id
                     ? team.session.id === quickAddSelectedSessionId
@@ -983,30 +1005,51 @@ export default function MembersShow({
 
         if (quickAddSelectedSessionId > 0) {
             return (eventTeams ?? [])
-                .filter((team): boolean => (isQuickAddHistorical ? true : team.is_active))
-                .filter((team): boolean => team.session?.id === quickAddSelectedSessionId)
+                .filter((team): boolean =>
+                    isQuickAddHistorical ? true : team.is_active,
+                )
+                .filter(
+                    (team): boolean =>
+                        team.session?.id === quickAddSelectedSessionId,
+                )
                 .map((team) => ({
                     value: String(team.id),
-                    label: team.name + (team.sport?.name ? ` - ${team.sport.name}` : ''),
+                    label:
+                        team.name +
+                        (team.sport?.name ? ` - ${team.sport.name}` : ''),
                 }));
         }
 
         if (quickAddSelectedSportId > 0) {
             return (eventTeams ?? [])
-                .filter((team): boolean => isQuickAddHistorical ? true : team.is_active)
-                .filter((team): boolean => team.sport?.id === quickAddSelectedSportId)
+                .filter((team): boolean =>
+                    isQuickAddHistorical ? true : team.is_active,
+                )
+                .filter(
+                    (team): boolean =>
+                        team.sport?.id === quickAddSelectedSportId,
+                )
                 .map((team) => ({
                     value: String(team.id),
-                    label: team.name + (team.session?.name ? ` (${team.session.name})` : ''),
+                    label:
+                        team.name +
+                        (team.session?.name ? ` (${team.session.name})` : ''),
                 }));
         }
 
         return [];
-    }, [eventTeams, quickAddSelectedSessionId, quickAddSelectedSportId, isQuickAddHistorical]);
+    }, [
+        eventTeams,
+        quickAddSelectedSessionId,
+        quickAddSelectedSportId,
+        isQuickAddHistorical,
+    ]);
 
     useEffect(() => {
         const hasSingleOption = quickAddTeamItems.length === 1;
-        const isSelected = quickAddTeamItems.some((team) => team.value === quickAddForm.team_id);
+        const isSelected = quickAddTeamItems.some(
+            (team) => team.value === quickAddForm.team_id,
+        );
 
         if (hasSingleOption && !isSelected) {
             setQuickAddField('team_id', quickAddTeamItems[0].value);
@@ -1034,9 +1077,12 @@ export default function MembersShow({
                 ...current,
                 tournament_name: quickAddSelectedTournament.name,
                 venue: quickAddSelectedTournament.venue ?? current.venue,
-                date_from: quickAddSelectedTournament.date_from ?? current.date_from,
+                date_from:
+                    quickAddSelectedTournament.date_from ?? current.date_from,
                 date_to: quickAddSelectedTournament.date_to ?? current.date_to,
-                sport_id: tournamentSportId ? String(tournamentSportId) : current.sport_id,
+                sport_id: tournamentSportId
+                    ? String(tournamentSportId)
+                    : current.sport_id,
                 event_sport_id: tournamentSportId
                     ? String(tournamentSportId)
                     : current.event_sport_id,
@@ -1059,7 +1105,8 @@ export default function MembersShow({
             ...current,
             event_name: quickAddSelectedEvent.name,
             event_sport_id: String(quickAddSelectedEvent.sport_id),
-            sport_id: current.sport_id || String(quickAddSelectedEvent.sport_id),
+            sport_id:
+                current.sport_id || String(quickAddSelectedEvent.sport_id),
             event_type: quickAddSelectedEvent.event_type,
             participants_required: quickAddSelectedEvent.participants_required
                 ? String(quickAddSelectedEvent.participants_required)
@@ -1116,12 +1163,12 @@ export default function MembersShow({
                 Object.entries(quickAddForm).map(([key, value]) => [
                     key,
                     key === 'session_id' ||
-                            key === 'team_id' ||
-                            key === 'sport_id' ||
-                            key === 'event_sport_id' ||
-                            key === 'tier_id' ||
-                            key === 'tournament_id' ||
-                            key === 'event_id'
+                    key === 'team_id' ||
+                    key === 'sport_id' ||
+                    key === 'event_sport_id' ||
+                    key === 'tier_id' ||
+                    key === 'tournament_id' ||
+                    key === 'event_id'
                         ? normalizeNumericString(String(value))
                         : String(value),
                 ]),
@@ -1169,7 +1216,10 @@ export default function MembersShow({
         });
     };
 
-    const setQuickAddField = (field: keyof QuickAddAchievementForm, value: string): void => {
+    const setQuickAddField = (
+        field: keyof QuickAddAchievementForm,
+        value: string,
+    ): void => {
         setQuickAddErrors((current) => {
             if (!(field in current)) {
                 return current;
@@ -1187,9 +1237,7 @@ export default function MembersShow({
         }));
     };
 
-    const getQuickAddError = (
-        field: keyof QuickAddAchievementForm,
-    ): string => {
+    const getQuickAddError = (field: keyof QuickAddAchievementForm): string => {
         const error = quickAddErrors[field];
 
         return error ?? '';
@@ -1681,11 +1729,7 @@ export default function MembersShow({
                     return formatDisplayDate(member.dob) ?? '';
                 case 'rank':
                     return member.rank
-                        ? resolveRankLabel(
-                              member.rank,
-                              ranks ?? [],
-                              pageLocale,
-                          )
+                        ? resolveRankLabel(member.rank, ranks ?? [], pageLocale)
                         : '';
                 case 'mobile':
                     return member.mobile ?? '';
@@ -1700,9 +1744,7 @@ export default function MembersShow({
                 case 'home_district':
                     return member.home_district?.name ?? '';
                 case 'joining_date':
-                    return (
-                        formatDisplayDate(member.joining_date) ?? ''
-                    );
+                    return formatDisplayDate(member.joining_date) ?? '';
                 case 'blood_group':
                     return member.blood_group ?? '';
                 case 'caste':
@@ -1729,14 +1771,9 @@ export default function MembersShow({
                         )
                         .join(' | ');
                 case 'promotion_date':
-                    return (
-                        formatDisplayDate(member.promotion_date) ??
-                        ''
-                    );
+                    return formatDisplayDate(member.promotion_date) ?? '';
                 case 'team_since':
-                    return (
-                        formatDisplayDate(member.team_since) ?? ''
-                    );
+                    return formatDisplayDate(member.team_since) ?? '';
                 default:
                     return '';
             }
@@ -2032,11 +2069,31 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Joining date'),
-                                            formatDisplayDate(member.joining_date),
+                                            formatDisplayDate(
+                                                member.joining_date,
+                                            ),
                                         )}
                                         {detail(
                                             t('Home district'),
-                                            member.home_district?.name,
+                                            member.home_district?.name ? (
+                                                <span className="inline-flex items-center gap-1.5">
+                                                    <span>
+                                                        {
+                                                            member.home_district
+                                                                .name
+                                                        }
+                                                    </span>
+                                                    {member.home_district
+                                                        .is_other && (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="border-muted-foreground/30 px-1.5 py-0 text-[10px] font-normal text-muted-foreground"
+                                                        >
+                                                            {t('Out of State')}
+                                                        </Badge>
+                                                    )}
+                                                </span>
+                                            ) : null,
                                         )}
                                         {detail(
                                             t('Posting'),
@@ -2248,7 +2305,7 @@ export default function MembersShow({
                                         'Competition achievements recorded through tournaments, events, medals, and benefits.',
                                     )}
                                 </p>
-                                        {canManageMemberBenefits ? (
+                                {canManageMemberBenefits ? (
                                     <Button
                                         size="sm"
                                         onClick={() => {
@@ -2313,572 +2370,564 @@ export default function MembersShow({
                                 </div>
                             ) : (
                                 <div className="space-y-3 p-4">
-                                            <div className="sticky top-3 z-10 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/85">
-                                                <div className="flex flex-wrap items-center justify-between gap-3">
-                                                    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5 text-xs text-muted-foreground">
-                                                        <span className="rounded-md border bg-white px-2 py-1">
-                                                            {t('Session')}:{' '}
-                                                            {sessionFilter ===
-                                                            'current'
-                                                                ? t('Current')
-                                                                : sessionFilter ===
-                                                                    'all'
-                                                                  ? t(
-                                                                        'All sessions',
-                                                                    )
-                                                                  : sessionFilter}
+                                    <div className="sticky top-3 z-10 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/85">
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div className="flex min-w-0 flex-1 flex-wrap gap-1.5 text-xs text-muted-foreground">
+                                                <span className="rounded-md border bg-white px-2 py-1">
+                                                    {t('Session')}:{' '}
+                                                    {sessionFilter === 'current'
+                                                        ? t('Current')
+                                                        : sessionFilter ===
+                                                            'all'
+                                                          ? t('All sessions')
+                                                          : sessionFilter}
+                                                </span>
+                                                {activeAchievementFilterChips.map(
+                                                    (chip) => (
+                                                        <span
+                                                            key={chip}
+                                                            className="rounded-md border bg-white px-2 py-1"
+                                                        >
+                                                            {chip}
                                                         </span>
-                                                        {activeAchievementFilterChips.map(
-                                                            (chip) => (
-                                                                <span
-                                                                    key={chip}
-                                                                    className="rounded-md border bg-white px-2 py-1"
-                                                                >
-                                                                    {chip}
-                                                                </span>
-                                                            ),
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="h-8 border-slate-200 bg-white shadow-sm"
-                                                            onClick={() => {
-                                                                syncDraftAchievementFilters();
-                                                                setAchievementFiltersOpen(
-                                                                    true,
-                                                                );
-                                                            }}
-                                                        >
-                                                            {t('Filters')}
-                                                            {activeAchievementFilterChips.length >
-                                                            0
-                                                                ? ` (${activeAchievementFilterChips.length})`
-                                                                : ''}
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8"
-                                                            onClick={
-                                                                clearAchievementFilters
-                                                            }
-                                                        >
-                                                            {t('Clear filters')}
-                                                        </Button>
-                                                    </div>
-                                                </div>
+                                                    ),
+                                                )}
                                             </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 border-slate-200 bg-white shadow-sm"
+                                                    onClick={() => {
+                                                        syncDraftAchievementFilters();
+                                                        setAchievementFiltersOpen(
+                                                            true,
+                                                        );
+                                                    }}
+                                                >
+                                                    {t('Filters')}
+                                                    {activeAchievementFilterChips.length >
+                                                    0
+                                                        ? ` (${activeAchievementFilterChips.length})`
+                                                        : ''}
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8"
+                                                    onClick={
+                                                        clearAchievementFilters
+                                                    }
+                                                >
+                                                    {t('Clear filters')}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                            {filteredSessionGroups.length ===
-                                            0 ? (
-                                                <div className="rounded-xl border bg-card p-6">
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {t('No results')}
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-4">
-                                                    {achievementTierGroups.map(
-                                                        ({ tier, rows }) => {
-                                                            const medalCounts =
-                                                                rows.reduce(
-                                                                    (
-                                                                        acc,
+                                    {filteredSessionGroups.length === 0 ? (
+                                        <div className="rounded-xl border bg-card p-6">
+                                            <p className="text-sm text-muted-foreground">
+                                                {t('No results')}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {achievementTierGroups.map(
+                                                ({ tier, rows }) => {
+                                                    const medalCounts =
+                                                        rows.reduce(
+                                                            (
+                                                                acc,
+                                                                {
+                                                                    participation,
+                                                                },
+                                                            ) => {
+                                                                if (
+                                                                    participation
+                                                                        .tournament
+                                                                        .tier_code ===
+                                                                    'OTHER'
+                                                                ) {
+                                                                    return acc;
+                                                                }
+
+                                                                const medal =
+                                                                    participation
+                                                                        .achievement
+                                                                        ?.medal_type;
+
+                                                                if (
+                                                                    medal &&
+                                                                    medal in acc
+                                                                ) {
+                                                                    acc[
+                                                                        medal as keyof typeof acc
+                                                                    ] += 1;
+                                                                }
+
+                                                                return acc;
+                                                            },
+                                                            {
+                                                                GOLD: 0,
+                                                                SILVER: 0,
+                                                                BRONZE: 0,
+                                                                MERIT: 0,
+                                                            },
+                                                        );
+                                                    let tierAchievementSerial = 0;
+
+                                                    return (
+                                                        <div
+                                                            key={`tier-${tier}`}
+                                                            className="overflow-hidden rounded-xl border bg-card"
+                                                        >
+                                                            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <span
+                                                                        className={eventBadgeClass(
+                                                                            'tier',
+                                                                        )}
+                                                                    >
+                                                                        {tier}
+                                                                    </span>
+                                                                    <span className="text-xs text-muted-foreground">
                                                                         {
-                                                                            participation,
-                                                                        },
-                                                                    ) => {
-                                                                        if (
-                                                                            participation
-                                                                                .tournament
-                                                                                .tier_code ===
-                                                                            'OTHER'
-                                                                        ) {
-                                                                            return acc;
-                                                                        }
-
-                                                                        const medal =
-                                                                            participation
-                                                                                .achievement
-                                                                                ?.medal_type;
-
-                                                                        if (
-                                                                            medal &&
-                                                                            medal in
-                                                                                acc
-                                                                        ) {
-                                                                            acc[
-                                                                                medal as keyof typeof acc
-                                                                            ] +=
-                                                                                1;
-                                                                        }
-
-                                                                        return acc;
-                                                                    },
-                                                                    {
-                                                                        GOLD: 0,
-                                                                        SILVER: 0,
-                                                                        BRONZE: 0,
-                                                                        MERIT: 0,
-                                                                    },
-                                                                );
-                                                            let tierAchievementSerial = 0;
-
-                                                            return (
-                                                                <div
-                                                                    key={`tier-${tier}`}
-                                                                    className="overflow-hidden rounded-xl border bg-card"
-                                                                >
-                                                                    <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/40 px-4 py-3">
-                                                                        <div className="flex flex-wrap items-center gap-2">
-                                                                            <span
-                                                                                className={eventBadgeClass(
-                                                                                    'tier',
-                                                                                )}
-                                                                            >
-                                                                                {
-                                                                                    tier
-                                                                                }
-                                                                            </span>
-                                                                            <span className="text-xs text-muted-foreground">
-                                                                                {
-                                                                                    rows.length
-                                                                                }{' '}
-                                                                                {t(
-                                                                                    'records',
-                                                                                )}
-                                                                            </span>
-                                                                        </div>
-                                                                        <span className="flex flex-wrap gap-1.5">
-                                                                            {(
-                                                                                [
-                                                                                    'GOLD',
-                                                                                    'SILVER',
-                                                                                    'BRONZE',
-                                                                                    'MERIT',
-                                                                                ] as const
-                                                                            ).map(
-                                                                                (
-                                                                                    medal,
-                                                                                ) =>
-                                                                                    medalCounts[
+                                                                            rows.length
+                                                                        }{' '}
+                                                                        {t(
+                                                                            'records',
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="flex flex-wrap gap-1.5">
+                                                                    {(
+                                                                        [
+                                                                            'GOLD',
+                                                                            'SILVER',
+                                                                            'BRONZE',
+                                                                            'MERIT',
+                                                                        ] as const
+                                                                    ).map(
+                                                                        (
+                                                                            medal,
+                                                                        ) =>
+                                                                            medalCounts[
+                                                                                medal
+                                                                            ] >
+                                                                            0 ? (
+                                                                                <span
+                                                                                    key={
                                                                                         medal
-                                                                                    ] >
-                                                                                    0 ? (
-                                                                                        <span
-                                                                                            key={
-                                                                                                medal
-                                                                                            }
-                                                                                            className={eventBadgeClass(
-                                                                                                'medal',
-                                                                                            )}
-                                                                                        >
-                                                                                            {t(
-                                                                                                medal,
-                                                                                            )}
+                                                                                    }
+                                                                                    className={eventBadgeClass(
+                                                                                        'medal',
+                                                                                    )}
+                                                                                >
+                                                                                    {t(
+                                                                                        medal,
+                                                                                    )}
 
-                                                                                            :{' '}
-                                                                                            {
-                                                                                                medalCounts[
-                                                                                                    medal
-                                                                                                ]
-                                                                                            }
-                                                                                        </span>
-                                                                                    ) : null,
+                                                                                    :{' '}
+                                                                                    {
+                                                                                        medalCounts[
+                                                                                            medal
+                                                                                        ]
+                                                                                    }
+                                                                                </span>
+                                                                            ) : null,
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
+                                                                <TableHeader>
+                                                                    <TableRow>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'S.No.',
                                                                             )}
-                                                                        </span>
-                                                                    </div>
-                                                                    <Table className="text-xs [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:py-1.5">
-                                                                        <TableHeader>
-                                                                            <TableRow>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'S.No.',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Tier / Level',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Tournament',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Session',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Venue',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Event / discipline',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Date',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Class',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Medal',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Position',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Benefits',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                                <TableHead>
-                                                                                    {t(
-                                                                                        'Prize money',
-                                                                                    )}
-                                                                                </TableHead>
-                                                                            </TableRow>
-                                                                        </TableHeader>
-                                                                        <TableBody>
-                                                                            {rows.map(
-                                                                                ({
-                                                                                    group,
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Tier / Level',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Tournament',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Session',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Venue',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Event / discipline',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Date',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Class',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Medal',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Position',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Benefits',
+                                                                            )}
+                                                                        </TableHead>
+                                                                        <TableHead>
+                                                                            {t(
+                                                                                'Prize money',
+                                                                            )}
+                                                                        </TableHead>
+                                                                    </TableRow>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {rows.map(
+                                                                        ({
+                                                                            group,
+                                                                            participation,
+                                                                        }) => {
+                                                                            const promotionsForRow =
+                                                                                eventPromotionRows(
                                                                                     participation,
-                                                                                }) => {
-                                                                                    const promotionsForRow =
-                                                                                        eventPromotionRows(
-                                                                                            participation,
-                                                                                        );
-                                                                                    const achievementBenefits =
-                                                                                        achievementBenefitTypes(
-                                                                                            participation
-                                                                                                .achievement
-                                                                                                ?.benefits,
-                                                                                            promotionsForRow,
-                                                                                        );
-                                                                                    const isHighlightedAchievement =
-                                                                                        (highlightedAchievement.achievementId !==
-                                                                                            null &&
-                                                                                            participation
-                                                                                                .achievement
-                                                                                                ?.id ===
-                                                                                                highlightedAchievement.achievementId) ||
-                                                                                        (highlightedAchievement.participationId !==
-                                                                                            null &&
-                                                                                            participation.id ===
-                                                                                                highlightedAchievement.participationId) ||
-                                                                                        (highlightedAchievement.eventId !==
-                                                                                            null &&
-                                                                                            participation
-                                                                                                .event
-                                                                                                .id ===
-                                                                                                highlightedAchievement.eventId);
+                                                                                );
+                                                                            const achievementBenefits =
+                                                                                achievementBenefitTypes(
+                                                                                    participation
+                                                                                        .achievement
+                                                                                        ?.benefits,
+                                                                                    promotionsForRow,
+                                                                                );
+                                                                            const isHighlightedAchievement =
+                                                                                (highlightedAchievement.achievementId !==
+                                                                                    null &&
+                                                                                    participation
+                                                                                        .achievement
+                                                                                        ?.id ===
+                                                                                        highlightedAchievement.achievementId) ||
+                                                                                (highlightedAchievement.participationId !==
+                                                                                    null &&
+                                                                                    participation.id ===
+                                                                                        highlightedAchievement.participationId) ||
+                                                                                (highlightedAchievement.eventId !==
+                                                                                    null &&
+                                                                                    participation
+                                                                                        .event
+                                                                                        .id ===
+                                                                                        highlightedAchievement.eventId);
 
-                                                                                    return (
-                                                                                        <TableRow
-                                                                                            key={
-                                                                                                participation.id
-                                                                                            }
-                                                                                            id={
-                                                                                                participation
-                                                                                                    .achievement
-                                                                                                    ?.id
-                                                                                                    ? `achievement-${participation.achievement.id}`
-                                                                                                    : `participation-${participation.id}`
-                                                                                            }
-                                                                                            className={
-                                                                                                isHighlightedAchievement
-                                                                                                    ? 'scroll-mt-28 bg-amber-50/80 ring-1 ring-amber-300 ring-inset dark:bg-amber-950/20 dark:ring-amber-700'
-                                                                                                    : undefined
-                                                                                            }
+                                                                            return (
+                                                                                <TableRow
+                                                                                    key={
+                                                                                        participation.id
+                                                                                    }
+                                                                                    id={
+                                                                                        participation
+                                                                                            .achievement
+                                                                                            ?.id
+                                                                                            ? `achievement-${participation.achievement.id}`
+                                                                                            : `participation-${participation.id}`
+                                                                                    }
+                                                                                    className={
+                                                                                        isHighlightedAchievement
+                                                                                            ? 'scroll-mt-28 bg-amber-50/80 ring-1 ring-amber-300 ring-inset dark:bg-amber-950/20 dark:ring-amber-700'
+                                                                                            : undefined
+                                                                                    }
+                                                                                >
+                                                                                    <TableCell>
+                                                                                        {
+                                                                                            ++tierAchievementSerial
+                                                                                        }
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <span
+                                                                                            className={eventBadgeClass(
+                                                                                                'tier',
+                                                                                            )}
                                                                                         >
-                                                                                            <TableCell>
-                                                                                                {
-                                                                                                    ++tierAchievementSerial
+                                                                                            {participation
+                                                                                                .tournament
+                                                                                                .tier_code ??
+                                                                                                tier}
+                                                                                        </span>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1">
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                className="block text-left font-medium hover:underline"
+                                                                                                onClick={() =>
+                                                                                                    setAchievementPreview(
+                                                                                                        {
+                                                                                                            kind: 'tournament',
+                                                                                                            tournament:
+                                                                                                                participation.tournament,
+                                                                                                            session:
+                                                                                                                group.session,
+                                                                                                        },
+                                                                                                    )
                                                                                                 }
-                                                                                            </TableCell>
-                                                                                            <TableCell>
+                                                                                            >
+                                                                                                {
+                                                                                                    participation
+                                                                                                        .tournament
+                                                                                                        .name
+                                                                                                }
+                                                                                            </button>
+                                                                                            <p className="text-xs text-muted-foreground">
+                                                                                                {
+                                                                                                    participation
+                                                                                                        .team
+                                                                                                        ?.name
+                                                                                                }
+                                                                                            </p>
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {
+                                                                                            group
+                                                                                                .session
+                                                                                                .name
+                                                                                        }
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {participation
+                                                                                            .tournament
+                                                                                            .venue ??
+                                                                                            '—'}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1.5">
+                                                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    className="text-left font-medium hover:underline"
+                                                                                                    onClick={() =>
+                                                                                                        setAchievementPreview(
+                                                                                                            {
+                                                                                                                kind: 'event',
+                                                                                                                tournament:
+                                                                                                                    participation.tournament,
+                                                                                                                event: participation.event,
+                                                                                                                session:
+                                                                                                                    group.session,
+                                                                                                            },
+                                                                                                        )
+                                                                                                    }
+                                                                                                >
+                                                                                                    {
+                                                                                                        participation
+                                                                                                            .event
+                                                                                                            .name
+                                                                                                    }
+                                                                                                </button>
                                                                                                 <span
                                                                                                     className={eventBadgeClass(
-                                                                                                        'tier',
+                                                                                                        participation
+                                                                                                            .event
+                                                                                                            .event_type ===
+                                                                                                            'team'
+                                                                                                            ? 'team'
+                                                                                                            : 'individual',
                                                                                                     )}
                                                                                                 >
                                                                                                     {participation
-                                                                                                        .tournament
-                                                                                                        .tier_code ??
-                                                                                                        tier}
+                                                                                                        .event
+                                                                                                        .event_type ===
+                                                                                                    'team'
+                                                                                                        ? t(
+                                                                                                              'Team',
+                                                                                                          )
+                                                                                                        : t(
+                                                                                                              'Individual',
+                                                                                                          )}
                                                                                                 </span>
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                <div className="space-y-1">
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className="block text-left font-medium hover:underline"
-                                                                                                        onClick={() =>
-                                                                                                            setAchievementPreview(
-                                                                                                                {
-                                                                                                                    kind: 'tournament',
-                                                                                                                    tournament:
-                                                                                                                        participation.tournament,
-                                                                                                                    session:
-                                                                                                                        group.session,
-                                                                                                                },
-                                                                                                            )
-                                                                                                        }
-                                                                                                    >
-                                                                                                        {
-                                                                                                            participation
-                                                                                                                .tournament
-                                                                                                                .name
-                                                                                                        }
-                                                                                                    </button>
-                                                                                                    <p className="text-xs text-muted-foreground">
-                                                                                                        {
-                                                                                                            participation
-                                                                                                                .team
-                                                                                                                ?.name
-                                                                                                        }
-                                                                                                    </p>
-                                                                                                </div>
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                {
-                                                                                                    group
-                                                                                                        .session
-                                                                                                        .name
-                                                                                                }
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                {participation
-                                                                                                    .tournament
-                                                                                                    .venue ??
-                                                                                                    '—'}
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                <div className="space-y-1.5">
-                                                                                                    <div className="flex flex-wrap items-center gap-2">
-                                                                                                        <button
-                                                                                                            type="button"
-                                                                                                            className="text-left font-medium hover:underline"
-                                                                                                            onClick={() =>
-                                                                                                                setAchievementPreview(
-                                                                                                                    {
-                                                                                                                        kind: 'event',
-                                                                                                                        tournament:
-                                                                                                                            participation.tournament,
-                                                                                                                        event: participation.event,
-                                                                                                                        session:
-                                                                                                                            group.session,
-                                                                                                                    },
-                                                                                                                )
-                                                                                                            }
-                                                                                                        >
-                                                                                                            {
-                                                                                                                participation
-                                                                                                                    .event
-                                                                                                                    .name
-                                                                                                            }
-                                                                                                        </button>
-                                                                                                        <span
-                                                                                                            className={eventBadgeClass(
-                                                                                                                participation
-                                                                                                                    .event
-                                                                                                                    .event_type ===
-                                                                                                                    'team'
-                                                                                                                    ? 'team'
-                                                                                                                    : 'individual',
-                                                                                                            )}
-                                                                                                        >
-                                                                                                            {participation
-                                                                                                                .event
-                                                                                                                .event_type ===
-                                                                                                            'team'
-                                                                                                                ? t(
-                                                                                                                      'Team',
-                                                                                                                  )
-                                                                                                                : t(
-                                                                                                                      'Individual',
-                                                                                                                  )}
-                                                                                                        </span>
-                                                                                                    </div>
-                                                                                                    {participation
-                                                                                                        .event
-                                                                                                        .discipline ? (
-                                                                                                        <p className="text-xs text-muted-foreground">
-                                                                                                            {
-                                                                                                                participation
-                                                                                                                    .event
-                                                                                                                    .discipline
-                                                                                                            }
-                                                                                                        </p>
-                                                                                                    ) : null}
-                                                                                                    {participation
-                                                                                                        .event
-                                                                                                        .weight_category ? (
-                                                                                                        <p className="text-xs text-muted-foreground">
-                                                                                                            {
-                                                                                                                participation
-                                                                                                                    .event
-                                                                                                                    .weight_category
-                                                                                                            }
-                                                                                                        </p>
-                                                                                                    ) : null}
-                                                                                                </div>
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                {participation
-                                                                                                    .tournament
-                                                                                                    .date_from ??
-                                                                                                    t(
-                                                                                                        'No date',
-                                                                                                    )}
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                {eventClassLabel(
-                                                                                                    participation
-                                                                                                        .event
-                                                                                                        .gender_class,
-                                                                                                    t,
-                                                                                                )}
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                {participation
-                                                                                                    .achievement
-                                                                                                    ?.medal_type ? (
-                                                                                                    (() => {
-                                                                                                        const medal =
-                                                                                                            medalBadgeContent(
-                                                                                                                participation
-                                                                                                                    .achievement
-                                                                                                                    .medal_type,
-                                                                                                            );
-
-                                                                                                        return (
-                                                                                                            <span
-                                                                                                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
-                                                                                                            >
-                                                                                                                {
-                                                                                                                    medal.icon
-                                                                                                                }
-                                                                                                                {
-                                                                                                                    medal.label
-                                                                                                                }
-                                                                                                            </span>
-                                                                                                        );
-                                                                                                    })()
-                                                                                                ) : (
-                                                                                                    <span
-                                                                                                        className={eventBadgeClass(
-                                                                                                            'medal',
-                                                                                                        )}
-                                                                                                    >
-                                                                                                        {t(
-                                                                                                            'No medal',
-                                                                                                        )}
-                                                                                                    </span>
-                                                                                                )}
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                #
-                                                                                                {participation
-                                                                                                    .achievement
-                                                                                                    ?.position ??
-                                                                                                    participation.position ??
-                                                                                                    '—'}
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                <div className="flex flex-wrap gap-1.5">
-                                                                                                    {achievementBenefits.length ? (
-                                                                                                        achievementBenefits.map(
-                                                                                                            (
-                                                                                                                benefitType,
-                                                                                                                index,
-                                                                                                            ) => (
-                                                                                                                <span
-                                                                                                                    key={`${participation.id}-benefit-${index}`}
-                                                                                                                    className={eventBadgeClass(
-                                                                                                                        'benefit',
-                                                                                                                    )}
-                                                                                                                >
-                                                                                                                    {t(
-                                                                                                                        benefitType,
-                                                                                                                    )}
-                                                                                                                </span>
-                                                                                                            ),
-                                                                                                        )
-                                                                                                    ) : (
-                                                                                                        <span className="text-xs text-muted-foreground">
-                                                                                                            —
-                                                                                                        </span>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </TableCell>
-                                                                                            <TableCell>
-                                                                                                <div className="space-y-1.5">
-                                                                                                    {achievementPrizeMoney(
+                                                                                            </div>
+                                                                                            {participation
+                                                                                                .event
+                                                                                                .discipline ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {
+                                                                                                        participation
+                                                                                                            .event
+                                                                                                            .discipline
+                                                                                                    }
+                                                                                                </p>
+                                                                                            ) : null}
+                                                                                            {participation
+                                                                                                .event
+                                                                                                .weight_category ? (
+                                                                                                <p className="text-xs text-muted-foreground">
+                                                                                                    {
+                                                                                                        participation
+                                                                                                            .event
+                                                                                                            .weight_category
+                                                                                                    }
+                                                                                                </p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {participation
+                                                                                            .tournament
+                                                                                            .date_from ??
+                                                                                            t(
+                                                                                                'No date',
+                                                                                            )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {eventClassLabel(
+                                                                                            participation
+                                                                                                .event
+                                                                                                .gender_class,
+                                                                                            t,
+                                                                                        )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        {participation
+                                                                                            .achievement
+                                                                                            ?.medal_type ? (
+                                                                                            (() => {
+                                                                                                const medal =
+                                                                                                    medalBadgeContent(
                                                                                                         participation
                                                                                                             .achievement
-                                                                                                            ?.benefits,
-                                                                                                        promotionsForRow,
-                                                                                                    )
-                                                                                                        .length >
-                                                                                                    0 ? (
-                                                                                                        achievementPrizeMoney(
-                                                                                                            participation
-                                                                                                                .achievement
-                                                                                                                ?.benefits,
-                                                                                                            promotionsForRow,
-                                                                                                        ).map(
-                                                                                                            (
-                                                                                                                amount,
-                                                                                                                index,
-                                                                                                            ) => (
-                                                                                                                <div
-                                                                                                                    key={`${participation.id}-amount-${index}`}
-                                                                                                                    className="text-xs font-medium text-foreground"
-                                                                                                                >
-                                                                                                                    {
-                                                                                                                        amount
-                                                                                                                    }
-                                                                                                                </div>
-                                                                                                            ),
-                                                                                                        )
-                                                                                                    ) : (
-                                                                                                        <span className="text-xs text-muted-foreground">
-                                                                                                            —
+                                                                                                            .medal_type,
+                                                                                                    );
+
+                                                                                                return (
+                                                                                                    <span
+                                                                                                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${medal.className}`}
+                                                                                                    >
+                                                                                                        {
+                                                                                                            medal.icon
+                                                                                                        }
+                                                                                                        {
+                                                                                                            medal.label
+                                                                                                        }
+                                                                                                    </span>
+                                                                                                );
+                                                                                            })()
+                                                                                        ) : (
+                                                                                            <span
+                                                                                                className={eventBadgeClass(
+                                                                                                    'medal',
+                                                                                                )}
+                                                                                            >
+                                                                                                {t(
+                                                                                                    'No medal',
+                                                                                                )}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        #
+                                                                                        {participation
+                                                                                            .achievement
+                                                                                            ?.position ??
+                                                                                            participation.position ??
+                                                                                            '—'}
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                                            {achievementBenefits.length ? (
+                                                                                                achievementBenefits.map(
+                                                                                                    (
+                                                                                                        benefitType,
+                                                                                                        index,
+                                                                                                    ) => (
+                                                                                                        <span
+                                                                                                            key={`${participation.id}-benefit-${index}`}
+                                                                                                            className={eventBadgeClass(
+                                                                                                                'benefit',
+                                                                                                            )}
+                                                                                                        >
+                                                                                                            {t(
+                                                                                                                benefitType,
+                                                                                                            )}
                                                                                                         </span>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </TableCell>
-                                                                                        </TableRow>
-                                                                                    );
-                                                                                },
-                                                                            )}
-                                                                        </TableBody>
-                                                                    </Table>
-                                                                </div>
-                                                            );
-                                                        },
-                                                    )}
-                                                </div>
+                                                                                                    ),
+                                                                                                )
+                                                                                            ) : (
+                                                                                                <span className="text-xs text-muted-foreground">
+                                                                                                    —
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="space-y-1.5">
+                                                                                            {achievementPrizeMoney(
+                                                                                                participation
+                                                                                                    .achievement
+                                                                                                    ?.benefits,
+                                                                                                promotionsForRow,
+                                                                                            )
+                                                                                                .length >
+                                                                                            0 ? (
+                                                                                                achievementPrizeMoney(
+                                                                                                    participation
+                                                                                                        .achievement
+                                                                                                        ?.benefits,
+                                                                                                    promotionsForRow,
+                                                                                                ).map(
+                                                                                                    (
+                                                                                                        amount,
+                                                                                                        index,
+                                                                                                    ) => (
+                                                                                                        <div
+                                                                                                            key={`${participation.id}-amount-${index}`}
+                                                                                                            className="text-xs font-medium text-foreground"
+                                                                                                        >
+                                                                                                            {
+                                                                                                                amount
+                                                                                                            }
+                                                                                                        </div>
+                                                                                                    ),
+                                                                                                )
+                                                                                            ) : (
+                                                                                                <span className="text-xs text-muted-foreground">
+                                                                                                    —
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                </TableRow>
+                                                                            );
+                                                                        },
+                                                                    )}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                    );
+                                                },
                                             )}
                                         </div>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </TabsContent>
@@ -3303,10 +3352,10 @@ export default function MembersShow({
                 />
             )}
 
-                <Dialog
-                    open={quickAddOpen}
-                    onOpenChange={(open) => setQuickAddOpen(open)}
-                >
+            <Dialog
+                open={quickAddOpen}
+                onOpenChange={(open) => setQuickAddOpen(open)}
+            >
                 <DialogContent
                     className="w-[98vw] max-w-[95rem] sm:max-w-[95rem]"
                     aria-describedby={undefined}
@@ -3329,249 +3378,324 @@ export default function MembersShow({
                                         {t('Step 1: Tournament context')}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        {t('Choose session, tier, then select an existing tournament or type a new one.')}
+                                        {t(
+                                            'Choose session, tier, then select an existing tournament or type a new one.',
+                                        )}
                                     </p>
                                 </div>
                                 <Badge variant="outline">{t('Context')}</Badge>
                             </div>
                             <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label>{t('Session')}</Label>
-                                <div className="flex items-center gap-2">
-                                    <Checkbox
-                                        id="historical-session"
-                                        checked={
-                                            quickAddForm.is_historical_session === '1'
-                                        }
-                                        onCheckedChange={(checked) => {
-                                            const next = checked
-                                                ? '1'
-                                                : '';
+                                <div className="space-y-1.5">
+                                    <Label>{t('Session')}</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            id="historical-session"
+                                            checked={
+                                                quickAddForm.is_historical_session ===
+                                                '1'
+                                            }
+                                            onCheckedChange={(checked) => {
+                                                const next = checked ? '1' : '';
 
-                                            setQuickAddField(
-                                                'is_historical_session',
-                                                next,
-                                            );
-                                            setQuickAddField('tournament_id', '');
-                                            setQuickAddField('event_id', '');
-
-                                            if (checked) {
                                                 setQuickAddField(
-                                                    'session_id',
+                                                    'is_historical_session',
+                                                    next,
+                                                );
+                                                setQuickAddField(
+                                                    'tournament_id',
                                                     '',
                                                 );
-                                            }
-                                        }}
-                                    />
-                                    <Label
-                                        htmlFor="historical-session"
-                                        className="cursor-pointer"
-                                    >
-                                        {t('Session is not in list / historical entry')}
-                                    </Label>
-                                </div>
-                                {quickAddForm.is_historical_session !== '1' ? (
-                                    <>
-                                        <Combobox
-                                            value={quickAddForm.session_id}
-                                            onValueChange={(value) => {
                                                 setQuickAddField(
-                                                    'session_id',
-                                                    value,
+                                                    'event_id',
+                                                    '',
                                                 );
-                                                setQuickAddField('tournament_id', '');
-                                                setQuickAddField('event_id', '');
-                                            }}
-                                            items={sessions.map((session) => ({
-                                                value: String(session.id),
-                                                label: session.name,
-                                            }))}
-                                            placeholder={t('Select session')}
-                                            searchPlaceholder={t('Search sessions')}
-                                            emptyMessage={t('No sessions found')}
-                                        />
-                                        {getQuickAddError('session_id') ? (
-                                            <p className="text-xs text-destructive">
-                                                {getQuickAddError('session_id')}
-                                            </p>
-                                        ) : null}
-                                    </>
-                                ) : (
-                                    <div className="space-y-1.5">
-                                        <Label>{t('Session name')}</Label>
-                                        <Input
-                                            value={quickAddForm.session_name}
-                                            onChange={(e) => {
-                                                setQuickAddField(
-                                                    'session_name',
-                                                    e.target.value,
-                                                );
-                                                setQuickAddField('tournament_id', '');
-                                                setQuickAddField('event_id', '');
+
+                                                if (checked) {
+                                                    setQuickAddField(
+                                                        'session_id',
+                                                        '',
+                                                    );
+                                                }
                                             }}
                                         />
-                                        {getQuickAddError('session_name') ? (
-                                            <p className="text-xs text-destructive">
-                                                {getQuickAddError('session_name')}
-                                            </p>
-                                        ) : null}
-                                        <div className="grid gap-3 sm:grid-cols-2">
-                                            <div className="space-y-1.5">
-                                                <Label>{t('Start year')}</Label>
-                                                <Input
-                                                    value={quickAddForm.session_start_year}
-                                                    onChange={(e) => {
-                                                        setQuickAddField(
-                                                            'session_start_year',
-                                                            e.target.value,
-                                                        );
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label>{t('End year')}</Label>
-                                                <Input
-                                                    value={quickAddForm.session_end_year}
-                                                    onChange={(e) => {
-                                                        setQuickAddField(
-                                                            'session_end_year',
-                                                            e.target.value,
-                                                        );
-                                                    }}
-                                                />
+                                        <Label
+                                            htmlFor="historical-session"
+                                            className="cursor-pointer"
+                                        >
+                                            {t(
+                                                'Session is not in list / historical entry',
+                                            )}
+                                        </Label>
+                                    </div>
+                                    {quickAddForm.is_historical_session !==
+                                    '1' ? (
+                                        <>
+                                            <Combobox
+                                                value={quickAddForm.session_id}
+                                                onValueChange={(value) => {
+                                                    setQuickAddField(
+                                                        'session_id',
+                                                        value,
+                                                    );
+                                                    setQuickAddField(
+                                                        'tournament_id',
+                                                        '',
+                                                    );
+                                                    setQuickAddField(
+                                                        'event_id',
+                                                        '',
+                                                    );
+                                                }}
+                                                items={sessions.map(
+                                                    (session) => ({
+                                                        value: String(
+                                                            session.id,
+                                                        ),
+                                                        label: session.name,
+                                                    }),
+                                                )}
+                                                placeholder={t(
+                                                    'Select session',
+                                                )}
+                                                searchPlaceholder={t(
+                                                    'Search sessions',
+                                                )}
+                                                emptyMessage={t(
+                                                    'No sessions found',
+                                                )}
+                                            />
+                                            {getQuickAddError('session_id') ? (
+                                                <p className="text-xs text-destructive">
+                                                    {getQuickAddError(
+                                                        'session_id',
+                                                    )}
+                                                </p>
+                                            ) : null}
+                                        </>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            <Label>{t('Session name')}</Label>
+                                            <Input
+                                                value={
+                                                    quickAddForm.session_name
+                                                }
+                                                onChange={(e) => {
+                                                    setQuickAddField(
+                                                        'session_name',
+                                                        e.target.value,
+                                                    );
+                                                    setQuickAddField(
+                                                        'tournament_id',
+                                                        '',
+                                                    );
+                                                    setQuickAddField(
+                                                        'event_id',
+                                                        '',
+                                                    );
+                                                }}
+                                            />
+                                            {getQuickAddError(
+                                                'session_name',
+                                            ) ? (
+                                                <p className="text-xs text-destructive">
+                                                    {getQuickAddError(
+                                                        'session_name',
+                                                    )}
+                                                </p>
+                                            ) : null}
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                <div className="space-y-1.5">
+                                                    <Label>
+                                                        {t('Start year')}
+                                                    </Label>
+                                                    <Input
+                                                        value={
+                                                            quickAddForm.session_start_year
+                                                        }
+                                                        onChange={(e) => {
+                                                            setQuickAddField(
+                                                                'session_start_year',
+                                                                e.target.value,
+                                                            );
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label>
+                                                        {t('End year')}
+                                                    </Label>
+                                                    <Input
+                                                        value={
+                                                            quickAddForm.session_end_year
+                                                        }
+                                                        onChange={(e) => {
+                                                            setQuickAddField(
+                                                                'session_end_year',
+                                                                e.target.value,
+                                                            );
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
 
-                            <div className="space-y-1.5">
-                                <Label>{t('Allow inactive / backfill entry')}</Label>
-                                <div className="flex items-center gap-2">
-                                    <Checkbox
-                                        id="allow-inactive-member"
-                                        checked={
-                                            quickAddForm.allow_inactive_member === '1'
-                                        }
-                                        onCheckedChange={(checked) => {
+                                <div className="space-y-1.5">
+                                    <Label>
+                                        {t('Allow inactive / backfill entry')}
+                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            id="allow-inactive-member"
+                                            checked={
+                                                quickAddForm.allow_inactive_member ===
+                                                '1'
+                                            }
+                                            onCheckedChange={(checked) => {
+                                                setQuickAddField(
+                                                    'allow_inactive_member',
+                                                    checked ? '1' : '',
+                                                );
+                                            }}
+                                        />
+                                        <Label
+                                            htmlFor="allow-inactive-member"
+                                            className="cursor-pointer text-sm"
+                                        >
+                                            {t(
+                                                'Allow inactive member or historical roster entries',
+                                            )}
+                                        </Label>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label>{t('Tier')}</Label>
+                                    <Combobox
+                                        value={quickAddForm.tier_id}
+                                        onValueChange={(value) => {
+                                            setQuickAddField('tier_id', value);
                                             setQuickAddField(
-                                                'allow_inactive_member',
-                                                checked ? '1' : '',
+                                                'tournament_id',
+                                                '',
+                                            );
+                                            setQuickAddField('event_id', '');
+                                        }}
+                                        items={tiers.map((tier) => ({
+                                            value: String(tier.id),
+                                            label: tier.code,
+                                        }))}
+                                        placeholder={t('Select tier')}
+                                        searchPlaceholder={t('Search tiers')}
+                                        emptyMessage={t('No tiers found')}
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label>{t('Existing tournament')}</Label>
+                                    <Combobox
+                                        value={quickAddForm.tournament_id}
+                                        onValueChange={(value) => {
+                                            setQuickAddField(
+                                                'tournament_id',
+                                                value,
+                                            );
+                                        }}
+                                        items={quickAddTournamentItems}
+                                        placeholder={
+                                            canSelectQuickAddTournament
+                                                ? t(
+                                                      'Select existing tournament',
+                                                  )
+                                                : t(
+                                                      'Select session and tier first',
+                                                  )
+                                        }
+                                        searchPlaceholder={t(
+                                            'Search tournaments',
+                                        )}
+                                        emptyMessage={
+                                            canSelectQuickAddTournament
+                                                ? t(
+                                                      'No matching tournament. Type new name below.',
+                                                  )
+                                                : t(
+                                                      'Select session and tier first',
+                                                  )
+                                        }
+                                        disabled={!canSelectQuickAddTournament}
+                                    />
+                                    {getQuickAddError('tournament_id') ? (
+                                        <p className="text-xs text-destructive">
+                                            {getQuickAddError('tournament_id')}
+                                        </p>
+                                    ) : null}
+                                </div>
+
+                                <div className="space-y-1.5 sm:col-span-2">
+                                    <Label>{t('Tournament name')}</Label>
+                                    <Input
+                                        value={quickAddForm.tournament_name}
+                                        onChange={(e) => {
+                                            setQuickAddField(
+                                                'tournament_id',
+                                                '',
+                                            );
+                                            setQuickAddField(
+                                                'tournament_name',
+                                                e.target.value,
                                             );
                                         }}
                                     />
-                                    <Label
-                                        htmlFor="allow-inactive-member"
-                                        className="cursor-pointer text-sm"
-                                    >
-                                        {t(
-                                            'Allow inactive member or historical roster entries',
-                                        )}
-                                    </Label>
+                                    {getQuickAddError('tournament_name') ? (
+                                        <p className="text-xs text-destructive">
+                                            {getQuickAddError(
+                                                'tournament_name',
+                                            )}
+                                        </p>
+                                    ) : null}
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label>{t('Venue')}</Label>
+                                    <Input
+                                        value={quickAddForm.venue}
+                                        onChange={(e) => {
+                                            setQuickAddField(
+                                                'venue',
+                                                e.target.value,
+                                            );
+                                        }}
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label>{t('Event date from')}</Label>
+                                    <DatePicker
+                                        value={quickAddForm.date_from}
+                                        onChange={(value) => {
+                                            setQuickAddField(
+                                                'date_from',
+                                                value,
+                                            );
+                                        }}
+                                        placeholder={t('Select date')}
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label>{t('Event date to')}</Label>
+                                    <DatePicker
+                                        value={quickAddForm.date_to}
+                                        onChange={(value) => {
+                                            setQuickAddField('date_to', value);
+                                        }}
+                                        placeholder={t('Select date')}
+                                    />
                                 </div>
                             </div>
-
-                            <div className="space-y-1.5">
-                                <Label>{t('Tier')}</Label>
-                                <Combobox
-                                    value={quickAddForm.tier_id}
-                                    onValueChange={(value) => {
-                                        setQuickAddField('tier_id', value);
-                                        setQuickAddField('tournament_id', '');
-                                        setQuickAddField('event_id', '');
-                                    }}
-                                    items={tiers.map((tier) => ({
-                                        value: String(tier.id),
-                                        label: tier.code,
-                                    }))}
-                                    placeholder={t('Select tier')}
-                                    searchPlaceholder={t('Search tiers')}
-                                    emptyMessage={t('No tiers found')}
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label>{t('Existing tournament')}</Label>
-                                <Combobox
-                                    value={quickAddForm.tournament_id}
-                                    onValueChange={(value) => {
-                                        setQuickAddField('tournament_id', value);
-                                    }}
-                                    items={quickAddTournamentItems}
-                                    placeholder={
-                                        canSelectQuickAddTournament
-                                            ? t('Select existing tournament')
-                                            : t('Select session and tier first')
-                                    }
-                                    searchPlaceholder={t('Search tournaments')}
-                                    emptyMessage={
-                                        canSelectQuickAddTournament
-                                            ? t('No matching tournament. Type new name below.')
-                                            : t('Select session and tier first')
-                                    }
-                                    disabled={!canSelectQuickAddTournament}
-                                />
-                                {getQuickAddError('tournament_id') ? (
-                                    <p className="text-xs text-destructive">
-                                        {getQuickAddError('tournament_id')}
-                                    </p>
-                                ) : null}
-                            </div>
-
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <Label>{t('Tournament name')}</Label>
-                                <Input
-                                    value={quickAddForm.tournament_name}
-                                    onChange={(e) => {
-                                        setQuickAddField(
-                                            'tournament_id',
-                                            '',
-                                        );
-                                        setQuickAddField(
-                                            'tournament_name',
-                                            e.target.value,
-                                        );
-                                    }}
-                                />
-                                {getQuickAddError('tournament_name') ? (
-                                    <p className="text-xs text-destructive">
-                                        {getQuickAddError('tournament_name')}
-                                    </p>
-                                ) : null}
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label>{t('Venue')}</Label>
-                                <Input
-                                    value={quickAddForm.venue}
-                                    onChange={(e) => {
-                                        setQuickAddField('venue', e.target.value);
-                                    }}
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label>{t('Event date from')}</Label>
-                                <DatePicker
-                                    value={quickAddForm.date_from}
-                                    onChange={(value) => {
-                                        setQuickAddField('date_from', value);
-                                    }}
-                                    placeholder={t('Select date')}
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label>{t('Event date to')}</Label>
-                                <DatePicker
-                                    value={quickAddForm.date_to}
-                                    onChange={(value) => {
-                                        setQuickAddField('date_to', value);
-                                    }}
-                                    placeholder={t('Select date')}
-                                />
-                            </div>
-                        </div>
                         </div>
 
                         <div className="rounded-md border p-4">
@@ -3581,187 +3705,208 @@ export default function MembersShow({
                                         {t('Step 2: Sport, event and team')}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        {t('Pick tournament sport, reuse an event if found, or type a new event.')}
+                                        {t(
+                                            'Pick tournament sport, reuse an event if found, or type a new event.',
+                                        )}
                                     </p>
                                 </div>
-                                <Badge variant="outline">{t('Participation')}</Badge>
+                                <Badge variant="outline">
+                                    {t('Participation')}
+                                </Badge>
                             </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label>{t('Tournament sport')}</Label>
-                                <Combobox
-                                    value={quickAddForm.sport_id}
-                                    onValueChange={(value) => {
-                                        setQuickAddField('sport_id', value);
-                                        setQuickAddField('event_sport_id', value);
-                                        setQuickAddField('event_id', '');
-                                    }}
-                                    items={quickAddSportItems}
-                                    placeholder={t('Select sport')}
-                                    searchPlaceholder={t('Search sports')}
-                                    emptyMessage={t('No sports found')}
-                                />
-                                {quickAddSelectedTournament?.sports.length ? (
-                                    <p className="text-xs text-muted-foreground">
-                                        {t('Attached sports are listed first; other sports will be added to this tournament on save.')}
-                                    </p>
-                                ) : null}
-                                {getQuickAddError('event_sport_id') ? (
-                                    <p className="text-xs text-destructive">
-                                        {getQuickAddError('event_sport_id')}
-                                    </p>
-                                ) : null}
-                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <Label>{t('Tournament sport')}</Label>
+                                    <Combobox
+                                        value={quickAddForm.sport_id}
+                                        onValueChange={(value) => {
+                                            setQuickAddField('sport_id', value);
+                                            setQuickAddField(
+                                                'event_sport_id',
+                                                value,
+                                            );
+                                            setQuickAddField('event_id', '');
+                                        }}
+                                        items={quickAddSportItems}
+                                        placeholder={t('Select sport')}
+                                        searchPlaceholder={t('Search sports')}
+                                        emptyMessage={t('No sports found')}
+                                    />
+                                    {quickAddSelectedTournament?.sports
+                                        .length ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                'Attached sports are listed first; other sports will be added to this tournament on save.',
+                                            )}
+                                        </p>
+                                    ) : null}
+                                    {getQuickAddError('event_sport_id') ? (
+                                        <p className="text-xs text-destructive">
+                                            {getQuickAddError('event_sport_id')}
+                                        </p>
+                                    ) : null}
+                                </div>
 
-                            <div className="space-y-1.5">
-                                <Label>{t('Existing event')}</Label>
-                                <Combobox
-                                    value={quickAddForm.event_id}
-                                    onValueChange={(value) => {
-                                        setQuickAddField('event_id', value);
-                                    }}
-                                    items={quickAddEventItems}
-                                    placeholder={t('Select existing event')}
-                                    searchPlaceholder={t('Search events')}
-                                    emptyMessage={t('No matching event. Type new event below.')}
-                                    disabled={!quickAddForm.tournament_id}
-                                />
-                                {quickAddSelectedEvent?.event_type === 'team' &&
-                                (quickAddSelectedEvent.team_achievements ?? []).length > 0 ? (
-                                    <p className="text-xs text-muted-foreground">
-                                        {quickAddSelectedTeamAchievement
-                                            ? t(
-                                                  'Team medal already exists for this event; team, medal and position are reused for this member participation.',
-                                              )
-                                            : t(
-                                                  'Team medals already exist for this event. Select a team to reuse its medal and position.',
-                                              )}
-                                    </p>
-                                ) : null}
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label>{t('Existing event')}</Label>
+                                    <Combobox
+                                        value={quickAddForm.event_id}
+                                        onValueChange={(value) => {
+                                            setQuickAddField('event_id', value);
+                                        }}
+                                        items={quickAddEventItems}
+                                        placeholder={t('Select existing event')}
+                                        searchPlaceholder={t('Search events')}
+                                        emptyMessage={t(
+                                            'No matching event. Type new event below.',
+                                        )}
+                                        disabled={!quickAddForm.tournament_id}
+                                    />
+                                    {quickAddSelectedEvent?.event_type ===
+                                        'team' &&
+                                    (
+                                        quickAddSelectedEvent.team_achievements ??
+                                        []
+                                    ).length > 0 ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            {quickAddSelectedTeamAchievement
+                                                ? t(
+                                                      'Team medal already exists for this event; team, medal and position are reused for this member participation.',
+                                                  )
+                                                : t(
+                                                      'Team medals already exist for this event. Select a team to reuse its medal and position.',
+                                                  )}
+                                        </p>
+                                    ) : null}
+                                </div>
 
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <Label>{t('Event name')}</Label>
-                                <Input
-                                    value={quickAddForm.event_name}
-                                    onChange={(e) => {
-                                        setQuickAddField('event_id', '');
-                                        setQuickAddField(
-                                            'event_name',
-                                            e.target.value,
-                                        );
-                                    }}
-                                />
-                            </div>
+                                <div className="space-y-1.5 sm:col-span-2">
+                                    <Label>{t('Event name')}</Label>
+                                    <Input
+                                        value={quickAddForm.event_name}
+                                        onChange={(e) => {
+                                            setQuickAddField('event_id', '');
+                                            setQuickAddField(
+                                                'event_name',
+                                                e.target.value,
+                                            );
+                                        }}
+                                    />
+                                </div>
 
-                            <div className="space-y-1.5">
-                                <Label>{t('Event type')}</Label>
-                                <Combobox
-                                    value={quickAddForm.event_type}
-                                    onValueChange={(value) => {
-                                        setQuickAddField(
-                                            'event_type',
-                                            value as QuickAddAchievementForm['event_type'],
-                                        );
-                                    }}
-                                    items={[
-                                        {
-                                            value: 'individual',
-                                            label: t('Individual'),
-                                        },
-                                        {
-                                            value: 'team',
-                                            label: t('Team'),
-                                        },
-                                    ]}
-                                    placeholder={t('Select type')}
-                                    searchPlaceholder={t('Search type')}
-                                    emptyMessage={t('No types found')}
-                                />
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label>{t('Event type')}</Label>
+                                    <Combobox
+                                        value={quickAddForm.event_type}
+                                        onValueChange={(value) => {
+                                            setQuickAddField(
+                                                'event_type',
+                                                value as QuickAddAchievementForm['event_type'],
+                                            );
+                                        }}
+                                        items={[
+                                            {
+                                                value: 'individual',
+                                                label: t('Individual'),
+                                            },
+                                            {
+                                                value: 'team',
+                                                label: t('Team'),
+                                            },
+                                        ]}
+                                        placeholder={t('Select type')}
+                                        searchPlaceholder={t('Search type')}
+                                        emptyMessage={t('No types found')}
+                                    />
+                                </div>
 
-                            <div className="space-y-1.5">
-                                <Label>{t('Gender class')}</Label>
-                                <Combobox
-                                    value={quickAddForm.gender_class}
-                                    onValueChange={(value) => {
-                                        setQuickAddField(
-                                            'gender_class',
-                                            value as QuickAddAchievementForm['gender_class'],
-                                        );
-                                    }}
-                                    items={[
-                                        { value: 'OPEN', label: t('Open') },
-                                        { value: 'M', label: t('Male') },
-                                        { value: 'F', label: t('Female') },
-                                        { value: 'MIXED', label: t('Mixed') },
-                                    ]}
-                                    placeholder={t('Select class')}
-                                    searchPlaceholder={t('Search class')}
-                                    emptyMessage={t('No class found')}
-                                />
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label>{t('Gender class')}</Label>
+                                    <Combobox
+                                        value={quickAddForm.gender_class}
+                                        onValueChange={(value) => {
+                                            setQuickAddField(
+                                                'gender_class',
+                                                value as QuickAddAchievementForm['gender_class'],
+                                            );
+                                        }}
+                                        items={[
+                                            { value: 'OPEN', label: t('Open') },
+                                            { value: 'M', label: t('Male') },
+                                            { value: 'F', label: t('Female') },
+                                            {
+                                                value: 'MIXED',
+                                                label: t('Mixed'),
+                                            },
+                                        ]}
+                                        placeholder={t('Select class')}
+                                        searchPlaceholder={t('Search class')}
+                                        emptyMessage={t('No class found')}
+                                    />
+                                </div>
 
-                            <div className="space-y-1.5">
-                                <Label>{t('Discipline')}</Label>
-                                <Input
-                                    value={quickAddForm.discipline}
-                                    onChange={(e) => {
-                                        setQuickAddField(
-                                            'discipline',
-                                            e.target.value,
-                                        );
-                                    }}
-                                />
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label>{t('Discipline')}</Label>
+                                    <Input
+                                        value={quickAddForm.discipline}
+                                        onChange={(e) => {
+                                            setQuickAddField(
+                                                'discipline',
+                                                e.target.value,
+                                            );
+                                        }}
+                                    />
+                                </div>
 
-                            <div className="space-y-1.5">
-                                <Label>{t('Weight category')}</Label>
-                                <Input
-                                    value={quickAddForm.weight_category}
-                                    onChange={(e) => {
-                                        setQuickAddField(
-                                            'weight_category',
-                                            e.target.value,
-                                        );
-                                    }}
-                                />
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label>{t('Weight category')}</Label>
+                                    <Input
+                                        value={quickAddForm.weight_category}
+                                        onChange={(e) => {
+                                            setQuickAddField(
+                                                'weight_category',
+                                                e.target.value,
+                                            );
+                                        }}
+                                    />
+                                </div>
 
-                            <div className="space-y-1.5">
-                                <Label>{t('Participants required')}</Label>
-                                <Input
-                                    type="number"
-                                    value={quickAddForm.participants_required}
-                                    min={1}
-                                    onChange={(e) => {
-                                        setQuickAddField(
-                                            'participants_required',
-                                            e.target.value,
-                                        );
-                                    }}
-                                />
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label>{t('Participants required')}</Label>
+                                    <Input
+                                        type="number"
+                                        value={
+                                            quickAddForm.participants_required
+                                        }
+                                        min={1}
+                                        onChange={(e) => {
+                                            setQuickAddField(
+                                                'participants_required',
+                                                e.target.value,
+                                            );
+                                        }}
+                                    />
+                                </div>
 
-                            <div className="space-y-1.5">
-                                <Label>{t('Team')}</Label>
-                                <Combobox
-                                    value={quickAddForm.team_id}
-                                    onValueChange={(value) => {
-                                        setQuickAddField('team_id', value);
-                                    }}
-                                    items={quickAddTeamItems}
-                                    placeholder={t('Select team')}
-                                    searchPlaceholder={t('Search teams')}
-                                    emptyMessage={t('No teams found')}
-                                />
-                                {getQuickAddError('team_id') ? (
-                                    <p className="text-xs text-destructive">
-                                        {getQuickAddError('team_id')}
-                                    </p>
-                                ) : null}
+                                <div className="space-y-1.5">
+                                    <Label>{t('Team')}</Label>
+                                    <Combobox
+                                        value={quickAddForm.team_id}
+                                        onValueChange={(value) => {
+                                            setQuickAddField('team_id', value);
+                                        }}
+                                        items={quickAddTeamItems}
+                                        placeholder={t('Select team')}
+                                        searchPlaceholder={t('Search teams')}
+                                        emptyMessage={t('No teams found')}
+                                    />
+                                    {getQuickAddError('team_id') ? (
+                                        <p className="text-xs text-destructive">
+                                            {getQuickAddError('team_id')}
+                                        </p>
+                                    ) : null}
+                                </div>
                             </div>
-                        </div>
                         </div>
 
                         <div className="rounded-md border p-4">
@@ -3771,73 +3916,99 @@ export default function MembersShow({
                                         {t('Step 3: Medal and result')}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        {t('Record the medal or position after participation is resolved.')}
+                                        {t(
+                                            'Record the medal or position after participation is resolved.',
+                                        )}
                                     </p>
                                 </div>
                                 <Badge variant="outline">{t('Result')}</Badge>
                             </div>
                             <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label>{t('Medal')}</Label>
-                                <Combobox
-                                    value={quickAddForm.medal_type}
-                                    onValueChange={(value) => {
-                                        const nextMedal =
-                                            value === '__no_medal__'
-                                                ? ''
-                                                : (value as QuickAddAchievementForm['medal_type']);
+                                <div className="space-y-1.5">
+                                    <Label>{t('Medal')}</Label>
+                                    <Combobox
+                                        value={quickAddForm.medal_type}
+                                        onValueChange={(value) => {
+                                            const nextMedal =
+                                                value === '__no_medal__'
+                                                    ? ''
+                                                    : (value as QuickAddAchievementForm['medal_type']);
 
-                                        setQuickAddField(
-                                            'medal_type',
-                                            nextMedal,
-                                        );
+                                            setQuickAddField(
+                                                'medal_type',
+                                                nextMedal,
+                                            );
 
-                                        if (nextMedal === 'GOLD') {
-                                            setQuickAddField('position', '1');
-                                        } else if (nextMedal === 'SILVER') {
-                                            setQuickAddField('position', '2');
-                                        } else if (nextMedal === 'BRONZE') {
-                                            setQuickAddField('position', '3');
-                                        }
-                                    }}
-                                    items={[
-                                        {
-                                            value: '__no_medal__',
-                                            label: t('No medal'),
-                                        },
-                                        { value: 'GOLD', label: t('Gold') },
-                                        { value: 'SILVER', label: t('Silver') },
-                                        { value: 'BRONZE', label: t('Bronze') },
-                                        { value: 'MERIT', label: t('Merit') },
-                                    ]}
-                                    placeholder={t('Select medal')}
-                                    searchPlaceholder={t('Search medals')}
-                                    emptyMessage={t('No medals found')}
-                                />
-                            </div>
+                                            if (nextMedal === 'GOLD') {
+                                                setQuickAddField(
+                                                    'position',
+                                                    '1',
+                                                );
+                                            } else if (nextMedal === 'SILVER') {
+                                                setQuickAddField(
+                                                    'position',
+                                                    '2',
+                                                );
+                                            } else if (nextMedal === 'BRONZE') {
+                                                setQuickAddField(
+                                                    'position',
+                                                    '3',
+                                                );
+                                            }
+                                        }}
+                                        items={[
+                                            {
+                                                value: '__no_medal__',
+                                                label: t('No medal'),
+                                            },
+                                            { value: 'GOLD', label: t('Gold') },
+                                            {
+                                                value: 'SILVER',
+                                                label: t('Silver'),
+                                            },
+                                            {
+                                                value: 'BRONZE',
+                                                label: t('Bronze'),
+                                            },
+                                            {
+                                                value: 'MERIT',
+                                                label: t('Merit'),
+                                            },
+                                        ]}
+                                        placeholder={t('Select medal')}
+                                        searchPlaceholder={t('Search medals')}
+                                        emptyMessage={t('No medals found')}
+                                    />
+                                </div>
 
-                            <div className="space-y-1.5">
-                                <Label>{t('Position')}</Label>
-                                <Input
-                                    type="number"
-                                    value={quickAddForm.position}
-                                    min={1}
-                                    max={20}
-                                    onChange={(e) => {
-                                        setQuickAddField('position', e.target.value);
-                                    }}
-                                />
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label>{t('Position')}</Label>
+                                    <Input
+                                        type="number"
+                                        value={quickAddForm.position}
+                                        min={1}
+                                        max={20}
+                                        onChange={(e) => {
+                                            setQuickAddField(
+                                                'position',
+                                                e.target.value,
+                                            );
+                                        }}
+                                    />
+                                </div>
 
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <Label>{t('Remarks')}</Label>
-                                <Input
-                                    value={quickAddForm.remarks}
-                                    onChange={(e) => {
-                                        setQuickAddField('remarks', e.target.value);
-                                    }}
-                                />
-                            </div>
+                                <div className="space-y-1.5 sm:col-span-2">
+                                    <Label>{t('Remarks')}</Label>
+                                    <Input
+                                        value={quickAddForm.remarks}
+                                        onChange={(e) => {
+                                            setQuickAddField(
+                                                'remarks',
+                                                e.target.value,
+                                            );
+                                        }}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4335,7 +4506,9 @@ export default function MembersShow({
                                             </SelectItem>
                                             {Array.from(
                                                 new Set(
-                                                    (participations ?? []).flatMap(
+                                                    (
+                                                        participations ?? []
+                                                    ).flatMap(
                                                         (group) =>
                                                             group.participations
                                                                 .map(
@@ -4390,16 +4563,15 @@ export default function MembersShow({
                                             </SelectItem>
                                             {Array.from(
                                                 new Set(
-                                                    (participations ?? []).flatMap(
-                                                        (group) =>
-                                                            group.participations.map(
-                                                                (
-                                                                    participation,
-                                                                ) =>
-                                                                    participation
-                                                                        .event
-                                                                        .gender_class,
-                                                            ),
+                                                    (
+                                                        participations ?? []
+                                                    ).flatMap((group) =>
+                                                        group.participations.map(
+                                                            (participation) =>
+                                                                participation
+                                                                    .event
+                                                                    .gender_class,
+                                                        ),
                                                     ),
                                                 ),
                                             ).map((item) => (
@@ -4489,7 +4661,6 @@ export default function MembersShow({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
         </>
     );
 }

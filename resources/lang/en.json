@@ -461,5 +461,18 @@
     "ADDED": "Added",
     "REMOVED": "Removed",
     "Added": "Added",
-    "Removed": "Removed"
+    "Removed": "Removed",
+    "Other / Out of State": "Other / Out of State",
+    "Specify other / out-of-state home district": "Specify other / out-of-state home district",
+    "e.g. Rohtak, Haryana": "e.g. Rohtak, Haryana",
+    "Sample Template Options": "Sample Template Options",
+    "Standard Template": "Standard Template",
+    "Extended Template": "Extended Template",
+    "For UP state districts with reference dropdown validation": "For UP state districts with reference dropdown validation",
+    "Includes \"Other Home District\" column for out-of-state districts": "Includes \"Other Home District\" column for out-of-state districts",
+    "Download Standard Template": "Download Standard Template",
+    "Download Extended Template": "Download Extended Template",
+    "Out of State": "Out of State",
+    "Other Home District": "Other Home District",
+    "Other home district": "Other home district"
 }

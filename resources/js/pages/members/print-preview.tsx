@@ -27,7 +27,7 @@ type Member = {
     player_category: string;
     player_level: string;
     current_status: string;
-    home_district: { id: number; name: string } | null;
+    home_district: { id: number | null; name: string } | null;
     posting_district: { id: number; name: string } | null;
     current_unit: { id: number; name: string } | null;
     photo_path: string | null;

@@ -9,7 +9,9 @@ use App\Exports\MemberImportTemplateExport;
 use App\Exports\ReportExport;
 use App\Http\Requests\Members\StoreMemberImportRequest;
 use App\Models\Import;
+use App\Support\Members\MemberImportSchema;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -18,13 +20,19 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class MemberImportController extends Controller
 {
-    public function template(): BinaryFileResponse
+    public function template(Request $request): BinaryFileResponse
     {
         Gate::authorize('create', Import::class);
 
+        $type = $request->query('type') === MemberImportSchema::TEMPLATE_TYPE_EXTENDED
+            ? MemberImportSchema::TEMPLATE_TYPE_EXTENDED
+            : MemberImportSchema::TEMPLATE_TYPE_STANDARD;
+
+        $suffix = $type === MemberImportSchema::TEMPLATE_TYPE_EXTENDED ? '-extended' : '';
+
         return Excel::download(
-            new MemberImportTemplateExport((int) auth()->user()->organization_id),
-            'athlete-import-template-'.now()->format('Y-m-d').'.xlsx',
+            new MemberImportTemplateExport((int) auth()->user()->organization_id, $type),
+            'athlete-import-template'.$suffix.'-'.now()->format('Y-m-d').'.xlsx',
         );
     }
 

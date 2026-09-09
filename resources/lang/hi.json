@@ -1536,5 +1536,18 @@
     "Unknown member": "अज्ञात सदस्य",
     "Deleted member": "हटाया गया सदस्य",
     "Added": "जोड़ा गया",
-    "Removed": "हटाया गया"
+    "Removed": "हटाया गया",
+    "Other / Out of State": "अन्य / राज्य से बाहर",
+    "Specify other / out-of-state home district": "अन्य / राज्य से बाहर का गृह जनपद दर्ज करें",
+    "e.g. Rohtak, Haryana": "उदा. रोहतक, हरियाणा",
+    "Sample Template Options": "नमूना टेम्पलेट विकल्प",
+    "Standard Template": "मानक टेम्पलेट",
+    "Extended Template": "विस्तारित टेम्पलेट",
+    "For UP state districts with reference dropdown validation": "यूपी के जनपदों के लिए ड्रॉपडाउन सत्यापन सहित",
+    "Includes \"Other Home District\" column for out-of-state districts": "राज्य से बाहर के जनपदों के लिए \"अन्य गृह जनपद\" कॉलम सहित",
+    "Download Standard Template": "मानक टेम्पलेट डाउनलोड करें",
+    "Download Extended Template": "विस्तारित टेम्पलेट डाउनलोड करें",
+    "Out of State": "राज्य से बाहर",
+    "Other Home District": "अन्य गृह जनपद",
+    "Other home district": "अन्य गृह जनपद"
 }

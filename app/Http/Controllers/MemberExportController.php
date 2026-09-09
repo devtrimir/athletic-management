@@ -275,7 +275,7 @@ class MemberExportController extends Controller
         $row = [];
         foreach ($validColumns as $col) {
             $row[$col] = match ($col) {
-                'home_district' => $member->homeDistrict?->name,
+                'home_district' => $member->homeDistrict?->name ?? $member->other_home_district,
                 'posting_district' => $member->postingDistrict?->name ?? $member->currentUnit?->name,
                 'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
                 'playable_sports' => $this->playableSportsSummary($member),

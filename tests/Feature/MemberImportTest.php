@@ -82,7 +82,7 @@ function importUser(string ...$permissions): User
  * @param  array<string, string|null>  $overrides
  * @return list<string|null>
  */
-function importRow(array $overrides = []): array
+function importRow(array $overrides = [], string $templateType = MemberImportSchema::TEMPLATE_TYPE_STANDARD): array
 {
     // PNO is required; default to a unique one so multi-row fixtures import.
     static $pnoSequence = 210700000;
@@ -98,6 +98,7 @@ function importRow(array $overrides = []): array
         'player_category' => 'GD',
         'player_level' => 'ZONAL',
         'home_district' => null,
+        'other_home_district' => null,
         'posting_district' => null,
         'unit' => null,
         'joining_date' => null,
@@ -111,8 +112,8 @@ function importRow(array $overrides = []): array
     ], $overrides);
 
     return array_map(
-        static fn (array $column): ?string => $row[$column['key']],
-        MemberImportSchema::columns(),
+        static fn (array $column): ?string => $row[$column['key']] ?? null,
+        MemberImportSchema::columns($templateType),
     );
 }
 
@@ -124,10 +125,17 @@ function importRow(array $overrides = []): array
  */
 function importFile(array $rows, ?array $header = null, string $filename = 'members.xlsx'): UploadedFile
 {
+    if ($header === null) {
+        $firstRow = $rows[0] ?? null;
+        $header = ($firstRow !== null && count($firstRow) === count(MemberImportSchema::columns(MemberImportSchema::TEMPLATE_TYPE_EXTENDED)))
+            ? MemberImportSchema::headings(MemberImportSchema::TEMPLATE_TYPE_EXTENDED)
+            : MemberImportSchema::headings(MemberImportSchema::TEMPLATE_TYPE_STANDARD);
+    }
+
     $spreadsheet = new Spreadsheet;
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->setTitle('Members');
-    $sheet->fromArray($header ?? MemberImportSchema::headings(), null, 'A1');
+    $sheet->fromArray($header, null, 'A1');
 
     $rowNumber = 2;
     foreach ($rows as $row) {
@@ -831,4 +839,87 @@ test('a row with both unit and posting district is rejected', function () {
     $record = Import::withoutGlobalScopes()->firstOrFail();
     expect($record->rowErrors())->toHaveCount(1)
         ->and($record->rowErrors()[0]['errors'][0])->toContain('unit');
+});
+
+test('template download supports type=extended query param', function () {
+    $user = importUser('imports.run');
+
+    $response = $this->actingAs($user)->get(route('members.import.template', ['type' => 'extended']));
+
+    $response->assertOk();
+    expect($response->headers->get('content-disposition'))->toContain('athlete-import-template-extended-'.now()->format('Y-m-d').'.xlsx');
+});
+
+test('extended template imports other_home_district successfully', function () {
+    $user = importUser('imports.run');
+
+    $rows = [
+        importRow([
+            'full_name' => 'Out of State Athlete',
+            'pno' => '210712827',
+            'home_district' => null,
+            'other_home_district' => 'रोहतक, हरियाणा',
+        ], MemberImportSchema::TEMPLATE_TYPE_EXTENDED),
+    ];
+
+    $response = $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile($rows),
+    ]);
+
+    $response->assertRedirect(route('members.index'));
+
+    $member = Member::withoutGlobalScopes()->where('pno', '210712827')->firstOrFail();
+    expect($member->home_district_id)->toBeNull()
+        ->and($member->other_home_district)->toBe('रोहतक, हरियाणा')
+        ->and($member->resolved_home_district)->toBe('रोहतक, हरियाणा');
+});
+
+test('extended template update switches between master district and other_home_district', function () {
+    $user = importUser('imports.run');
+    $district = District::factory()->create(['name' => 'लखनऊ']);
+
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => '210712827',
+        'home_district_id' => $district->id,
+        'other_home_district' => null,
+    ]);
+
+    // Update via extended template setting other_home_district
+    $rows = [
+        importRow([
+            'full_name' => $member->full_name,
+            'pno' => '210712827',
+            'home_district' => null,
+            'other_home_district' => 'अंबाला, पंजाब',
+        ], MemberImportSchema::TEMPLATE_TYPE_EXTENDED),
+    ];
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile($rows),
+    ]);
+
+    $member->refresh();
+    expect($member->home_district_id)->toBeNull()
+        ->and($member->other_home_district)->toBe('अंबाला, पंजाब')
+        ->and($member->resolved_home_district)->toBe('अंबाला, पंजाब');
+
+    // Update back to master district
+    $rows2 = [
+        importRow([
+            'full_name' => $member->full_name,
+            'pno' => '210712827',
+            'home_district' => $district->name,
+            'other_home_district' => null,
+        ], MemberImportSchema::TEMPLATE_TYPE_EXTENDED),
+    ];
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile($rows2),
+    ]);
+
+    $member->refresh();
+    expect($member->home_district_id)->toBe($district->id)
+        ->and($member->other_home_district)->toBeNull()
+        ->and($member->resolved_home_district)->toBe($district->name);
 });

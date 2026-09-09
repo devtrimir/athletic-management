@@ -21,6 +21,10 @@ class MemberImportSchema
         'SPORTS_QUOTA' => 'Sports Quota',
     ];
 
+    public const TEMPLATE_TYPE_STANDARD = 'standard';
+
+    public const TEMPLATE_TYPE_EXTENDED = 'extended';
+
     public const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
     /**
@@ -30,9 +34,9 @@ class MemberImportSchema
      *
      * @return list<array{key: string, label: string, required: bool, example: string|null, list: list<string>|null, date: bool, ref: string|null}>
      */
-    public static function columns(): array
+    public static function columns(string $type = self::TEMPLATE_TYPE_STANDARD): array
     {
-        return [
+        $columns = [
             ['key' => 'pno', 'label' => 'PNO / पीएनओ', 'required' => true, 'example' => '210712827', 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'full_name', 'label' => 'Full Name / पूरा नाम', 'required' => true, 'example' => 'मोहित राठोर', 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'father_name', 'label' => "Father's Name / पिता का नाम", 'required' => false, 'example' => 'रमेश राठोर', 'list' => null, 'date' => false, 'ref' => null],
@@ -43,6 +47,13 @@ class MemberImportSchema
             ['key' => 'player_category', 'label' => 'Category / श्रेणी', 'required' => true, 'example' => 'Ground Duty', 'list' => array_values(self::PLAYER_CATEGORY_LABELS), 'date' => false, 'ref' => null],
             ['key' => 'player_level', 'label' => 'Level / स्तर', 'required' => true, 'example' => 'NATIONAL', 'list' => null, 'date' => false, 'ref' => 'tiers'],
             ['key' => 'home_district', 'label' => 'Home District / गृह जनपद', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'districts'],
+        ];
+
+        if ($type === self::TEMPLATE_TYPE_EXTENDED) {
+            $columns[] = ['key' => 'other_home_district', 'label' => 'Other Home District / अन्य गृह जनपद', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => null];
+        }
+
+        return array_merge($columns, [
             ['key' => 'posting_district', 'label' => 'Posting District / तैनाती जनपद', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'districts'],
             ['key' => 'unit', 'label' => 'Unit / इकाई', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'units'],
             ['key' => 'joining_date', 'label' => 'Joining Date / भर्ती तिथि', 'required' => false, 'example' => '15.12.2021', 'list' => null, 'date' => true, 'ref' => null],
@@ -53,7 +64,7 @@ class MemberImportSchema
             ['key' => 'sport_event', 'label' => 'Sport Event / स्पर्धा', 'required' => false, 'example' => '48 kg Sanda', 'list' => null, 'date' => false, 'ref' => null],
             ['key' => 'team_since', 'label' => 'Team Since / टीम में कब से', 'required' => false, 'example' => null, 'list' => null, 'date' => true, 'ref' => null],
             ['key' => 'home_address', 'label' => 'Home Address / गृह पता', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => null],
-        ];
+        ]);
     }
 
     /**
@@ -74,20 +85,20 @@ class MemberImportSchema
     /**
      * @return list<string>
      */
-    public static function headings(): array
+    public static function headings(string $type = self::TEMPLATE_TYPE_STANDARD): array
     {
         return array_map(
             static fn (array $column): string => $column['label'].($column['required'] ? ' *' : ''),
-            self::columns(),
+            self::columns($type),
         );
     }
 
     /**
      * Column index (0-based) for a column key.
      */
-    public static function indexOf(string $key): int
+    public static function indexOf(string $key, string $type = self::TEMPLATE_TYPE_STANDARD): int
     {
-        foreach (self::columns() as $index => $column) {
+        foreach (self::columns($type) as $index => $column) {
             if ($column['key'] === $key) {
                 return $index;
             }

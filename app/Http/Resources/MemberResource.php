@@ -55,10 +55,18 @@ class MemberResource extends JsonResource
                 ])
                 ->values()
                 ->all()),
-            'home_district' => $this->whenLoaded('homeDistrict', fn () => [
+            'home_district_id' => $this->home_district_id,
+            'other_home_district' => $this->other_home_district,
+            'resolved_home_district' => $this->resolved_home_district,
+            'home_district' => $this->relationLoaded('homeDistrict') ? ($this->homeDistrict ? [
                 'id' => $this->homeDistrict->id,
                 'name' => $this->homeDistrict->name,
-            ]),
+                'is_other' => false,
+            ] : ($this->other_home_district ? [
+                'id' => null,
+                'name' => $this->other_home_district,
+                'is_other' => true,
+            ] : null)) : null,
             'posting_district' => $this->whenLoaded('postingDistrict', fn () => $this->postingDistrict ? [
                 'id' => $this->postingDistrict->id,
                 'name' => $this->postingDistrict->name,

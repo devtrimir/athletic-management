@@ -840,3 +840,79 @@ test('destroy returns 403 without permission', function () {
         ->delete(route('members.destroy', $member))
         ->assertForbidden();
 });
+
+test('store creates member with other_home_district', function () {
+    $user = memberUser('members.create');
+
+    $response = $this->actingAs($user)
+        ->post(route('members.store'), [
+            'full_name' => 'रोहतक खिलाड़ी',
+            'gender' => 'M',
+            'player_category' => 'GD',
+            'player_level' => 'ZONAL',
+            'other_home_district' => 'रोहतक, हरियाणा',
+        ]);
+
+    $member = Member::withoutGlobalScopes()->where('full_name', 'रोहतक खिलाड़ी')->first();
+    expect($member)->not->toBeNull()
+        ->and($member->home_district_id)->toBeNull()
+        ->and($member->other_home_district)->toBe('रोहतक, हरियाणा')
+        ->and($member->resolved_home_district)->toBe('रोहतक, हरियाणा');
+
+    $response->assertRedirect(route('members.show', $member));
+});
+
+test('update transitions from home_district_id to other_home_district and vice versa', function () {
+    $user = memberUser('members.update');
+    $district = District::factory()->create(['name' => 'वाराणसी']);
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'home_district_id' => $district->id,
+        'other_home_district' => null,
+    ]);
+
+    // Update to other_home_district
+    $this->actingAs($user)
+        ->put(route('members.update', $member), [
+            'home_district_id' => null,
+            'other_home_district' => 'अंबाला, पंजाब',
+        ])
+        ->assertRedirect(route('members.show', $member));
+
+    $member->refresh();
+    expect($member->home_district_id)->toBeNull()
+        ->and($member->other_home_district)->toBe('अंबाला, पंजाब')
+        ->and($member->resolved_home_district)->toBe('अंबाला, पंजाब');
+
+    // Update back to home_district_id
+    $this->actingAs($user)
+        ->put(route('members.update', $member), [
+            'home_district_id' => $district->id,
+            'other_home_district' => null,
+        ])
+        ->assertRedirect(route('members.show', $member));
+
+    $member->refresh();
+    expect($member->home_district_id)->toBe($district->id)
+        ->and($member->other_home_district)->toBeNull()
+        ->and($member->resolved_home_district)->toBe('वाराणसी');
+});
+
+test('show returns other_home_district with is_other flag', function () {
+    $user = memberUser('members.view');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'home_district_id' => null,
+        'other_home_district' => 'करनाल, हरियाणा',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.show', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/show')
+            ->where('member.home_district.name', 'करनाल, हरियाणा')
+            ->where('member.home_district.is_other', true)
+            ->where('member.other_home_district', 'करनाल, हरियाणा')
+        );
+});
