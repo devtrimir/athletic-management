@@ -1531,5 +1531,10 @@
     "Deleting…": "हटाया जा रहा है…",
     "Failed to fetch member connection impact": "सदस्य कनेक्शन प्रभाव लोड करने में विफल",
     "Archive this member and cleanly remove them from active squads and coaching roles.": "इस सदस्य को संग्रहीत करें और सक्रिय दस्तों एवं कोचिंग भूमिकाओं से सुरक्षित रूप से हटाएं।",
-    "Member :name has been safely archived and removed from active rosters.": "सदस्य :name को सुरक्षित रूप से संग्रहीत किया गया है और सक्रिय रोस्टर से हटा दिया गया है।"
+    "Member :name has been safely archived and removed from active rosters.": "सदस्य :name को सुरक्षित रूप से संग्रहीत किया गया है और सक्रिय रोस्टर से हटा दिया गया है।",
+    "Deleted": "हटाया गया",
+    "Unknown member": "अज्ञात सदस्य",
+    "Deleted member": "हटाया गया सदस्य",
+    "Added": "जोड़ा गया",
+    "Removed": "हटाया गया"
 }

@@ -269,4 +269,15 @@ test('destroy disengages active team memberships, unlinks coach, cancels active 
         'status' => 'INACTIVE',
         'recorded_by' => $user->id,
     ]);
+
+    // 6. Assert team member movement logged with REMOVED action
+    $this->assertDatabaseHas('team_member_movements', [
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'team_member_id' => $teamMember->id,
+        'action' => 'REMOVED',
+        'source' => 'member_deletion',
+        'created_by' => $user->id,
+    ]);
 });

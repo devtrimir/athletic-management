@@ -25,6 +25,7 @@ import {
     Trash2,
     UserPlus,
     Users,
+    UserX,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -167,6 +168,8 @@ type TeamMemberRow = {
         rank: string | null;
         designation: string | null;
         mobile: string | null;
+        is_deleted?: boolean;
+        deleted_at?: string | null;
         playable_profile: {
             sport_event: string | null;
             role: string | null;
@@ -225,6 +228,7 @@ type TeamMemberMovementRow = {
         full_name: string;
         member_code: string;
         pno: string | null;
+        is_deleted?: boolean;
     } | null;
     created_by: { id: number; name: string } | null;
 };
@@ -1286,7 +1290,7 @@ export default function TeamsShow({
     const activeCoachCount = counts?.coaches_count ?? 0;
     const removedPlayerCount = removedMembers?.length ?? 0;
     const reactivateAvailableMembers = (removedMembers ?? []).filter(
-        (row) => row.member,
+        (row) => row.member && !row.member.is_deleted,
     );
     const reactivateAvailableCoaches = (removedCoaches ?? []).filter(
         (row) => row.coach,
@@ -1522,7 +1526,7 @@ export default function TeamsShow({
 
     // Checkbox derived state — removed members
     const removedMemberSelectableIds = filteredRemovedMembers
-        .filter((r) => r.member)
+        .filter((r) => r.member && !r.member.is_deleted)
         .map((r) => r.member!.id);
     const removedMemberAllSelected =
         removedMemberSelectableIds.length > 0 &&
@@ -3272,7 +3276,10 @@ export default function TeamsShow({
                                                                                 )
                                                                             }
                                                                             disabled={
-                                                                                !row.member
+                                                                                !row.member ||
+                                                                                row
+                                                                                    .member
+                                                                                    .is_deleted
                                                                             }
                                                                             aria-label={t(
                                                                                 'Select :name',
@@ -3286,15 +3293,37 @@ export default function TeamsShow({
                                                                         />
                                                                     </TableCell>
                                                                     <TableCell className="font-medium">
-                                                                        {memberNameWithRank(
-                                                                            row.member,
-                                                                        )}
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span>
+                                                                                {memberNameWithRank(
+                                                                                    row.member,
+                                                                                ) ||
+                                                                                    t(
+                                                                                        'Unknown member',
+                                                                                    )}
+                                                                            </span>
+                                                                            {row
+                                                                                .member
+                                                                                ?.is_deleted ? (
+                                                                                <span
+                                                                                    className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-destructive/15 text-destructive"
+                                                                                    title={t(
+                                                                                        'Deleted member',
+                                                                                    )}
+                                                                                    aria-label={t(
+                                                                                        'Deleted member',
+                                                                                    )}
+                                                                                >
+                                                                                    <UserX className="h-2.5 w-2.5" />
+                                                                                </span>
+                                                                            ) : null}
+                                                                        </div>
                                                                     </TableCell>
                                                                     <TableCell className="hidden font-mono text-sm sm:table-cell">
                                                                         {row
                                                                             .member
                                                                             ?.pno ??
-                                                                            ''}
+                                                                            '—'}
                                                                     </TableCell>
                                                                     <TableCell className="hidden md:table-cell">
                                                                         {row.role
@@ -3439,17 +3468,50 @@ export default function TeamsShow({
                                                                         }
                                                                     >
                                                                         <TableCell>
-                                                                            <Badge variant="outline">
+                                                                            <Badge
+                                                                                variant="outline"
+                                                                                className={cn(
+                                                                                    'text-[11px] font-semibold tracking-wide uppercase',
+                                                                                    movement.action ===
+                                                                                        'ADDED'
+                                                                                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                                                                        : movement.action ===
+                                                                                            'REMOVED'
+                                                                                          ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                                                                                          : '',
+                                                                                )}
+                                                                            >
                                                                                 {t(
                                                                                     movement.action,
                                                                                 )}
                                                                             </Badge>
                                                                         </TableCell>
                                                                         <TableCell className="font-medium">
-                                                                            {movement
-                                                                                .member
-                                                                                ?.full_name ??
-                                                                                ''}
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <span>
+                                                                                    {movement
+                                                                                        .member
+                                                                                        ?.full_name ??
+                                                                                        t(
+                                                                                            'Unknown member',
+                                                                                        )}
+                                                                                </span>
+                                                                                {movement
+                                                                                    .member
+                                                                                    ?.is_deleted ? (
+                                                                                    <span
+                                                                                        className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-destructive/15 text-destructive"
+                                                                                        title={t(
+                                                                                            'Deleted member',
+                                                                                        )}
+                                                                                        aria-label={t(
+                                                                                            'Deleted member',
+                                                                                        )}
+                                                                                    >
+                                                                                        <UserX className="h-2.5 w-2.5" />
+                                                                                    </span>
+                                                                                ) : null}
+                                                                            </div>
                                                                         </TableCell>
                                                                         <TableCell className="hidden sm:table-cell">
                                                                             {movement.role

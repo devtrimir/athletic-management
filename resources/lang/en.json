@@ -454,5 +454,12 @@
     "Deleting…": "Deleting…",
     "Failed to fetch member connection impact": "Failed to fetch member connection impact",
     "Archive this member and cleanly remove them from active squads and coaching roles.": "Archive this member and cleanly remove them from active squads and coaching roles.",
-    "Member :name has been safely archived and removed from active rosters.": "Member :name has been safely archived and removed from active rosters."
+    "Member :name has been safely archived and removed from active rosters.": "Member :name has been safely archived and removed from active rosters.",
+    "Deleted": "Deleted",
+    "Unknown member": "Unknown member",
+    "Deleted member": "Deleted member",
+    "ADDED": "Added",
+    "REMOVED": "Removed",
+    "Added": "Added",
+    "Removed": "Removed"
 }

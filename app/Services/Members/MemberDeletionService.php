@@ -9,11 +9,17 @@ use App\Models\Coach;
 use App\Models\Member;
 use App\Models\MemberPromotion;
 use App\Models\TeamMember;
+use App\Models\TeamMemberMovement;
 use App\Models\User;
+use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Support\Facades\DB;
 
 class MemberDeletionService
 {
+    public function __construct(
+        private readonly TeamSessionStatusManager $teamSessionStatusManager,
+    ) {}
+
     /**
      * Inspect all system references and return an impact summary before deletion.
      *
@@ -128,10 +134,37 @@ class MemberDeletionService
         DB::transaction(function () use ($member, $actor): void {
             $today = now()->toDateString();
 
-            // 1. Mark active team roster memberships as departed today
-            $member->teamMemberships()
+            // 1. Mark active team roster memberships as departed today and record movements
+            $activeMemberships = $member->teamMemberships()
                 ->whereNull('left_on')
-                ->update(['left_on' => $today]);
+                ->with('team:id,organization_id')
+                ->get();
+
+            foreach ($activeMemberships as $tm) {
+                $tm->update(['left_on' => $today]);
+
+                TeamMemberMovement::create([
+                    'team_id' => $tm->team_id,
+                    'member_id' => $tm->member_id,
+                    'session_id' => $tm->session_id,
+                    'team_member_id' => $tm->id,
+                    'created_by' => $actor?->id,
+                    'action' => 'REMOVED',
+                    'role' => $tm->role,
+                    'effective_on' => $today,
+                    'reason' => 'Member archived/deleted',
+                    'source' => 'member_deletion',
+                    'metadata' => ['member_deletion' => true],
+                ]);
+
+                if ($tm->team !== null) {
+                    $this->teamSessionStatusManager->markInactiveIfSessionEmpty(
+                        $tm->team,
+                        $tm->session_id,
+                        'Member archived/deleted',
+                    );
+                }
+            }
 
             // 2. Unlink any Coach record linked to this member
             Coach::where('member_id', $member->id)->update(['member_id' => null]);
