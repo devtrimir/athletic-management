@@ -88,17 +88,23 @@ class MembersImport implements ToCollection, WithMultipleSheets
             return;
         }
 
-        $header = collect($rows->first())
+        $rawHeader = collect($rows->first())
             ->map(static fn (mixed $cell): string => self::normalizeHeaderCell($cell))
             ->all();
 
-        $expected = MemberImportSchema::headings();
+        $expectedExtended = MemberImportSchema::headings(MemberImportSchema::TEMPLATE_TYPE_EXTENDED);
+        $expectedStandard = MemberImportSchema::headings(MemberImportSchema::TEMPLATE_TYPE_STANDARD);
 
-        // Compare only the contract columns: pad short rows, ignore stray
-        // values in columns beyond the template's last one.
-        $header = array_pad(array_slice($header, 0, count($expected)), count($expected), '');
-
-        if ($header !== $expected) {
+        $templateType = null;
+        if (array_pad(array_slice($rawHeader, 0, count($expectedExtended)), count($expectedExtended), '') === $expectedExtended) {
+            $templateType = MemberImportSchema::TEMPLATE_TYPE_EXTENDED;
+            $expected = $expectedExtended;
+        } elseif (array_pad(array_slice($rawHeader, 0, count($expectedStandard)), count($expectedStandard), '') === $expectedStandard) {
+            $templateType = MemberImportSchema::TEMPLATE_TYPE_STANDARD;
+            $expected = $expectedStandard;
+        } else {
+            $expected = count($rawHeader) >= count($expectedExtended) ? $expectedExtended : $expectedStandard;
+            $header = array_pad(array_slice($rawHeader, 0, count($expected)), count($expected), '');
             $differsAt = [];
             foreach ($expected as $i => $label) {
                 if ($header[$i] !== $label) {
@@ -156,11 +162,11 @@ class MembersImport implements ToCollection, WithMultipleSheets
             // The template ships with one example row at row 2 — never import
             // it. Only that position is skipped: a data row further down that
             // happens to share the example values is real user data.
-            if ($rowNumber === 2 && $this->isExampleRow($cells)) {
+            if ($rowNumber === 2 && $this->isExampleRow($cells, $templateType)) {
                 continue;
             }
 
-            [$payload, $rowErrors] = $this->validateRow($cells, $districtMap, $unitMap, $sportMap, $blockedPnos);
+            [$payload, $rowErrors] = $this->validateRow($cells, $templateType, $districtMap, $unitMap, $sportMap, $blockedPnos);
 
             if ($rowErrors !== []) {
                 $this->failed++;
@@ -241,7 +247,13 @@ class MembersImport implements ToCollection, WithMultipleSheets
 
                 if ($entry['member_id'] !== null) {
                     $member = Member::withoutGlobalScopes()->findOrFail($entry['member_id']);
-                    $member->update(array_filter($payload, static fn (mixed $value): bool => $value !== null));
+                    $updateData = array_filter($payload, static fn (mixed $value): bool => $value !== null);
+                    if ($payload['home_district_id'] !== null) {
+                        $updateData['other_home_district'] = null;
+                    } elseif ($payload['other_home_district'] !== null) {
+                        $updateData['home_district_id'] = null;
+                    }
+                    $member->update($updateData);
                     $this->updated++;
                     $this->emitProgress($entry['row'], $payload['pno'], $payload['full_name'], 'updated', []);
                 } else {
@@ -270,9 +282,9 @@ class MembersImport implements ToCollection, WithMultipleSheets
      * @param  array<string, true>  $blockedPnos
      * @return array{0: array<string, mixed>, 1: list<string>}
      */
-    private function validateRow(Collection $cells, array $districtMap, array $unitMap, array $sportMap, array $blockedPnos): array
+    private function validateRow(Collection $cells, string $templateType, array $districtMap, array $unitMap, array $sportMap, array $blockedPnos): array
     {
-        $get = fn (string $key): mixed => $cells->get(MemberImportSchema::indexOf($key));
+        $get = fn (string $key): mixed => $cells->get(MemberImportSchema::indexOf($key, $templateType));
         $str = function (string $key) use ($get): ?string {
             $value = trim((string) $get($key));
 
@@ -291,6 +303,7 @@ class MembersImport implements ToCollection, WithMultipleSheets
             'player_category' => null,
             'player_level' => null,
             'home_district_id' => null,
+            'other_home_district' => null,
             'posting_district_id' => null,
             'current_unit_id' => null,
             'joining_date' => null,
@@ -413,8 +426,29 @@ class MembersImport implements ToCollection, WithMultipleSheets
             $errors[] = __('Blood group must be one of: :values.', ['values' => implode(', ', MemberImportSchema::BLOOD_GROUPS)]);
         }
 
-        // Name-resolved references
-        foreach ([['home_district', 'home_district_id', $districtMap, __('Home district')], ['posting_district', 'posting_district_id', $districtMap, __('Posting district')], ['unit', 'current_unit_id', $unitMap, __('Unit')]] as [$key, $idKey, $map, $label]) {
+        // Home district & other home district
+        $otherHomeDistrict = $templateType === MemberImportSchema::TEMPLATE_TYPE_EXTENDED
+            ? $str('other_home_district')
+            : null;
+
+        $rawHomeDistrict = $str('home_district');
+
+        if ($otherHomeDistrict !== null) {
+            $payload['other_home_district'] = $otherHomeDistrict;
+            $payload['home_district_id'] = null;
+        } elseif ($rawHomeDistrict !== null) {
+            $id = $districtMap[mb_strtolower($rawHomeDistrict)] ?? null;
+
+            if ($id === null) {
+                $errors[] = __(':label ":value" was not found. Copy the exact name from the Reference sheet.', ['label' => __('Home district'), 'value' => $rawHomeDistrict]);
+            } else {
+                $payload['home_district_id'] = $id;
+                $payload['other_home_district'] = null;
+            }
+        }
+
+        // Posting district & Unit references
+        foreach ([['posting_district', 'posting_district_id', $districtMap, __('Posting district')], ['unit', 'current_unit_id', $unitMap, __('Unit')]] as [$key, $idKey, $map, $label]) {
             $raw = $str($key);
 
             if ($raw === null) {
@@ -612,9 +646,9 @@ class MembersImport implements ToCollection, WithMultipleSheets
      *
      * @param  Collection<int, mixed>  $cells
      */
-    private function isExampleRow(Collection $cells): bool
+    private function isExampleRow(Collection $cells, string $templateType = MemberImportSchema::TEMPLATE_TYPE_STANDARD): bool
     {
-        foreach (MemberImportSchema::columns() as $index => $column) {
+        foreach (MemberImportSchema::columns($templateType) as $index => $column) {
             if ($column['example'] === null || $column['date']) {
                 continue;
             }

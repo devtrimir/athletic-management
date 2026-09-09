@@ -215,6 +215,7 @@ class AuditLogBuilder
                 'sport_event' => 'Sport event',
                 'current_unit_id' => 'Unit',
                 'home_district_id' => 'Home district',
+                'other_home_district' => 'Other home district',
                 'posting_district_id' => 'Posting district',
                 'joining_date' => 'Joining date',
                 'blood_group' => 'Blood group',

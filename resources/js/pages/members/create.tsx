@@ -39,6 +39,7 @@ type FormData = {
     joining_date: string;
     mobile: string;
     home_district_id: string;
+    other_home_district: string;
     posting_district_id: string;
     current_unit_id: string;
     player_category: string;
@@ -78,6 +79,8 @@ export default function MembersCreate({
     const [rankCustom, setRankCustom] = useState('');
     const [initialRankSelection, setInitialRankSelection] = useState('');
     const [initialRankCustom, setInitialRankCustom] = useState('');
+    const [homeDistrictSelection, setHomeDistrictSelection] = useState('');
+    const [otherDistrictCustom, setOtherDistrictCustom] = useState('');
 
     setLayoutProps({
         breadcrumbs: [
@@ -98,6 +101,7 @@ export default function MembersCreate({
             joining_date: '',
             mobile: '',
             home_district_id: '',
+            other_home_district: '',
             posting_district_id: '',
             current_unit_id: '',
             player_category: '',
@@ -108,7 +112,14 @@ export default function MembersCreate({
             initial_rank: '',
             home_address: '',
             playable_sports: [
-                { sport_id: '', role: '', position: '', sport_event: '', weight: '', notes: '' },
+                {
+                    sport_id: '',
+                    role: '',
+                    position: '',
+                    sport_event: '',
+                    weight: '',
+                    notes: '',
+                },
             ],
             sport_event: '',
             other_notes: '',
@@ -155,6 +166,7 @@ export default function MembersCreate({
         errors.joining_date ||
         errors.current_unit_id ||
         errors.home_district_id ||
+        errors.other_home_district ||
         errors.posting_district_id ||
         errors.initial_rank ||
         errors.promotion_date
@@ -246,7 +258,9 @@ export default function MembersCreate({
                                             </Label>
                                             <Input
                                                 id="full_name_normalized"
-                                                value={data.full_name_normalized}
+                                                value={
+                                                    data.full_name_normalized
+                                                }
                                                 onChange={(e) =>
                                                     setData(
                                                         'full_name_normalized',
@@ -728,20 +742,39 @@ export default function MembersCreate({
                                             </Label>
                                             <Combobox
                                                 id="home_district_id"
-                                                value={data.home_district_id}
-                                                onValueChange={(v) =>
-                                                    setData(
-                                                        'home_district_id',
-                                                        v,
-                                                    )
-                                                }
-                                                items={districts.map((d) => ({
-                                                    value: String(d.id),
-                                                    label:
-                                                        locale === 'en'
-                                                            ? d.name
-                                                            : d.name,
-                                                }))}
+                                                value={homeDistrictSelection}
+                                                onValueChange={(v) => {
+                                                    setHomeDistrictSelection(v);
+
+                                                    if (v === '__other__') {
+                                                        setData((prev) => ({
+                                                            ...prev,
+                                                            home_district_id:
+                                                                '',
+                                                            other_home_district:
+                                                                otherDistrictCustom,
+                                                        }));
+                                                    } else {
+                                                        setData((prev) => ({
+                                                            ...prev,
+                                                            home_district_id: v,
+                                                            other_home_district:
+                                                                '',
+                                                        }));
+                                                    }
+                                                }}
+                                                items={[
+                                                    ...districts.map((d) => ({
+                                                        value: String(d.id),
+                                                        label: d.name,
+                                                    })),
+                                                    {
+                                                        value: '__other__',
+                                                        label: t(
+                                                            'Other / Out of State',
+                                                        ),
+                                                    },
+                                                ]}
                                                 placeholder={t(
                                                     'Select district',
                                                 )}
@@ -754,6 +787,45 @@ export default function MembersCreate({
                                                     errors.home_district_id
                                                 }
                                             />
+                                            {homeDistrictSelection ===
+                                                '__other__' && (
+                                                <div className="space-y-1.5 pt-1">
+                                                    <Label
+                                                        htmlFor="other_home_district"
+                                                        className="text-xs text-muted-foreground"
+                                                    >
+                                                        {t(
+                                                            'Specify other / out-of-state home district',
+                                                        )}
+                                                    </Label>
+                                                    <Input
+                                                        id="other_home_district"
+                                                        className="h-9"
+                                                        placeholder={t(
+                                                            'e.g. Rohtak, Haryana',
+                                                        )}
+                                                        value={
+                                                            otherDistrictCustom
+                                                        }
+                                                        onChange={(e) => {
+                                                            const val =
+                                                                e.target.value;
+                                                            setOtherDistrictCustom(
+                                                                val,
+                                                            );
+                                                            setData(
+                                                                'other_home_district',
+                                                                val,
+                                                            );
+                                                        }}
+                                                    />
+                                                    <InputError
+                                                        message={
+                                                            errors.other_home_district
+                                                        }
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </TabsContent>
@@ -932,9 +1004,7 @@ export default function MembersCreate({
                                                     </div>
                                                     <div className="grid gap-2">
                                                         <Label>
-                                                            {t(
-                                                                'Role',
-                                                            )}
+                                                            {t('Role')}
                                                         </Label>
                                                         <Input
                                                             value={row.role}
@@ -965,7 +1035,9 @@ export default function MembersCreate({
                                                             {t('Sport event')}
                                                         </Label>
                                                         <Input
-                                                            value={row.sport_event}
+                                                            value={
+                                                                row.sport_event
+                                                            }
                                                             onChange={(e) =>
                                                                 setData(
                                                                     'playable_sports',
@@ -994,9 +1066,7 @@ export default function MembersCreate({
                                                             {t('Position')}
                                                         </Label>
                                                         <Input
-                                                            value={
-                                                                row.position
-                                                            }
+                                                            value={row.position}
                                                             onChange={(e) =>
                                                                 setData(
                                                                     'playable_sports',

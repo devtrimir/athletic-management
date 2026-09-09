@@ -102,7 +102,16 @@ class MemberController extends Controller
             ->withQueryString();
 
         $members->getCollection()->transform(function (Member $member): array {
+            $homeDistrict = $member->homeDistrict ? [
+                'id' => $member->homeDistrict->id,
+                'name' => $member->homeDistrict->name,
+            ] : ($member->other_home_district ? [
+                'id' => null,
+                'name' => $member->other_home_district,
+            ] : null);
+
             return array_merge($member->toArray(), [
+                'home_district' => $homeDistrict,
                 'playable_sports' => $member->playableSports->map(fn ($sport): array => [
                     'id' => $sport->id,
                     'name' => $sport->name,
@@ -222,6 +231,11 @@ class MemberController extends Controller
 
         $orgId = (int) $request->user()->organization_id;
         $data = $request->validated();
+        if (! empty($data['home_district_id'])) {
+            $data['other_home_district'] = null;
+        } elseif (! empty($data['other_home_district'])) {
+            $data['home_district_id'] = null;
+        }
         $playableSports = $this->playableSportsPayload($data);
         $playableSports = $this->applySportEventFallback($data, $playableSports);
         unset($data['playable_sports']);
@@ -277,6 +291,11 @@ class MemberController extends Controller
         Gate::authorize('update', $member);
 
         $data = $request->validated();
+        if (array_key_exists('home_district_id', $data) && ! empty($data['home_district_id'])) {
+            $data['other_home_district'] = null;
+        } elseif (array_key_exists('other_home_district', $data) && ! empty($data['other_home_district'])) {
+            $data['home_district_id'] = null;
+        }
         $beforePlayableSports = $member->playableSports()->withPivot(['role', 'position', 'sport_event', 'weight', 'notes'])->get();
         $playableSports = $this->playableSportsPayload($data);
         $playableSports = $this->applySportEventFallback($data, $playableSports);

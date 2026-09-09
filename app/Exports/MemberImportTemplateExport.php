@@ -29,6 +29,7 @@ class MemberImportTemplateExport implements WithMultipleSheets
 {
     public function __construct(
         private readonly int $organizationId,
+        private readonly string $templateType = MemberImportSchema::TEMPLATE_TYPE_STANDARD,
     ) {}
 
     /** @return array<int, mixed> */
@@ -37,7 +38,7 @@ class MemberImportTemplateExport implements WithMultipleSheets
         $references = $this->referenceLists();
 
         return [
-            new MemberImportTemplateDataSheet($references),
+            new MemberImportTemplateDataSheet($references, $this->templateType),
             new MemberImportTemplateReferenceSheet($references),
         ];
     }
@@ -75,6 +76,7 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
      */
     public function __construct(
         private readonly array $references,
+        private readonly string $templateType = MemberImportSchema::TEMPLATE_TYPE_STANDARD,
     ) {}
 
     public function title(): string
@@ -85,7 +87,7 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
     /** @return array<int, string> */
     public function headings(): array
     {
-        return MemberImportSchema::headings();
+        return MemberImportSchema::headings($this->templateType);
     }
 
     /** @return array<int, array<int, string|float|null>> */
@@ -102,7 +104,7 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
 
                     return $column['example'];
                 },
-                MemberImportSchema::columns(),
+                MemberImportSchema::columns($this->templateType),
             ),
         ];
     }
@@ -123,7 +125,7 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
                 $worksheet = $event->sheet->getDelegate();
                 $lastRow = self::VALIDATION_ROWS + 1;
 
-                foreach (MemberImportSchema::columns() as $index => $column) {
+                foreach (MemberImportSchema::columns($this->templateType) as $index => $column) {
                     $letter = Coordinate::stringFromColumnIndex($index + 1);
 
                     if ($column['date']) {

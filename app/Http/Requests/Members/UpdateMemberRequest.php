@@ -34,7 +34,8 @@ class UpdateMemberRequest extends FormRequest
             'dob' => ['sometimes', 'nullable', 'date', 'before:today'],
             'joining_date' => ['sometimes', 'nullable', 'date'],
             'mobile' => ['sometimes', 'nullable', 'string', 'max:20'],
-            'home_district_id' => ['sometimes', 'nullable', 'exists:districts,id'],
+            'home_district_id' => ['sometimes', 'nullable', 'exists:districts,id', 'prohibits:other_home_district'],
+            'other_home_district' => ['sometimes', 'nullable', 'string', 'max:255', 'prohibits:home_district_id'],
             // A member is posted at a unit OR dedicated to a district — never both.
             'posting_district_id' => ['sometimes', 'nullable', 'integer', 'exists:districts,id', 'prohibits:current_unit_id'],
             'current_unit_id' => ['sometimes', 'nullable', 'integer', 'exists:units,id', 'prohibits:posting_district_id'],

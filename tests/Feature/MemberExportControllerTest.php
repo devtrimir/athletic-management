@@ -212,3 +212,19 @@ test('member preview payload includes ranks for label resolution', function () {
         ->assertJsonPath('ranks.0.code', 'CONSTABLE')
         ->assertJsonPath('ranks.0.name', 'Constable');
 });
+
+test('print listing resolves other_home_district when home_district_id is null', function () {
+    $user = exportListingUser('en');
+    makeRankedMember($user, [
+        'home_district_id' => null,
+        'other_home_district' => 'सोनीपत, हरियाणा',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.print', ['columns' => ['home_district']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/print')
+            ->where('rows.0.home_district', 'सोनीपत, हरियाणा')
+        );
+});

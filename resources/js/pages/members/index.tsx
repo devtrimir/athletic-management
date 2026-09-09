@@ -87,7 +87,7 @@ type Member = {
     player_category: string;
     player_level: string;
     current_status: string;
-    home_district: { id: number; name: string } | null;
+    home_district: { id: number | null; name: string } | null;
     current_unit: { id: number; name: string } | null;
     posting_district: { id: number; name: string } | null;
     playable_sports: Array<
@@ -1536,9 +1536,7 @@ export default function MembersIndex({
                                                                     'Delete',
                                                                 )}
                                                                 className="text-muted-foreground hover:text-destructive"
-                                                                onClick={(
-                                                                    e,
-                                                                ) =>
+                                                                onClick={(e) =>
                                                                     e.stopPropagation()
                                                                 }
                                                             >

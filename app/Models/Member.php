@@ -37,6 +37,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $joining_date
  * @property string|null $mobile
  * @property int|null $home_district_id
+ * @property string|null $other_home_district
  * @property int|null $posting_district_id
  * @property int|null $current_unit_id
  * @property string $player_category
@@ -62,6 +63,7 @@ use Illuminate\Support\Carbon;
  * @property-read Unit|null $currentUnit
  * @property-read Collection<int, Sport> $playableSports
  * @property-read Collection<int, MemberSpecialAchievement> $specialAchievements
+ * @property-read string|null $resolved_home_district
  */
 #[Fillable([
     'organization_id',
@@ -87,6 +89,7 @@ use Illuminate\Support\Carbon;
     'joining_date',
     'mobile',
     'home_district_id',
+    'other_home_district',
     'posting_district_id',
     'current_unit_id',
     'player_category',
@@ -131,6 +134,14 @@ class Member extends Model
     {
         return Attribute::make(
             get: fn (string $value): string => $value === 'SKILLED' ? 'SPORTS_QUOTA' : $value,
+        );
+    }
+
+    /** @return Attribute<string|null, never> */
+    protected function resolvedHomeDistrict(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): ?string => $this->homeDistrict?->name ?? $this->other_home_district,
         );
     }
 

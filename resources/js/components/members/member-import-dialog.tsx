@@ -134,6 +134,9 @@ export function MemberImportDialog({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
 
+    const [templateType, setTemplateType] = useState<'standard' | 'extended'>(
+        'standard',
+    );
     const [session, setSession] = useState<ImportSession | null>(null);
     const sessionRef = useRef<ImportSession | null>(null);
     const openRef = useRef(open);
@@ -382,17 +385,70 @@ export function MemberImportDialog({
                             </li>
                         </ol>
 
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                window.location.href =
-                                    MemberImportController.template.url();
-                            }}
-                        >
-                            <Download className="mr-1.5 h-4 w-4" />
-                            {t('Download sample template')}
-                        </Button>
+                        <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                            <div className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                {t('Sample Template Options')}
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setTemplateType('standard')}
+                                    className={`flex flex-col items-start rounded-md border p-2.5 text-left transition-colors ${
+                                        templateType === 'standard'
+                                            ? 'border-primary bg-primary/5 shadow-xs'
+                                            : 'border-border bg-background hover:bg-muted/50'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                                        <span
+                                            className={`size-2 rounded-full ${templateType === 'standard' ? 'bg-primary' : 'bg-muted-foreground/40'}`}
+                                        />
+                                        {t('Standard Template')}
+                                    </div>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {t(
+                                            'For UP state districts with reference dropdown validation',
+                                        )}
+                                    </p>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setTemplateType('extended')}
+                                    className={`flex flex-col items-start rounded-md border p-2.5 text-left transition-colors ${
+                                        templateType === 'extended'
+                                            ? 'border-primary bg-primary/5 shadow-xs'
+                                            : 'border-border bg-background hover:bg-muted/50'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                                        <span
+                                            className={`size-2 rounded-full ${templateType === 'extended' ? 'bg-primary' : 'bg-muted-foreground/40'}`}
+                                        />
+                                        {t('Extended Template')}
+                                    </div>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {t(
+                                            'Includes "Other Home District" column for out-of-state districts',
+                                        )}
+                                    </p>
+                                </button>
+                            </div>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full sm:w-auto"
+                                onClick={() => {
+                                    window.location.href = `${MemberImportController.template.url()}?type=${templateType}`;
+                                }}
+                            >
+                                <Download className="mr-1.5 h-4 w-4" />
+                                {templateType === 'standard'
+                                    ? t('Download Standard Template')
+                                    : t('Download Extended Template')}
+                            </Button>
+                        </div>
 
                         <div className="space-y-2">
                             <Label htmlFor="member-import-file">
