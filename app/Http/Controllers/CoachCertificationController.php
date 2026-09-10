@@ -32,7 +32,6 @@ class CoachCertificationController extends Controller
             'certificate_type' => $data['certificate_type'] ?? null,
             'issuer' => $data['issuer'] ?? null,
             'issued_at' => $data['issued_at'] ?? null,
-            'expired_at' => $data['expired_at'] ?? null,
         ];
 
         $file = $request->file('attachment');

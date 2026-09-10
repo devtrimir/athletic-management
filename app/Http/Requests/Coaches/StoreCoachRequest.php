@@ -47,7 +47,6 @@ class StoreCoachRequest extends FormRequest
             'certifications.*.certificate_type' => ['nullable', 'string', 'max:255'],
             'certifications.*.issuer' => ['nullable', 'string', 'max:255'],
             'certifications.*.issued_at' => ['nullable', 'date'],
-            'certifications.*.expired_at' => ['nullable', 'date'],
             'certifications.*.attachment_path' => ['nullable', 'string', 'max:255'],
             'certifications.*.metadata' => ['nullable', 'array'],
 

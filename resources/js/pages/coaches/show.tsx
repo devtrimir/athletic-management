@@ -109,7 +109,7 @@ type CoachCertification = {
     certificate_type: string | null;
     issuer: string | null;
     issued_at: string | null;
-    expired_at: string | null;
+    expired_at?: string | null;
     attachment: {
         preview_url: string;
         download_url: string;
@@ -422,6 +422,32 @@ function genderLabel(
     }
 }
 
+function formatDate(value: string | null | undefined): string {
+    if (!value) {
+        return '—';
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return '—';
+    }
+
+    const datePart = trimmed.split('T')[0].split(' ')[0];
+    const parts = datePart.split('-');
+
+    if (parts.length === 3 && parts[0].length === 4) {
+        const [year, month, day] = parts;
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+    }
+
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(datePart)) {
+        const [day, month, year] = datePart.split('/');
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+    }
+
+    return value;
+}
+
 export default function CoachesShow({
     coach,
     activeTab: activeTabProp = 'overview',
@@ -507,7 +533,6 @@ export default function CoachesShow({
         certificate_type: '',
         issuer: '',
         issued_at: '',
-        expired_at: '',
         attachment: null as File | null,
     });
     const promotionForm = useForm({
@@ -1140,7 +1165,6 @@ export default function CoachesShow({
             certificate_type: '',
             issuer: '',
             issued_at: '',
-            expired_at: '',
             attachment: null,
         });
         certificationForm.clearErrors();
@@ -1158,8 +1182,9 @@ export default function CoachesShow({
             name: certification.name,
             certificate_type: certification.certificate_type ?? '',
             issuer: certification.issuer ?? '',
-            issued_at: certification.issued_at ?? '',
-            expired_at: certification.expired_at ?? '',
+            issued_at: certification.issued_at
+                ? certification.issued_at.split('T')[0].split(' ')[0]
+                : '',
             attachment: null,
         });
         certificationForm.clearErrors();
@@ -1175,7 +1200,6 @@ export default function CoachesShow({
             certificate_type: data.certificate_type || null,
             issuer: data.issuer || null,
             issued_at: data.issued_at || null,
-            expired_at: data.expired_at || null,
         }));
 
         certificationForm.post(storeCoachCertification.url(coach), {
@@ -1671,9 +1695,6 @@ export default function CoachesShow({
                                                     {t('Issued')}
                                                 </TableHead>
                                                 <TableHead>
-                                                    {t('Expired')}
-                                                </TableHead>
-                                                <TableHead>
                                                     {t('Attachment')}
                                                 </TableHead>
                                                 <TableHead className="text-right">
@@ -1699,12 +1720,9 @@ export default function CoachesShow({
                                                                 ''}
                                                         </TableCell>
                                                         <TableCell>
-                                                            {certification.issued_at ??
-                                                                ''}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {certification.expired_at ??
-                                                                ''}
+                                                            {formatDate(
+                                                                certification.issued_at,
+                                                            )}
                                                         </TableCell>
                                                         <TableCell>
                                                             {certification.attachment ? (
@@ -3402,8 +3420,11 @@ export default function CoachesShow({
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-2xl">
-                    <form onSubmit={submitCertification}>
+                <DialogContent className="overflow-x-hidden sm:max-w-2xl">
+                    <form
+                        onSubmit={submitCertification}
+                        className="w-full min-w-0"
+                    >
                         <DialogHeader>
                             <DialogTitle>
                                 {editingCertification
@@ -3418,8 +3439,12 @@ export default function CoachesShow({
                         </DialogHeader>
                         <div className="grid gap-4 py-4 sm:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label>{t('Name')}</Label>
+                                <Label htmlFor="certification_name">
+                                    {t('Name')}{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
                                 <Input
+                                    id="certification_name"
                                     value={certificationForm.data.name}
                                     onChange={(event) =>
                                         certificationForm.setData(
@@ -3427,16 +3452,18 @@ export default function CoachesShow({
                                             event.target.value,
                                         )
                                     }
+                                    required
                                 />
-                                {certificationForm.errors.name ? (
-                                    <p className="text-sm text-destructive">
-                                        {certificationForm.errors.name}
-                                    </p>
-                                ) : null}
+                                <InputError
+                                    message={certificationForm.errors.name}
+                                />
                             </div>
                             <div className="grid gap-2">
-                                <Label>{t('Type')}</Label>
+                                <Label htmlFor="certification_type">
+                                    {t('Type')}
+                                </Label>
                                 <Input
+                                    id="certification_type"
                                     value={
                                         certificationForm.data.certificate_type
                                     }
@@ -3447,10 +3474,19 @@ export default function CoachesShow({
                                         )
                                     }
                                 />
+                                <InputError
+                                    message={
+                                        certificationForm.errors
+                                            .certificate_type
+                                    }
+                                />
                             </div>
                             <div className="grid gap-2">
-                                <Label>{t('Issuer')}</Label>
+                                <Label htmlFor="certification_issuer">
+                                    {t('Issuer')}
+                                </Label>
                                 <Input
+                                    id="certification_issuer"
                                     value={certificationForm.data.issuer}
                                     onChange={(event) =>
                                         certificationForm.setData(
@@ -3459,10 +3495,31 @@ export default function CoachesShow({
                                         )
                                     }
                                 />
+                                <InputError
+                                    message={certificationForm.errors.issuer}
+                                />
                             </div>
                             <div className="grid gap-2">
+                                <Label htmlFor="certification_issued_at">
+                                    {t('Issued')}
+                                </Label>
+                                <DatePicker
+                                    id="certification_issued_at"
+                                    value={certificationForm.data.issued_at}
+                                    onChange={(value) =>
+                                        certificationForm.setData(
+                                            'issued_at',
+                                            value,
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={certificationForm.errors.issued_at}
+                                />
+                            </div>
+                            <div className="grid gap-2 sm:col-span-2">
                                 <Label>{t('Attachment')}</Label>
-                                <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-dashed bg-muted/30 p-3 transition-colors hover:bg-muted/50">
+                                <label className="relative flex min-w-0 cursor-pointer items-start gap-3 overflow-hidden rounded-lg border border-dashed bg-muted/30 p-3 transition-colors hover:bg-muted/50">
                                     <span className="mt-0.5 rounded-md bg-background p-2 text-muted-foreground shadow-sm">
                                         <Upload className="size-4" />
                                     </span>
@@ -3491,7 +3548,7 @@ export default function CoachesShow({
                                             </span>
                                         ) : null}
                                     </span>
-                                    <Input
+                                    <input
                                         key={
                                             certificationDialogOpen
                                                 ? (editingCertification?.id ??
@@ -3515,30 +3572,6 @@ export default function CoachesShow({
                                     }
                                 />
                             </div>
-                            <div className="grid gap-2">
-                                <Label>{t('Issued')}</Label>
-                                <DatePicker
-                                    value={certificationForm.data.issued_at}
-                                    onChange={(value) =>
-                                        certificationForm.setData(
-                                            'issued_at',
-                                            value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>{t('Expired')}</Label>
-                                <DatePicker
-                                    value={certificationForm.data.expired_at}
-                                    onChange={(value) =>
-                                        certificationForm.setData(
-                                            'expired_at',
-                                            value,
-                                        )
-                                    }
-                                />
-                            </div>
                         </div>
                         <DialogFooter>
                             <Button
@@ -3552,12 +3585,11 @@ export default function CoachesShow({
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={
-                                    certificationForm.processing ||
-                                    certificationForm.data.name.trim() === ''
-                                }
+                                disabled={certificationForm.processing}
                             >
-                                {t('Save certification')}
+                                {editingCertification
+                                    ? t('Update certification')
+                                    : t('Save certification')}
                             </Button>
                         </DialogFooter>
                     </form>

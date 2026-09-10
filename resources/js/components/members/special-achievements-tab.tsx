@@ -484,7 +484,7 @@ function SpecialAchievementDialog({
 
                     <div className="grid min-w-0 gap-2">
                         <Label>{t('Order document')}</Label>
-                        <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-dashed bg-muted/30 p-3 transition-colors hover:bg-muted/50">
+                        <label className="relative flex min-w-0 cursor-pointer items-start gap-3 overflow-hidden rounded-lg border border-dashed bg-muted/30 p-3 transition-colors hover:bg-muted/50">
                             <span className="mt-0.5 rounded-md bg-background p-2 text-muted-foreground shadow-sm">
                                 <Upload className="size-4" />
                             </span>
@@ -500,7 +500,7 @@ function SpecialAchievementDialog({
                                     )}
                                 </span>
                             </span>
-                            <Input
+                            <input
                                 className="sr-only"
                                 type="file"
                                 accept="application/pdf,image/jpeg,image/png,image/webp"
