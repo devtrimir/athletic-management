@@ -1585,5 +1585,11 @@
     "Permanently Delete / Manage": "स्थायी रूप से हटाएं / प्रबंधित करें",
     "Search gender…": "लिंग खोजें…",
     "Search blood groups…": "रक्त समूह खोजें…",
-    "Search categories…": "श्रेणी खोजें…"
+    "Search categories…": "श्रेणी खोजें…",
+    "Restore :name?": ":name को पुनर्स्थापित करें?",
+    "This will restore the archived member back to active status. Their historical records (participations, medals, promotions) will be re-linked. This action can be reversed by archiving the member again.": "इससे संग्रहित सदस्य को सक्रिय स्थिति में पुनर्स्थापित किया जाएगा। उनके ऐतिहासिक रिकॉर्ड (भागीदारी, पदक, पदोन्नति) फिर से जोड़े जाएंगे। इस क्रिया को सदस्य को फिर से संग्रहित करके उलटा किया जा सकता है।",
+    "Yes, Restore Member": "हाँ, सदस्य को पुनर्स्थापित करें",
+    "Proceed as a new member?": "नए सदस्य के रूप में आगे बढ़ें?",
+    "You are about to create a new member record with the same PNO as the archived member (:name). The archived record will remain in the system. Are you sure you want to continue?": "आप संग्रहित सदस्य (:name) के समान पीएनओ के साथ एक नया सदस्य रिकॉर्ड बनाने वाले हैं। संग्रहित रिकॉर्ड सिस्टम में बना रहेगा। क्या आप जारी रखना चाहते हैं?",
+    "Yes, Proceed as New Member": "हाँ, नए सदस्य के रूप में आगे बढ़ें"
 }

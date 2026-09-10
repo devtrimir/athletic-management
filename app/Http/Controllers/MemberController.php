@@ -344,7 +344,7 @@ class MemberController extends Controller
             ]),
         ]);
 
-        return to_route('members.index');
+        return redirect()->back(302, [], route('members.index'));
     }
 
     public function checkPno(Request $request, MemberDeletionService $deletionService): JsonResponse
@@ -371,7 +371,7 @@ class MemberController extends Controller
                 'message' => __('Member is already active.'),
             ]);
 
-            return to_route('members.show', $member);
+            return redirect()->back(302, [], route('members.show', $member));
         }
 
         $deletionService->restore($member, $request->user());
@@ -383,7 +383,7 @@ class MemberController extends Controller
             ]),
         ]);
 
-        return to_route('members.show', $member);
+        return redirect()->back(302, [], route('members.index', ['filter[status_scope]' => 'archived']));
     }
 
     public function forceDestroy(Request $request, Member $member, MemberDeletionService $deletionService): RedirectResponse
@@ -400,7 +400,7 @@ class MemberController extends Controller
             ]),
         ]);
 
-        return to_route('members.index', ['filter[status_scope]' => 'archived']);
+        return redirect()->back(302, [], route('members.index', ['filter[status_scope]' => 'archived']));
     }
 
     /**

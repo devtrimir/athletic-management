@@ -95,6 +95,7 @@ export function ArchivedMemberActionDialog({
             setTypedConfirm('');
             setFetchError(null);
         }
+
         setIsOpen(newOpen);
     };
 
@@ -117,6 +118,7 @@ export function ArchivedMemberActionDialog({
                         t('Failed to fetch member connection impact'),
                     );
                 }
+
                 return response.json();
             })
             .then((data: DeletionImpactData) => {

@@ -607,11 +607,13 @@ export default function MembersShow({
                 query: { 'filter[status_scope]': 'archived' },
             });
         }
+
         if (fromScope === 'inactive') {
             return membersIndex.url({
                 query: { 'filter[status_scope]': 'inactive' },
             });
         }
+
         return membersIndex.url();
     }, [fromScope, isArchived]);
 

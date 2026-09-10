@@ -42,6 +42,17 @@ import {
     CommandList,
 } from '@/components/ui/command';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
     Dialog,
     DialogContent,
     DialogFooter,
@@ -1560,22 +1571,51 @@ export default function MembersIndex({
                                                 {member.deleted_at ? (
                                                     <>
                                                         {canRestoreMember && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                title={t('Restore member')}
-                                                                className="text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    router.post(
-                                                                        MemberController.restore.url(member.id),
-                                                                        {},
-                                                                        { preserveScroll: true },
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <RotateCcw className="h-4 w-4" />
-                                                            </Button>
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        title={t('Restore member')}
+                                                                        className="text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400"
+                                                                        onClick={(e) =>
+                                                                            e.stopPropagation()
+                                                                        }
+                                                                    >
+                                                                        <RotateCcw className="h-4 w-4" />
+                                                                    </Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>
+                                                                            {t('Restore :name?').replace(':name', member.full_name)}
+                                                                        </AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            {t(
+                                                                                'This will restore the archived member back to active status. Their historical records (participations, medals, promotions) will be re-linked. This action can be reversed by archiving the member again.',
+                                                                            )}
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>
+                                                                            {t('Cancel')}
+                                                                        </AlertDialogCancel>
+                                                                        <AlertDialogAction
+                                                                            className="bg-amber-700 text-white hover:bg-amber-800 dark:bg-amber-600 dark:hover:bg-amber-500"
+                                                                            onClick={() => {
+                                                                                router.post(
+                                                                                    MemberController.restore.url(member.id),
+                                                                                    {},
+                                                                                    { preserveScroll: true },
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                                                                            {t('Yes, Restore Member')}
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
                                                         )}
                                                         {canDeleteMember && (
                                                             <ArchivedMemberActionDialog

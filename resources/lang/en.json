@@ -511,5 +511,11 @@
     "Search blood groups…": "Search blood groups…",
     "Search ranks…": "Search ranks…",
     "Search categories…": "Search categories…",
-    "Search levels…": "Search levels…"
+    "Search levels…": "Search levels…",
+    "Restore :name?": "Restore :name?",
+    "This will restore the archived member back to active status. Their historical records (participations, medals, promotions) will be re-linked. This action can be reversed by archiving the member again.": "This will restore the archived member back to active status. Their historical records (participations, medals, promotions) will be re-linked. This action can be reversed by archiving the member again.",
+    "Yes, Restore Member": "Yes, Restore Member",
+    "Proceed as a new member?": "Proceed as a new member?",
+    "You are about to create a new member record with the same PNO as the archived member (:name). The archived record will remain in the system. Are you sure you want to continue?": "You are about to create a new member record with the same PNO as the archived member (:name). The archived record will remain in the system. Are you sure you want to continue?",
+    "Yes, Proceed as New Member": "Yes, Proceed as New Member"
 }

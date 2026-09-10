@@ -11,6 +11,17 @@ import {
     checkPno,
     restore as restoreMember,
 } from '@/actions/App/Http/Controllers/MemberController';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
@@ -188,20 +199,46 @@ export function PnoConflictNotice({
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0 sm:shrink-0">
-                        <Button
-                            type="button"
-                            size="sm"
-                            className="bg-amber-700 text-white hover:bg-amber-800 dark:bg-amber-600 dark:hover:bg-amber-500"
-                            disabled={isRestoring}
-                            onClick={() => handleRestore(m.id)}
-                        >
-                            {isRestoring ? (
-                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                            )}
-                            {t('Restore Member')}
-                        </Button>
+                        {/* Restore Member — requires confirmation */}
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    className="bg-amber-700 text-white hover:bg-amber-800 dark:bg-amber-600 dark:hover:bg-amber-500"
+                                    disabled={isRestoring}
+                                >
+                                    {isRestoring ? (
+                                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                                    )}
+                                    {t('Restore Member')}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                        {t('Restore :name?').replace(':name', m.full_name)}
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        {t(
+                                            'This will restore the archived member back to active status. Their historical records (participations, medals, promotions) will be re-linked. This action can be reversed by archiving the member again.',
+                                        )}
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        className="bg-amber-700 text-white hover:bg-amber-800 dark:bg-amber-600 dark:hover:bg-amber-500"
+                                        onClick={() => handleRestore(m.id)}
+                                    >
+                                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                                        {t('Yes, Restore Member')}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
 
                         <ArchivedMemberActionDialog
                             member={{
@@ -226,15 +263,39 @@ export function PnoConflictNotice({
                             }}
                         />
 
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="text-amber-900 hover:bg-amber-200/50 dark:text-amber-200 dark:hover:bg-amber-900/50"
-                            onClick={() => setDismissedId(m.id)}
-                        >
-                            {t('Proceed as New Member')}
-                        </Button>
+                        {/* Proceed as New Member — requires confirmation */}
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-amber-900 hover:bg-amber-200/50 dark:text-amber-200 dark:hover:bg-amber-900/50"
+                                >
+                                    {t('Proceed as New Member')}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                        {t('Proceed as a new member?')}
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        {t(
+                                            'You are about to create a new member record with the same PNO as the archived member (:name). The archived record will remain in the system. Are you sure you want to continue?',
+                                        ).replace(':name', m.full_name)}
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() => setDismissedId(m.id)}
+                                    >
+                                        {t('Yes, Proceed as New Member')}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     </div>
                 </div>
             </div>

@@ -5,7 +5,8 @@ import {
     show as showMember,
     store as storeMember,
 } from '@/actions/App/Http/Controllers/MemberController';
-import { Combobox, type ComboboxItem } from '@/components/combobox';
+import { Combobox  } from '@/components/combobox';
+import type {ComboboxItem} from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';

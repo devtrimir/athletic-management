@@ -149,18 +149,23 @@ export function AddMemberDialog({
         const timer = setTimeout(
             () => {
                 const queryParams: Record<string, string> = {};
+
                 if (filterSport) {
                     queryParams.sport_id = filterSport;
                 }
+
                 if (data.session_id) {
                     queryParams.session_id = data.session_id;
                 }
+
                 if (filterCategory) {
                     queryParams.player_category = filterCategory;
                 }
+
                 if (filterLevel) {
                     queryParams.player_level = filterLevel;
                 }
+
                 if (searchQuery.trim()) {
                     queryParams.q = searchQuery.trim();
                 }
