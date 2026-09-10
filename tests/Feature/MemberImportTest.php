@@ -486,6 +486,52 @@ test('category dropdown labels resolve to codes on import', function () {
         ->and($members->firstWhere('full_name', 'Code Player')->player_category)->toBe('GD');
 });
 
+test('singular sport quota and aliases resolve to sports quota on import', function () {
+    $user = importUser('imports.run');
+
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'Singular Sport Quota', 'player_category' => 'Sport Quota', 'pno' => '210712831']),
+            importRow(['full_name' => 'Lowercase sport quota', 'player_category' => 'sport quota', 'pno' => '210712832']),
+            importRow(['full_name' => 'Snake case sport quota', 'player_category' => 'sport_quota', 'pno' => '210712833']),
+            importRow(['full_name' => 'Legacy skilled', 'player_category' => 'SKILLED', 'pno' => '210712834']),
+            importRow(['full_name' => 'Hindi khel quota', 'player_category' => 'खेल कोटा', 'pno' => '210712835']),
+            importRow(['full_name' => 'Hindi kushal khiladi', 'player_category' => 'कुशल खिलाड़ी', 'pno' => '210712836']),
+        ]),
+    ]);
+
+    $members = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->get();
+    expect($members)->toHaveCount(6);
+
+    foreach ($members as $member) {
+        expect($member->player_category)->toBe('SPORTS_QUOTA');
+    }
+});
+
+test('re-importing an existing gd member with sport quota updates category to sports quota', function () {
+    $user = importUser('imports.run');
+
+    // First import member with GD
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'Athlete GD', 'player_category' => 'Ground Duty', 'pno' => '210712899']),
+        ]),
+    ]);
+
+    $member = Member::withoutGlobalScopes()->where('organization_id', $user->organization_id)->where('pno', '210712899')->firstOrFail();
+    expect($member->player_category)->toBe('GD');
+
+    // Re-import with singular 'Sport Quota'
+    $this->actingAs($user)->post(route('members.import.store'), [
+        'file' => importFile([
+            importRow(['full_name' => 'Athlete GD', 'player_category' => 'Sport Quota', 'pno' => '210712899']),
+        ]),
+    ]);
+
+    $member->refresh();
+    expect($member->player_category)->toBe('SPORTS_QUOTA');
+});
+
 test('level dropdown labels resolve to tournament tier codes on import', function () {
     $user = importUser('imports.run');
 

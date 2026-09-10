@@ -35,14 +35,14 @@ use Illuminate\Support\Carbon;
  * @property-read Achievement|null $achievement
  * @property-read Collection<int, ParticipationAward> $participationAwards
  */
-    #[Fillable([
-        'event_id',
-        'member_id',
-        'team_id',
-        'lineup_member_ids',
-        'session_id',
-        'position',
-    ])]
+#[Fillable([
+    'event_id',
+    'member_id',
+    'team_id',
+    'lineup_member_ids',
+    'session_id',
+    'position',
+])]
 #[ObservedBy([AuditObserver::class])]
 class Participation extends Model
 {

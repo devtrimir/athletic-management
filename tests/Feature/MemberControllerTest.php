@@ -799,6 +799,23 @@ test('update changes member and redirects to show', function () {
     expect($memberSportLogs->contains(fn (AuditLog $log) => $log->action === 'deleted' && (int) ($log->diff['sport_id'] ?? 0) === $removedSport->id))->toBeTrue();
 });
 
+test('update normalizes player_category aliases to canonical code', function () {
+    $user = memberUser('members.update');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'player_category' => 'GD',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('members.update', $member), [
+            'player_category' => 'Sport Quota',
+        ])
+        ->assertRedirect(route('members.show', $member));
+
+    $member->refresh();
+    expect($member->player_category)->toBe('SPORTS_QUOTA');
+});
+
 test('update with invalid payload returns validation errors', function () {
     $user = memberUser('members.update');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);

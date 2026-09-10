@@ -527,7 +527,7 @@ class TeamExportController extends Controller
                     fn ($q) => $q->where('session_id', $sessionId),
                 )
                 ->with([
-                    'member:id,member_code,pno,full_name,father_name,gender,rank,designation,mobile,player_category,player_level,current_status,current_unit_id,posting_district_id',
+                    'member:id,member_code,pno,full_name,father_name,gender,rank,mobile,player_category,player_level,current_status,current_unit_id,posting_district_id',
                     'member.currentUnit:id,name',
                     'member.postingDistrict:id,name',
                     'member.playableSports' => fn ($q) => $q
@@ -710,10 +710,7 @@ class TeamExportController extends Controller
     private function memberPrintRow(TeamMember $teamMember, Team $team, int $serialNumber, bool $showLeftOn): array
     {
         $member = $teamMember->member;
-        $posting = collect([
-            $member?->designation,
-            $member?->postingDistrict?->name ?? $member?->currentUnit?->name,
-        ])->filter()->implode(' / ');
+        $posting = $member?->postingDistrict?->name ?? $member?->currentUnit?->name;
 
         return $this->printRow([
             'section' => $teamMember->left_on === null

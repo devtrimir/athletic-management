@@ -93,7 +93,7 @@ class SportsCalendarSeeder extends Seeder
      */
     private function extractRowsFromDocx(string $path): array
     {
-        $archive = new ZipArchive();
+        $archive = new ZipArchive;
 
         if ($archive->open($path) !== true) {
             return [];

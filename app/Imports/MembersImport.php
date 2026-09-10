@@ -12,6 +12,7 @@ use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\MemberCodeGenerator;
 use App\Support\Members\MemberImportSchema;
+use App\Support\Members\PlayerCategory;
 use Closure;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -340,16 +341,9 @@ class MembersImport implements ToCollection, WithMultipleSheets
             $payload['gender'] = $gender;
         }
 
-        // Player category (required) — accepts the dropdown labels
-        // ("Ground Duty", "Sports Quota") as well as the raw codes.
-        $categoryMap = [];
-
-        foreach (MemberImportSchema::PLAYER_CATEGORY_LABELS as $code => $label) {
-            $categoryMap[$code] = $code;
-            $categoryMap[strtoupper(str_replace(' ', '_', $label))] = $code;
-        }
-
-        $category = $this->normalizeEnum($get('player_category'), $categoryMap);
+        // Player category (required) — accepts dropdown labels ("Ground Duty",
+        // "Sports Quota"), singular "Sport Quota", Hindi labels, and canonical codes.
+        $category = PlayerCategory::normalize($str('player_category'));
 
         if ($category === null) {
             $errors[] = __('Category is required and must be one of: :values.', ['values' => implode(', ', MemberImportSchema::PLAYER_CATEGORY_LABELS)]);

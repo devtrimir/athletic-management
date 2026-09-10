@@ -40,7 +40,7 @@ class SportsCalendarController extends Controller
                         ->orWhereRaw('LOWER(proposed_month) LIKE ?', [$like])
                         ->orWhereRaw('LOWER(proposed_month_annual) LIKE ?', [$like])
                         ->orWhereRaw('LOWER(proposed_venue) LIKE ?', [$like])
-                        ->orWhereRaw("CAST(year AS CHAR) LIKE ?", [$like]);
+                        ->orWhereRaw('CAST(year AS CHAR) LIKE ?', [$like]);
                 });
             })
             ->when($year !== null, fn ($query) => $query->where('year', $year))

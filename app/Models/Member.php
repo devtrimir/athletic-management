@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Concerns\Auditable;
 use App\Concerns\Tenanted;
 use App\Observers\AuditObserver;
+use App\Support\Members\PlayerCategory;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -129,11 +130,12 @@ class Member extends Model
         ];
     }
 
-    /** @return Attribute<string, never> */
+    /** @return Attribute<string, string> */
     protected function playerCategory(): Attribute
     {
         return Attribute::make(
-            get: fn (string $value): string => $value === 'SKILLED' ? 'SPORTS_QUOTA' : $value,
+            get: fn (string $value): string => PlayerCategory::normalize($value) ?? $value,
+            set: fn (?string $value): ?string => PlayerCategory::normalize($value) ?? $value,
         );
     }
 
