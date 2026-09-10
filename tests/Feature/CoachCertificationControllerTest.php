@@ -381,3 +381,21 @@ test('certifications tab payload includes attachment urls', function (): void {
             ->where('coach.certifications.1.attachment', null)
         );
 });
+
+test('store creates certification without expired_at field', function (): void {
+    $user = certificationUser('coaches.view', 'coaches.manageCertifications');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->post(route('coaches.certifications.store', $coach), [
+            'name' => 'Certificate Without Expiry',
+            'certificate_type' => 'Level 1',
+            'issuer' => 'Sports Authority',
+            'issued_at' => '2026-02-01',
+        ])
+        ->assertRedirect(route('coaches.certifications', $coach));
+
+    $cert = CoachCertification::where('coach_id', $coach->id)->firstOrFail();
+    expect($cert->name)->toBe('Certificate Without Expiry')
+        ->and($cert->expired_at)->toBeNull();
+});

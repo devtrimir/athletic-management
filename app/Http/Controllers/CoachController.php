@@ -216,7 +216,6 @@ class CoachController extends Controller
                 'certificate_type' => $row['certificate_type'] ?? null,
                 'issuer' => $row['issuer'] ?? null,
                 'issued_at' => $row['issued_at'] ?? null,
-                'expired_at' => $row['expired_at'] ?? null,
                 'attachment_path' => $row['attachment_path'] ?? null,
                 'metadata' => $row['metadata'] ?? null,
             ]);

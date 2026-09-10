@@ -1072,7 +1072,6 @@ test('user with coach certification permission can save certification from profi
             'certificate_type' => 'NIS',
             'issuer' => 'SAI',
             'issued_at' => '2026-01-01',
-            'expired_at' => '2026-12-31',
         ])
         ->assertRedirect(route('coaches.certifications', $coach));
 

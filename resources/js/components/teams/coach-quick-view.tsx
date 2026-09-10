@@ -30,7 +30,7 @@ type CertificationItem = {
     certificate_type: string | null;
     issuer: string | null;
     issued_at: string | null;
-    expired_at: string | null;
+    expired_at?: string | null;
     attachment: {
         preview_url: string;
         download_url: string;
@@ -147,6 +147,32 @@ type CoachPreview = {
     assignment_history: AssignmentHistoryItem[];
 };
 
+function formatDate(value: string | null | undefined): string {
+    if (!value) {
+        return '—';
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return '—';
+    }
+
+    const datePart = trimmed.split('T')[0].split(' ')[0];
+    const parts = datePart.split('-');
+
+    if (parts.length === 3 && parts[0].length === 4) {
+        const [year, month, day] = parts;
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+    }
+
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(datePart)) {
+        const [day, month, year] = datePart.split('/');
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+    }
+
+    return value;
+}
+
 function Section({
     title,
     children,
@@ -192,7 +218,7 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     const certificationRows = data.certifications
         .map(
             (c) =>
-                `<tr><td>${c.name}</td><td>${c.certificate_type ?? ''}</td><td>${c.issuer ?? ''}</td><td>${c.issued_at ?? ''}</td><td>${c.expired_at ?? ''}</td></tr>`,
+                `<tr><td>${c.name}</td><td>${c.certificate_type ?? ''}</td><td>${c.issuer ?? ''}</td><td>${formatDate(c.issued_at)}</td></tr>`,
         )
         .join('');
 
@@ -291,7 +317,7 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
     ${
         data.certifications.length
             ? `<h2>${t('Certifications')}</h2>
-    <table><thead><tr><th>${t('Name')}</th><th>${t('Type')}</th><th>${t('Issuer')}</th><th>${t('Issued')}</th><th>${t('Expired')}</th></tr></thead>
+    <table><thead><tr><th>${t('Name')}</th><th>${t('Type')}</th><th>${t('Issuer')}</th><th>${t('Issued')}</th></tr></thead>
     <tbody>${certificationRows}</tbody></table>`
             : ''
     }
@@ -529,9 +555,6 @@ export function CoachQuickView({
                                                 <TableHead>
                                                     {t('Issued')}
                                                 </TableHead>
-                                                <TableHead>
-                                                    {t('Expired')}
-                                                </TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -552,12 +575,9 @@ export function CoachQuickView({
                                                                 ''}
                                                         </TableCell>
                                                         <TableCell>
-                                                            {certification.issued_at ??
-                                                                ''}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {certification.expired_at ??
-                                                                ''}
+                                                            {formatDate(
+                                                                certification.issued_at,
+                                                            )}
                                                         </TableCell>
                                                     </TableRow>
                                                 ),
