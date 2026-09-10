@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Members;
 
 use App\Rules\UniquePnoAcrossPeople;
+use App\Support\Members\PlayerCategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,6 +14,16 @@ class StoreMemberRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('player_category') && is_string($this->input('player_category'))) {
+            $normalized = PlayerCategory::normalize($this->input('player_category'));
+            if ($normalized !== null) {
+                $this->merge(['player_category' => $normalized]);
+            }
+        }
     }
 
     /**

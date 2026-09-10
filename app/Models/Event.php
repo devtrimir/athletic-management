@@ -32,19 +32,19 @@ use Illuminate\Support\Carbon;
  * @property-read Sport $sport
  * @property-read Collection<int, Participation> $participations
  */
-    #[Fillable([
-        'tournament_id',
-        'sport_id',
-        'sport_event_variant_id',
-        'event_type',
-        'participants_required',
-        'name',
-        'discipline',
-        'weight_category',
-        'gender_class',
-        'event_source',
-        'provisional_reason',
-    ])]
+#[Fillable([
+    'tournament_id',
+    'sport_id',
+    'sport_event_variant_id',
+    'event_type',
+    'participants_required',
+    'name',
+    'discipline',
+    'weight_category',
+    'gender_class',
+    'event_source',
+    'provisional_reason',
+])]
 class Event extends Model
 {
     /** @use HasFactory<EventFactory> */

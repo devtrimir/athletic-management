@@ -120,7 +120,7 @@ class InchargeAuditLogController extends Controller
         ]);
     }
 
-    private function parseDate(null|string $value, bool $endOfDay = false): ?CarbonImmutable
+    private function parseDate(?string $value, bool $endOfDay = false): ?CarbonImmutable
     {
         if ($value === null || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
             return null;

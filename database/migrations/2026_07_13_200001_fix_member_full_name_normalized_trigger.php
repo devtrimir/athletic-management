@@ -26,7 +26,7 @@ return new class extends Migration
         }
 
         DB::unprepared(
-            <<<"SQL"
+            <<<'SQL'
             CREATE TRIGGER trg_members_normalize_before_insert
             BEFORE INSERT ON members
             FOR EACH ROW
@@ -39,7 +39,7 @@ return new class extends Migration
         );
 
         DB::unprepared(
-            <<<"SQL"
+            <<<'SQL'
             CREATE TRIGGER trg_members_normalize_before_update
             BEFORE UPDATE ON members
             FOR EACH ROW
@@ -69,7 +69,7 @@ return new class extends Migration
         }
 
         DB::unprepared(
-            <<<"SQL"
+            <<<'SQL'
             CREATE TRIGGER trg_members_normalize_before_insert
             BEFORE INSERT ON members
             FOR EACH ROW
@@ -82,7 +82,7 @@ return new class extends Migration
         );
 
         DB::unprepared(
-            <<<"SQL"
+            <<<'SQL'
             CREATE TRIGGER trg_members_normalize_before_update
             BEFORE UPDATE ON members
             FOR EACH ROW

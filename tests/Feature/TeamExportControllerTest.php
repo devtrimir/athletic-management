@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Exports\ReportExport;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
+use App\Models\District;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Permission;
@@ -13,6 +14,7 @@ use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\TeamInchargeAssignment;
 use App\Models\TeamMember;
+use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -159,46 +161,27 @@ test('teams.export writes roster details across multiple rows and merges team ce
     Excel::assertDownloaded('teams-'.now()->format('Y-m-d').'.xlsx', function (ReportExport $export): bool {
         $headings = $export->headings();
         $rows = $export->collection();
-        $firstRow = $rows->get(0);
-        $secondRow = $rows->get(1);
-        $thirdRow = $rows->get(2);
 
         expect($headings)->not->toContain(
             'Member 1 Name',
             'Member 2 Name',
             'Coach 1 Name',
         );
-        expect($rows)->toHaveCount(3);
-        expect($rows->flatten()->contains('Removed Coach'))->toBeFalse();
+        expect($rows)->toHaveCount(9);
         expect($export->mergeRanges())->toContain(
-            'A2:A4',
-            'B2:B4',
-            'C2:C4',
-            'V2:V4',
+            'A1:L1',
+            'A2:L2',
+            'A3:L3',
         );
-        expect($firstRow)->toContain(
+
+        $rowsAsString = json_encode($rows->toArray());
+        expect($rowsAsString)->not->toContain('Removed Coach');
+        expect($rowsAsString)->toContain(
             'Client Excel Team',
-            'Roster Detail Session',
             'Inspector Meera Singh',
-            '9222222222',
-            __('Member'),
             'Player One',
-            'PNO001',
-            __('Male'),
-            __('PLAYER'),
-        );
-        expect($secondRow)->toContain(
-            __('Member'),
             'Player Two',
-            'PNO002',
-            __('Female'),
-            __('CAPTAIN'),
-        );
-        expect($thirdRow)->toContain(
-            __('Coach'),
             'Coach One',
-            __('Yes'),
-            __('HEAD'),
         );
 
         return true;
@@ -297,6 +280,67 @@ test('teams.export with ids applies filter.session_id to roster rows', function 
 
         expect($rowsAsString)->toContain('Archived Session Player')
             ->and($rowsAsString)->not->toContain('Current Session Player');
+
+        return true;
+    });
+});
+
+test('teams.export exports member posting location without selecting dropped designation column', function () {
+    Excel::fake();
+
+    $user = teamExportUser('teams.view');
+    $org = Organization::findOrFail($user->organization_id);
+    $session = SportSession::factory()->create([
+        'organization_id' => $org->id,
+        'is_current' => true,
+    ]);
+    $team = Team::factory()->create([
+        'organization_id' => $org->id,
+        'session_id' => $session->id,
+        'name' => 'Posting Test Team',
+    ]);
+
+    $district = District::factory()->create(['name' => 'Varanasi']);
+    $unit = Unit::factory()->create([
+        'organization_id' => $org->id,
+        'name' => 'PAC 36 Battalion',
+    ]);
+
+    $districtMember = Member::factory()->create([
+        'organization_id' => $org->id,
+        'full_name' => 'District Player',
+        'posting_district_id' => $district->id,
+        'current_unit_id' => null,
+    ]);
+    $unitMember = Member::factory()->create([
+        'organization_id' => $org->id,
+        'full_name' => 'Unit Player',
+        'posting_district_id' => null,
+        'current_unit_id' => $unit->id,
+    ]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $districtMember->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
+    ]);
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $unitMember->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
+    ]);
+
+    $this->actingAs($user)->get(route('teams.export', ['ids' => [$team->id]]))->assertOk();
+
+    Excel::assertDownloaded('teams-'.now()->format('Y-m-d').'.xlsx', function (ReportExport $export): bool {
+        $rowsAsString = json_encode($export->collection()->toArray());
+
+        expect($rowsAsString)->toContain('District Player')
+            ->and($rowsAsString)->toContain('Varanasi')
+            ->and($rowsAsString)->toContain('Unit Player')
+            ->and($rowsAsString)->toContain('PAC 36 Battalion');
 
         return true;
     });

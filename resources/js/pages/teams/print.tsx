@@ -55,7 +55,6 @@ type TeamMemberRow = {
         pno: string | null;
         player_category: string | null;
         rank: string | null;
-        designation: string | null;
         mobile: string | null;
         playable_profile: {
             sport_event: string | null;
@@ -294,15 +293,10 @@ export default function TeamsPrint({
             .map((member, index) => {
                 const player = member.member;
                 const name = cleanText(player?.full_name);
-                const posting = [
-                    cleanText(player?.designation),
-                    cleanText(
-                        player?.posting_district?.name ??
-                            player?.current_unit?.name,
-                    ),
-                ]
-                    .filter(Boolean)
-                    .join(' / ');
+                const posting = cleanText(
+                    player?.posting_district?.name ??
+                        player?.current_unit?.name,
+                );
 
                 return `<tr>
                         <td class="num">${index + 1}</td>

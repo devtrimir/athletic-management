@@ -166,7 +166,6 @@ type TeamMemberRow = {
         pno: string | null;
         player_category: string | null;
         rank: string | null;
-        designation: string | null;
         mobile: string | null;
         is_deleted?: boolean;
         deleted_at?: string | null;
