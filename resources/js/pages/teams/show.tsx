@@ -3039,26 +3039,25 @@ export default function TeamsShow({
                                                                     ) : null}
                                                                     <TableCell className="text-right">
                                                                         <div className="flex items-center justify-end gap-1">
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                title={t(
-                                                                                    'Quick info',
-                                                                                )}
-                                                                                onClick={() =>
-                                                                                    setMemberQuickViewId(
-                                                                                        row
-                                                                                            .member
-                                                                                            ?.id ??
-                                                                                            null,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    !row.member
-                                                                                }
-                                                                            >
-                                                                                <Info className="h-4 w-4" />
-                                                                            </Button>
+                                                                            {row.member && !row.member.deleted_at && (
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    title={t(
+                                                                                        'Quick info',
+                                                                                    )}
+                                                                                    onClick={() =>
+                                                                                        setMemberQuickViewId(
+                                                                                            row
+                                                                                                .member
+                                                                                                ?.id ??
+                                                                                                null,
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <Info className="h-4 w-4" />
+                                                                                </Button>
+                                                                            )}
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"

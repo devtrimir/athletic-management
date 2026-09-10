@@ -33,6 +33,7 @@ class MemberResource extends JsonResource
             'player_category' => $this->player_category,
             'player_level' => $this->player_level,
             'current_status' => $this->current_status,
+            'deleted_at' => $this->deleted_at?->toIso8601String(),
             'source_refs' => $this->source_refs,
             // P2B profile fields
             'photo_path' => $this->photo_path,

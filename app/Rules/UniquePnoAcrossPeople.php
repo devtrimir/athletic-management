@@ -28,6 +28,7 @@ class UniquePnoAcrossPeople implements ValidationRule
             $exists = DB::table($table)
                 ->where('organization_id', $this->organizationId)
                 ->where('pno', $pno)
+                ->whereNull('deleted_at')
                 ->when(
                     $this->ignoreTable === $table && $this->ignoreId !== null,
                     fn ($query) => $query->where('id', '!=', $this->ignoreId),

@@ -33,9 +33,14 @@ class MemberPolicy
         return $user->can('members.delete');
     }
 
+    public function forceDelete(User $user, mixed $member): bool
+    {
+        return $user->can('members.delete');
+    }
+
     public function restore(User $user, mixed $member): bool
     {
-        return $user->can('members.restore');
+        return $user->can('members.restore') || $user->can('members.delete') || $user->can('members.update');
     }
 
     public function changeStatus(User $user, mixed $member): bool
