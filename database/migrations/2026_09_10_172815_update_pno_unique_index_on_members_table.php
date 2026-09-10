@@ -69,6 +69,13 @@ return new class extends Migration
             return;
         }
 
+        if ($driver === 'pgsql') {
+            DB::statement('ALTER TABLE members DROP CONSTRAINT IF EXISTS '.self::INDEX);
+            DB::statement('DROP INDEX IF EXISTS '.self::INDEX);
+
+            return;
+        }
+
         DB::statement('DROP INDEX IF EXISTS '.self::INDEX);
     }
 
@@ -82,10 +89,17 @@ return new class extends Migration
         }
 
         if ($driver === 'pgsql') {
-            return collect(DB::select(
+            $hasPgIndex = collect(DB::select(
                 'SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND tablename = ? AND indexname = ?',
                 ['members', self::INDEX],
             ))->isNotEmpty();
+
+            $hasPgConstraint = collect(DB::select(
+                'SELECT conname FROM pg_constraint WHERE conrelid = ?::regclass AND conname = ?',
+                ['members', self::INDEX],
+            ))->isNotEmpty();
+
+            return $hasPgIndex || $hasPgConstraint;
         }
 
         return collect(DB::select('SHOW INDEX FROM members WHERE Key_name = ?', [self::INDEX]))->isNotEmpty();
