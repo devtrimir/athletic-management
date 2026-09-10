@@ -428,6 +428,7 @@ function formatDate(value: string | null | undefined): string {
     }
 
     const trimmed = value.trim();
+
     if (!trimmed) {
         return '—';
     }
@@ -437,11 +438,13 @@ function formatDate(value: string | null | undefined): string {
 
     if (parts.length === 3 && parts[0].length === 4) {
         const [year, month, day] = parts;
+
         return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
     }
 
     if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(datePart)) {
         const [day, month, year] = datePart.split('/');
+
         return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
     }
 

@@ -39,6 +39,7 @@ export function normalizePlayerCategory(
     }
 
     const trimmed = category.trim();
+
     if (trimmed === '') {
         return null;
     }

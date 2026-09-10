@@ -11,6 +11,7 @@ import {
     Printer,
     Search,
     ShieldCheck,
+    RotateCcw,
     Trash2,
     Upload,
     UserCheck,
@@ -24,6 +25,7 @@ import {
 } from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
+import { ArchivedMemberActionDialog } from '@/components/members/archived-member-action-dialog';
 import { DeleteMemberDialog } from '@/components/members/delete-member-dialog';
 import { MemberImportDialog } from '@/components/members/member-import-dialog';
 import { MemberQuickView } from '@/components/members/member-quick-view';
@@ -39,6 +41,17 @@ import {
     CommandItem,
     CommandList,
 } from '@/components/ui/command';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import {
     Dialog,
     DialogContent,
@@ -87,6 +100,7 @@ type Member = {
     player_category: string;
     player_level: string;
     current_status: string;
+    deleted_at?: string | null;
     home_district: { id: number | null; name: string } | null;
     current_unit: { id: number; name: string } | null;
     posting_district: { id: number; name: string } | null;
@@ -131,7 +145,7 @@ type PaginatedMembers = {
 
 type Filters = {
     q?: string;
-    status_scope?: 'active' | 'inactive';
+    status_scope?: 'active' | 'inactive' | 'archived';
     current_status?: string;
     player_category?: string;
     player_level?: string;
@@ -202,6 +216,7 @@ const BLOOD_GROUP_OPTIONS = [
 const STATUS_TABS = [
     { value: 'active', label: 'Active members' },
     { value: 'inactive', label: 'Inactive members' },
+    { value: 'archived', label: 'Archived members' },
 ] as const;
 
 const CATEGORY_BADGE_CLASS: Record<string, string> = {
@@ -541,7 +556,7 @@ export default function MembersIndex({
     sports: SportOption[];
     ranks: MasterOption[];
     totalCount: number;
-    statusCounts: { active: number; inactive: number };
+    statusCounts: { active: number; inactive: number; archived?: number };
     perPage: number;
 }) {
     const { t } = useTranslation();
@@ -554,6 +569,10 @@ export default function MembersIndex({
     };
     const canImport = auth.permissions.includes('imports.run');
     const canDeleteMember = auth.permissions.includes('members.delete');
+    const canRestoreMember =
+        auth.permissions.includes('members.restore') ||
+        auth.permissions.includes('members.delete') ||
+        auth.permissions.includes('members.update');
     const organizationId = auth.user?.organization_id ?? null;
 
     const levelLabel = useCallback(
@@ -595,6 +614,23 @@ export default function MembersIndex({
         (filters.current_status && filters.current_status !== 'ACTIVE'
             ? 'inactive'
             : 'active');
+
+    const getMemberShowUrl = useCallback(
+        (id: number, isArchived?: boolean) => {
+            const scope =
+                isArchived || activeStatusScope === 'archived'
+                    ? 'archived'
+                    : activeStatusScope !== 'active'
+                      ? activeStatusScope
+                      : undefined;
+
+            return MemberController.show.url(
+                id,
+                scope ? { query: { status_scope: scope } } : undefined,
+            );
+        },
+        [activeStatusScope],
+    );
 
     const applyFilters = useCallback(
         (patch: Partial<Filters>) => {
@@ -1376,8 +1412,9 @@ export default function MembersIndex({
                                         }
                                         onClick={() =>
                                             router.visit(
-                                                MemberController.show.url(
+                                                getMemberShowUrl(
                                                     member.id,
+                                                    Boolean(member.deleted_at),
                                                 ),
                                             )
                                         }
@@ -1498,19 +1535,21 @@ export default function MembersIndex({
                                             onClick={(e) => e.stopPropagation()}
                                         >
                                             <div className="flex items-center justify-end">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    title={t('Quick info')}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setQuickViewId(
-                                                            member.id,
-                                                        );
-                                                    }}
-                                                >
-                                                    <Info className="h-4 w-4" />
-                                                </Button>
+                                                {!member.deleted_at && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title={t('Quick info')}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setQuickViewId(
+                                                                member.id,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Info className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -1518,32 +1557,106 @@ export default function MembersIndex({
                                                     asChild
                                                 >
                                                     <Link
-                                                        href={MemberController.show.url(
+                                                        href={getMemberShowUrl(
                                                             member.id,
+                                                            Boolean(
+                                                                member.deleted_at,
+                                                            ),
                                                         )}
                                                     >
                                                         <Eye className="h-4 w-4" />
                                                     </Link>
                                                 </Button>
-                                                {canDeleteMember && (
-                                                    <DeleteMemberDialog
-                                                        member={member}
-                                                        trigger={
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                title={t(
-                                                                    'Delete',
-                                                                )}
-                                                                className="text-muted-foreground hover:text-destructive"
-                                                                onClick={(e) =>
-                                                                    e.stopPropagation()
+
+                                                {member.deleted_at ? (
+                                                    <>
+                                                        {canRestoreMember && (
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        title={t('Restore member')}
+                                                                        className="text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400"
+                                                                        onClick={(e) =>
+                                                                            e.stopPropagation()
+                                                                        }
+                                                                    >
+                                                                        <RotateCcw className="h-4 w-4" />
+                                                                    </Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>
+                                                                            {t('Restore :name?').replace(':name', member.full_name)}
+                                                                        </AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            {t(
+                                                                                'This will restore the archived member back to active status. Their historical records (participations, medals, promotions) will be re-linked. This action can be reversed by archiving the member again.',
+                                                                            )}
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>
+                                                                            {t('Cancel')}
+                                                                        </AlertDialogCancel>
+                                                                        <AlertDialogAction
+                                                                            className="bg-amber-700 text-white hover:bg-amber-800 dark:bg-amber-600 dark:hover:bg-amber-500"
+                                                                            onClick={() => {
+                                                                                router.post(
+                                                                                    MemberController.restore.url(member.id),
+                                                                                    {},
+                                                                                    { preserveScroll: true },
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                                                                            {t('Yes, Restore Member')}
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        )}
+                                                        {canDeleteMember && (
+                                                            <ArchivedMemberActionDialog
+                                                                member={member}
+                                                                trigger={
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        title={t('Delete / Restore')}
+                                                                        className="text-muted-foreground hover:text-destructive"
+                                                                        onClick={(e) =>
+                                                                            e.stopPropagation()
+                                                                        }
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
                                                                 }
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        }
-                                                    />
+                                                            />
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    canDeleteMember && (
+                                                        <DeleteMemberDialog
+                                                            member={member}
+                                                            trigger={
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    title={t(
+                                                                        'Delete',
+                                                                    )}
+                                                                    className="text-muted-foreground hover:text-destructive"
+                                                                    onClick={(e) =>
+                                                                        e.stopPropagation()
+                                                                    }
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            }
+                                                        />
+                                                    )
                                                 )}
                                             </div>
                                         </TableCell>

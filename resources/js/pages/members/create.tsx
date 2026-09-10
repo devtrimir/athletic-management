@@ -1,27 +1,24 @@
-import { Head, Link, setLayoutProps, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
 import {
     index as membersIndex,
+    show as showMember,
     store as storeMember,
 } from '@/actions/App/Http/Controllers/MemberController';
-import { Combobox } from '@/components/combobox';
+import { Combobox  } from '@/components/combobox';
+import type {ComboboxItem} from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { PnoConflictNotice } from '@/components/members/pno-conflict-notice';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 import { playerCategoryLabel } from '@/lib/player-category';
+
 
 type District = { id: number; name: string };
 type Unit = { id: number; name: string };
@@ -184,6 +181,69 @@ export default function MembersCreate({
         return item.short_name ? `${item.short_name} - ${name}` : name;
     }
 
+    const genderItems: ComboboxItem[] = useMemo(
+        () => [
+            { value: 'M', label: t('Male') },
+            { value: 'F', label: t('Female') },
+            { value: 'O', label: t('Other gender') },
+        ],
+        [t],
+    );
+
+    const bloodGroupItems: ComboboxItem[] = useMemo(
+        () =>
+            [
+                'A+',
+                'A-',
+                'B+',
+                'B-',
+                'O+',
+                'O-',
+                'AB+',
+                'AB-',
+            ].map((bg) => ({
+                value: bg,
+                label: bg,
+            })),
+        [],
+    );
+
+    const rankItems: ComboboxItem[] = useMemo(
+        () => [
+            ...ranks.map((rank) => ({
+                value: rank.code,
+                label: masterLabel(rank),
+                description: rank.short_name ? rank.name : undefined,
+            })),
+            {
+                value: '__other__',
+                label: t('Other'),
+            },
+        ],
+        [ranks, locale, t],
+    );
+
+    const playerCategoryItems: ComboboxItem[] = useMemo(
+        () => [
+            { value: 'GD', label: playerCategoryLabel('GD', t) },
+            {
+                value: 'SPORTS_QUOTA',
+                label: playerCategoryLabel('SPORTS_QUOTA', t),
+            },
+        ],
+        [t],
+    );
+
+    const playerLevelItems: ComboboxItem[] = useMemo(
+        () => [
+            { value: 'ZONAL', label: t('ZONAL') },
+            { value: 'NATIONAL', label: t('NATIONAL') },
+            { value: 'INTERNATIONAL', label: t('INTERNATIONAL') },
+            { value: 'AIPSC', label: t('AIPSC') },
+        ],
+        [t],
+    );
+
     return (
         <>
             <Head title={t('New member')} />
@@ -305,34 +365,20 @@ export default function MembersCreate({
                                                     *
                                                 </span>
                                             </Label>
-                                            <Select
+                                            <Combobox
+                                                id="gender"
                                                 value={data.gender}
                                                 onValueChange={(v) =>
                                                     setData('gender', v)
                                                 }
-                                            >
-                                                <SelectTrigger
-                                                    id="gender"
-                                                    className="w-full"
-                                                >
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select gender',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="M">
-                                                        {t('Male')}
-                                                    </SelectItem>
-                                                    <SelectItem value="F">
-                                                        {t('Female')}
-                                                    </SelectItem>
-                                                    <SelectItem value="O">
-                                                        {t('Other gender')}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                                items={genderItems}
+                                                placeholder={t(
+                                                    'Select gender',
+                                                )}
+                                                searchPlaceholder={t(
+                                                    'Search gender…',
+                                                )}
+                                            />
                                             <InputError
                                                 message={errors.gender}
                                             />
@@ -341,44 +387,20 @@ export default function MembersCreate({
                                             <Label htmlFor="blood_group">
                                                 {t('Blood group')}
                                             </Label>
-                                            <Select
+                                            <Combobox
+                                                id="blood_group"
                                                 value={data.blood_group}
                                                 onValueChange={(v) =>
                                                     setData('blood_group', v)
                                                 }
-                                            >
-                                                <SelectTrigger
-                                                    id="blood_group"
-                                                    className="w-full"
-                                                >
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select blood group',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {(
-                                                        [
-                                                            'A+',
-                                                            'A-',
-                                                            'B+',
-                                                            'B-',
-                                                            'O+',
-                                                            'O-',
-                                                            'AB+',
-                                                            'AB-',
-                                                        ] as const
-                                                    ).map((bg) => (
-                                                        <SelectItem
-                                                            key={bg}
-                                                            value={bg}
-                                                        >
-                                                            {bg}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                                items={bloodGroupItems}
+                                                placeholder={t(
+                                                    'Select blood group',
+                                                )}
+                                                searchPlaceholder={t(
+                                                    'Search blood groups…',
+                                                )}
+                                            />
                                             <InputError
                                                 message={errors.blood_group}
                                             />
@@ -473,22 +495,30 @@ export default function MembersCreate({
                                             <Input
                                                 id="pno"
                                                 value={data.pno}
-                                                onChange={(e) =>
+                                                onChange={(e) => {
                                                     setData(
                                                         'pno',
                                                         e.target.value,
-                                                    )
-                                                }
+                                                    );
+                                                }}
                                                 maxLength={20}
                                                 className="font-mono"
                                             />
                                             <InputError message={errors.pno} />
                                         </div>
+
+                                        <PnoConflictNotice
+                                            pno={data.pno}
+                                            onRestoreSuccess={(id) => {
+                                                router.visit(showMember.url(id));
+                                            }}
+                                        />
                                         <div className="grid gap-2">
                                             <Label htmlFor="rank">
                                                 {t('Rank')}
                                             </Label>
-                                            <Select
+                                            <Combobox
+                                                id="rank"
                                                 value={rankSelection}
                                                 onValueChange={(value) => {
                                                     setRankSelection(value);
@@ -499,31 +529,12 @@ export default function MembersCreate({
                                                             : value,
                                                     );
                                                 }}
-                                            >
-                                                <SelectTrigger
-                                                    id="rank"
-                                                    className="h-9 w-full"
-                                                >
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select rank',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {ranks.map((rank) => (
-                                                        <SelectItem
-                                                            key={rank.code}
-                                                            value={rank.code}
-                                                        >
-                                                            {masterLabel(rank)}
-                                                        </SelectItem>
-                                                    ))}
-                                                    <SelectItem value="__other__">
-                                                        {t('Other')}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                                items={rankItems}
+                                                placeholder={t('Select rank')}
+                                                searchPlaceholder={t(
+                                                    'Search ranks…',
+                                                )}
+                                            />
                                             {rankSelection === '__other__' && (
                                                 <Input
                                                     className="mt-2 h-9"
@@ -585,7 +596,8 @@ export default function MembersCreate({
                                                     {t('(rank at hiring)')}
                                                 </span>
                                             </Label>
-                                            <Select
+                                            <Combobox
+                                                id="initial_rank"
                                                 value={initialRankSelection}
                                                 onValueChange={(value) => {
                                                     setInitialRankSelection(
@@ -598,31 +610,12 @@ export default function MembersCreate({
                                                             : value,
                                                     );
                                                 }}
-                                            >
-                                                <SelectTrigger
-                                                    id="initial_rank"
-                                                    className="h-9 w-full"
-                                                >
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select rank',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {ranks.map((rank) => (
-                                                        <SelectItem
-                                                            key={rank.code}
-                                                            value={rank.code}
-                                                        >
-                                                            {masterLabel(rank)}
-                                                        </SelectItem>
-                                                    ))}
-                                                    <SelectItem value="__other__">
-                                                        {t('Other')}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                                items={rankItems}
+                                                placeholder={t('Select rank')}
+                                                searchPlaceholder={t(
+                                                    'Search ranks…',
+                                                )}
+                                            />
                                             {initialRankSelection ===
                                                 '__other__' && (
                                                 <Input
@@ -843,7 +836,8 @@ export default function MembersCreate({
                                                     *
                                                 </span>
                                             </Label>
-                                            <Select
+                                            <Combobox
+                                                id="player_category"
                                                 value={data.player_category}
                                                 onValueChange={(v) =>
                                                     setData(
@@ -851,32 +845,14 @@ export default function MembersCreate({
                                                         v,
                                                     )
                                                 }
-                                            >
-                                                <SelectTrigger
-                                                    id="player_category"
-                                                    className="w-full"
-                                                >
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select category',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="GD">
-                                                        {playerCategoryLabel(
-                                                            'GD',
-                                                            t,
-                                                        )}
-                                                    </SelectItem>
-                                                    <SelectItem value="SPORTS_QUOTA">
-                                                        {playerCategoryLabel(
-                                                            'SPORTS_QUOTA',
-                                                            t,
-                                                        )}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                                items={playerCategoryItems}
+                                                placeholder={t(
+                                                    'Select category',
+                                                )}
+                                                searchPlaceholder={t(
+                                                    'Search categories…',
+                                                )}
+                                            />
                                             <InputError
                                                 message={errors.player_category}
                                             />
@@ -888,37 +864,20 @@ export default function MembersCreate({
                                                     *
                                                 </span>
                                             </Label>
-                                            <Select
+                                            <Combobox
+                                                id="player_level"
                                                 value={data.player_level}
                                                 onValueChange={(v) =>
                                                     setData('player_level', v)
                                                 }
-                                            >
-                                                <SelectTrigger
-                                                    id="player_level"
-                                                    className="w-full"
-                                                >
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Select level',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="ZONAL">
-                                                        {t('ZONAL')}
-                                                    </SelectItem>
-                                                    <SelectItem value="NATIONAL">
-                                                        {t('NATIONAL')}
-                                                    </SelectItem>
-                                                    <SelectItem value="INTERNATIONAL">
-                                                        {t('INTERNATIONAL')}
-                                                    </SelectItem>
-                                                    <SelectItem value="AIPSC">
-                                                        {t('AIPSC')}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                                items={playerLevelItems}
+                                                placeholder={t(
+                                                    'Select level',
+                                                )}
+                                                searchPlaceholder={t(
+                                                    'Search levels…',
+                                                )}
+                                            />
                                             <InputError
                                                 message={errors.player_level}
                                             />

@@ -46,11 +46,17 @@ class MemberController extends Controller
 
         $filters = $request->query('filter', []);
         $filters = is_array($filters) ? $filters : [];
+        if (! array_key_exists('status_scope', $filters) && $request->filled('status_scope')) {
+            $filters['status_scope'] = (string) $request->query('status_scope');
+        }
         $hasStatusScope = array_key_exists('status_scope', $filters);
         $hasCurrentStatus = array_key_exists('current_status', $filters);
 
-        $query = Member::query()
-            ->when(
+        $statusScope = $this->statusScopeFromFilters($filters);
+
+        $query = $statusScope === 'archived'
+            ? Member::onlyTrashed()
+            : Member::query()->when(
                 ! $hasStatusScope && ! $hasCurrentStatus,
                 fn ($query) => $query->rosterActive()
             );
@@ -124,7 +130,6 @@ class MemberController extends Controller
             ]);
         });
 
-        $statusScope = $this->statusScopeFromFilters($filters);
         $levels = TournamentTier::query()
             ->orderByDesc('weight')
             ->get(['code', 'label_en', 'label_hi'])
@@ -155,6 +160,7 @@ class MemberController extends Controller
             'statusCounts' => [
                 'active' => Member::query()->rosterActive()->count(),
                 'inactive' => Member::query()->rosterInactive()->count(),
+                'archived' => Member::onlyTrashed()->count(),
             ],
         ]);
     }
@@ -181,6 +187,7 @@ class MemberController extends Controller
     private function filterByStatusScope(mixed $query, string $value): mixed
     {
         return match ($value) {
+            'archived' => $query,
             'inactive' => $query->rosterInactive(),
             default => $query->rosterActive(),
         };
@@ -198,6 +205,10 @@ class MemberController extends Controller
      */
     private function statusScopeFromFilters(array $filters): string
     {
+        if (($filters['status_scope'] ?? null) === 'archived') {
+            return 'archived';
+        }
+
         if (($filters['status_scope'] ?? null) === 'inactive') {
             return 'inactive';
         }
@@ -333,7 +344,63 @@ class MemberController extends Controller
             ]),
         ]);
 
-        return to_route('members.index');
+        return redirect()->back(302, [], route('members.index'));
+    }
+
+    public function checkPno(Request $request, MemberDeletionService $deletionService): JsonResponse
+    {
+        if (! $request->user()->can('members.view') && ! $request->user()->can('members.create')) {
+            abort(403);
+        }
+
+        $result = $deletionService->checkPno(
+            (string) $request->query('pno', ''),
+            (int) $request->user()->organization_id,
+        );
+
+        return response()->json($result);
+    }
+
+    public function restore(Request $request, Member $member, MemberDeletionService $deletionService): RedirectResponse
+    {
+        Gate::authorize('restore', $member);
+
+        if (! $member->trashed()) {
+            Inertia::flash('toast', [
+                'type' => 'info',
+                'message' => __('Member is already active.'),
+            ]);
+
+            return redirect()->back(302, [], route('members.show', $member));
+        }
+
+        $deletionService->restore($member, $request->user());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Member :name has been successfully restored.', [
+                'name' => $member->full_name,
+            ]),
+        ]);
+
+        return redirect()->back(302, [], route('members.index', ['filter[status_scope]' => 'archived']));
+    }
+
+    public function forceDestroy(Request $request, Member $member, MemberDeletionService $deletionService): RedirectResponse
+    {
+        Gate::authorize('delete', $member);
+
+        $name = $member->full_name;
+        $deletionService->forceDelete($member, $request->user());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Member :name has been permanently removed.', [
+                'name' => $name,
+            ]),
+        ]);
+
+        return redirect()->back(302, [], route('members.index', ['filter[status_scope]' => 'archived']));
     }
 
     /**

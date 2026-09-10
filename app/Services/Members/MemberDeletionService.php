@@ -13,6 +13,7 @@ use App\Models\TeamMemberMovement;
 use App\Models\User;
 use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class MemberDeletionService
 {
@@ -196,5 +197,146 @@ class MemberDeletionService
             // 5. Soft-delete the member record (AuditObserver will record 'deleted' event)
             $member->delete();
         });
+    }
+
+    /**
+     * Inspect PNO availability within an organization, checking active conflicts and archived members.
+     *
+     * @return array<string, mixed>
+     */
+    public function checkPno(string $pno, int $organizationId): array
+    {
+        $pno = trim($pno);
+        if ($pno === '') {
+            return ['status' => 'empty'];
+        }
+
+        // 1. Check active member in this organization
+        $activeMember = Member::query()
+            ->where('organization_id', $organizationId)
+            ->where('pno', $pno)
+            ->first(['id', 'full_name', 'member_code', 'rank']);
+
+        if ($activeMember !== null) {
+            return [
+                'status' => 'active_conflict',
+                'entity' => 'member',
+                'name' => $activeMember->full_name,
+                'rank' => $activeMember->rank,
+                'code' => $activeMember->member_code,
+                'id' => $activeMember->id,
+            ];
+        }
+
+        // 2. Check active coach in this organization
+        $activeCoach = Coach::query()
+            ->where('organization_id', $organizationId)
+            ->where('pno', $pno)
+            ->first(['id', 'full_name']);
+
+        if ($activeCoach !== null) {
+            return [
+                'status' => 'active_conflict',
+                'entity' => 'coach',
+                'name' => $activeCoach->full_name,
+                'id' => $activeCoach->id,
+            ];
+        }
+
+        // 3. Check active incharge in this organization
+        $activeIncharge = DB::table('incharges')
+            ->where('organization_id', $organizationId)
+            ->where('pno', $pno)
+            ->whereNull('deleted_at')
+            ->first(['id', 'full_name']);
+
+        if ($activeIncharge !== null) {
+            return [
+                'status' => 'active_conflict',
+                'entity' => 'incharge',
+                'name' => $activeIncharge->full_name,
+                'id' => $activeIncharge->id,
+            ];
+        }
+
+        // 4. Check soft-deleted member in this organization
+        $deletedMember = Member::onlyTrashed()
+            ->where('organization_id', $organizationId)
+            ->where('pno', $pno)
+            ->first();
+
+        if ($deletedMember !== null) {
+            $impact = $this->getImpact($deletedMember);
+
+            return [
+                'status' => 'deleted_member',
+                'member' => [
+                    'id' => $deletedMember->id,
+                    'full_name' => $deletedMember->full_name,
+                    'pno' => $deletedMember->pno,
+                    'rank' => $deletedMember->rank,
+                    'member_code' => $deletedMember->member_code,
+                    'deleted_at' => $deletedMember->deleted_at?->format('Y-m-d'),
+                    'can_purge' => ! $impact['has_connections'],
+                    'summary' => $impact['summary'],
+                ],
+            ];
+        }
+
+        return ['status' => 'available'];
+    }
+
+    /**
+     * Restore a soft-deleted member and reactivate their status.
+     *
+     * @throws ValidationException
+     */
+    public function restore(Member $member, ?User $actor = null): void
+    {
+        if (! empty($member->pno)) {
+            $activeCollision = Member::query()
+                ->where('organization_id', $member->organization_id)
+                ->where('pno', $member->pno)
+                ->where('id', '!=', $member->id)
+                ->exists();
+
+            if ($activeCollision) {
+                throw ValidationException::withMessages([
+                    'pno' => __('Cannot restore member: PNO :pno is currently in use by an active member.', [
+                        'pno' => $member->pno,
+                    ]),
+                ]);
+            }
+        }
+
+        DB::transaction(function () use ($member, $actor): void {
+            $member->restore();
+            $member->update(['current_status' => 'ACTIVE']);
+
+            $member->statusHistory()->create([
+                'status' => 'ACTIVE',
+                'effective_on' => now()->toDateString(),
+                'reason' => 'Member restored from archive.',
+                'recorded_by' => $actor?->id,
+            ]);
+        });
+    }
+
+    /**
+     * Permanently purge a member only if they have zero historical connections.
+     *
+     * @throws ValidationException
+     */
+    public function forceDelete(Member $member, ?User $actor = null): void
+    {
+        $impact = $this->getImpact($member);
+
+        if ($impact['has_connections']) {
+            throw ValidationException::withMessages([
+                'error' => __('Cannot permanently purge: member has historical connections (medals, participations, or team records).'),
+            ]);
+        }
+
+        $member->forceDelete();
     }
 }

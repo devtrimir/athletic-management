@@ -14,6 +14,7 @@ import {
     Medal,
     Minus,
     Printer,
+    RotateCcw,
     Trash2,
     Trophy,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ import {
     edit as editMember,
     index as membersIndex,
     preview as previewMember,
+    restore as restoreMember,
     show as showMember,
 } from '@/actions/App/Http/Controllers/MemberController';
 import { show as exportMember } from '@/actions/App/Http/Controllers/MemberExportController';
@@ -49,6 +51,7 @@ import AlertError from '@/components/alert-error';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
+import { ArchivedMemberActionDialog } from '@/components/members/archived-member-action-dialog';
 import { DeleteMemberDialog } from '@/components/members/delete-member-dialog';
 import { MemberMediaTab } from '@/components/members/member-media-tab';
 import { MemberPerformanceTab } from '@/components/members/member-performance-tab';
@@ -136,6 +139,7 @@ type Member = {
     }[];
     other_notes: string | null;
     team_since: string | null;
+    deleted_at?: string | null;
 };
 
 type StatusEntry = {
@@ -568,6 +572,10 @@ export default function MembersShow({
         'members.manageBenefits',
     );
     const canDeleteMember = permissions.includes('members.delete');
+    const canRestoreMember =
+        permissions.includes('members.restore') ||
+        permissions.includes('members.delete') ||
+        permissions.includes('members.update');
     const { t } = useTranslation();
     const { locale: pageLocale } = page.props;
     const canDeleteMedia = permissions.includes('media.delete');
@@ -580,17 +588,77 @@ export default function MembersShow({
     const [dateToFilter, setDateToFilter] = useState('');
     const displayName = member.full_name;
     const sportName = (sport: { name: string }): string => sport.name;
+    const isArchived = Boolean(member.deleted_at);
+    const fromScope = useMemo(() => {
+        const query = page.url.split('?')[1]?.split('#')[0] ?? '';
+        const params = new URLSearchParams(query);
+
+        return (
+            params.get('status_scope') ||
+            params.get('filter[status_scope]') ||
+            params.get('from') ||
+            (isArchived ? 'archived' : null)
+        );
+    }, [page.url, isArchived]);
+
+    const backUrl = useMemo(() => {
+        if (fromScope === 'archived' || isArchived) {
+            return membersIndex.url({
+                query: { 'filter[status_scope]': 'archived' },
+            });
+        }
+
+        if (fromScope === 'inactive') {
+            return membersIndex.url({
+                query: { 'filter[status_scope]': 'inactive' },
+            });
+        }
+
+        return membersIndex.url();
+    }, [fromScope, isArchived]);
+
+    const tabScopeQuery = fromScope ? { status_scope: fromScope } : undefined;
     const tabLinks: Record<MemberShowTab, string> = {
-        overview: showMember.url(member),
-        teams: memberTeamsRoute.url(member),
-        events: memberEvents.url(member),
-        performance: memberPerformance.url(member),
-        'external-coaching': memberExternalCoaching.url(member),
-        'special-achievements': memberSpecialAchievements.url(member),
-        promotions: memberPromotions.url(member),
-        changelog: memberChangelog.url(member),
-        media: memberMedia.url(member),
-        status: memberStatus.url(member),
+        overview: showMember.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
+        teams: memberTeamsRoute.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
+        events: memberEvents.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
+        performance: memberPerformance.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
+        'external-coaching': memberExternalCoaching.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
+        'special-achievements': memberSpecialAchievements.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
+        promotions: memberPromotions.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
+        changelog: memberChangelog.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
+        media: memberMedia.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
+        status: memberStatus.url(
+            member,
+            tabScopeQuery ? { query: tabScopeQuery } : undefined,
+        ),
     };
     const highlightedAchievement = useMemo(() => {
         const queryString = page.url.split('?')[1]?.split('#')[0] ?? '';
@@ -615,7 +683,13 @@ export default function MembersShow({
 
     setLayoutProps({
         breadcrumbs: [
-            { title: t('Members'), href: membersIndex.url() },
+            {
+                title:
+                    isArchived || fromScope === 'archived'
+                        ? t('Archived members')
+                        : t('Members'),
+                href: backUrl,
+            },
             { title: displayName ?? member.full_name },
         ],
     });
@@ -1897,7 +1971,7 @@ export default function MembersShow({
                                     </span>
                                 )}
                                 <Button variant="outline" size="sm" asChild>
-                                    <Link href={membersIndex()}>
+                                    <Link href={backUrl}>
                                         <ArrowLeft className="mr-1.5 h-4 w-4" />
                                         {t('Back')}
                                     </Link>
@@ -1921,25 +1995,72 @@ export default function MembersShow({
                                         {t('Print preview')}
                                     </Link>
                                 </Button>
-                                {canDeleteMember && (
-                                    <DeleteMemberDialog
-                                        member={member}
-                                        trigger={
+                                {member.deleted_at ? (
+                                    <>
+                                        {canRestoreMember && (
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                className="border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+                                                onClick={() =>
+                                                    router.post(
+                                                        restoreMember.url(
+                                                            member.id,
+                                                        ),
+                                                    )
+                                                }
                                             >
-                                                <Trash2 className="mr-1.5 h-4 w-4" />
-                                                {t('Delete')}
+                                                <RotateCcw className="mr-1.5 h-4 w-4" />
+                                                {t('Restore member')}
                                             </Button>
-                                        }
-                                    />
+                                        )}
+                                        {canDeleteMember && (
+                                            <ArchivedMemberActionDialog
+                                                member={member}
+                                                trigger={
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                    >
+                                                        <Trash2 className="mr-1.5 h-4 w-4" />
+                                                        {t('Delete / Restore')}
+                                                    </Button>
+                                                }
+                                            />
+                                        )}
+                                    </>
+                                ) : (
+                                    canDeleteMember && (
+                                        <DeleteMemberDialog
+                                            member={member}
+                                            trigger={
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                >
+                                                    <Trash2 className="mr-1.5 h-4 w-4" />
+                                                    {t('Delete')}
+                                                </Button>
+                                            }
+                                        />
+                                    )
                                 )}
                             </div>
                         </div>
                     </div>
                 </div>
+
+                {member.deleted_at && (
+                    <div className="flex items-center gap-2.5 rounded-lg border border-amber-300 bg-amber-50/90 p-3.5 text-sm text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+                        <RotateCcw className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+                        <div>
+                            <span className="font-semibold">{t('Archived Member Record')}:</span>{' '}
+                            <span>{t('This member is archived (deleted) and has been decoupled from active rosters.')}</span>
+                        </div>
+                    </div>
+                )}
 
                 <Tabs value={activeTab}>
                     <TabsList>
