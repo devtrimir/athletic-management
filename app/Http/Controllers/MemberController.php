@@ -283,6 +283,23 @@ class MemberController extends Controller
 
         $member->load(['playableSports']);
 
+        $activeTeamSports = TeamMember::query()
+            ->where('member_id', $member->id)
+            ->whereNull('left_on')
+            ->whereHas('team', fn ($query) => $query->where('is_active', true)->whereNull('deleted_at'))
+            ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
+            ->get()
+            ->map(fn ($tm): array => [
+                'team_id' => (int) $tm->team_id,
+                'team_name' => $tm->team?->name ?? '',
+                'sport_id' => (int) $tm->team?->sport_id,
+                'sport_name' => $tm->team?->sport?->name ?? '',
+                'session_name' => $tm->session?->name ?? '',
+                'role' => $tm->role,
+            ])
+            ->values()
+            ->all();
+
         return Inertia::render('members/edit', [
             'member' => array_merge($member->toArray(), [
                 'dob' => $member->dob?->toDateString(),
@@ -294,6 +311,7 @@ class MemberController extends Controller
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name', 'name_en']),
             'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
+            'active_team_sports' => $activeTeamSports,
         ]);
     }
 
