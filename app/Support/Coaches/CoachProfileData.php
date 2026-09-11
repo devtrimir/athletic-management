@@ -58,12 +58,30 @@ class CoachProfileData
     public function sports(Coach $coach): array
     {
         $coach->loadMissing([
-            'sports' => fn ($query) => $query->withPivot(['is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes']),
+            'sports' => fn ($query) => $query->withPivot(['id', 'is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes']),
         ]);
+
+        $activeCoachAssignments = CoachAssignment::query()
+            ->where('coach_id', $coach->id)
+            ->where('is_current', true)
+            ->whereNull('removed_at')
+            ->whereHas('team', fn ($query) => $query->where('is_active', true)->whereNull('deleted_at'))
+            ->with(['team:id,name,sport_id', 'team.sport:id,name', 'session:id,name'])
+            ->get();
+
+        $activeTeamSports = $activeCoachAssignments->map(fn (CoachAssignment $ca): array => [
+            'team_id' => (int) $ca->team_id,
+            'team_name' => $ca->team?->name ?? '',
+            'sport_id' => (int) $ca->team?->sport_id,
+            'sport_name' => $ca->team?->sport?->name ?? '',
+            'session_name' => $ca->session?->name ?? '',
+            'role' => $ca->role,
+        ])->values()->all();
 
         return [
             ...$this->shell($coach),
             'activeTab' => 'sports',
+            'active_team_sports' => $activeTeamSports,
             'sports' => Sport::query()
                 ->select(['id', 'name', 'category'])
                 ->where('organization_id', $coach->organization_id)

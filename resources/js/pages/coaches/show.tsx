@@ -19,6 +19,7 @@ import {
     Search,
     Trash2,
     Upload,
+    Users,
 } from 'lucide-react';
 import { Fragment, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react';
@@ -66,6 +67,11 @@ import type { SpecialAchievementsData } from '@/components/coaches/special-achie
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
+import {
+    RemoveMemberSportDialog
+    
+} from '@/components/members/remove-member-sport-dialog';
+import type {ConnectedTeamInfo} from '@/components/members/remove-member-sport-dialog';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
@@ -458,6 +464,7 @@ export default function CoachesShow({
     statusHistory,
     auditLog,
     sports = [],
+    active_team_sports = [],
     tiers = [],
     ranks = [],
     coachAchievements,
@@ -471,6 +478,7 @@ export default function CoachesShow({
     statusHistory?: CoachStatusHistory[];
     auditLog?: AuditEntry[];
     sports?: SportOption[];
+    active_team_sports?: ConnectedTeamInfo[];
     tiers?: TierOption[];
     ranks?: RankOption[];
     coachAchievements?: CoachAchievementsData;
@@ -489,6 +497,17 @@ export default function CoachesShow({
         useState<CoachCertification | null>(null);
     const [sportDialogOpen, setSportDialogOpen] = useState(false);
     const [editingSport, setEditingSport] = useState<CoachSport | null>(null);
+    const [removingSport, setRemovingSport] = useState<CoachSport | null>(null);
+
+    const removingConnectedTeams = useMemo(() => {
+        if (!removingSport) {
+            return [];
+        }
+
+        return active_team_sports.filter(
+            (team) => String(team.sport_id) === String(removingSport.id),
+        );
+    }, [removingSport, active_team_sports]);
     const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
     const [editingPromotion, setEditingPromotion] =
         useState<CoachPromotion | null>(null);
@@ -1842,70 +1861,108 @@ export default function CoachesShow({
                                         </TableHeader>
                                         <TableBody>
                                             {(coach.sports ?? []).map(
-                                                (sport) => (
-                                                    <TableRow key={sport.id}>
-                                                        <TableCell className="font-medium">
-                                                            {sport.name}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {sport.is_primary
-                                                                ? t('Yes')
-                                                                : t('No')}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {sport.level ?? ''}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {sport.sport_event ??
-                                                                ''}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {sport.effective_from ??
-                                                                ''}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {sport.effective_to ??
-                                                                ''}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {sport.notes ?? ''}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <div className="flex justify-end gap-1">
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() =>
-                                                                        openEditSportDialog(
-                                                                            sport,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Pencil className="mr-1.5 h-4 w-4" />
-                                                                    {t('Edit')}
-                                                                </Button>
-                                                                {sport.coach_sport_id !==
-                                                                null ? (
+                                                (sport) => {
+                                                    const isSportActiveInTeam =
+                                                        active_team_sports.some(
+                                                            (team) =>
+                                                                String(
+                                                                    team.sport_id,
+                                                                ) ===
+                                                                String(
+                                                                    sport.id,
+                                                                ),
+                                                        );
+
+                                                    return (
+                                                        <TableRow
+                                                            key={sport.id}
+                                                        >
+                                                            <TableCell className="font-medium">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>
+                                                                        {
+                                                                            sport.name
+                                                                        }
+                                                                    </span>
+                                                                    {isSportActiveInTeam && (
+                                                                        <Badge
+                                                                            variant="outline"
+                                                                            className="border-amber-300 bg-amber-50 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                                                        >
+                                                                            <Users className="mr-1 h-3 w-3" />
+                                                                            {t(
+                                                                                'Active in team',
+                                                                            )}
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {sport.is_primary
+                                                                    ? t('Yes')
+                                                                    : t('No')}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {sport.level ??
+                                                                    ''}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {sport.sport_event ??
+                                                                    ''}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {sport.effective_from ??
+                                                                    ''}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {sport.effective_to ??
+                                                                    ''}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {sport.notes ??
+                                                                    ''}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                <div className="flex justify-end gap-1">
                                                                     <Button
                                                                         type="button"
                                                                         variant="ghost"
                                                                         size="sm"
                                                                         onClick={() =>
-                                                                            removeSport(
-                                                                                sport.coach_sport_id,
+                                                                            openEditSportDialog(
+                                                                                sport,
                                                                             )
                                                                         }
                                                                     >
+                                                                        <Pencil className="mr-1.5 h-4 w-4" />
                                                                         {t(
-                                                                            'Remove',
+                                                                            'Edit',
                                                                         )}
                                                                     </Button>
-                                                                ) : null}
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ),
+                                                                    {sport.coach_sport_id !==
+                                                                    null ? (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                            onClick={() =>
+                                                                                setRemovingSport(
+                                                                                    sport,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            <Trash2 className="mr-1.5 h-4 w-4" />
+                                                                            {t(
+                                                                                'Remove',
+                                                                            )}
+                                                                        </Button>
+                                                                    ) : null}
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                },
                                             )}
                                         </TableBody>
                                     </Table>
@@ -3750,6 +3807,28 @@ export default function CoachesShow({
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <RemoveMemberSportDialog
+                open={removingSport !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setRemovingSport(null);
+                    }
+                }}
+                sportName={removingSport?.name ?? ''}
+                connectedTeams={removingConnectedTeams}
+                entityType="coach"
+                onConfirm={() => {
+                    if (
+                        removingSport?.coach_sport_id !== null &&
+                        removingSport?.coach_sport_id !== undefined
+                    ) {
+                        removeSport(removingSport.coach_sport_id);
+                    }
+
+                    setRemovingSport(null);
+                }}
+            />
 
             <ExportDialog
                 open={exportOpen}

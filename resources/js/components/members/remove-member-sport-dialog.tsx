@@ -27,6 +27,7 @@ export interface RemoveMemberSportDialogProps {
     sportName: string;
     connectedTeams?: ConnectedTeamInfo[];
     onConfirm: () => void;
+    entityType?: 'member' | 'coach';
 }
 
 export function RemoveMemberSportDialog({
@@ -35,6 +36,7 @@ export function RemoveMemberSportDialog({
     sportName,
     connectedTeams = [],
     onConfirm,
+    entityType = 'member',
 }: RemoveMemberSportDialogProps) {
     const { t } = useTranslation();
     const isBlocked = connectedTeams.length > 0;
@@ -54,7 +56,13 @@ export function RemoveMemberSportDialog({
                                         {t('Cannot Remove Sport')}
                                     </DialogTitle>
                                     <DialogDescription className="text-xs text-muted-foreground">
-                                        {t('Member is currently active in team rosters')}
+                                        {entityType === 'coach'
+                                            ? t(
+                                                  'Coach is currently active in team assignments',
+                                              )
+                                            : t(
+                                                  'Member is currently active in team rosters',
+                                              )}
                                     </DialogDescription>
                                 </div>
                             </div>
@@ -62,9 +70,19 @@ export function RemoveMemberSportDialog({
 
                         <div className="space-y-3 py-2 text-left">
                             <p className="text-sm text-muted-foreground leading-relaxed">
-                                {t(
-                                    'This member is currently assigned to one or more active teams playing :sport. Members must have this sport to remain eligible for these teams.',
-                                ).replace(':sport', sportName || t('this sport'))}
+                                {entityType === 'coach'
+                                    ? t(
+                                          'This coach is currently assigned to one or more active teams playing :sport. Coaches must have this sport specialization to remain eligible for these teams.',
+                                      ).replace(
+                                          ':sport',
+                                          sportName || t('this sport'),
+                                      )
+                                    : t(
+                                          'This member is currently assigned to one or more active teams playing :sport. Members must have this sport to remain eligible for these teams.',
+                                      ).replace(
+                                          ':sport',
+                                          sportName || t('this sport'),
+                                      )}
                             </p>
 
                             <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
@@ -109,9 +127,13 @@ export function RemoveMemberSportDialog({
                             <div className="flex items-start gap-2 rounded-md bg-amber-50 p-2.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                                 <span>
-                                    {t(
-                                        'To remove this sport, first remove or transfer the member from the above team roster(s).',
-                                    )}
+                                    {entityType === 'coach'
+                                        ? t(
+                                              'To remove this sport, first remove or transfer the coach from the above team assignment(s).',
+                                          )
+                                        : t(
+                                              'To remove this sport, first remove or transfer the member from the above team roster(s).',
+                                          )}
                                 </span>
                             </div>
                         </div>
@@ -139,7 +161,13 @@ export function RemoveMemberSportDialog({
                                         {t('Remove Sport')}
                                     </DialogTitle>
                                     <DialogDescription className="text-xs text-muted-foreground">
-                                        {t('Confirm removing this sport from the member profile')}
+                                        {entityType === 'coach'
+                                            ? t(
+                                                  'Confirm removing this sport specialization from the coach profile',
+                                              )
+                                            : t(
+                                                  'Confirm removing this sport from the member profile',
+                                              )}
                                     </DialogDescription>
                                 </div>
                             </div>
@@ -147,15 +175,29 @@ export function RemoveMemberSportDialog({
 
                         <div className="space-y-3 py-2 text-left">
                             <p className="text-sm text-muted-foreground leading-relaxed">
-                                {t(
-                                    'Are you sure you want to remove :sport from this member’s playable sports?',
-                                ).replace(':sport', sportName || t('this sport'))}
+                                {entityType === 'coach'
+                                    ? t(
+                                          'Are you sure you want to remove :sport from this coach’s sport specializations?',
+                                      ).replace(
+                                          ':sport',
+                                          sportName || t('this sport'),
+                                      )
+                                    : t(
+                                          'Are you sure you want to remove :sport from this member’s playable sports?',
+                                      ).replace(
+                                          ':sport',
+                                          sportName || t('this sport'),
+                                      )}
                             </p>
 
                             <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
-                                {t(
-                                    'Any role, position, sport event, weight, or notes recorded for this sport will also be removed.',
-                                )}
+                                {entityType === 'coach'
+                                    ? t(
+                                          'Any level, sport event, dates, or notes recorded for this sport specialization will also be removed.',
+                                      )
+                                    : t(
+                                          'Any role, position, sport event, weight, or notes recorded for this sport will also be removed.',
+                                      )}
                             </div>
                         </div>
 

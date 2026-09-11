@@ -174,7 +174,7 @@ class Coach extends Model
     {
         return $this->belongsToMany(Sport::class, 'coach_sport')
             ->using(CoachSport::class)
-            ->withPivot(['is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes'])
+            ->withPivot(['id', 'is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes'])
             ->withTimestamps();
     }
 
