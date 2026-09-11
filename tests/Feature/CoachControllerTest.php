@@ -1059,6 +1059,106 @@ test('user with coach sports permission can remove sport from profile tab', func
     ]);
 });
 
+test('user cannot remove sport from coach if assigned to an active team for that sport', function () {
+    $user = coachUser('coaches.manageSports');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Wrestling']);
+    $coachSport = CoachSport::factory()->create([
+        'coach_id' => $coach->id,
+        'sport_id' => $sport->id,
+    ]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'name' => 'Police Wrestling Team',
+        'is_active' => true,
+    ]);
+    CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+        'removed_at' => null,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->delete(route('coaches.sports.destroy', [$coach, $coachSport]));
+
+    $response->assertSessionHasErrors('sport');
+    $this->assertDatabaseHas('coach_sport', ['id' => $coachSport->id]);
+});
+
+test('user can remove sport from coach if team assignment is inactive or coach has left', function () {
+    $user = coachUser('coaches.manageSports');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Boxing']);
+    $coachSport = CoachSport::factory()->create([
+        'coach_id' => $coach->id,
+        'sport_id' => $sport->id,
+    ]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'name' => 'Police Boxing Team',
+        'is_active' => true,
+    ]);
+    CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => false,
+        'removed_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('coaches.sports.destroy', [$coach, $coachSport]))
+        ->assertRedirect(route('coaches.sports', $coach));
+
+    $this->assertDatabaseMissing('coach_sport', ['id' => $coachSport->id]);
+});
+
+test('coach sports tab provides active_team_sports information for connected teams', function () {
+    $user = coachUser('coaches.manageSports', 'coaches.view');
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Judo']);
+    CoachSport::factory()->create([
+        'coach_id' => $coach->id,
+        'sport_id' => $sport->id,
+    ]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'name' => '2026-2027']);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'name' => 'Police Judo Team',
+        'is_active' => true,
+    ]);
+    CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'role' => 'HEAD',
+        'is_current' => true,
+        'removed_at' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.sports', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('coaches/show')
+            ->where('activeTab', 'sports')
+            ->where('active_team_sports.0.team_id', $team->id)
+            ->where('active_team_sports.0.team_name', 'Police Judo Team')
+            ->where('active_team_sports.0.sport_id', $sport->id)
+            ->where('active_team_sports.0.role', 'HEAD')
+        );
+});
+
 test('user with coach certification permission can save certification from profile tab', function () {
     $user = coachUser('coaches.manageCertifications', 'coaches.view');
     $coach = Coach::factory()->create([

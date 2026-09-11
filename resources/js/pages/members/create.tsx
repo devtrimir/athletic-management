@@ -1,4 +1,5 @@
 import { Head, Link, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     index as membersIndex,
@@ -11,6 +12,7 @@ import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { PnoConflictNotice } from '@/components/members/pno-conflict-notice';
+import { RemoveMemberSportDialog } from '@/components/members/remove-member-sport-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -145,6 +147,64 @@ export default function MembersCreate({
         }));
         post(storeMember.url());
     }
+
+    const [removingSportIndex, setRemovingSportIndex] = useState<number | null>(null);
+
+    const handleInitiateRemoveSport = (index: number) => {
+        const row = data.playable_sports[index];
+
+        if (!row) {
+return;
+}
+
+        const isEmpty =
+            !row.sport_id &&
+            !row.role &&
+            !row.position &&
+            !row.sport_event &&
+            !row.weight &&
+            !row.notes;
+
+        if (isEmpty) {
+            setData(
+                'playable_sports',
+                data.playable_sports.filter((_, i) => i !== index),
+            );
+
+            return;
+        }
+
+        setRemovingSportIndex(index);
+    };
+
+    const handleConfirmRemoveSport = () => {
+        if (removingSportIndex === null) {
+return;
+}
+
+        setData(
+            'playable_sports',
+            data.playable_sports.filter((_, i) => i !== removingSportIndex),
+        );
+        setRemovingSportIndex(null);
+    };
+
+    const removingSportRow =
+        removingSportIndex !== null
+            ? data.playable_sports[removingSportIndex]
+            : null;
+
+    const removingSportName = useMemo(() => {
+        if (!removingSportRow?.sport_id) {
+return '';
+}
+
+        const found = sports.find(
+            (s) => String(s.id) === String(removingSportRow.sport_id),
+        );
+
+        return found?.name ?? '';
+    }, [removingSportRow, sports]);
 
     const hasPersonalErrors = !!(
         errors.full_name ||
@@ -909,11 +969,47 @@ export default function MembersCreate({
                                             </Button>
                                         </div>
                                         {data.playable_sports.map(
-                                            (row, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2"
-                                                >
+                                            (row, index) => {
+                                                const sportName = sports.find(
+                                                    (s) =>
+                                                        String(s.id) ===
+                                                        String(row.sport_id),
+                                                )?.name;
+
+                                                return (
+                                                    <div
+                                                        key={index}
+                                                        className="rounded-lg border bg-card p-3 sm:p-4 shadow-xs"
+                                                    >
+                                                        <div className="mb-3 flex items-center justify-between border-b pb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                                                    {t('Sport #')}
+                                                                    {index + 1}
+                                                                </span>
+                                                                {sportName && (
+                                                                    <span className="text-sm font-medium text-foreground">
+                                                                        — {sportName}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                onClick={() =>
+                                                                    handleInitiateRemoveSport(
+                                                                        index,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                                                                {t('Remove')}
+                                                            </Button>
+                                                        </div>
+
+                                                        <div className="grid gap-3 sm:grid-cols-2">
                                                     <div className="grid gap-2">
                                                         <Label>
                                                             {t('Sport')}
@@ -1110,9 +1206,20 @@ export default function MembersCreate({
                                                         />
                                                     </div>
                                                 </div>
-                                            ),
-                                        )}
-                                    </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <RemoveMemberSportDialog
+                                    open={removingSportIndex !== null}
+                                    onOpenChange={(open) => {
+                                        if (!open) {
+setRemovingSportIndex(null);
+}
+                                    }}
+                                    sportName={removingSportName}
+                                    onConfirm={handleConfirmRemoveSport}
+                                />
 
                                     <div className="grid gap-5 sm:grid-cols-1">
                                         <div className="grid gap-2">

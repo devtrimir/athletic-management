@@ -6,10 +6,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Coaches\StoreCoachSportRequest;
 use App\Models\Coach;
+use App\Models\CoachAssignment;
 use App\Models\CoachSport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class CoachSportController extends Controller
@@ -55,6 +57,32 @@ class CoachSportController extends Controller
         Gate::authorize('updateSports', $coach);
 
         abort_if($coachSport->coach_id !== $coach->id, 404);
+
+        $blockingAssignment = CoachAssignment::query()
+            ->where('coach_id', $coach->id)
+            ->where('is_current', true)
+            ->whereNull('removed_at')
+            ->whereHas('team', fn ($query) => $query
+                ->where('sport_id', $coachSport->sport_id)
+                ->where('is_active', true)
+                ->whereNull('deleted_at')
+            )
+            ->with('team:id,name,sport_id')
+            ->first();
+
+        if ($blockingAssignment !== null && $blockingAssignment->team !== null) {
+            $sportName = $coachSport->sport?->name ?? __('this sport');
+            $teamName = $blockingAssignment->team->name;
+
+            throw ValidationException::withMessages([
+                'sport' => [
+                    __("Cannot remove :sport because the coach is currently assigned to active team ':team'.", [
+                        'sport' => $sportName,
+                        'team' => $teamName,
+                    ]),
+                ],
+            ]);
+        }
 
         $coachSport->delete();
 

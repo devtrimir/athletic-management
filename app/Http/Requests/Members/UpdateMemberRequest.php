@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Members;
 
+use App\Models\Member;
+use App\Models\TeamMember;
 use App\Rules\UniquePnoAcrossPeople;
 use App\Support\Members\PlayerCategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateMemberRequest extends FormRequest
 {
@@ -69,6 +72,65 @@ class UpdateMemberRequest extends FormRequest
             'sport_event' => ['sometimes', 'nullable', 'string', 'max:100'],
             'other_notes' => ['sometimes', 'nullable', 'string'],
             'team_since' => ['sometimes', 'nullable', 'date'],
+        ];
+    }
+
+    /**
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if (! $this->has('playable_sports')) {
+                    return;
+                }
+
+                $member = $this->route('member');
+                if (! $member instanceof Member) {
+                    $member = Member::find($member);
+                }
+
+                if (! $member) {
+                    return;
+                }
+
+                $newSportIds = collect($this->input('playable_sports', []))
+                    ->filter(fn (mixed $item): bool => is_array($item) && ! empty($item['sport_id']))
+                    ->map(fn (array $item): int => (int) $item['sport_id'])
+                    ->all();
+
+                $existingSportIds = $member->playableSports()->pluck('sports.id')->all();
+                $removedSportIds = array_values(array_diff($existingSportIds, $newSportIds));
+
+                if (empty($removedSportIds)) {
+                    return;
+                }
+
+                $blockingMembership = TeamMember::query()
+                    ->where('member_id', $member->id)
+                    ->whereNull('left_on')
+                    ->whereHas('team', function ($query) use ($removedSportIds): void {
+                        $query->whereIn('sport_id', $removedSportIds)
+                            ->where('is_active', true)
+                            ->whereNull('deleted_at');
+                    })
+                    ->with(['team.sport:id,name', 'team:id,name,sport_id'])
+                    ->first();
+
+                if ($blockingMembership !== null && $blockingMembership->team !== null) {
+                    $sportName = $blockingMembership->team->sport?->name ?? __('this sport');
+                    $teamName = $blockingMembership->team->name;
+
+                    $validator->errors()->add(
+                        'playable_sports',
+                        __("Cannot remove :sport because the member is currently an active member of team ':team'.", [
+                            'sport' => $sportName,
+                            'team' => $teamName,
+                        ])
+                    );
+                }
+            },
         ];
     }
 }

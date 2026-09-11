@@ -834,6 +834,99 @@ test('update returns 403 without members.update', function () {
         ->assertForbidden();
 });
 
+test('edit returns active_team_sports for member with active teams', function () {
+    $user = memberUser('members.update');
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'is_active' => true,
+    ]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $member->playableSports()->sync([$sport->id]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
+        'left_on' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.edit', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('members/edit')
+            ->has('active_team_sports', 1)
+            ->where('active_team_sports.0.team_id', $team->id)
+            ->where('active_team_sports.0.sport_id', $sport->id)
+        );
+});
+
+test('update prevents removing sport when member is active in a team of that sport', function () {
+    $user = memberUser('members.update');
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Football']);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'UP Police Football Team',
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'is_active' => true,
+    ]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $member->playableSports()->sync([$sport->id]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'left_on' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('members.update', $member), [
+            'full_name' => $member->full_name,
+            'playable_sports' => [],
+        ])
+        ->assertSessionHasErrors(['playable_sports']);
+
+    expect($member->fresh()->playableSports()->where('sports.id', $sport->id)->exists())->toBeTrue();
+});
+
+test('update allows removing sport if member has left the team of that sport', function () {
+    $user = memberUser('members.update');
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'sport_id' => $sport->id,
+        'session_id' => $session->id,
+        'is_active' => true,
+    ]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $member->playableSports()->sync([$sport->id]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $member->id,
+        'session_id' => $session->id,
+        'left_on' => now()->subMonths(2),
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('members.update', $member), [
+            'full_name' => $member->full_name,
+            'playable_sports' => [],
+        ])
+        ->assertRedirect(route('members.show', $member));
+
+    expect($member->fresh()->playableSports()->where('sports.id', $sport->id)->exists())->toBeFalse();
+});
+
 // ---------------------------------------------------------------------------
 // destroy
 // ---------------------------------------------------------------------------
