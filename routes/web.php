@@ -125,6 +125,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('coaches/export', [CoachExportController::class, 'index'])->name('coaches.export');
     Route::get('coaches/print', [CoachController::class, 'print'])->name('coaches.print');
     Route::resource('coaches', CoachController::class);
+    Route::post('coaches/{coach}/generate-athlete-profile', [CoachController::class, 'generateAthleteProfile'])->name('coaches.generate-athlete-profile');
     Route::get('coaches/{coach}/assignments', [CoachProfileTabController::class, 'assignments'])->name('coaches.assignments');
     Route::get('coaches/{coach}/sports', [CoachProfileTabController::class, 'sports'])->name('coaches.sports');
     Route::get('coaches/{coach}/certifications', [CoachProfileTabController::class, 'certifications'])->name('coaches.certifications');

@@ -8,6 +8,7 @@ use App\Http\Resources\MemberResource;
 use App\Http\Resources\MemberStatusHistoryResource;
 use App\Http\Resources\NameAliasResource;
 use App\Models\Achievement;
+use App\Models\Coach;
 use App\Models\District;
 use App\Models\Event;
 use App\Models\ExternalCoachingAssignment;
@@ -171,8 +172,15 @@ class MemberProfileData
     {
         $member->loadMissing(['homeDistrict', 'postingDistrict', 'currentUnit', 'sport', 'playableSports']);
 
+        $linkedCoach = Coach::where('member_id', $member->id)->first(['id', 'full_name', 'coach_status']);
+
         return [
             'member' => (new MemberResource($member))->resolve(),
+            'linkedCoach' => $linkedCoach ? [
+                'id' => $linkedCoach->id,
+                'full_name' => $linkedCoach->full_name,
+                'status' => $linkedCoach->coach_status,
+            ] : null,
         ];
     }
 

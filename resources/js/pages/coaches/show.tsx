@@ -19,6 +19,7 @@ import {
     Search,
     Trash2,
     Upload,
+    UserRound,
     Users,
 } from 'lucide-react';
 import { Fragment, useMemo, useRef, useState } from 'react';
@@ -30,6 +31,7 @@ import {
 import {
     destroy,
     edit as editCoach,
+    generateAthleteProfile,
     index as coachesIndex,
     show as coachOverview,
 } from '@/actions/App/Http/Controllers/CoachController';
@@ -59,6 +61,7 @@ import {
     store as storeCoachSport,
 } from '@/actions/App/Http/Controllers/CoachSportController';
 import { store as storeCoachStatus } from '@/actions/App/Http/Controllers/CoachStatusController';
+import { show as memberShow } from '@/actions/App/Http/Controllers/MemberController';
 import { events as memberEvents } from '@/actions/App/Http/Controllers/MemberProfileTabController';
 import { CoachPlayingAchievementsSection } from '@/components/coaches/playing-achievements-section';
 import type { PlayingAchievementsData } from '@/components/coaches/playing-achievements-section';
@@ -67,11 +70,8 @@ import type { SpecialAchievementsData } from '@/components/coaches/special-achie
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
-import {
-    RemoveMemberSportDialog
-    
-} from '@/components/members/remove-member-sport-dialog';
-import type {ConnectedTeamInfo} from '@/components/members/remove-member-sport-dialog';
+import { RemoveMemberSportDialog } from '@/components/members/remove-member-sport-dialog';
+import type { ConnectedTeamInfo } from '@/components/members/remove-member-sport-dialog';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
@@ -336,6 +336,12 @@ type Coach = {
     pno: string | null;
     mobile: string | null;
     photo_path: string | null;
+    member_id?: number | null;
+    linked_member?: {
+        id: number;
+        member_code: string;
+        full_name: string;
+    } | null;
     nis_master?: {
         id: number;
         code: string | null;
@@ -1486,6 +1492,35 @@ export default function CoachesShow({
                             <Download className="mr-1.5 h-4 w-4" />
                             {t('Export')}
                         </Button>
+                        {coach.member_id ? (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={memberShow.url(coach.member_id)}>
+                                    <UserRound className="mr-1.5 h-4 w-4" />
+                                    {t('Athlete Profile')}
+                                </Link>
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    if (
+                                        confirm(
+                                            t(
+                                                'Generate an athlete (player) profile for this coach? This enables them to compete in tournaments.',
+                                            ),
+                                        )
+                                    ) {
+                                        router.post(
+                                            generateAthleteProfile.url(coach),
+                                        );
+                                    }
+                                }}
+                            >
+                                <UserRound className="mr-1.5 h-4 w-4" />
+                                {t('Generate Athlete Profile')}
+                            </Button>
+                        )}
                         <Button variant="outline" size="sm" asChild>
                             <Link href={editCoach.url(coach)}>{t('Edit')}</Link>
                         </Button>
@@ -1532,6 +1567,26 @@ export default function CoachesShow({
                                             {t(coach.coach_status)}
                                         </Badge>
                                     ) : null}
+                                    {coach.linked_member && (
+                                        <Badge
+                                            variant="secondary"
+                                            className="gap-1 border-primary/20 bg-primary/5 text-primary"
+                                        >
+                                            <UserRound className="h-3 w-3" />
+                                            <Link
+                                                href={memberShow.url(
+                                                    coach.linked_member.id,
+                                                )}
+                                                className="hover:underline"
+                                            >
+                                                {t('Player')}:{' '}
+                                                {
+                                                    coach.linked_member
+                                                        .member_code
+                                                }
+                                            </Link>
+                                        </Badge>
+                                    )}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                     {coach.pno

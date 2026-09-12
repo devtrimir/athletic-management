@@ -8,6 +8,7 @@ import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,7 +49,23 @@ const GENDER_OPTIONS: ComboboxItem[] = [
     { value: 'O', label: 'Other gender' },
 ];
 
+type PrefillMember = {
+    member_id: number;
+    member_code: string;
+    full_name: string;
+    pno: string | null;
+    rank_master_id: number | null;
+    district_id: number | null;
+    unit_id: number | null;
+    gender: string | null;
+    date_of_birth: string | null;
+    mobile: string | null;
+    blood_group: string | null;
+    photo_path: string | null;
+};
+
 type FormData = {
+    member_id: number | null;
     full_name: string;
     pno: string;
     mobile: string;
@@ -67,6 +84,7 @@ type FormData = {
 };
 
 export default function CoachesCreate({
+    prefill,
     districts,
     units,
     ranks,
@@ -75,6 +93,7 @@ export default function CoachesCreate({
     coachStatuses,
     genders,
 }: {
+    prefill?: PrefillMember | null;
     districts: { id: number; name: string }[];
     units: { id: number; name: string; district_id: number | null }[];
     ranks: RankOption[];
@@ -130,18 +149,21 @@ export default function CoachesCreate({
     });
 
     const { data, setData, post, errors, processing } = useForm<FormData>({
-        full_name: '',
-        pno: '',
-        mobile: '',
-        blood_group: '',
-        rank_master_id: '',
+        member_id: prefill?.member_id ?? null,
+        full_name: prefill?.full_name ?? '',
+        pno: prefill?.pno ?? '',
+        mobile: prefill?.mobile ?? '',
+        blood_group: prefill?.blood_group ?? '',
+        rank_master_id: prefill?.rank_master_id
+            ? String(prefill.rank_master_id)
+            : '',
         tier_master_id: '',
         nis_master_id: '',
-        district_id: '',
-        unit_id: '',
+        district_id: prefill?.district_id ? String(prefill.district_id) : '',
+        unit_id: prefill?.unit_id ? String(prefill.unit_id) : '',
         email: '',
-        gender: '',
-        date_of_birth: '',
+        gender: prefill?.gender ?? '',
+        date_of_birth: prefill?.date_of_birth ?? '',
         coach_status: 'ACTIVE',
         bio: '',
         address: '',
@@ -173,6 +195,27 @@ export default function CoachesCreate({
             <h1 className="sr-only">{t('New coach')}</h1>
 
             <div className="space-y-6">
+                {prefill && (
+                    <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                        <div className="flex items-center gap-3">
+                            <UserRound className="h-5 w-5 text-primary" />
+                            <div>
+                                <p className="font-semibold text-foreground">
+                                    {t('Registering from Player Profile')}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {prefill.full_name} ({prefill.member_code})
+                                    —{' '}
+                                    {t(
+                                        'Service details and PNO have been prefilled and linked.',
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                        <Badge variant="secondary">{t('Linked Player')}</Badge>
+                    </div>
+                )}
+
                 <div className="overflow-hidden rounded-xl border bg-card">
                     <div className="border-b bg-muted/35 px-6 py-5">
                         <Heading
@@ -265,8 +308,16 @@ export default function CoachesCreate({
                                             setData('pno', e.target.value)
                                         }
                                         maxLength={20}
+                                        readOnly={Boolean(prefill)}
                                         className="font-mono"
                                     />
+                                    {prefill && (
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                'PNO is locked to the linked player profile.',
+                                            )}
+                                        </p>
+                                    )}
                                     <InputError message={errors.pno} />
                                 </div>
                             </div>

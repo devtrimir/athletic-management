@@ -17,10 +17,15 @@ import {
     RotateCcw,
     Trash2,
     Trophy,
+    UserRound,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { ComponentProps } from 'react';
+import {
+    create as createCoach,
+    show as coachShow,
+} from '@/actions/App/Http/Controllers/CoachController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
 import { store as storeAchievementContext } from '@/actions/App/Http/Controllers/MemberAchievementContextController';
 import {
@@ -517,6 +522,7 @@ type MemberShowTab = (typeof MEMBER_SHOW_TABS)[number];
 
 export default function MembersShow({
     member,
+    linkedCoach,
     activeTab: activeTabProp = 'overview',
     statusHistory,
     aliases,
@@ -538,6 +544,11 @@ export default function MembersShow({
     ranks,
 }: {
     member: Member;
+    linkedCoach?: {
+        id: number;
+        full_name: string;
+        status: string | null;
+    } | null;
     activeTab?: MemberShowTab;
     statusHistory?: StatusEntry[];
     aliases?: Alias[];
@@ -1970,6 +1981,21 @@ export default function MembersShow({
                                         {member.pno}
                                     </span>
                                 )}
+                                {linkedCoach && (
+                                    <Badge
+                                        variant="secondary"
+                                        className="gap-1 border-primary/20 bg-primary/5 text-primary"
+                                    >
+                                        <UserRound className="h-3 w-3" />
+                                        <Link
+                                            href={coachShow.url(linkedCoach.id)}
+                                            className="hover:underline"
+                                        >
+                                            {t('Coach')}:{' '}
+                                            {linkedCoach.full_name}
+                                        </Link>
+                                    </Badge>
+                                )}
                                 <Button variant="outline" size="sm" asChild>
                                     <Link href={backUrl}>
                                         <ArrowLeft className="mr-1.5 h-4 w-4" />
@@ -1984,6 +2010,27 @@ export default function MembersShow({
                                     <Download className="mr-1.5 h-4 w-4" />
                                     {t('Export')}
                                 </Button>
+                                {linkedCoach ? (
+                                    <Button variant="outline" size="sm" asChild>
+                                        <Link
+                                            href={coachShow.url(linkedCoach.id)}
+                                        >
+                                            <UserRound className="mr-1.5 h-4 w-4" />
+                                            {t('Coach Profile')}
+                                        </Link>
+                                    </Button>
+                                ) : (
+                                    <Button variant="outline" size="sm" asChild>
+                                        <Link
+                                            href={createCoach.url({
+                                                query: { member_id: member.id },
+                                            })}
+                                        >
+                                            <UserRound className="mr-1.5 h-4 w-4" />
+                                            {t('Register as Coach')}
+                                        </Link>
+                                    </Button>
+                                )}
                                 <Button variant="outline" size="sm" asChild>
                                     <Link href={editMember.url(member)}>
                                         {t('Edit')}
@@ -2056,8 +2103,14 @@ export default function MembersShow({
                     <div className="flex items-center gap-2.5 rounded-lg border border-amber-300 bg-amber-50/90 p-3.5 text-sm text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
                         <RotateCcw className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
                         <div>
-                            <span className="font-semibold">{t('Archived Member Record')}:</span>{' '}
-                            <span>{t('This member is archived (deleted) and has been decoupled from active rosters.')}</span>
+                            <span className="font-semibold">
+                                {t('Archived Member Record')}:
+                            </span>{' '}
+                            <span>
+                                {t(
+                                    'This member is archived (deleted) and has been decoupled from active rosters.',
+                                )}
+                            </span>
                         </div>
                     </div>
                 )}

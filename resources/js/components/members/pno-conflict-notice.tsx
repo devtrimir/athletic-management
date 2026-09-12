@@ -69,9 +69,11 @@ export function PnoConflictNotice({
 
     useEffect(() => {
         const trimmed = pno.trim();
+
         if (trimmed.length < 3) {
             setConflict(null);
             setIsChecking(false);
+
             return;
         }
 
@@ -91,6 +93,7 @@ export function PnoConflictNotice({
                     if (!res.ok) {
                         return null;
                     }
+
                     return res.json();
                 })
                 .then((data: ConflictData | null) => {
@@ -163,6 +166,7 @@ export function PnoConflictNotice({
         conflict.member.id !== dismissedId
     ) {
         const m = conflict.member;
+
         return (
             <div className="col-span-full rounded-lg border border-amber-300 bg-amber-50/90 p-4 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/40">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

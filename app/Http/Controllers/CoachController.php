@@ -11,11 +11,13 @@ use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\CoachCertification;
 use App\Models\District;
+use App\Models\Member;
 use App\Models\NisMaster;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
 use App\Models\Unit;
+use App\Services\MemberCodeGenerator;
 use App\Support\Coaches\CoachProfileData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -756,7 +758,29 @@ class CoachController extends Controller
     {
         Gate::authorize('create', Coach::class);
 
+        $member = null;
+        if ($request->filled('member_id')) {
+            $member = Member::where('organization_id', (int) $request->user()->organization_id)
+                ->find((int) $request->query('member_id'));
+        }
+
+        $prefill = $member ? [
+            'member_id' => $member->id,
+            'member_code' => $member->member_code,
+            'full_name' => $member->full_name,
+            'pno' => $member->pno,
+            'rank_master_id' => $member->rank ? (Rank::where('code', $member->rank)->orWhere('name', $member->rank)->orWhere('short_name', $member->rank)->value('id')) : null,
+            'district_id' => $member->home_district_id ?? $member->posting_district_id,
+            'unit_id' => $member->current_unit_id,
+            'gender' => $member->gender,
+            'date_of_birth' => $member->dob?->toDateString(),
+            'mobile' => $member->mobile,
+            'blood_group' => $member->blood_group,
+            'photo_path' => $member->photo_path,
+        ] : null;
+
         return Inertia::render('coaches/create', [
+            'prefill' => $prefill,
             'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
             'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
@@ -778,6 +802,18 @@ class CoachController extends Controller
             $payload['display_name'] = $payload['full_name'];
             $payload['coach_status'] = $payload['coach_status'] ?? 'ACTIVE';
 
+            if (! empty($payload['member_id'])) {
+                $member = Member::find($payload['member_id']);
+                if ($member) {
+                    if (empty($payload['pno'])) {
+                        $payload['pno'] = $member->pno;
+                    }
+                    if (empty($payload['photo_path'])) {
+                        $payload['photo_path'] = $member->photo_path;
+                    }
+                }
+            }
+
             /** @var Coach $coach */
             $coach = Coach::create(Arr::except($payload, ['certifications', 'sports']));
 
@@ -795,6 +831,54 @@ class CoachController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach created.')]);
 
         return to_route('coaches.show', $coach);
+    }
+
+    public function generateAthleteProfile(Request $request, Coach $coach): RedirectResponse
+    {
+        Gate::authorize('update', $coach);
+
+        if ($coach->member_id !== null) {
+            Inertia::flash('toast', ['type' => 'warning', 'message' => __('Coach already has a linked athlete profile.')]);
+
+            return back();
+        }
+
+        $member = DB::transaction(function () use ($coach, $request): Member {
+            $orgId = (int) $request->user()->organization_id;
+
+            $generator = app(MemberCodeGenerator::class);
+            $memberCode = $generator->next($orgId);
+
+            $rankCode = $coach->rankMaster?->code;
+
+            $member = Member::create([
+                'organization_id' => $orgId,
+                'member_code' => $memberCode,
+                'pno' => $coach->pno,
+                'full_name' => $coach->full_name,
+                'rank' => $rankCode,
+                'initial_rank' => $rankCode,
+                'gender' => $coach->gender ?? 'M',
+                'dob' => $coach->date_of_birth,
+                'mobile' => $coach->mobile,
+                'blood_group' => $coach->blood_group,
+                'home_district_id' => $coach->district_id,
+                'current_unit_id' => $coach->unit_id,
+                'photo_path' => $coach->photo_path,
+                'current_status' => 'ACTIVE',
+                'player_category' => 'SKILLED',
+                'player_level' => 'STATE',
+                'sport_id' => $coach->sports()->wherePivot('is_primary', true)->value('sports.id') ?? $coach->sports()->first()?->id,
+            ]);
+
+            $coach->update(['member_id' => $member->id]);
+
+            return $member;
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Athlete profile created and linked successfully.')]);
+
+        return back();
     }
 
     public function show(Coach $coach, CoachProfileData $profileData): Response

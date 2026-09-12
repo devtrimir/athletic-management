@@ -185,6 +185,7 @@ type TeamMemberRow = {
         } | null;
     } | null;
     session: { id: number; name: string } | null;
+    is_player_coach?: boolean;
 };
 
 type CoachAssignmentRow = {
@@ -193,6 +194,7 @@ type CoachAssignmentRow = {
     assigned_at: string | null;
     removed_at: string | null;
     notes: string | null;
+    is_player_coach?: boolean;
     coach: {
         id: number;
         full_name: string;
@@ -233,6 +235,7 @@ type TeamMemberMovementRow = {
 };
 type InchargeHistoryRow = {
     id: number;
+    incharge_id: number | null;
     full_name: string;
     pno: string | null;
     rank: string | null;
@@ -2937,24 +2940,36 @@ export default function TeamsShow({
                                                                         />
                                                                     </TableCell>
                                                                     <TableCell className="font-medium">
-                                                                        {row.member ? (
-                                                                            <Link
-                                                                                href={MemberController.show.url(
-                                                                                    row
-                                                                                        .member
-                                                                                        .id,
-                                                                                )}
-                                                                                target="_blank"
-                                                                                rel="noreferrer"
-                                                                                className="text-primary hover:underline"
-                                                                            >
-                                                                                {memberNameWithRank(
-                                                                                    row.member,
-                                                                                )}
-                                                                            </Link>
-                                                                        ) : (
-                                                                            ''
-                                                                        )}
+                                                                        <div className="flex items-center gap-2">
+                                                                            {row.member ? (
+                                                                                <Link
+                                                                                    href={MemberController.show.url(
+                                                                                        row
+                                                                                            .member
+                                                                                            .id,
+                                                                                    )}
+                                                                                    target="_blank"
+                                                                                    rel="noreferrer"
+                                                                                    className="text-primary hover:underline"
+                                                                                >
+                                                                                    {memberNameWithRank(
+                                                                                        row.member,
+                                                                                    )}
+                                                                                </Link>
+                                                                            ) : (
+                                                                                ''
+                                                                            )}
+                                                                            {row.is_player_coach && (
+                                                                                <Badge
+                                                                                    variant="outline"
+                                                                                    className="border-primary/40 px-1.5 py-0 text-[10px] text-primary"
+                                                                                >
+                                                                                    {t(
+                                                                                        'Player-Coach',
+                                                                                    )}
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
                                                                     </TableCell>
                                                                     <TableCell className="hidden font-mono text-sm sm:table-cell">
                                                                         {row
@@ -3039,25 +3054,28 @@ export default function TeamsShow({
                                                                     ) : null}
                                                                     <TableCell className="text-right">
                                                                         <div className="flex items-center justify-end gap-1">
-                                                                            {row.member && !row.member.deleted_at && (
-                                                                                <Button
-                                                                                    variant="ghost"
-                                                                                    size="icon"
-                                                                                    title={t(
-                                                                                        'Quick info',
-                                                                                    )}
-                                                                                    onClick={() =>
-                                                                                        setMemberQuickViewId(
-                                                                                            row
-                                                                                                .member
-                                                                                                ?.id ??
-                                                                                                null,
-                                                                                        )
-                                                                                    }
-                                                                                >
-                                                                                    <Info className="h-4 w-4" />
-                                                                                </Button>
-                                                                            )}
+                                                                            {row.member &&
+                                                                                !row
+                                                                                    .member
+                                                                                    .deleted_at && (
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        title={t(
+                                                                                            'Quick info',
+                                                                                        )}
+                                                                                        onClick={() =>
+                                                                                            setMemberQuickViewId(
+                                                                                                row
+                                                                                                    .member
+                                                                                                    ?.id ??
+                                                                                                    null,
+                                                                                            )
+                                                                                        }
+                                                                                    >
+                                                                                        <Info className="h-4 w-4" />
+                                                                                    </Button>
+                                                                                )}
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"
@@ -3806,26 +3824,38 @@ export default function TeamsShow({
                                                                         />
                                                                     </TableCell>
                                                                     <TableCell className="font-medium">
-                                                                        {row.coach ? (
-                                                                            <Link
-                                                                                href={CoachController.show.url(
-                                                                                    row
-                                                                                        .coach
-                                                                                        .id,
-                                                                                )}
-                                                                                target="_blank"
-                                                                                rel="noreferrer"
-                                                                                className="text-primary hover:underline"
-                                                                            >
-                                                                                {
-                                                                                    row
-                                                                                        .coach
-                                                                                        .full_name
-                                                                                }
-                                                                            </Link>
-                                                                        ) : (
-                                                                            ''
-                                                                        )}
+                                                                        <div className="flex items-center gap-2">
+                                                                            {row.coach ? (
+                                                                                <Link
+                                                                                    href={CoachController.show.url(
+                                                                                        row
+                                                                                            .coach
+                                                                                            .id,
+                                                                                    )}
+                                                                                    target="_blank"
+                                                                                    rel="noreferrer"
+                                                                                    className="text-primary hover:underline"
+                                                                                >
+                                                                                    {
+                                                                                        row
+                                                                                            .coach
+                                                                                            .full_name
+                                                                                    }
+                                                                                </Link>
+                                                                            ) : (
+                                                                                ''
+                                                                            )}
+                                                                            {row.is_player_coach && (
+                                                                                <Badge
+                                                                                    variant="outline"
+                                                                                    className="border-primary/40 px-1.5 py-0 text-[10px] text-primary"
+                                                                                >
+                                                                                    {t(
+                                                                                        'Player-Coach',
+                                                                                    )}
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
                                                                     </TableCell>
                                                                     <TableCell className="hidden font-mono text-sm sm:table-cell">
                                                                         {row

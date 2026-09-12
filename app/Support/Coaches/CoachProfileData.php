@@ -15,6 +15,7 @@ use App\Models\CoachPromotionEvidence;
 use App\Models\CoachSpecialAchievement;
 use App\Models\Member;
 use App\Models\Rank;
+use App\Models\Scopes\BelongsToOrganization;
 use App\Models\Sport;
 use App\Models\TeamMember;
 use App\Models\TournamentTier;
@@ -497,9 +498,12 @@ class CoachProfileData
             ->get();
 
         $member = $coach->member;
+        if ($member === null && $coach->member_id !== null) {
+            $member = Member::withoutGlobalScope(BelongsToOrganization::class)->find($coach->member_id);
+        }
 
         if ($member !== null) {
-            return $this->memberPlayingAchievementsPayload($member, $sports);
+            return $this->memberPlayingAchievementsPayload($coach, $member, $sports);
         }
 
         $records = $coach->playingAchievements()
@@ -537,10 +541,15 @@ class CoachProfileData
             'source' => 'legacy',
             'linked_member' => null,
             'records' => $records,
+            'pre_recruitment_records' => [],
             'sports' => $sports,
             'summary' => [
                 'total' => count($records),
                 'medals' => collect($records)
+                    ->whereIn('medal_type', ['GOLD', 'SILVER', 'BRONZE', 'MERIT'])
+                    ->count(),
+                'tournament_medals' => 0,
+                'pre_recruitment_medals' => collect($records)
                     ->whereIn('medal_type', ['GOLD', 'SILVER', 'BRONZE', 'MERIT'])
                     ->count(),
             ],
@@ -551,7 +560,7 @@ class CoachProfileData
      * @param  Collection<int, Sport>  $sports
      * @return array<string, mixed>
      */
-    private function memberPlayingAchievementsPayload(Member $member, Collection $sports): array
+    private function memberPlayingAchievementsPayload(Coach $coach, Member $member, Collection $sports): array
     {
         $memberTeamIds = TeamMember::query()
             ->where('member_id', $member->id)
@@ -613,6 +622,45 @@ class CoachProfileData
             ->values()
             ->all();
 
+        $preRecruitmentRecords = $coach->playingAchievements()
+            ->with('sport:id,name')
+            ->get()
+            ->map(fn (CoachPlayingAchievement $achievement): array => [
+                'id' => $achievement->id,
+                'title' => $achievement->title,
+                'period' => $achievement->period,
+                'level' => $achievement->level,
+                'competition_details' => $achievement->competition_details,
+                'event_date' => $achievement->event_date?->toDateString(),
+                'venue' => $achievement->venue,
+                'sport_id' => $achievement->sport_id,
+                'sport' => $achievement->sport ? [
+                    'id' => $achievement->sport->id,
+                    'name' => $achievement->sport->name,
+                ] : null,
+                'event' => $achievement->event,
+                'discipline' => $achievement->discipline,
+                'weight_category' => $achievement->weight_category,
+                'gender_class' => $achievement->gender_class,
+                'medal_type' => $achievement->medal_type,
+                'event_type' => $achievement->event_type,
+                'source_achievement_id' => $achievement->source_achievement_id,
+                'position' => $achievement->position,
+                'description' => $achievement->description,
+                'achieved_on' => $achievement->achieved_on?->toDateString(),
+                'remarks' => $achievement->remarks,
+            ])
+            ->values()
+            ->all();
+
+        $tournamentMedalsCount = $achievements
+            ->whereIn('medal_type', ['GOLD', 'SILVER', 'BRONZE', 'MERIT'])
+            ->count();
+
+        $preRecruitmentMedalsCount = collect($preRecruitmentRecords)
+            ->whereIn('medal_type', ['GOLD', 'SILVER', 'BRONZE', 'MERIT'])
+            ->count();
+
         return [
             'source' => 'member',
             'linked_member' => [
@@ -621,12 +669,13 @@ class CoachProfileData
                 'full_name' => $member->full_name,
             ],
             'records' => $records,
+            'pre_recruitment_records' => $preRecruitmentRecords,
             'sports' => $sports,
             'summary' => [
-                'total' => count($records),
-                'medals' => $achievements
-                    ->whereIn('medal_type', ['GOLD', 'SILVER', 'BRONZE', 'MERIT'])
-                    ->count(),
+                'total' => count($records) + count($preRecruitmentRecords),
+                'medals' => $tournamentMedalsCount + $preRecruitmentMedalsCount,
+                'tournament_medals' => $tournamentMedalsCount,
+                'pre_recruitment_medals' => $preRecruitmentMedalsCount,
             ],
         ];
     }

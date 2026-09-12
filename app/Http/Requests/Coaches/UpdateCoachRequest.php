@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Coaches;
 
+use App\Models\Member;
 use App\Rules\UniquePnoAcrossPeople;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -21,11 +22,16 @@ class UpdateCoachRequest extends FormRequest
     public function rules(): array
     {
         $orgId = (int) $this->user()->organization_id;
-        $coachId = (int) $this->route('coach')?->getKey();
+        $coach = $this->route('coach');
+        $coachId = (int) $coach?->getKey();
+        $memberId = $this->filled('member_id')
+            ? (int) $this->input('member_id')
+            : ($coach?->member_id ? (int) $coach->member_id : null);
 
         return [
+            'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->where('organization_id', $orgId)],
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
-            'pno' => ['sometimes', 'nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, 'coaches', $coachId)],
+            'pno' => ['sometimes', 'nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, 'coaches', $coachId, ignoreMemberId: $memberId)],
             'mobile' => ['sometimes', 'nullable', 'string', 'max:20'],
             'blood_group' => ['sometimes', 'nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'])],
             'district_id' => ['sometimes', 'nullable', 'integer', Rule::exists('districts', 'id'), 'prohibits:unit_id'],
@@ -60,6 +66,24 @@ class UpdateCoachRequest extends FormRequest
             'sports.*.effective_to' => ['nullable', 'date', 'after_or_equal:sports.*.effective_from'],
             'sports.*.notes' => ['nullable', 'string', 'max:1000'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $coach = $this->route('coach');
+            $memberId = $this->filled('member_id')
+                ? (int) $this->input('member_id')
+                : ($coach?->member_id ? (int) $coach->member_id : null);
+
+            if ($memberId) {
+                $member = Member::find($memberId);
+                $pno = $this->input('pno') ?? $coach?->pno;
+                if ($member && filled($member->pno) && filled($pno) && $member->pno !== $pno) {
+                    $validator->errors()->add('pno', __('The PNO must match the linked member\'s PNO.'));
+                }
+            }
+        });
     }
 
     /**

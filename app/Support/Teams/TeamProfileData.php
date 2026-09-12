@@ -213,6 +213,16 @@ class TeamProfileData
         $teamSportId = (int) $team->sport_id;
         $teamSportName = $team->sport?->name;
 
+        $activeCoachMemberIds = $team->coachAssignments()
+            ->where('session_id', $selectedSessionId)
+            ->current()
+            ->with('coach:id,member_id')
+            ->get()
+            ->pluck('coach.member_id')
+            ->filter()
+            ->unique()
+            ->flip();
+
         return $team->teamMembers()
             ->with([
                 'member:id,full_name,full_name_normalized,member_code,pno,player_category,rank,mobile,current_unit_id,posting_district_id,deleted_at',
@@ -232,6 +242,7 @@ class TeamProfileData
                 'role' => $teamMember->role,
                 'joined_on' => $teamMember->joined_on?->toDateString(),
                 'left_on' => $teamMember->left_on?->toDateString(),
+                'is_player_coach' => $teamMember->member ? $activeCoachMemberIds->has($teamMember->member->id) : false,
                 'member' => $teamMember->member ? [
                     'id' => $teamMember->member->id,
                     'full_name' => $teamMember->member->full_name,
@@ -377,10 +388,18 @@ class TeamProfileData
         $teamSportId = (int) $team->sport_id;
         $teamSportName = $team->sport?->name;
 
+        $activePlayerMemberIds = $team->teamMembers()
+            ->where('session_id', $selectedSessionId)
+            ->whereNull('left_on')
+            ->pluck('member_id')
+            ->filter()
+            ->unique()
+            ->flip();
+
         return $team->coachAssignments()
             ->with([
                 'coach' => fn ($query) => $query
-                    ->select(['id', 'full_name', 'display_name', 'pno'])
+                    ->select(['id', 'member_id', 'full_name', 'display_name', 'pno'])
                     ->with(['sports' => fn ($query) => $query
                         ->select(['sports.id', 'sports.name'])
                         ->where('sports.id', $teamSportId)
@@ -395,8 +414,10 @@ class TeamProfileData
                 'id' => $coachAssignment->id,
                 'role' => $coachAssignment->role,
                 'assigned_at' => $coachAssignment->assigned_at?->toDateString(),
+                'is_player_coach' => $coachAssignment->coach?->member_id ? $activePlayerMemberIds->has($coachAssignment->coach->member_id) : false,
                 'coach' => $coachAssignment->coach ? [
                     'id' => $coachAssignment->coach->id,
+                    'member_id' => $coachAssignment->coach->member_id,
                     'full_name' => $coachAssignment->coach->full_name,
                     'display_name' => $coachAssignment->coach->display_name,
                     'pno' => $coachAssignment->coach->pno,
