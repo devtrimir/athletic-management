@@ -17,7 +17,6 @@ use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
 use App\Models\Unit;
-use App\Services\MemberCodeGenerator;
 use App\Support\Coaches\CoachProfileData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -802,16 +801,17 @@ class CoachController extends Controller
             $payload['display_name'] = $payload['full_name'];
             $payload['coach_status'] = $payload['coach_status'] ?? 'ACTIVE';
 
-            if (! empty($payload['member_id'])) {
-                $member = Member::find($payload['member_id']);
-                if ($member) {
-                    if (empty($payload['pno'])) {
-                        $payload['pno'] = $member->pno;
-                    }
-                    if (empty($payload['photo_path'])) {
-                        $payload['photo_path'] = $member->photo_path;
-                    }
+            if (! empty($payload['member_id']) && ! empty($payload['pno'])) {
+                $member = Member::where('organization_id', $payload['organization_id'])
+                    ->where('id', $payload['member_id'])
+                    ->where('pno', $payload['pno'])
+                    ->first();
+
+                if (! $member) {
+                    $payload['member_id'] = null;
                 }
+            } else {
+                $payload['member_id'] = null;
             }
 
             /** @var Coach $coach */
@@ -843,38 +843,7 @@ class CoachController extends Controller
             return back();
         }
 
-        $member = DB::transaction(function () use ($coach, $request): Member {
-            $orgId = (int) $request->user()->organization_id;
-
-            $generator = app(MemberCodeGenerator::class);
-            $memberCode = $generator->next($orgId);
-
-            $rankCode = $coach->rankMaster?->code;
-
-            $member = Member::create([
-                'organization_id' => $orgId,
-                'member_code' => $memberCode,
-                'pno' => $coach->pno,
-                'full_name' => $coach->full_name,
-                'rank' => $rankCode,
-                'initial_rank' => $rankCode,
-                'gender' => $coach->gender ?? 'M',
-                'dob' => $coach->date_of_birth,
-                'mobile' => $coach->mobile,
-                'blood_group' => $coach->blood_group,
-                'home_district_id' => $coach->district_id,
-                'current_unit_id' => $coach->unit_id,
-                'photo_path' => $coach->photo_path,
-                'current_status' => 'ACTIVE',
-                'player_category' => 'SKILLED',
-                'player_level' => 'STATE',
-                'sport_id' => $coach->sports()->wherePivot('is_primary', true)->value('sports.id') ?? $coach->sports()->first()?->id,
-            ]);
-
-            $coach->update(['member_id' => $member->id]);
-
-            return $member;
-        });
+        DB::transaction(fn (): Member => $coach->ensureLinkedMember());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Athlete profile created and linked successfully.')]);
 

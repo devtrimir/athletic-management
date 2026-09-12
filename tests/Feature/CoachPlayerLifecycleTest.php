@@ -329,3 +329,135 @@ test('coach achievements tab delivers hybrid payload with tournament medals and 
         ->and($playingAchievements['summary']['total'])->toBe(2)
         ->and($playingAchievements['summary']['medals'])->toBe(2);
 });
+
+test('team assigned coach appears in participantCandidates and can participate in tournament event', function () {
+    $user = lifecycleUser('tournaments.view', 'tournaments.update');
+    $orgId = $user->organization_id;
+
+    $session = SportSession::factory()->create(['organization_id' => $orgId]);
+    $sport = Sport::factory()->create();
+    $tier = TournamentTier::firstOrCreate(['code' => 'STATE'], ['label_hi' => 'राज्य', 'label_en' => 'State', 'weight' => 50]);
+
+    $team = Team::factory()->create([
+        'organization_id' => $orgId,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'is_active' => true,
+    ]);
+
+    // Create player on team
+    $player = Member::factory()->create([
+        'organization_id' => $orgId,
+        'full_name' => 'Regular Player',
+        'gender' => 'M',
+    ]);
+    TeamMember::create([
+        'team_id' => $team->id,
+        'member_id' => $player->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
+    ]);
+
+    // Create coach assigned to team (starts unlinked)
+    $coach = Coach::factory()->create([
+        'organization_id' => $orgId,
+        'full_name' => 'Coach Participant',
+        'pno' => 'PNO889900',
+        'gender' => 'M',
+        'member_id' => null,
+    ]);
+    CoachAssignment::create([
+        'team_id' => $team->id,
+        'coach_id' => $coach->id,
+        'session_id' => $session->id,
+        'role' => 'HEAD',
+        'is_current' => true,
+    ]);
+
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $orgId,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'tier_id' => $tier->id,
+    ]);
+
+    // 1. Team event
+    $teamEvent = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'event_type' => 'team',
+        'gender_class' => 'men',
+    ]);
+
+    // Check show page with deferred participantCandidates prop
+    $version = file_exists(public_path('build/manifest.json'))
+        ? hash_file('xxh128', public_path('build/manifest.json'))
+        : null;
+
+    $response = $this->actingAs($user)->getJson(route('tournaments.events.show', [$tournament, $teamEvent]), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Partial-Component' => 'events/show',
+        'X-Inertia-Partial-Data' => 'participantCandidates',
+        'X-Inertia-Version' => $version,
+    ])->assertOk();
+
+    // Verify coach was automatically linked and included in candidates
+    $coach->refresh();
+    expect($coach->member_id)->not->toBeNull();
+
+    $candidates = $response->json('props.participantCandidates.0.members');
+    $coachCandidate = collect($candidates)->firstWhere('id', $coach->member_id);
+    expect($coachCandidate)->not->toBeNull()
+        ->and($coachCandidate['is_coach'])->toBeTrue();
+
+    // Store team event participants with both player and coach in lineup
+    $storeResponse = $this->actingAs($user)->post(
+        route('tournaments.events.participants.store', [$tournament, $teamEvent]),
+        [
+            'participants' => [
+                [
+                    'team_id' => $team->id,
+                    'player_ids' => [$player->id, $coach->member_id],
+                    'medal_type' => 'GOLD',
+                    'position' => 1,
+                ],
+            ],
+        ],
+    );
+
+    $storeResponse->assertRedirect(route('tournaments.events.show', [$tournament, $teamEvent]));
+
+    $participation = Participation::where('event_id', $teamEvent->id)->first();
+    expect($participation)->not->toBeNull()
+        ->and($participation->lineup_member_ids)->toContain($player->id)
+        ->and($participation->lineup_member_ids)->toContain($coach->member_id);
+
+    // 2. Individual event
+    $indEvent = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'event_type' => 'individual',
+        'gender_class' => 'men',
+    ]);
+
+    $indStoreResponse = $this->actingAs($user)->post(
+        route('tournaments.events.participants.store', [$tournament, $indEvent]),
+        [
+            'participants' => [
+                [
+                    'team_id' => $team->id,
+                    'member_id' => $coach->member_id,
+                    'medal_type' => 'SILVER',
+                    'position' => 2,
+                ],
+            ],
+        ],
+    );
+
+    $indStoreResponse->assertRedirect(route('tournaments.events.show', [$tournament, $indEvent]));
+
+    $indParticipation = Participation::where('event_id', $indEvent->id)->where('member_id', $coach->member_id)->first();
+    expect($indParticipation)->not->toBeNull()
+        ->and($indParticipation->team_id)->toBe($team->id)
+        ->and($indParticipation->position)->toBe(2);
+});

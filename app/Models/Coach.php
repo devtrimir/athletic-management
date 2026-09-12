@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Concerns\Auditable;
 use App\Concerns\Tenanted;
 use App\Observers\AuditObserver;
+use App\Services\MemberCodeGenerator;
 use Database\Factories\CoachFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -236,5 +237,63 @@ class Coach extends Model
     public function hasActiveCurrentSessionTeamAssignment(): bool
     {
         return $this->activeCurrentSessionAssignments()->exists();
+    }
+
+    /**
+     * Ensure the coach has a linked athlete (Member) profile.
+     * If unlinked, links to an existing member with the same PNO or creates a new member profile.
+     */
+    public function ensureLinkedMember(): Member
+    {
+        if ($this->member_id !== null && $this->member !== null) {
+            return $this->member;
+        }
+
+        if ($this->member_id !== null) {
+            $member = Member::find($this->member_id);
+            if ($member !== null) {
+                return $member;
+            }
+        }
+
+        if (! empty($this->pno)) {
+            $existingMember = Member::where('organization_id', $this->organization_id)
+                ->where('pno', $this->pno)
+                ->first();
+
+            if ($existingMember !== null) {
+                $this->update(['member_id' => $existingMember->id]);
+
+                return $existingMember;
+            }
+        }
+
+        $generator = app(MemberCodeGenerator::class);
+        $memberCode = $generator->next((int) $this->organization_id);
+        $rankCode = $this->rankMaster?->code;
+
+        $newMember = Member::create([
+            'organization_id' => $this->organization_id,
+            'member_code' => $memberCode,
+            'pno' => $this->pno,
+            'full_name' => $this->full_name,
+            'rank' => $rankCode,
+            'initial_rank' => $rankCode,
+            'gender' => $this->gender ?? 'M',
+            'dob' => $this->date_of_birth,
+            'mobile' => $this->mobile,
+            'blood_group' => $this->blood_group,
+            'home_district_id' => $this->district_id,
+            'current_unit_id' => $this->unit_id,
+            'photo_path' => $this->photo_path,
+            'current_status' => 'ACTIVE',
+            'player_category' => 'SKILLED',
+            'player_level' => 'STATE',
+            'sport_id' => $this->sports()->wherePivot('is_primary', true)->value('sports.id') ?? $this->sports()->first()?->id,
+        ]);
+
+        $this->update(['member_id' => $newMember->id]);
+
+        return $newMember;
     }
 }

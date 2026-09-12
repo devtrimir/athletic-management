@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Events\StoreEventRequest;
 use App\Http\Requests\Events\UpdateEventRequest;
+use App\Models\CoachAssignment;
 use App\Models\Event;
 use App\Models\Member;
 use App\Models\Participation;
@@ -126,7 +127,7 @@ class EventController extends Controller
                     ->with([
                         'member' => fn ($query) => $query
                             ->select(['id', 'full_name', 'pno', 'photo_path'])
-                            ->with(['playableSports' => $playableSport]),
+                            ->with(['coach:id,member_id', 'playableSports' => $playableSport]),
                         'team:id,name',
                         'achievement',
                     ])
@@ -143,7 +144,7 @@ class EventController extends Controller
 
                 $lineupMembersById = Member::query()
                     ->select(['id', 'full_name', 'pno', 'photo_path'])
-                    ->with(['playableSports' => $playableSport])
+                    ->with(['coach:id,member_id', 'playableSports' => $playableSport])
                     ->whereIn('id', $lineupMemberIds)
                     ->get()
                     ->keyBy('id');
@@ -158,6 +159,8 @@ class EventController extends Controller
                             'full_name' => $p->member->full_name,
                             'pno' => $p->member->pno,
                             'photo_path' => $p->member->photo_path,
+                            'is_coach' => $p->member->coach !== null,
+                            'coach_id' => $p->member->coach?->id,
                             'sport_profile' => $this->memberSportProfile($p->member),
                         ] : null,
                         'team' => $p->team ? [
@@ -172,6 +175,8 @@ class EventController extends Controller
                                         'full_name' => $lineupMembersById->get($memberId)->full_name,
                                         'pno' => $lineupMembersById->get($memberId)->pno,
                                         'photo_path' => $lineupMembersById->get($memberId)->photo_path,
+                                        'is_coach' => $lineupMembersById->get($memberId)->coach !== null,
+                                        'coach_id' => $lineupMembersById->get($memberId)->coach?->id,
                                         'sport_profile' => $this->memberSportProfile($lineupMembersById->get($memberId)),
                                     ] : null,
                                     array_map('intval', (array) ($p->lineup_member_ids ?? [])),
@@ -195,16 +200,21 @@ class EventController extends Controller
      */
     private function memberSportProfile(?Member $member): ?array
     {
-        $sport = $member?->relationLoaded('playableSports') ? $member->playableSports->first() : null;
+        if ($member === null) {
+            return null;
+        }
+
+        $sport = $member->playableSports->first();
+
         if ($sport === null) {
             return null;
         }
 
         $profile = [
-            'sport_event' => filled($sport->pivot?->sport_event) ? (string) $sport->pivot->sport_event : null,
-            'weight' => filled($sport->pivot?->weight) ? (string) $sport->pivot->weight : null,
-            'role' => filled($sport->pivot?->role) ? (string) $sport->pivot->role : null,
-            'position' => filled($sport->pivot?->position) ? (string) $sport->pivot->position : null,
+            'sport_event' => $sport->pivot?->sport_event,
+            'weight' => $sport->pivot?->weight,
+            'role' => $sport->pivot?->role,
+            'position' => $sport->pivot?->position,
         ];
 
         return collect($profile)->filter()->isEmpty() ? null : $profile;
@@ -232,33 +242,48 @@ class EventController extends Controller
             ->where('session_id', $tournament->session_id)
             ->where('sport_id', $event->sport_id)
             ->where('is_active', true)
-            ->with(['teamMembers' => fn ($query) => $query
-                ->select(['id', 'team_id', 'member_id', 'session_id', 'role', 'left_on'])
-                ->whereNull('left_on')
-                ->when(count($excludedMemberIds) > 0, fn ($query) => $query->whereNotIn('member_id', $excludedMemberIds))
-                ->when($gender !== null, fn ($query) => $query->whereHas(
-                    'member',
-                    fn ($query) => $query->where('gender', $gender),
-                ))
-                ->with(['member' => fn ($query) => $query
-                    ->select(['id', 'full_name', 'pno', 'gender', 'player_category', 'player_level', 'current_status'])
-                    ->with(['playableSports' => fn ($query) => $query
-                        ->select(['sports.id', 'sports.name'])
-                        ->where('sports.id', $event->sport_id)
-                        ->withPivot(['sport_event', 'weight'])])])
-                ->orderByRaw("CASE role WHEN 'CAPTAIN' THEN 0 WHEN 'PLAYER' THEN 1 WHEN 'RESERVE' THEN 2 ELSE 3 END")
-                ->orderBy('id')])
+            ->with([
+                'teamMembers' => fn ($query) => $query
+                    ->select(['id', 'team_id', 'member_id', 'session_id', 'role', 'left_on'])
+                    ->whereNull('left_on')
+                    ->when(count($excludedMemberIds) > 0, fn ($query) => $query->whereNotIn('member_id', $excludedMemberIds))
+                    ->when($gender !== null, fn ($query) => $query->whereHas(
+                        'member',
+                        fn ($query) => $query->where('gender', $gender),
+                    ))
+                    ->with(['member' => fn ($query) => $query
+                        ->select(['id', 'full_name', 'pno', 'gender', 'player_category', 'player_level', 'current_status'])
+                        ->with(['playableSports' => fn ($query) => $query
+                            ->select(['sports.id', 'sports.name'])
+                            ->where('sports.id', $event->sport_id)
+                            ->withPivot(['sport_event', 'weight'])])])
+                    ->orderByRaw("CASE role WHEN 'CAPTAIN' THEN 0 WHEN 'PLAYER' THEN 1 WHEN 'RESERVE' THEN 2 ELSE 3 END")
+                    ->orderBy('id'),
+                'coachAssignments' => fn ($query) => $query
+                    ->where('session_id', $tournament->session_id)
+                    ->where('is_current', true)
+                    ->whereNull('removed_at')
+                    ->with(['coach' => fn ($query) => $query
+                        ->with(['member' => fn ($query) => $query
+                            ->select(['id', 'full_name', 'pno', 'gender', 'player_category', 'player_level', 'current_status'])
+                            ->with(['playableSports' => fn ($query) => $query
+                                ->select(['sports.id', 'sports.name'])
+                                ->where('sports.id', $event->sport_id)
+                                ->withPivot(['sport_event', 'weight'])]),
+                        ]),
+                    ]),
+            ])
             ->orderBy('name')
             ->get()
-            ->map(fn (Team $team): array => [
-                'id' => $team->id,
-                'name' => $team->name,
-                'members' => $team->teamMembers
+            ->map(function (Team $team) use ($excludedMemberIds, $gender): array {
+                $playerMembers = $team->teamMembers
                     ->filter(fn (TeamMember $teamMember): bool => $teamMember->member !== null)
                     ->map(fn (TeamMember $teamMember): array => [
                         'team_member_id' => $teamMember->id,
                         'team_id' => $team->id,
                         'role' => $teamMember->role,
+                        'is_coach' => false,
+                        'coach_id' => null,
                         'id' => $teamMember->member->id,
                         'full_name' => $teamMember->member->full_name,
                         'pno' => $teamMember->member->pno,
@@ -267,9 +292,72 @@ class EventController extends Controller
                         'player_level' => $teamMember->member->player_level,
                         'current_status' => $teamMember->member->current_status,
                         'sport_event' => $teamMember->member->playableSports->first()?->pivot?->sport_event,
-                    ])
-                    ->values(),
-            ]);
+                    ]);
+
+                $existingPlayerMemberIds = $playerMembers->pluck('id')->all();
+
+                $coachMembers = $team->coachAssignments
+                    ->map(function (CoachAssignment $assignment) use ($excludedMemberIds, $gender, $existingPlayerMemberIds): ?array {
+                        $coach = $assignment->coach;
+                        if (! $coach) {
+                            return null;
+                        }
+
+                        $member = $coach->ensureLinkedMember();
+                        if (! $member) {
+                            return null;
+                        }
+
+                        if (in_array($member->id, $excludedMemberIds, true)) {
+                            return null;
+                        }
+
+                        if ($gender !== null && $member->gender !== $gender) {
+                            return null;
+                        }
+
+                        $isAlreadyPlayer = in_array($member->id, $existingPlayerMemberIds, true);
+
+                        return [
+                            'team_member_id' => -$assignment->id,
+                            'team_id' => $assignment->team_id,
+                            'role' => $isAlreadyPlayer ? 'PLAYER_COACH' : ($assignment->role ?: 'COACH'),
+                            'is_coach' => true,
+                            'coach_id' => $coach->id,
+                            'id' => $member->id,
+                            'full_name' => $coach->full_name ?: $member->full_name,
+                            'pno' => $coach->pno ?: $member->pno,
+                            'gender' => $member->gender,
+                            'player_category' => $member->player_category ?: 'COACH',
+                            'player_level' => $member->player_level ?: 'STATE',
+                            'current_status' => $member->current_status ?: 'ACTIVE',
+                            'sport_event' => $member->playableSports?->first()?->pivot?->sport_event,
+                        ];
+                    })
+                    ->filter();
+
+                $merged = $playerMembers->map(function (array $player) use ($team): array {
+                    $isCoach = $team->coachAssignments->contains(fn ($a): bool => $a->coach?->member_id === $player['id']);
+                    if ($isCoach) {
+                        $player['is_coach'] = true;
+                        $player['role'] = 'PLAYER_COACH';
+                    }
+
+                    return $player;
+                });
+
+                foreach ($coachMembers as $coachItem) {
+                    if (! $merged->contains('id', $coachItem['id'])) {
+                        $merged->push($coachItem);
+                    }
+                }
+
+                return [
+                    'id' => $team->id,
+                    'name' => $team->name,
+                    'members' => $merged->values(),
+                ];
+            });
     }
 
     public function update(UpdateEventRequest $request, Tournament $tournament, Event $event, TournamentEventPayload $payload): RedirectResponse

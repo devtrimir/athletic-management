@@ -24,12 +24,9 @@ class UpdateCoachRequest extends FormRequest
         $orgId = (int) $this->user()->organization_id;
         $coach = $this->route('coach');
         $coachId = (int) $coach?->getKey();
-        $memberId = $this->filled('member_id')
-            ? (int) $this->input('member_id')
-            : ($coach?->member_id ? (int) $coach->member_id : null);
+        $memberId = $coach?->member_id ? (int) $coach->member_id : null;
 
         return [
-            'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->where('organization_id', $orgId)],
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
             'pno' => ['sometimes', 'nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, 'coaches', $coachId, ignoreMemberId: $memberId)],
             'mobile' => ['sometimes', 'nullable', 'string', 'max:20'],
@@ -72,9 +69,7 @@ class UpdateCoachRequest extends FormRequest
     {
         $validator->after(function ($validator): void {
             $coach = $this->route('coach');
-            $memberId = $this->filled('member_id')
-                ? (int) $this->input('member_id')
-                : ($coach?->member_id ? (int) $coach->member_id : null);
+            $memberId = $coach?->member_id ? (int) $coach->member_id : null;
 
             if ($memberId) {
                 $member = Member::find($memberId);

@@ -557,5 +557,15 @@
     "Derived from personal tournament achievements and recorded pre-recruitment accomplishments.": "Derived from personal tournament achievements and recorded pre-recruitment accomplishments.",
     "Tournaments": "Tournaments",
     "Prior / Direct": "Prior / Direct",
-    "No prior or pre-recruitment achievements recorded yet. Click \"Add achievement\" to record one.": "No prior or pre-recruitment achievements recorded yet. Click \"Add achievement\" to record one."
+    "No prior or pre-recruitment achievements recorded yet. Click \"Add achievement\" to record one.": "No prior or pre-recruitment achievements recorded yet. Click \"Add achievement\" to record one.",
+    "Participant name": "Participant name",
+    "All Candidates": "All Candidates",
+    "Athletes": "Athletes",
+    "Coaches": "Coaches",
+    "eligible": "eligible",
+    "athletes": "athletes",
+    "coaches": "coaches",
+    "Search name, P.No, role, category, coach…": "Search name, P.No, role, category, coach…",
+    "One or more selected participants are not active members or coaches in this team and session.": "One or more selected participants are not active members or coaches in this team and session.",
+    "Participant must belong to an active team as a player or coach for this event sport and session.": "Participant must belong to an active team as a player or coach for this event sport and session."
 }

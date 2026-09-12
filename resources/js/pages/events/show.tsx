@@ -11,6 +11,7 @@ import {
     ArrowLeft,
     Camera,
     Check,
+    GraduationCap,
     Images,
     Info,
     List,
@@ -122,25 +123,23 @@ type PlayerSportProfile = {
     position: string | null;
 };
 
+type ParticipationMember = {
+    id: number;
+    full_name: string;
+    pno: string | null;
+    photo_path: string | null;
+    is_coach?: boolean;
+    coach_id?: number | null;
+    sport_profile: PlayerSportProfile | null;
+};
+
 type ParticipationRow = {
     id: number;
     position: number | null;
     media_files_count: number;
     team: { id: number; name: string } | null;
-    member: {
-        id: number;
-        full_name: string;
-        pno: string | null;
-        photo_path: string | null;
-        sport_profile: PlayerSportProfile | null;
-    } | null;
-    lineup_members: {
-        id: number;
-        full_name: string;
-        pno: string | null;
-        photo_path: string | null;
-        sport_profile: PlayerSportProfile | null;
-    }[];
+    member: ParticipationMember | null;
+    lineup_members: ParticipationMember[];
     achievement: {
         medal_type: string | null;
         position: number | null;
@@ -152,6 +151,8 @@ type ParticipantCandidate = {
     team_member_id: number;
     team_id: number;
     role: string;
+    is_coach?: boolean;
+    coach_id?: number | null;
     id: number;
     full_name: string;
     pno: string | null;
@@ -1060,6 +1061,7 @@ function AddParticipantDialog({
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
     const [query, setQuery] = useState('');
+    const [filterRole, setFilterRole] = useState<'all' | 'players' | 'coaches'>('all');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterLevel, setFilterLevel] = useState('');
     const { errors, reset } = useForm<Record<string, never>>({});
@@ -1092,14 +1094,20 @@ function AddParticipantDialog({
               ) ?? null);
     const selectedIdSet = new Set(selectedIds);
     const normalizedQuery = query.trim().toLowerCase();
-    const totalCandidates = candidates.reduce(
-        (total, team) => total + team.members.length,
-        0,
-    );
+    const allCandidatesList = candidates.flatMap((team) => team.members);
+    const totalCandidates = allCandidatesList.length;
+    const totalAthletes = allCandidatesList.filter((m) => !m.is_coach).length;
+    const totalCoaches = allCandidatesList.filter((m) => m.is_coach).length;
     const filterMembers = (
         members: ParticipantCandidate[],
     ): ParticipantCandidate[] =>
         members.filter((member) => {
+            const matchesRole =
+                filterRole === 'all'
+                    ? true
+                    : filterRole === 'coaches'
+                      ? Boolean(member.is_coach)
+                      : !member.is_coach;
             const matchesCategory =
                 !filterCategory || member.player_category === filterCategory;
             const matchesLevel =
@@ -1108,6 +1116,7 @@ function AddParticipantDialog({
                 member.full_name,
                 member.pno,
                 member.role,
+                member.is_coach ? 'coach' : '',
                 member.player_category,
                 member.player_level,
                 member.sport_event,
@@ -1117,6 +1126,7 @@ function AddParticipantDialog({
                 .toLowerCase();
 
             return (
+                matchesRole &&
                 matchesCategory &&
                 matchesLevel &&
                 (!normalizedQuery || searchable.includes(normalizedQuery))
@@ -1147,7 +1157,7 @@ function AddParticipantDialog({
         .flatMap((team) => team.members)
         .filter((member) => selectedIdSet.has(member.id));
     const hasActiveFilters = Boolean(
-        filterCategory || filterLevel || normalizedQuery,
+        filterRole !== 'all' || filterCategory || filterLevel || normalizedQuery,
     );
     const allVisibleSelected =
         visibleCandidates.length > 0 &&
@@ -1172,6 +1182,7 @@ function AddParticipantDialog({
         setSelectedIds([]);
         setSelectedTeamId(null);
         setQuery('');
+        setFilterRole('all');
         setFilterCategory('');
         setFilterLevel('');
         onOpenChange(false);
@@ -1347,12 +1358,10 @@ function AddParticipantDialog({
                                 <Label>{t('Eligible roster')}</Label>
                                 <p className="text-xs text-muted-foreground">
                                     {visibleCandidates.length} {t('shown')} ·{' '}
-                                    {totalCandidates}{' '}
-                                    {t(
-                                        totalCandidates === 1
-                                            ? 'eligible athlete'
-                                            : 'eligible athletes',
-                                    )}
+                                    {totalCandidates} {t('eligible')}
+                                    {totalCoaches > 0
+                                        ? ` (${totalAthletes} ${t('athletes')}, ${totalCoaches} ${t('coaches')})`
+                                        : ''}
                                 </p>
                             </div>
                             <div className="rounded-md border bg-background px-2.5 py-1.5 text-sm">
@@ -1365,6 +1374,45 @@ function AddParticipantDialog({
                             </div>
                         </div>
 
+                        {totalCoaches > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                <Button
+                                    type="button"
+                                    variant={filterRole === 'all' ? 'secondary' : 'outline'}
+                                    size="sm"
+                                    className="h-8 text-xs font-medium"
+                                    onClick={() => setFilterRole('all')}
+                                >
+                                    {t('All')} ({totalCandidates})
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={filterRole === 'players' ? 'secondary' : 'outline'}
+                                    size="sm"
+                                    className="h-8 text-xs font-medium"
+                                    onClick={() => setFilterRole('players')}
+                                >
+                                    <Users className="mr-1.5 h-3.5 w-3.5" />
+                                    {t('Athletes')} ({totalAthletes})
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={filterRole === 'coaches' ? 'secondary' : 'outline'}
+                                    size="sm"
+                                    className={cn(
+                                        'h-8 text-xs font-medium',
+                                        filterRole === 'coaches'
+                                            ? 'border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200'
+                                            : 'border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40',
+                                    )}
+                                    onClick={() => setFilterRole('coaches')}
+                                >
+                                    <GraduationCap className="mr-1.5 h-3.5 w-3.5" />
+                                    {t('Coaches')} ({totalCoaches})
+                                </Button>
+                            </div>
+                        )}
+
                         <div className="grid gap-3 lg:grid-cols-[minmax(14rem,1fr)_auto_auto]">
                             <div className="relative">
                                 <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
@@ -1375,7 +1423,7 @@ function AddParticipantDialog({
                                     }
                                     className="pl-8"
                                     placeholder={t(
-                                        'Search name, P.No, role, category…',
+                                        'Search name, P.No, role, category, coach…',
                                     )}
                                 />
                             </div>
@@ -1649,23 +1697,35 @@ function AddParticipantDialog({
                                                                         }
                                                                     </span>
                                                                 )}
-                                                                <Badge
-                                                                    variant={
-                                                                        selected
-                                                                            ? 'secondary'
-                                                                            : 'outline'
-                                                                    }
-                                                                    className={cn(
-                                                                        'text-[11px]',
-                                                                        selected
-                                                                            ? 'border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-100'
-                                                                            : '',
-                                                                    )}
-                                                                >
-                                                                    {t(
-                                                                        member.role,
-                                                                    )}
-                                                                </Badge>
+                                                                {member.is_coach ? (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="border-amber-300 bg-amber-50 text-[11px] font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+                                                                    >
+                                                                        <GraduationCap className="mr-1 h-3 w-3 inline" />
+                                                                        {member.role === 'PLAYER_COACH'
+                                                                            ? t('Player-Coach')
+                                                                            : t('Coach')}
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge
+                                                                        variant={
+                                                                            selected
+                                                                                ? 'secondary'
+                                                                                : 'outline'
+                                                                        }
+                                                                        className={cn(
+                                                                            'text-[11px]',
+                                                                            selected
+                                                                                ? 'border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-100'
+                                                                                : '',
+                                                                        )}
+                                                                    >
+                                                                        {t(
+                                                                            member.role,
+                                                                        )}
+                                                                    </Badge>
+                                                                )}
                                                             </div>
                                                             <div className="mt-1 space-y-1 text-sm text-muted-foreground">
                                                                 <p className="truncate">
@@ -1927,6 +1987,8 @@ function normalizeTeamParticipationPlayers(participation: ParticipationRow): {
     full_name: string;
     pno: string | null;
     photo_path: string | null;
+    is_coach?: boolean;
+    coach_id?: number | null;
     sport_profile: PlayerSportProfile | null;
 }[] {
     if (participation.lineup_members.length > 0) {
@@ -1943,6 +2005,8 @@ function normalizeTeamParticipationPlayers(participation: ParticipationRow): {
             full_name: participation.member.full_name,
             pno: participation.member.pno,
             photo_path: participation.member.photo_path,
+            is_coach: participation.member.is_coach,
+            coach_id: participation.member.coach_id,
             sport_profile: participation.member.sport_profile,
         },
     ];
@@ -1967,26 +2031,17 @@ function playerSportProfileText(
         .join(' · ');
 }
 
-function resolveDisplayPlayerName(
-    row: TeamPlayerTableRow,
-    eventName: string,
-): string {
-    const normalize = (value?: string | null): string => (value ?? '').trim();
-    const normalizeForCompare = (value?: string | null): string =>
-        normalize(value).toLowerCase();
-    const isRepeated = (value: string): boolean =>
-        !value || normalizeForCompare(value) === normalizeForCompare(eventName);
+function resolveDisplayPlayerName(row: TeamPlayerTableRow): string {
+    const rawPlayerName = row.playerName?.trim();
 
-    const nameFromRow = normalize(row.playerName);
-    const nameFromParticipation = normalize(
-        row.participation.member?.full_name,
-    );
-
-    if (!isRepeated(nameFromRow)) {
-        return nameFromRow;
+    if (rawPlayerName) {
+        return rawPlayerName;
     }
 
-    if (!isRepeated(nameFromParticipation)) {
+    const nameFromParticipation =
+        row.resultParticipation.member?.full_name?.trim();
+
+    if (nameFromParticipation) {
         return nameFromParticipation;
     }
 
@@ -2010,6 +2065,8 @@ type TeamPlayerTableRow = {
     playerPno: string | null;
     playerPhotoPath: string | null;
     playerSportProfile: PlayerSportProfile | null;
+    isCoach?: boolean;
+    coachId?: number | null;
     teamPlayerCount: number;
     isFirstPlayerInTeam: boolean;
 };
@@ -2047,6 +2104,8 @@ function buildTeamDisplayRows(
                 playerPno: player.pno,
                 playerPhotoPath: player.photo_path,
                 playerSportProfile: player.sport_profile,
+                isCoach: player.is_coach,
+                coachId: player.coach_id,
             });
         });
 
@@ -2065,26 +2124,30 @@ function buildTeamDisplayRows(
 function buildIndividualDisplayRows(
     participations: ParticipationRow[],
 ): TeamPlayerTableRow[] {
-    return participations
-        .map((participation) => {
-            if (!participation.member) {
-                return null;
-            }
+    const rows: TeamPlayerTableRow[] = [];
 
-            return {
-                rowId: `${participation.id}-${participation.member.id}`,
-                participation,
-                resultParticipation: participation,
-                playerId: participation.member.id,
-                playerName: participation.member.full_name,
-                playerPno: participation.member.pno,
-                playerPhotoPath: participation.member.photo_path,
-                playerSportProfile: participation.member.sport_profile,
-                teamPlayerCount: 1,
-                isFirstPlayerInTeam: true,
-            };
-        })
-        .filter((row): row is TeamPlayerTableRow => row !== null);
+    for (const participation of participations) {
+        if (!participation.member) {
+            continue;
+        }
+
+        rows.push({
+            rowId: `${participation.id}-${participation.member.id}`,
+            participation,
+            resultParticipation: participation,
+            playerId: participation.member.id,
+            playerName: participation.member.full_name,
+            playerPno: participation.member.pno,
+            playerPhotoPath: participation.member.photo_path,
+            playerSportProfile: participation.member.sport_profile,
+            isCoach: participation.member.is_coach,
+            coachId: participation.member.coach_id,
+            teamPlayerCount: 1,
+            isFirstPlayerInTeam: true,
+        });
+    }
+
+    return rows;
 }
 
 // ---------------------------------------------------------------------------
@@ -2117,15 +2180,17 @@ function ParticipantsList({
         useState<DeleteTarget | null>(null);
     const [mediaParticipation, setMediaParticipation] =
         useState<ParticipationRow | null>(null);
-    const { delete: deleteParticipant, processing: deletingProcessing } =
-        useForm({});
+    const [roleFilter, setRoleFilter] =
+        useState<'all' | 'players' | 'coaches'>('all');
+    const [deletingProcessing, setDeletingProcessing] = useState(false);
 
     function handleDelete() {
         if (!deletingParticipation) {
             return;
         }
 
-        deleteParticipant(
+        setDeletingProcessing(true);
+        router.delete(
             destroyParticipant.url({
                 tournament: tournament.id,
                 event: event.id,
@@ -2138,6 +2203,7 @@ function ParticipantsList({
                       }
                     : undefined,
                 onSuccess: () => setDeletingParticipation(null),
+                onFinish: () => setDeletingProcessing(false),
             },
         );
     }
@@ -2155,8 +2221,64 @@ function ParticipantsList({
             ? buildTeamDisplayRows(participations)
             : buildIndividualDisplayRows(participations);
 
+    const coachRowsCount = displayRows.filter((r) => r.isCoach).length;
+    const playerRowsCount = displayRows.length - coachRowsCount;
+
+    const filteredDisplayRows = displayRows.filter((row) => {
+        if (roleFilter === 'players') {
+            return !row.isCoach;
+        }
+
+        if (roleFilter === 'coaches') {
+            return Boolean(row.isCoach);
+        }
+
+        return true;
+    });
+
     return (
         <>
+            {coachRowsCount > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pb-3">
+                    <span className="mr-1 text-xs font-medium text-muted-foreground">
+                        {t('Filter')}:
+                    </span>
+                    <Button
+                        type="button"
+                        variant={roleFilter === 'all' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className="h-7 px-2.5 text-xs font-medium"
+                        onClick={() => setRoleFilter('all')}
+                    >
+                        {t('All')} ({displayRows.length})
+                    </Button>
+                    <Button
+                        type="button"
+                        variant={roleFilter === 'players' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className="h-7 px-2.5 text-xs font-medium"
+                        onClick={() => setRoleFilter('players')}
+                    >
+                        <Users className="mr-1 h-3 w-3" />
+                        {t('Athletes')} ({playerRowsCount})
+                    </Button>
+                    <Button
+                        type="button"
+                        variant={roleFilter === 'coaches' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className={cn(
+                            'h-7 px-2.5 text-xs font-medium',
+                            roleFilter === 'coaches'
+                                ? 'border border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200'
+                                : 'text-amber-800 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40',
+                        )}
+                        onClick={() => setRoleFilter('coaches')}
+                    >
+                        <GraduationCap className="mr-1 h-3.5 w-3.5" />
+                        {t('Coaches')} ({coachRowsCount})
+                    </Button>
+                </div>
+            )}
             <div className="overflow-x-auto rounded-xl border border-slate-300 dark:border-slate-700">
                 <Table>
                     <TableHeader>
@@ -2165,7 +2287,7 @@ function ParticipantsList({
                                 {t('S.No.')}
                             </TableHead>
                             <TableHead className="min-w-56 border-r border-slate-300 text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
-                                {t('Member name')}
+                                {t('Participant name')}
                             </TableHead>
                             <TableHead className="w-24 border-r border-slate-300 text-center text-xs font-semibold tracking-wide text-slate-700 uppercase dark:border-slate-700 dark:text-slate-200">
                                 {t('Position')}
@@ -2182,11 +2304,8 @@ function ParticipantsList({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {displayRows.map((row, idx) => {
-                            const playerName = resolveDisplayPlayerName(
-                                row,
-                                event.name,
-                            );
+                        {filteredDisplayRows.map((row, idx) => {
+                            const playerName = resolveDisplayPlayerName(row);
                             const isTeamEvent = event.event_type === 'team';
                             const editActionLabel = isTeamEvent
                                 ? t('Edit medal')
@@ -2220,8 +2339,19 @@ function ParticipantsList({
                                                 </span>
                                             )}
                                             <div>
-                                                <div className="text-sm font-medium">
-                                                    {playerName}
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-sm font-medium">
+                                                        {playerName}
+                                                    </span>
+                                                    {row.isCoach && (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="border-amber-300 bg-amber-50 text-[11px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                                        >
+                                                            <GraduationCap className="mr-1 h-3 w-3 inline" />
+                                                            {t('Coach')}
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 {playerSportProfile ? (
                                                     <p className="max-w-80 text-xs text-muted-foreground">

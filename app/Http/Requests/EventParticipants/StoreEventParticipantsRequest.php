@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\EventParticipants;
 
+use App\Models\CoachAssignment;
 use App\Models\Event;
 use App\Models\TeamMember;
 use App\Models\Tournament;
@@ -118,7 +119,21 @@ class StoreEventParticipantsRequest extends FormRequest
                             ->pluck('member_id')
                             ->all();
 
-                        if (count($activePlayerIds) !== count($playerIds)) {
+                        $activeCoachMemberIds = CoachAssignment::query()
+                            ->where('team_id', $teamId)
+                            ->where('session_id', $tournament->session_id)
+                            ->where('is_current', true)
+                            ->whereNull('removed_at')
+                            ->whereHas('coach', fn ($q) => $q->whereIn('member_id', $playerIds))
+                            ->with('coach:id,member_id')
+                            ->get()
+                            ->pluck('coach.member_id')
+                            ->filter()
+                            ->all();
+
+                        $validMemberIds = array_unique(array_merge($activePlayerIds, $activeCoachMemberIds));
+
+                        if (count(array_diff($playerIds, $validMemberIds)) > 0) {
                             $validator->errors()->add("participants.{$index}.player_ids", __('One or more selected players are not active in this team and session.'));
                         }
 
@@ -152,7 +167,25 @@ class StoreEventParticipantsRequest extends FormRequest
                                 })
                                 ->exists();
 
+                            $isActiveCoach = false;
                             if (! $isActiveRosterMember) {
+                                $isActiveCoach = CoachAssignment::query()
+                                    ->where('team_id', $teamId)
+                                    ->where('session_id', $tournament->session_id)
+                                    ->where('is_current', true)
+                                    ->whereNull('removed_at')
+                                    ->whereHas('coach', fn ($q) => $q->where('member_id', $memberId))
+                                    ->whereHas('team', function ($query) use ($event, $tournament): void {
+                                        $query
+                                            ->where('organization_id', $tournament->organization_id)
+                                            ->where('session_id', $tournament->session_id)
+                                            ->where('sport_id', $event->sport_id)
+                                            ->where('is_active', true);
+                                    })
+                                    ->exists();
+                            }
+
+                            if (! $isActiveRosterMember && ! $isActiveCoach) {
                                 $validator->errors()->add(
                                     "participants.{$index}.member_id",
                                     __('Participant must belong to an active team for this event sport and session.'),

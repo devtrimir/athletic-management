@@ -1631,5 +1631,15 @@
     "Derived from personal tournament achievements and recorded pre-recruitment accomplishments.": "व्यक्तिगत प्रतियोगिता उपलब्धियों और दर्ज की गई भर्ती पूर्व उपलब्धियों से प्राप्त।",
     "Tournaments": "प्रतियोगिताएं",
     "Prior / Direct": "भर्ती पूर्व / सीधे दर्ज",
-    "No prior or pre-recruitment achievements recorded yet. Click \"Add achievement\" to record one.": "अभी तक कोई भर्ती पूर्व या अन्य उपलब्धि दर्ज नहीं है। दर्ज करने के लिए \"उपलब्धि जोड़ें\" पर क्लिक करें।"
+    "No prior or pre-recruitment achievements recorded yet. Click \"Add achievement\" to record one.": "अभी तक कोई भर्ती पूर्व या अन्य उपलब्धि दर्ज नहीं है। दर्ज करने के लिए \"उपलब्धि जोड़ें\" पर क्लिक करें।",
+    "Participant name": "प्रतिभागी का नाम",
+    "All Candidates": "सभी उम्मीदवार",
+    "Athletes": "खिलाड़ी",
+    "Coaches": "प्रशिक्षक",
+    "eligible": "योग्य",
+    "athletes": "खिलाड़ी",
+    "coaches": "प्रशिक्षक",
+    "Search name, P.No, role, category, coach…": "नाम, पी.नं., पद, श्रेणी, कोच खोजें…",
+    "One or more selected participants are not active members or coaches in this team and session.": "एक या अधिक चयनित प्रतिभागी इस टीम और सत्र में सक्रिय सदस्य या प्रशिक्षक नहीं हैं।",
+    "Participant must belong to an active team as a player or coach for this event sport and session.": "प्रतिभागी को इस खेल और सत्र के लिए खिलाड़ी या प्रशिक्षक के रूप में एक सक्रिय टीम से संबंधित होना चाहिए।"
 }

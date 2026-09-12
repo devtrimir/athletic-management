@@ -37,11 +37,11 @@ class EventParticipantController extends Controller
                 $memberId = $isTeamEvent ? null : ($row['member_id'] ?? null);
                 $teamId = $isTeamEvent
                     ? ($row['team_id'] ?? null)
-                    : $this->participationTeamResolver->resolveTeamId(
+                    : ($this->participationTeamResolver->resolveTeamId(
                         (int) ($memberId ?? 0),
                         (int) $tournament->session_id,
                         (int) $event->sport_id,
-                    );
+                    ) ?? ($row['team_id'] ?? null));
                 $medalType = (string) ($row['medal_type'] ?? '');
                 $position = $row['position'] ?? $row['medal_position'] ?? null;
                 $remarks = $row['remarks'] ?? null;
