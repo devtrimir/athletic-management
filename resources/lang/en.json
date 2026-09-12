@@ -567,5 +567,10 @@
     "coaches": "coaches",
     "Search name, P.No, role, category, coach…": "Search name, P.No, role, category, coach…",
     "One or more selected participants are not active members or coaches in this team and session.": "One or more selected participants are not active members or coaches in this team and session.",
-    "Participant must belong to an active team as a player or coach for this event sport and session.": "Participant must belong to an active team as a player or coach for this event sport and session."
+    "Participant must belong to an active team as a player or coach for this event sport and session.": "Participant must belong to an active team as a player or coach for this event sport and session.",
+    "Please wait…": "Please wait…",
+    "Generate an athlete (player) profile for this coach? This will create a linked athlete profile with matching personal details and PNO, enabling them to compete in tournaments.": "Generate an athlete (player) profile for this coach? This will create a linked athlete profile with matching personal details and PNO, enabling them to compete in tournaments.",
+    "Are you sure you want to remove this coach's photo?": "Are you sure you want to remove this coach's photo?",
+    "Remove certification": "Remove certification",
+    "Are you sure you want to remove this certification? This action cannot be undone.": "Are you sure you want to remove this certification? This action cannot be undone."
 }

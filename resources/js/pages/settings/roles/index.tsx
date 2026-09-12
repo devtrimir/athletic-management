@@ -1,6 +1,8 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import RoleController from '@/actions/App/Http/Controllers/Settings/RoleController';
+import { ConfirmationDialog } from '@/components/confirmation-dialog';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +29,7 @@ type RoleRow = {
 export default function Index({ roles }: { roles: RoleRow[] }) {
     const { t } = useTranslation();
     const { locale } = usePage().props;
+    const [deletingRole, setDeletingRole] = useState<RoleRow | null>(null);
 
     return (
         <>
@@ -113,31 +116,20 @@ export default function Index({ roles }: { roles: RoleRow[] }) {
                                             </Link>
                                         </Button>
                                         {!role.is_system && (
-                                            <Form
-                                                action={RoleController.destroy.url(
-                                                    role.id,
-                                                )}
-                                                method="delete"
-                                                onBefore={() =>
-                                                    confirm(
-                                                        t(
-                                                            'Are you sure you want to delete this role?',
-                                                        ),
-                                                    )
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-destructive hover:text-destructive"
+                                                onClick={() =>
+                                                    setDeletingRole(role)
                                                 }
                                             >
-                                                <Button
-                                                    type="submit"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="text-destructive hover:text-destructive"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                    <span className="sr-only">
-                                                        {t('Delete')}
-                                                    </span>
-                                                </Button>
-                                            </Form>
+                                                <Trash2 className="h-4 w-4" />
+                                                <span className="sr-only">
+                                                    {t('Delete')}
+                                                </span>
+                                            </Button>
                                         )}
                                     </div>
                                 </TableCell>
@@ -145,6 +137,31 @@ export default function Index({ roles }: { roles: RoleRow[] }) {
                         ))}
                     </TableBody>
                 </Table>
+
+                <ConfirmationDialog
+                    open={deletingRole !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setDeletingRole(null);
+                        }
+                    }}
+                    variant="destructive"
+                    title={t('Delete role')}
+                    description={t(
+                        'Deleting a role will remove it from all users who hold it.',
+                    )}
+                    confirmLabel={t('Delete role')}
+                    onConfirm={() => {
+                        if (deletingRole) {
+                            router.delete(
+                                RoleController.destroy.url(deletingRole.id),
+                                {
+                                    onSuccess: () => setDeletingRole(null),
+                                },
+                            );
+                        }
+                    }}
+                />
             </div>
         </>
     );

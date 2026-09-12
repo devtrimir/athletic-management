@@ -68,6 +68,7 @@ import type { PlayingAchievementsData } from '@/components/coaches/playing-achie
 import { CoachSpecialAchievementsTab } from '@/components/coaches/special-achievements-tab';
 import type { SpecialAchievementsData } from '@/components/coaches/special-achievements-tab';
 import { Combobox } from '@/components/combobox';
+import { ConfirmationDialog } from '@/components/confirmation-dialog';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { RemoveMemberSportDialog } from '@/components/members/remove-member-sport-dialog';
@@ -496,6 +497,14 @@ export default function CoachesShow({
 
     const [exportOpen, setExportOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [isDeletingCoach, setIsDeletingCoach] = useState(false);
+    const [generateAthleteProfileOpen, setGenerateAthleteProfileOpen] =
+        useState(false);
+    const [generatingAthleteProfile, setGeneratingAthleteProfile] =
+        useState(false);
+    const [removePhotoOpen, setRemovePhotoOpen] = useState(false);
+    const [removingCertification, setRemovingCertification] =
+        useState<number | null>(null);
     const [statusOpen, setStatusOpen] = useState(false);
     const [certificationDialogOpen, setCertificationDialogOpen] =
         useState(false);
@@ -626,8 +635,11 @@ export default function CoachesShow({
     }
 
     function handleDelete() {
-        router.delete(destroy.url(coach));
-        setDeleteOpen(false);
+        setIsDeletingCoach(true);
+        router.delete(destroy.url(coach), {
+            onFinish: () => setIsDeletingCoach(false),
+            onSuccess: () => setDeleteOpen(false),
+        });
     }
 
     function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
@@ -651,7 +663,10 @@ export default function CoachesShow({
     }
 
     function handleRemovePhoto() {
-        router.delete(destroyCoachPhoto.url(coach), { preserveScroll: true });
+        router.delete(destroyCoachPhoto.url(coach), {
+            preserveScroll: true,
+            onSuccess: () => setRemovePhotoOpen(false),
+        });
     }
 
     const detail = (label: string, value: string) => (
@@ -1503,19 +1518,9 @@ export default function CoachesShow({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => {
-                                    if (
-                                        confirm(
-                                            t(
-                                                'Generate an athlete (player) profile for this coach? This enables them to compete in tournaments.',
-                                            ),
-                                        )
-                                    ) {
-                                        router.post(
-                                            generateAthleteProfile.url(coach),
-                                        );
-                                    }
-                                }}
+                                onClick={() =>
+                                    setGenerateAthleteProfileOpen(true)
+                                }
                             >
                                 <UserRound className="mr-1.5 h-4 w-4" />
                                 {t('Generate Athlete Profile')}
@@ -1617,7 +1622,7 @@ export default function CoachesShow({
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={handleRemovePhoto}
+                                    onClick={() => setRemovePhotoOpen(true)}
                                 >
                                     <Trash2 className="mr-1.5 h-4 w-4" />
                                     {t('Remove photo')}
@@ -1837,7 +1842,7 @@ export default function CoachesShow({
                                                                     variant="ghost"
                                                                     size="sm"
                                                                     onClick={() =>
-                                                                        removeCertification(
+                                                                        setRemovingCertification(
                                                                             certification.id,
                                                                         )
                                                                     }
@@ -3896,29 +3901,80 @@ export default function CoachesShow({
                 t={t}
             />
 
-            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>{t('Delete coach')}</DialogTitle>
-                        <DialogDescription>
-                            {t(
-                                'Are you sure you want to delete this coach? This action cannot be undone.',
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setDeleteOpen(false)}
-                        >
-                            {t('Cancel')}
-                        </Button>
-                        <Button variant="destructive" onClick={handleDelete}>
-                            {t('Delete')}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <ConfirmationDialog
+                open={generateAthleteProfileOpen}
+                onOpenChange={setGenerateAthleteProfileOpen}
+                variant="info"
+                icon={
+                    <UserRound className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                }
+                title={t('Generate Athlete Profile')}
+                description={t(
+                    'Generate an athlete (player) profile for this coach? This will create a linked athlete profile with matching personal details and PNO, enabling them to compete in tournaments.',
+                )}
+                confirmLabel={t('Generate Profile')}
+                processing={generatingAthleteProfile}
+                onConfirm={() => {
+                    setGeneratingAthleteProfile(true);
+                    router.post(
+                        generateAthleteProfile.url(coach),
+                        {},
+                        {
+                            preserveScroll: true,
+                            onFinish: () => {
+                                setGeneratingAthleteProfile(false);
+                                setGenerateAthleteProfileOpen(false);
+                            },
+                        },
+                    );
+                }}
+            />
+
+            <ConfirmationDialog
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+                variant="destructive"
+                title={t('Delete coach')}
+                description={t(
+                    'Are you sure you want to delete this coach? This action cannot be undone.',
+                )}
+                confirmLabel={t('Delete')}
+                processing={isDeletingCoach}
+                onConfirm={handleDelete}
+            />
+
+            <ConfirmationDialog
+                open={removePhotoOpen}
+                onOpenChange={setRemovePhotoOpen}
+                variant="destructive"
+                title={t('Remove photo')}
+                description={t(
+                    'Are you sure you want to remove this coach\'s photo?',
+                )}
+                confirmLabel={t('Remove')}
+                onConfirm={handleRemovePhoto}
+            />
+
+            <ConfirmationDialog
+                open={removingCertification !== null}
+                onOpenChange={(o) => {
+                    if (!o) {
+                        setRemovingCertification(null);
+                    }
+                }}
+                variant="destructive"
+                title={t('Remove certification')}
+                description={t(
+                    'Are you sure you want to remove this certification? This action cannot be undone.',
+                )}
+                confirmLabel={t('Remove')}
+                onConfirm={() => {
+                    if (removingCertification !== null) {
+                        removeCertification(removingCertification);
+                        setRemovingCertification(null);
+                    }
+                }}
+            />
 
             <CoachStatusDialog
                 coach={coach}

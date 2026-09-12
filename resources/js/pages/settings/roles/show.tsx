@@ -1,6 +1,7 @@
-import { Form, Head, setLayoutProps, useForm, usePage } from '@inertiajs/react';
-import { useMemo } from 'react';
+import { Head, router, setLayoutProps, useForm, usePage } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
 import RoleController from '@/actions/App/Http/Controllers/Settings/RoleController';
+import { ConfirmationDialog } from '@/components/confirmation-dialog';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +59,8 @@ export default function Show({
     const permForm = useForm({
         permissions: role_permission_ids,
     });
+
+    const [deleteRoleOpen, setDeleteRoleOpen] = useState(false);
 
     const groupedPermissions = useMemo(() => {
         const groups: Record<string, Permission[]> = {};
@@ -258,25 +261,33 @@ export default function Show({
                                     'Deleting a role will remove it from all users who hold it.',
                                 )}
                             </p>
-                            <Form
-                                action={RoleController.destroy.url(role.id)}
-                                method="delete"
-                                onBefore={() =>
-                                    confirm(
-                                        t(
-                                            'Are you sure you want to delete this role?',
-                                        ),
-                                    )
-                                }
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => setDeleteRoleOpen(true)}
                             >
-                                <Button
-                                    type="submit"
-                                    variant="destructive"
-                                    size="sm"
-                                >
-                                    {t('Delete role')}
-                                </Button>
-                            </Form>
+                                {t('Delete role')}
+                            </Button>
+                            <ConfirmationDialog
+                                open={deleteRoleOpen}
+                                onOpenChange={setDeleteRoleOpen}
+                                variant="destructive"
+                                title={t('Delete role')}
+                                description={t(
+                                    'Deleting a role will remove it from all users who hold it.',
+                                )}
+                                confirmLabel={t('Delete role')}
+                                onConfirm={() => {
+                                    router.delete(
+                                        RoleController.destroy.url(role.id),
+                                        {
+                                            onSuccess: () =>
+                                                setDeleteRoleOpen(false),
+                                        },
+                                    );
+                                }}
+                            />
                         </div>
                     </>
                 )}

@@ -1641,5 +1641,10 @@
     "coaches": "प्रशिक्षक",
     "Search name, P.No, role, category, coach…": "नाम, पी.नं., पद, श्रेणी, कोच खोजें…",
     "One or more selected participants are not active members or coaches in this team and session.": "एक या अधिक चयनित प्रतिभागी इस टीम और सत्र में सक्रिय सदस्य या प्रशिक्षक नहीं हैं।",
-    "Participant must belong to an active team as a player or coach for this event sport and session.": "प्रतिभागी को इस खेल और सत्र के लिए खिलाड़ी या प्रशिक्षक के रूप में एक सक्रिय टीम से संबंधित होना चाहिए।"
+    "Participant must belong to an active team as a player or coach for this event sport and session.": "प्रतिभागी को इस खेल और सत्र के लिए खिलाड़ी या प्रशिक्षक के रूप में एक सक्रिय टीम से संबंधित होना चाहिए।",
+    "Please wait…": "कृपया प्रतीक्षा करें…",
+    "Generate an athlete (player) profile for this coach? This will create a linked athlete profile with matching personal details and PNO, enabling them to compete in tournaments.": "क्या आप इस कोच के लिए खिलाड़ी प्रोफाइल बनाना चाहते हैं? इससे समान विवरण और पीएनओ के साथ एक लिंक्ड खिलाड़ी प्रोफाइल बनेगी, जिससे वे प्रतियोगिताओं में भाग ले सकेंगे।",
+    "Are you sure you want to remove this coach's photo?": "क्या आप वाकई इस कोच का फोटो हटाना चाहते हैं?",
+    "Remove certification": "प्रमाणपत्र हटाएं",
+    "Are you sure you want to remove this certification? This action cannot be undone.": "क्या आप वाकई इस प्रमाणपत्र को हटाना चाहते हैं? यह क्रिया पूर्ववत नहीं की जा सकती।"
 }
