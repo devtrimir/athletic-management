@@ -135,8 +135,7 @@ class Participation extends Model
                     $teamQuery->whereIn("{$table}.team_id", $allTeamIds)
                         ->where(function (Builder $emptyLineup) use ($table): void {
                             $emptyLineup->whereNull("{$table}.lineup_member_ids")
-                                ->orWhere("{$table}.lineup_member_ids", '[]')
-                                ->orWhere("{$table}.lineup_member_ids", '');
+                                ->orWhereJsonLength("{$table}.lineup_member_ids", 0);
                         });
                 });
             }
