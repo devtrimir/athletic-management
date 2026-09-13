@@ -31,12 +31,12 @@ class UnitHeadcountReport
                 'u.name',
                 'u.unit_type',
                 DB::raw('COUNT(m.id) as total'),
-                DB::raw("SUM(CASE WHEN m.player_category = 'GD'      THEN 1 ELSE 0 END) as GD"),
-                DB::raw("SUM(CASE WHEN m.player_category = 'SPORTS_QUOTA' THEN 1 ELSE 0 END) as SPORTS_QUOTA"),
+                DB::raw("SUM(CASE WHEN m.player_category = 'GD'      THEN 1 ELSE 0 END) as gd_count"),
+                DB::raw("SUM(CASE WHEN m.player_category = 'SPORTS_QUOTA' THEN 1 ELSE 0 END) as sports_quota_count"),
             ])
             ->where('u.organization_id', $orgId)
             ->when($unitId, fn ($q) => $q->where('u.id', $unitId))
-            ->groupBy('u.id', 'u.name', 'u.name', 'u.unit_type')
+            ->groupBy('u.id', 'u.name', 'u.unit_type')
             ->orderBy('u.unit_type')
             ->orderBy('u.name')
             ->get();
@@ -48,8 +48,8 @@ class UnitHeadcountReport
                 'unit_type' => $row->unit_type,
             ],
             'total' => (int) $row->total,
-            'GD' => (int) $row->GD,
-            'SPORTS_QUOTA' => (int) $row->SPORTS_QUOTA,
+            'GD' => (int) ($row->gd_count ?? $row->gd ?? $row->GD ?? 0),
+            'SPORTS_QUOTA' => (int) ($row->sports_quota_count ?? $row->sports_quota ?? $row->SPORTS_QUOTA ?? 0),
         ]);
     }
 }
