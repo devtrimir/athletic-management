@@ -461,3 +461,82 @@ test('team assigned coach appears in participantCandidates and can participate i
         ->and($indParticipation->team_id)->toBe($team->id)
         ->and($indParticipation->position)->toBe(2);
 });
+
+test('coaches index supports status_scope=player_coaches filter and provides playerCoachCount', function () {
+    $user = lifecycleUser('coaches.view');
+
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => 'PNO112233',
+        'full_name' => 'Linked Player Coach Athlete',
+    ]);
+
+    $playerCoach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'full_name' => 'Coach Who Plays',
+        'pno' => 'PNO112233',
+    ]);
+
+    $regularCoach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => null,
+        'full_name' => 'Regular Coach Only',
+        'pno' => 'PNO445566',
+    ]);
+
+    // Index default page has counts
+    $response = $this->actingAs($user)->get(route('coaches.index'));
+    $response->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('coaches/index')
+            ->has('playerCoachCount')
+            ->where('playerCoachCount', 1)
+        );
+
+    // Filtering by player_coaches returns only coaches linked to a member
+    $filterResponse = $this->actingAs($user)->get(route('coaches.index', [
+        'filter' => ['status_scope' => 'player_coaches'],
+    ]));
+
+    $filterResponse->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('coaches/index')
+            ->where('filters.status_scope', 'player_coaches')
+            ->has('coaches.data', 1)
+            ->where('coaches.data.0.id', $playerCoach->id)
+            ->where('coaches.data.0.member_id', $member->id)
+            ->where('coaches.data.0.member.full_name', 'Linked Player Coach Athlete')
+            ->where('coaches.data.0.member.pno', 'PNO112233')
+        );
+});
+
+test('coach profile overview includes linked member identity with pno and current_status', function () {
+    $user = lifecycleUser('coaches.view');
+
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => 'PNO556677',
+        'full_name' => 'Dual Identity Member',
+        'current_status' => 'ACTIVE',
+    ]);
+
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'full_name' => 'Dual Identity Coach',
+        'pno' => 'PNO556677',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.show', $coach))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('coaches/show')
+            ->where('coach.id', $coach->id)
+            ->where('coach.linked_member.id', $member->id)
+            ->where('coach.linked_member.full_name', 'Dual Identity Member')
+            ->where('coach.linked_member.pno', 'PNO556677')
+            ->where('coach.linked_member.current_status', 'ACTIVE')
+        );
+});

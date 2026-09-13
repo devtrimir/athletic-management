@@ -186,12 +186,7 @@ export function MembersMultiSelect({ value, onValueChange, className }: Props) {
                                                 {member.full_name}
                                             </div>
                                             <div className="text-xs text-muted-foreground">
-                                                {[
-                                                    member.pno,
-                                                    member.member_code,
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' / ')}
+                                                {member.pno ? `${t('PNO')}: ${member.pno}` : ''}
                                             </div>
                                         </div>
                                     </CommandItem>

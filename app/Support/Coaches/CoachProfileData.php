@@ -239,7 +239,7 @@ class CoachProfileData
             'nisMaster:id,kind,code,name,short_name',
             'tierMaster:id,code,label_hi,label_en,weight',
             'rankMaster:id,code,name,short_name',
-            'member:id,member_code,full_name',
+            'member:id,member_code,full_name,pno,current_status',
         ]);
 
         $coachData = (new CoachResource($coach))->resolve();

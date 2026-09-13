@@ -1,6 +1,5 @@
 import { router } from '@inertiajs/react';
 import {
-    AlertTriangle,
     CheckCircle2,
     Loader2,
     RotateCcw,
@@ -84,8 +83,8 @@ export function ArchivedMemberActionDialog({
     const [isPurging, setIsPurging] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
 
-    const expectedConfirm = member.pno?.trim() || member.member_code;
-    const confirmPromptField = member.pno ? t('PNO') : t('Member Code');
+    const expectedConfirm = member.pno?.trim() || member.full_name;
+    const confirmPromptField = member.pno ? t('PNO') : t('Full Name');
 
     const handleOpenChange = (newOpen: boolean) => {
         if (newOpen) {

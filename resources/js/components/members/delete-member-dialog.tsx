@@ -94,8 +94,8 @@ export function DeleteMemberDialog({
     const [isDeleting, setIsDeleting] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
 
-    const expectedConfirm = member.pno?.trim() || member.member_code;
-    const confirmPromptField = member.pno ? t('PNO') : t('Member Code');
+    const expectedConfirm = member.pno?.trim() || member.full_name;
+    const confirmPromptField = member.pno ? t('PNO') : t('Full Name');
 
     const handleOpenChange = (newOpen: boolean) => {
         if (newOpen) {

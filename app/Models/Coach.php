@@ -240,6 +240,17 @@ class Coach extends Model
     }
 
     /**
+     * Scope query to only coaches who are linked to an athlete (Member) record.
+     *
+     * @param  Builder<Coach>  $query
+     * @return Builder<Coach>
+     */
+    public function scopePlayerCoaches(Builder $query): Builder
+    {
+        return $query->whereNotNull('member_id');
+    }
+
+    /**
      * Ensure the coach has a linked athlete (Member) profile.
      * If unlinked, links to an existing member with the same PNO or creates a new member profile.
      */

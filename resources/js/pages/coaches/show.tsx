@@ -12,6 +12,7 @@ import {
     ChevronDown,
     ChevronRight,
     Download,
+    ExternalLink,
     Medal,
     Pencil,
     Plus,
@@ -73,6 +74,7 @@ import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { RemoveMemberSportDialog } from '@/components/members/remove-member-sport-dialog';
 import type { ConnectedTeamInfo } from '@/components/members/remove-member-sport-dialog';
+import PlayerCoachBadge from '@/components/player-coach-badge';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
@@ -340,8 +342,10 @@ type Coach = {
     member_id?: number | null;
     linked_member?: {
         id: number;
-        member_code: string;
+        member_code?: string;
         full_name: string;
+        pno?: string | null;
+        current_status?: string | null;
     } | null;
     nis_master?: {
         id: number;
@@ -1573,24 +1577,12 @@ export default function CoachesShow({
                                         </Badge>
                                     ) : null}
                                     {coach.linked_member && (
-                                        <Badge
-                                            variant="secondary"
-                                            className="gap-1 border-primary/20 bg-primary/5 text-primary"
-                                        >
-                                            <UserRound className="h-3 w-3" />
-                                            <Link
-                                                href={memberShow.url(
-                                                    coach.linked_member.id,
-                                                )}
-                                                className="hover:underline"
-                                            >
-                                                {t('Player')}:{' '}
-                                                {
-                                                    coach.linked_member
-                                                        .member_code
-                                                }
-                                            </Link>
-                                        </Badge>
+                                        <PlayerCoachBadge
+                                            memberId={coach.linked_member.id}
+                                            memberName={coach.linked_member.full_name}
+                                            pno={coach.linked_member.pno}
+                                            variant="chip"
+                                        />
                                     )}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
@@ -1729,6 +1721,59 @@ export default function CoachesShow({
                                     {detail(t('Mobile'), coach.mobile ?? '')}
                                 </dl>
                             </div>
+
+                            {coach.linked_member && (
+                                <div className="rounded-xl border bg-card p-6">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                                                <UserRound className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h3 className="text-base font-semibold text-foreground">
+                                                        {t('Linked Athlete Identity')}
+                                                    </h3>
+                                                    <PlayerCoachBadge
+                                                        memberId={coach.linked_member.id}
+                                                        memberName={coach.linked_member.full_name}
+                                                        pno={coach.linked_member.pno}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {t(
+                                                        'This coach also participates as an active player/athlete in sports tournaments.',
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button asChild variant="outline" size="sm">
+                                            <Link
+                                                href={memberShow.url(coach.linked_member.id)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                                                {t('View Athlete Profile')}
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                    <div className="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-3">
+                                        <div>
+                                            <dt className="text-xs font-medium text-muted-foreground">{t('Athlete Name')}</dt>
+                                            <dd className="mt-1 text-sm font-medium">{coach.linked_member.full_name}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs font-medium text-muted-foreground">{t('PNO')}</dt>
+                                            <dd className="mt-1 text-sm font-medium">{coach.linked_member.pno || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs font-medium text-muted-foreground">{t('Current Status')}</dt>
+                                            <dd className="mt-1 text-sm font-medium">{coach.linked_member.current_status || t('Active')}</dd>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </TabsContent>
 

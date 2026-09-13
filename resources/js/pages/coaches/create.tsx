@@ -204,8 +204,9 @@ export default function CoachesCreate({
                                     {t('Registering from Player Profile')}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    {prefill.full_name} ({prefill.member_code})
-                                    —{' '}
+                                    {prefill.full_name}
+                                    {prefill.pno ? ` · ${t('PNO')}: ${prefill.pno}` : ''}
+                                    {' '}—{' '}
                                     {t(
                                         'Service details and PNO have been prefilled and linked.',
                                     )}

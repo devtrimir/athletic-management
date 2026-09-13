@@ -141,7 +141,6 @@ const exportColumnGroups: { label: string; columns: ExportColumn[] }[] = [
         columns: [
             { key: 'member', label: 'Member' },
             { key: 'pno', label: 'PNO' },
-            { key: 'member_code', label: 'Member Code' },
             { key: 'external_coach', label: 'External Coach' },
             { key: 'coach_phone', label: 'Coach Phone' },
             { key: 'coach_email', label: 'Coach Email' },

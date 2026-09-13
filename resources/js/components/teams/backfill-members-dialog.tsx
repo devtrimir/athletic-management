@@ -467,9 +467,7 @@ export function BackfillMembersDialog({
                                                         '—'}
                                                 </TableCell>
                                                 <TableCell className="font-mono text-xs">
-                                                    {row.pno ??
-                                                        row.member_code ??
-                                                        '—'}
+                                                    {row.pno ?? '—'}
                                                 </TableCell>
                                                 <TableCell>
                                                     {t(row.role)}

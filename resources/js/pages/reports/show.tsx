@@ -219,9 +219,10 @@ export default function ReportShow({
         data.length > 0
             ? Object.keys(data[0]).filter(
                   (column) =>
+                      column !== 'member_code' &&
                       !(
                           report.key === 'resignation-dismissal-log' &&
-                          (column === 'member_code' || column === 'id')
+                          column === 'id'
                       ),
               )
             : [];

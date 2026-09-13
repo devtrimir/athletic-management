@@ -281,6 +281,7 @@ class CoachController extends Controller
             ],
             'activeCoachCount' => $this->coachStatusScopeQuery('active')->count(),
             'inactiveCoachCount' => $this->coachStatusScopeQuery('inactive')->count(),
+            'playerCoachCount' => $this->coachStatusScopeQuery('player_coaches')->count(),
             'sports' => Sport::select(['id', 'name', 'name_en'])
                 ->where('organization_id', $request->user()->organization_id)
                 ->orderBy('name')
@@ -322,7 +323,7 @@ class CoachController extends Controller
 
         $coaches = $this->listingQuery($statusScope)
             ->with([
-                'member:id,member_code',
+                'member:id,full_name,pno',
                 'certifications:id,coach_id,name,certificate_type',
                 'currentAssignments:id,coach_id,team_id,session_id,role,assigned_at',
                 'currentAssignments.team:id,name,sport_id,session_id',
@@ -410,6 +411,7 @@ class CoachController extends Controller
             ->allowedSorts(['full_name', 'pno', 'coach_status', 'created_at'])
             ->defaultSort('full_name')
             ->with([
+                'member:id,full_name,pno',
                 'district:id,name',
                 'unit:id,name',
                 'rankMaster:id,code,name,short_name',
@@ -646,7 +648,7 @@ class CoachController extends Controller
                 })
                 ->filter()
                 ->join('; '),
-            'linked_member' => (string) ($coach->member?->member_code ?? ''),
+            'linked_member' => (string) ($coach->member ? ($coach->member->pno ? $coach->member->full_name.' ('.__('PNO').': '.$coach->member->pno.')' : $coach->member->full_name) : ''),
             'certifications' => $coach->certifications
                 ->map(fn (CoachCertification $certification): string => trim(($certification->name ?? '').($certification->certificate_type ? ' ('.$certification->certificate_type.')' : '')))
                 ->filter()
@@ -717,12 +719,19 @@ class CoachController extends Controller
             ->map(fn (mixed $value, string $key): string => str($key)->replace('_', ' ')->title()->toString().': '.(is_scalar($value) ? (string) $value : (json_encode($value) ?: '')))
             ->values();
 
-        return $activeFilters->prepend($statusScope === 'inactive' ? __('Inactive coaches') : __('Active coaches'))->join(', ');
+        $scopeLabel = match ($statusScope) {
+            'player_coaches' => __('Player-Coaches'),
+            'inactive' => __('Inactive coaches'),
+            default => __('Active coaches'),
+        };
+
+        return $activeFilters->prepend($scopeLabel)->join(', ');
     }
 
     private function filterByStatusScope(Builder $query, string $value): Builder
     {
         return match ($value) {
+            'player_coaches' => $query->playerCoaches(),
             'inactive' => $query->whereDoesntHave('currentAssignments'),
             default => $query->whereHas('currentAssignments'),
         };
@@ -740,6 +749,10 @@ class CoachController extends Controller
      */
     private function statusScopeFromFilters(array $filters): string
     {
+        if (($filters['status_scope'] ?? null) === 'player_coaches') {
+            return 'player_coaches';
+        }
+
         $assignmentScope = $filters['has_active_assignment'] ?? null;
 
         if ($assignmentScope === false || $assignmentScope === 'false' || $assignmentScope === '0' || $assignmentScope === 0) {
