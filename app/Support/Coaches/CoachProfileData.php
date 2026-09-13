@@ -562,21 +562,7 @@ class CoachProfileData
      */
     private function memberPlayingAchievementsPayload(Coach $coach, Member $member, Collection $sports): array
     {
-        $memberTeamIds = TeamMember::query()
-            ->where('member_id', $member->id)
-            ->pluck('team_id')
-            ->filter()
-            ->map(static fn (int $teamId): int => $teamId)
-            ->values()
-            ->all();
-
-        $achievements = Achievement::whereHas('participation', function ($query) use ($member, $memberTeamIds): void {
-            $query->where('member_id', $member->id);
-
-            if ($memberTeamIds !== []) {
-                $query->orWhereIn('team_id', $memberTeamIds);
-            }
-        })
+        $achievements = Achievement::forMember($member)
             ->with([
                 'participation.session:id,name',
                 'participation.event:id,tournament_id,name,event_type',

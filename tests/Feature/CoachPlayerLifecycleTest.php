@@ -432,6 +432,9 @@ test('team assigned coach appears in participantCandidates and can participate i
         ->and($participation->lineup_member_ids)->toContain($player->id)
         ->and($participation->lineup_member_ids)->toContain($coach->member_id);
 
+    expect(Participation::whereJsonContains('lineup_member_ids', $coach->member_id)->exists())->toBeTrue()
+        ->and(Achievement::whereHas('participation', fn ($q) => $q->whereJsonContains('lineup_member_ids', $coach->member_id))->exists())->toBeTrue();
+
     // 2. Individual event
     $indEvent = Event::factory()->create([
         'tournament_id' => $tournament->id,
@@ -538,5 +541,132 @@ test('coach profile overview includes linked member identity with pno and curren
             ->where('coach.linked_member.full_name', 'Dual Identity Member')
             ->where('coach.linked_member.pno', 'PNO556677')
             ->where('coach.linked_member.current_status', 'ACTIVE')
+        );
+});
+
+test('team event medals show for both regular member and coach in member events tab and coach departmental tournament medals', function () {
+    $user = lifecycleUser('members.view', 'coaches.view', 'tournaments.view', 'tournaments.update');
+
+    $session = SportSession::factory()->create([
+        'organization_id' => $user->organization_id,
+        'is_current' => true,
+    ]);
+
+    $sport = Sport::factory()->create([
+        'organization_id' => $user->organization_id,
+        'name' => 'Volleyball',
+    ]);
+
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'name' => 'Police Volleyball Team',
+    ]);
+
+    $regularMember = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Regular Player Athlete',
+        'pno' => 'PNO889901',
+    ]);
+
+    TeamMember::factory()->create([
+        'team_id' => $team->id,
+        'member_id' => $regularMember->id,
+        'session_id' => $session->id,
+        'role' => 'PLAYER',
+    ]);
+
+    $coachMember = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'full_name' => 'Coach Player Athlete',
+        'pno' => 'PNO889902',
+    ]);
+
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $coachMember->id,
+        'full_name' => 'Coach Player Athlete',
+        'pno' => 'PNO889902',
+    ]);
+
+    CoachAssignment::factory()->create([
+        'coach_id' => $coach->id,
+        'team_id' => $team->id,
+        'session_id' => $session->id,
+        'is_current' => true,
+    ]);
+
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'name' => 'All India Police Games',
+    ]);
+
+    $teamEvent = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'event_type' => 'team',
+        'gender_class' => 'men',
+        'name' => 'Volleyball Championship',
+    ]);
+
+    // Store team event participants with both regular player and coach in lineup
+    $participation = Participation::create([
+        'event_id' => $teamEvent->id,
+        'session_id' => $session->id,
+        'team_id' => $team->id,
+        'member_id' => null,
+        'lineup_member_ids' => [$regularMember->id, $coachMember->id],
+        'position' => 1,
+    ]);
+
+    $achievement = Achievement::create([
+        'participation_id' => $participation->id,
+        'medal_type' => 'GOLD',
+        'position' => 1,
+        'remarks' => 'Gold Medal in Team Event',
+    ]);
+
+    // 1. Eloquent scopes
+    expect(Participation::forMember($regularMember)->count())->toBe(1)
+        ->and(Participation::forMember($coachMember)->count())->toBe(1)
+        ->and(Achievement::forMember($regularMember)->count())->toBe(1)
+        ->and(Achievement::forMember($coachMember)->count())->toBe(1);
+
+    // 2. Member profile Events tab for the coach's linked member profile
+    $coachMemberEventsResponse = $this->actingAs($user)->get(route('members.events', $coachMember));
+    $coachMemberEventsResponse->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('members/show')
+            ->where('activeTab', 'events')
+            ->where('achievementsData.summary.GOLD', 1)
+            ->where('achievementsData.achievements.0.medal_type', 'GOLD')
+            ->where('achievementsData.achievements.0.event.name', 'Volleyball Championship')
+            ->has('participations', 1)
+        );
+
+    // 3. Member profile Events tab for the regular player
+    $regularMemberEventsResponse = $this->actingAs($user)->get(route('members.events', $regularMember));
+    $regularMemberEventsResponse->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('members/show')
+            ->where('activeTab', 'events')
+            ->where('achievementsData.summary.GOLD', 1)
+            ->where('achievementsData.achievements.0.medal_type', 'GOLD')
+        );
+
+    // 4. Coach profile Playing Achievements (Departmental Tournament Medals)
+    $coachProfileResponse = $this->actingAs($user)->get(route('coaches.achievements', $coach));
+    $coachProfileResponse->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('coaches/show')
+            ->where('activeTab', 'achievements')
+            ->where('playingAchievements.summary.tournament_medals', 1)
+            ->has('playingAchievements.records', 1)
+            ->where('playingAchievements.records.0.medal_type', 'GOLD')
+            ->where('playingAchievements.records.0.event_kind', 'team')
+            ->where('playingAchievements.records.0.event.name', 'Volleyball Championship')
         );
 });

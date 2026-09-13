@@ -123,8 +123,8 @@ class MemberPromotionController extends Controller
      */
     private function syncEvidences(MemberPromotion $promotion, Member $member, array $evidences): void
     {
-        $achievementIds = Achievement::whereHas('participation', fn ($q) => $q->where('member_id', $member->id))->pluck('id')->all();
-        $participationIds = Participation::where('member_id', $member->id)->pluck('id')->all();
+        $achievementIds = Achievement::forMember($member)->pluck('id')->all();
+        $participationIds = Participation::forMember($member)->pluck('id')->all();
 
         foreach ($evidences as $evidence) {
             $isAllowed = match ($evidence['type']) {

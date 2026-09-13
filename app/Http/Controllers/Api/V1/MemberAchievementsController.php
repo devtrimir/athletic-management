@@ -30,12 +30,9 @@ class MemberAchievementsController extends Controller
             abort(422, 'Date range must not exceed 365 days.');
         }
 
-        $achievements = Achievement::whereHas(
-            'participation',
-            fn ($q) => $q->where('member_id', $member->id)
-                ->when($fromDate !== null, fn ($query) => $query->whereHas('event.tournament', fn ($tournament) => $tournament->whereDate('date_from', '>=', $fromDate)))
-                ->when($toDate !== null, fn ($query) => $query->whereHas('event.tournament', fn ($tournament) => $tournament->whereDate('date_from', '<=', $toDate))),
-        )
+        $achievements = Achievement::forMember($member)
+            ->when($fromDate !== null, fn ($query) => $query->whereHas('participation.event.tournament', fn ($tournament) => $tournament->whereDate('date_from', '>=', $fromDate)))
+            ->when($toDate !== null, fn ($query) => $query->whereHas('participation.event.tournament', fn ($tournament) => $tournament->whereDate('date_from', '<=', $toDate)))
             ->with([
                 'participation.session:id,name',
                 'participation.event:id,tournament_id,name',

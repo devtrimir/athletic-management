@@ -8,6 +8,7 @@ use App\Models\Achievement;
 use App\Models\Coach;
 use App\Models\Member;
 use App\Models\MemberPromotion;
+use App\Models\Participation;
 use App\Models\TeamMember;
 use App\Models\TeamMemberMovement;
 use App\Models\User;
@@ -61,10 +62,9 @@ class MemberDeletionService
 
         $linkedCoach = Coach::where('member_id', $member->id)->first(['id', 'full_name', 'pno']);
 
-        $participationsCount = $member->participations()->count();
+        $participationsCount = Participation::forMember($member)->count();
 
-        $medalsStats = Achievement::query()
-            ->whereIn('participation_id', $member->participations()->select('id'))
+        $medalsStats = Achievement::forMember($member)
             ->selectRaw("
                 COUNT(*) as total,
                 SUM(CASE WHEN medal_type = 'GOLD' THEN 1 ELSE 0 END) as gold,

@@ -31,7 +31,6 @@ use App\Models\Unit;
 use App\Services\AuditLogBuilder;
 use App\Services\Performance\MemberPerformanceService;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class MemberProfileData
 {
@@ -389,21 +388,7 @@ class MemberProfileData
     /** @return array<string, mixed> */
     private function achievementsPayload(Member $member): array
     {
-        $memberTeamIds = TeamMember::query()
-            ->where('member_id', $member->id)
-            ->pluck('team_id')
-            ->filter()
-            ->map(static fn (int $teamId): int => $teamId)
-            ->values()
-            ->all();
-
-        $achievements = Achievement::whereHas('participation', function ($query) use ($member, $memberTeamIds): void {
-            $query->where('member_id', $member->id);
-
-            if ($memberTeamIds !== []) {
-                $query->orWhereIn('team_id', $memberTeamIds);
-            }
-        })
+        $achievements = Achievement::forMember($member)
             ->with([
                 'participation.session:id,name',
                 'participation.event:id,tournament_id,name',
@@ -495,22 +480,7 @@ class MemberProfileData
     /** @return array<int, array<string, mixed>> */
     private function participationsPayload(Member $member): array
     {
-        $memberTeamIds = TeamMember::query()
-            ->where('member_id', $member->id)
-            ->pluck('team_id')
-            ->filter()
-            ->map(static fn (int $teamId): int => $teamId)
-            ->values()
-            ->all();
-
-        return Participation::query()
-            ->where(function ($query) use ($member, $memberTeamIds): void {
-                $query->where('member_id', $member->id);
-
-                if ($memberTeamIds !== []) {
-                    $query->orWhereIn('team_id', $memberTeamIds);
-                }
-            })
+        return Participation::forMember($member)
             ->with([
                 'session:id,name,is_current',
                 'team:id,name',
@@ -768,20 +738,7 @@ class MemberProfileData
      */
     private function memberParticipationIds(Member $member): Collection
     {
-        $directIds = $member->participations()->pluck('id');
-
-        $teamIds = Participation::query()
-            ->whereExists(function ($query) use ($member): void {
-                $query->select(DB::raw(1))
-                    ->from('team_members')
-                    ->whereColumn('team_members.team_id', 'participations.team_id')
-                    ->whereColumn('team_members.session_id', 'participations.session_id')
-                    ->where('team_members.member_id', $member->id)
-                    ->whereNull('team_members.left_on');
-            })
-            ->pluck('id');
-
-        return $directIds->merge($teamIds)->unique()->values();
+        return Participation::forMember($member)->pluck('id');
     }
 
     /** @return array<string, mixed> */

@@ -10,6 +10,7 @@ use App\Observers\AuditObserver;
 use Database\Factories\AchievementFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -48,5 +49,16 @@ class Achievement extends Model
     public function benefits(): MorphMany
     {
         return $this->morphMany(AchievementBenefit::class, 'benefitable');
+    }
+
+    /**
+     * Scope a query to include achievements for a given member.
+     *
+     * @param  Builder<Achievement>  $query
+     * @return Builder<Achievement>
+     */
+    public function scopeForMember(Builder $query, Member|int $member): Builder
+    {
+        return $query->whereHas('participation', fn (Builder $q) => $q->forMember($member));
     }
 }

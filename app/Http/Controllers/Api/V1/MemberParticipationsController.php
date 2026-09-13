@@ -30,7 +30,7 @@ class MemberParticipationsController extends Controller
             abort(422, 'Date range must not exceed 365 days.');
         }
 
-        $participations = Participation::where('member_id', $member->id)
+        $participations = Participation::forMember($member)
             ->with([
                 'session:id,name,is_current',
                 'team:id,name',
