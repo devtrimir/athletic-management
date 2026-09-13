@@ -458,10 +458,10 @@ test('team event appends players to existing lineup instead of replacing', funct
         ])
         ->assertRedirect();
 
-    $participation = Participation::where('event_id', $event->id)->where('team_id', $team->id)->first();
+    $participations = Participation::where('event_id', $event->id)->where('team_id', $team->id)->get();
 
-    expect($participation)->not->toBeNull()
-        ->and($participation->lineup_member_ids)->toContain($firstPlayer->id, $secondPlayer->id);
+    expect($participations)->toHaveCount(2)
+        ->and($participations->pluck('member_id')->all())->toContain($firstPlayer->id, $secondPlayer->id);
 });
 
 test('re-saving individual participation updates team_id without duplicate', function () {

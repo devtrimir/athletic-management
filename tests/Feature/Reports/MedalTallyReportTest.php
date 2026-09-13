@@ -28,6 +28,11 @@ function tallyOrg(): Organization
     return Organization::factory()->create();
 }
 
+function tallyMember(Organization $org): Member
+{
+    return Member::factory()->create(['organization_id' => $org->id]);
+}
+
 function tallySetup(Organization $org, string $tierCode = 'NATIONAL', string $medalType = 'GOLD', ?int $unitId = null): array
 {
     $tier = TournamentTier::firstOrCreate(
@@ -95,17 +100,20 @@ function tallyTeamSetup(Organization $org, string $tierCode = 'NATIONAL', string
         'sport_id' => $sport->id,
         'event_type' => 'team',
     ]);
-    $participation = Participation::factory()->create([
-        'member_id' => null,
-        'team_id' => $team->id,
-        'event_id' => $event->id,
-        'session_id' => $session->id,
-        'lineup_member_ids' => $members->pluck('id')->all(),
-    ]);
-    $achievement = Achievement::factory()->create([
-        'participation_id' => $participation->id,
-        'medal_type' => $medalType,
-    ]);
+    $achievements = [];
+    foreach ($members as $m) {
+        $p = Participation::factory()->create([
+            'member_id' => $m->id,
+            'team_id' => $team->id,
+            'event_id' => $event->id,
+            'session_id' => $session->id,
+        ]);
+        $achievements[] = Achievement::factory()->create([
+            'participation_id' => $p->id,
+            'medal_type' => $medalType,
+        ]);
+    }
+    $achievement = $achievements[0];
 
     return compact('tier', 'session', 'sport', 'tournament', 'event', 'team', 'members', 'achievement');
 }
@@ -208,12 +216,12 @@ test('team tally athlete search matches lineup pno', function (): void {
 test('team tally counts duplicate lineup medals once per event medal type', function (): void {
     $org = tallyOrg();
     $setup = tallyTeamSetup($org, medalType: 'GOLD');
+    $thirdMember = tallyMember($org);
     $secondParticipation = Participation::factory()->create([
-        'member_id' => null,
+        'member_id' => $thirdMember->id,
         'team_id' => $setup['team']->id,
         'event_id' => $setup['event']->id,
         'session_id' => $setup['session']->id,
-        'lineup_member_ids' => [$setup['members']->last()->id],
     ]);
     Achievement::factory()->create([
         'participation_id' => $secondParticipation->id,

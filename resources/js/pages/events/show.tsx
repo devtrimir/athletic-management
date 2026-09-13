@@ -2220,6 +2220,35 @@ function ParticipantsList({
         return true;
     });
 
+    const teamCountsInFilter = new Map<string, number>();
+    for (const row of filteredDisplayRows) {
+        const teamKey = row.participation.team?.id
+            ? `team:${row.participation.team.id}`
+            : `participation:${row.participation.id}`;
+        teamCountsInFilter.set(
+            teamKey,
+            (teamCountsInFilter.get(teamKey) ?? 0) + 1,
+        );
+    }
+
+    const seenTeamsInFilter = new Set<string>();
+    const alignedDisplayRows = filteredDisplayRows.map((row) => {
+        if (event.event_type !== 'team') {
+            return row;
+        }
+        const teamKey = row.participation.team?.id
+            ? `team:${row.participation.team.id}`
+            : `participation:${row.participation.id}`;
+        const isFirst = !seenTeamsInFilter.has(teamKey);
+        seenTeamsInFilter.add(teamKey);
+
+        return {
+            ...row,
+            isFirstPlayerInTeam: isFirst,
+            teamPlayerCount: teamCountsInFilter.get(teamKey) ?? 1,
+        };
+    });
+
     return (
         <>
             {coachRowsCount > 0 && (
@@ -2288,7 +2317,7 @@ function ParticipantsList({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredDisplayRows.map((row, idx) => {
+                        {alignedDisplayRows.map((row, idx) => {
                             const playerName = resolveDisplayPlayerName(row);
                             const isTeamEvent = event.event_type === 'team';
                             const editActionLabel = isTeamEvent

@@ -34,14 +34,6 @@ class EventParticipantController extends Controller
 
         DB::transaction(function () use ($tournament, $event, $rows, $isTeamEvent): void {
             foreach ($rows as $row) {
-                $memberId = $isTeamEvent ? null : ($row['member_id'] ?? null);
-                $teamId = $isTeamEvent
-                    ? ($row['team_id'] ?? null)
-                    : ($this->participationTeamResolver->resolveTeamId(
-                        (int) ($memberId ?? 0),
-                        (int) $tournament->session_id,
-                        (int) $event->sport_id,
-                    ) ?? ($row['team_id'] ?? null));
                 $medalType = (string) ($row['medal_type'] ?? '');
                 $position = $row['position'] ?? $row['medal_position'] ?? null;
                 $remarks = $row['remarks'] ?? null;
@@ -51,33 +43,55 @@ class EventParticipantController extends Controller
                     $position = $positionMap[$medalType];
                 }
 
-                $newLineupMemberIds = $isTeamEvent
-                    ? array_values(array_filter(array_map('intval', (array) ($row['player_ids'] ?? [])), static fn (int $id): bool => $id > 0))
-                    : [];
-
                 if ($isTeamEvent) {
-                    $existingParticipation = Participation::query()
+                    $teamId = $row['team_id'] ?? null;
+                    $playerIds = array_values(array_filter(array_map('intval', (array) ($row['player_ids'] ?? [])), static fn (int $id): bool => $id > 0));
+
+                    $existingTeamParticipation = Participation::query()
                         ->where('event_id', $event->id)
                         ->where('team_id', $teamId)
-                        ->whereNull('member_id')
+                        ->with('achievement')
                         ->first();
 
-                    $lineupMemberIds = array_values(array_unique(array_merge(
-                        (array) ($existingParticipation?->lineup_member_ids ?? []),
-                        $newLineupMemberIds,
-                    )));
+                    $effectivePosition = $position ?? $existingTeamParticipation?->position;
+                    $effectiveMedalType = ! empty($medalType)
+                        ? $medalType
+                        : ($existingTeamParticipation?->achievement?->medal_type ?? null);
+                    $effectiveRemarks = $remarks ?? $existingTeamParticipation?->achievement?->remarks;
 
-                    $participation = $existingParticipation ?? new Participation;
-                    $participation->fill([
-                        'event_id' => $event->id,
-                        'session_id' => $tournament->session_id,
-                        'team_id' => $teamId,
-                        'member_id' => null,
-                        'position' => $position,
-                        'lineup_member_ids' => $lineupMemberIds,
-                    ]);
-                    $participation->save();
+                    foreach ($playerIds as $pId) {
+                        $participation = Participation::updateOrCreate(
+                            [
+                                'event_id' => $event->id,
+                                'member_id' => $pId,
+                            ],
+                            [
+                                'session_id' => $tournament->session_id,
+                                'team_id' => $teamId,
+                                'position' => $effectivePosition,
+                                'lineup_member_ids' => null,
+                            ],
+                        );
+
+                        if (! empty($effectiveMedalType)) {
+                            Achievement::updateOrCreate(
+                                ['participation_id' => $participation->id],
+                                [
+                                    'medal_type' => $effectiveMedalType,
+                                    'position' => $effectivePosition,
+                                    'remarks' => $effectiveRemarks,
+                                ],
+                            );
+                        }
+                    }
                 } else {
+                    $memberId = $row['member_id'] ?? null;
+                    $teamId = $this->participationTeamResolver->resolveTeamId(
+                        (int) ($memberId ?? 0),
+                        (int) $tournament->session_id,
+                        (int) $event->sport_id,
+                    ) ?? ($row['team_id'] ?? null);
+
                     $participation = Participation::updateOrCreate(
                         [
                             'event_id' => $event->id,
@@ -90,19 +104,19 @@ class EventParticipantController extends Controller
                             'lineup_member_ids' => null,
                         ],
                     );
-                }
 
-                if (! empty($row['medal_type'])) {
-                    Achievement::updateOrCreate(
-                        ['participation_id' => $participation->id],
-                        [
-                            'medal_type' => $row['medal_type'],
-                            'position' => $position,
-                            'remarks' => $remarks,
-                        ],
-                    );
-                } else {
-                    $participation->achievement?->delete();
+                    if (! empty($medalType)) {
+                        Achievement::updateOrCreate(
+                            ['participation_id' => $participation->id],
+                            [
+                                'medal_type' => $medalType,
+                                'position' => $position,
+                                'remarks' => $remarks,
+                            ],
+                        );
+                    } else {
+                        $participation->achievement?->delete();
+                    }
                 }
             }
         });
@@ -126,33 +140,42 @@ class EventParticipantController extends Controller
             $position = $positionMap[$medalType];
         }
 
-        $participation->update(['position' => $position]);
+        $participationsToUpdate = $event->event_type === 'team' && $participation->team_id !== null
+            ? Participation::query()
+                ->where('event_id', $event->id)
+                ->where('team_id', $participation->team_id)
+                ->get()
+            : collect([$participation]);
 
-        if (! empty($validated['medal_type'])) {
-            Achievement::updateOrCreate(
-                ['participation_id' => $participation->id],
-                [
-                    'medal_type' => $validated['medal_type'],
-                    'position' => $position,
-                    'remarks' => $remarks,
-                ],
-            );
-        } else {
-            $achievement = $participation->achievement;
+        foreach ($participationsToUpdate as $p) {
+            $p->update(['position' => $position]);
 
-            if ($achievement !== null) {
-                $dependents = $guard->forAchievement($achievement);
+            if (! empty($validated['medal_type'])) {
+                Achievement::updateOrCreate(
+                    ['participation_id' => $p->id],
+                    [
+                        'medal_type' => $validated['medal_type'],
+                        'position' => $position,
+                        'remarks' => $remarks,
+                    ],
+                );
+            } else {
+                $achievement = $p->achievement;
 
-                if ($dependents->isNotEmpty()) {
-                    Inertia::flash('toast', [
-                        'type' => 'error',
-                        'message' => $this->dependencyMessage($dependents),
-                    ]);
+                if ($achievement !== null) {
+                    $dependents = $guard->forAchievement($achievement);
 
-                    return back();
+                    if ($dependents->isNotEmpty()) {
+                        Inertia::flash('toast', [
+                            'type' => 'error',
+                            'message' => $this->dependencyMessage($dependents),
+                        ]);
+
+                        return back();
+                    }
+
+                    $achievement->delete();
                 }
-
-                $achievement->delete();
             }
         }
 
@@ -167,49 +190,15 @@ class EventParticipantController extends Controller
 
         $memberId = (int) $request->integer('member_id');
 
-        if ($event->event_type === 'team' && $memberId > 0 && ! empty($participation->lineup_member_ids)) {
-            $lineupMemberIds = array_values(
-                array_filter(
-                    array_map('intval', (array) $participation->lineup_member_ids),
-                    static fn (int $id): bool => $id > 0,
-                ),
-            );
+        if ($memberId > 0 && $participation->member_id !== $memberId) {
+            $target = Participation::query()
+                ->where('event_id', $event->id)
+                ->where('member_id', $memberId)
+                ->first();
 
-            if (! in_array($memberId, $lineupMemberIds, true)) {
-                Inertia::flash('toast', ['type' => 'error', 'message' => __('Selected participant is not in this team lineup.')]);
-
-                return back();
+            if ($target !== null) {
+                $participation = $target;
             }
-
-            $updated = array_values(
-                array_filter(
-                    $lineupMemberIds,
-                    static fn (int $id): bool => $id !== $memberId,
-                ),
-            );
-
-            if (count($updated) === 0) {
-                $dependents = $guard->forParticipation($participation);
-
-                if ($dependents->isNotEmpty()) {
-                    Inertia::flash('toast', [
-                        'type' => 'error',
-                        'message' => $this->dependencyMessage($dependents),
-                    ]);
-
-                    return back();
-                }
-
-                $participation->delete();
-                Inertia::flash('toast', ['type' => 'success', 'message' => __('Team participation removed as no players remain.')]);
-
-                return back();
-            }
-
-            $participation->update(['lineup_member_ids' => $updated]);
-            Inertia::flash('toast', ['type' => 'success', 'message' => __('Participant removed from team lineup.')]);
-
-            return back();
         }
 
         $dependents = $guard->forParticipation($participation);

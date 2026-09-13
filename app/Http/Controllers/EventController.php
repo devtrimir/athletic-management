@@ -9,7 +9,6 @@ use App\Http\Requests\Events\UpdateEventRequest;
 use App\Models\CoachAssignment;
 use App\Models\Event;
 use App\Models\Member;
-use App\Models\Participation;
 use App\Models\Sport;
 use App\Models\Team;
 use App\Models\TeamMember;
@@ -135,20 +134,6 @@ class EventController extends Controller
                     ->orderBy('position')
                     ->get();
 
-                $lineupMemberIds = $participations
-                    ->flatMap(fn (Participation $participation): array => (array) ($participation->lineup_member_ids ?? []))
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all();
-
-                $lineupMembersById = Member::query()
-                    ->select(['id', 'full_name', 'pno', 'photo_path'])
-                    ->with(['coach:id,member_id', 'playableSports' => $playableSport])
-                    ->whereIn('id', $lineupMemberIds)
-                    ->get()
-                    ->keyBy('id');
-
                 return $participations
                     ->map(fn ($p) => [
                         'id' => $p->id,
@@ -167,23 +152,7 @@ class EventController extends Controller
                             'id' => $p->team->id,
                             'name' => $p->team->name,
                         ] : null,
-                        'lineup_members' => array_values(
-                            array_filter(
-                                array_map(
-                                    fn (int $memberId): ?array => $lineupMembersById->has($memberId) ? [
-                                        'id' => $lineupMembersById->get($memberId)->id,
-                                        'full_name' => $lineupMembersById->get($memberId)->full_name,
-                                        'pno' => $lineupMembersById->get($memberId)->pno,
-                                        'photo_path' => $lineupMembersById->get($memberId)->photo_path,
-                                        'is_coach' => $lineupMembersById->get($memberId)->coach !== null,
-                                        'coach_id' => $lineupMembersById->get($memberId)->coach?->id,
-                                        'sport_profile' => $this->memberSportProfile($lineupMembersById->get($memberId)),
-                                    ] : null,
-                                    array_map('intval', (array) ($p->lineup_member_ids ?? [])),
-                                ),
-                                static fn ($member): bool => is_array($member),
-                            ),
-                        ),
+                        'lineup_members' => [],
                         'achievement' => $p->achievement ? [
                             'medal_type' => $p->achievement->medal_type,
                             'position' => $p->achievement->position,
@@ -225,15 +194,7 @@ class EventController extends Controller
      */
     private function participantCandidates(Tournament $tournament, Event $event): Collection
     {
-        $participations = $event->participations()->select(['member_id', 'lineup_member_ids'])->get();
-        $existingMemberIds = $participations->pluck('member_id')->filter()->unique()->values()->all();
-        $existingLineupMemberIds = $participations
-            ->flatMap(fn (Participation $participation): array => (array) ($participation->lineup_member_ids ?? []))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-        $excludedMemberIds = array_values(array_unique(array_merge($existingMemberIds, $existingLineupMemberIds)));
+        $excludedMemberIds = $event->participations()->pluck('member_id')->filter()->unique()->values()->all();
         $gender = $this->candidateGender($event->gender_class);
 
         return Team::query()

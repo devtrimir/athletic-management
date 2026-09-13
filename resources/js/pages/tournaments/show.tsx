@@ -37,12 +37,13 @@ import {
     index as tournamentsIndex,
     show as showTournament,
 } from '@/actions/App/Http/Controllers/TournamentController';
+import { events as tournamentEvents } from '@/actions/App/Http/Controllers/TournamentProfileTabController';
 import {
     eventsReport,
     eventsExport,
 } from '@/actions/App/Http/Controllers/TournamentExportController';
-import { events as tournamentEvents } from '@/actions/App/Http/Controllers/TournamentProfileTabController';
 import { Combobox } from '@/components/combobox';
+import { ConfirmationDialog } from '@/components/confirmation-dialog';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -1252,34 +1253,17 @@ function ConfirmDeleteDialog({
     onConfirm: () => void;
     processing?: boolean;
 }) {
-    const { t } = useTranslation();
-
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-sm">
-                <DialogHeader>
-                    <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription>{description}</DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                    <Button
-                        variant="outline"
-                        type="button"
-                        onClick={() => onOpenChange(false)}
-                    >
-                        {t('Cancel')}
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        type="button"
-                        onClick={onConfirm}
-                        disabled={processing}
-                    >
-                        {processing ? t('Deleting…') : confirmLabel}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        <ConfirmationDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            variant="destructive"
+            title={title}
+            description={description}
+            confirmLabel={confirmLabel}
+            onConfirm={onConfirm}
+            processing={processing}
+        />
     );
 }
 

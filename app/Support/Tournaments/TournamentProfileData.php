@@ -91,18 +91,7 @@ class TournamentProfileData
 
         $eventIds = $events->pluck('id');
 
-        $teamParticipantCounts = Participation::query()
-            ->select(
-                'event_id',
-                DB::raw(
-                    $this->lineupCountTotalExpression(),
-                ),
-            )
-            ->whereIn('event_id', $eventIds)
-            ->groupBy('event_id')
-            ->pluck('total', 'event_id');
-
-        $individualParticipantCounts = Participation::query()
+        $participantCounts = Participation::query()
             ->select('event_id', DB::raw('count(*) as total'))
             ->whereIn('event_id', $eventIds)
             ->groupBy('event_id')
@@ -189,11 +178,7 @@ class TournamentProfileData
                 ];
             }
 
-            $sportsSummary[$sportId]['events_count'] += 1;
-            $sportsSummary[$sportId]['participants_count'] +=
-                $event->event_type === 'team'
-                    ? (int) ($teamParticipantCounts->get($eventId, 0))
-                    : (int) ($individualParticipantCounts->get($eventId, 0));
+            $sportsSummary[$sportId]['participants_count'] += (int) ($participantCounts->get($eventId, 0));
         }
 
         return [
@@ -211,36 +196,9 @@ class TournamentProfileData
     {
         $eventIds = $tournament->events()->pluck('id');
 
-        $events = $tournament
-            ->events()
-            ->select('id', 'event_type')
-            ->get()
-            ->keyBy('id');
-        $teamParticipantCount = Participation::query()
-            ->select(
-                'event_id',
-                DB::raw(
-                    $this->lineupCountTotalExpression(),
-                ),
-            )
+        $participantsCount = Participation::query()
             ->whereIn('event_id', $eventIds)
-            ->groupBy('event_id')
-            ->pluck('total', 'event_id');
-
-        $participationCounts = Participation::query()
-            ->select('event_id', DB::raw('count(*) as total'))
-            ->whereIn('event_id', $eventIds)
-            ->groupBy('event_id')
-            ->pluck('total', 'event_id');
-
-        $participantsCount = $events->reduce(
-            fn (int $total, $event): int => $total + (
-                $event->event_type === 'team'
-                    ? (int) ($teamParticipantCount->get($event->id, 0))
-                    : (int) ($participationCounts->get($event->id, 0))
-            ),
-            0,
-        );
+            ->count();
 
         $tournament->setAttribute('participants_count', $participantsCount);
         $tournament->setAttribute('teams_count', Participation::whereIn('event_id', $eventIds)
@@ -297,12 +255,7 @@ class TournamentProfileData
             $events->pluck('sport_id', 'id'),
         );
         $lineupCountsByEvent = Participation::query()
-            ->select(
-                'event_id',
-                DB::raw(
-                    $this->lineupCountTotalExpression(),
-                ),
-            )
+            ->select('event_id', DB::raw('count(*) as total'))
             ->whereIn('event_id', $eventIds)
             ->groupBy('event_id')
             ->pluck('total', 'event_id');
@@ -828,23 +781,5 @@ class TournamentProfileData
             'participation_status' => in_array($participationStatus, ['with', 'without'], true) ? (string) $participationStatus : null,
             'event_type' => in_array($eventType, ['individual', 'team'], true) ? (string) $eventType : null,
         ];
-    }
-
-    /**
-     * Lineup-size expression for participation counts. JSON_LENGTH is
-     * MySQL-only; PostgreSQL needs JSONB_ARRAY_LENGTH with an explicit
-     * jsonb cast, and SQLite ships JSON_ARRAY_LENGTH.
-     */
-    private function lineupCountTotalExpression(): string
-    {
-        $driver = DB::connection()->getDriverName();
-
-        $lineupLength = match ($driver) {
-            'pgsql' => 'JSONB_ARRAY_LENGTH(lineup_member_ids::jsonb)',
-            'sqlite' => 'JSON_ARRAY_LENGTH(lineup_member_ids)',
-            default => 'JSON_LENGTH(lineup_member_ids)',
-        };
-
-        return "COALESCE(SUM(CASE WHEN team_id IS NOT NULL THEN COALESCE({$lineupLength}, CASE WHEN member_id IS NOT NULL THEN 1 ELSE 0 END) ELSE 1 END), 0) as total";
     }
 }

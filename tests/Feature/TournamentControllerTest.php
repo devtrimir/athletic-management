@@ -68,12 +68,14 @@ function validTournamentPayload(User $user): array
         ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
     );
     $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
 
     return [
         'name' => 'राष्ट्रीय प्रतियोगिता 2026',
         'session_id' => $session->id,
         'tier_id' => $tier->id,
-        'sport_id' => null,
+        'sport_id' => $sport->id,
+        'sport_ids' => [$sport->id],
         'venue' => null,
         'date_from' => null,
         'date_to' => null,

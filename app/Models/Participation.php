@@ -97,9 +97,7 @@ class Participation extends Model
     }
 
     /**
-     * Scope a query to include participations for a given member,
-     * including individual events, team events where the member is in the lineup,
-     * or team events for teams the member or linked coach belongs to when lineup is not recorded.
+     * Scope a query to include participations for a given member.
      *
      * @param  Builder<Participation>  $query
      * @return Builder<Participation>
@@ -107,38 +105,8 @@ class Participation extends Model
     public function scopeForMember(Builder $query, Member|int $member): Builder
     {
         $memberId = $member instanceof Member ? (int) $member->id : (int) $member;
-
-        $playerTeamIds = TeamMember::query()
-            ->where('member_id', $memberId)
-            ->pluck('team_id')
-            ->filter()
-            ->map(static fn (int|string $id): int => (int) $id)
-            ->all();
-
-        $coachTeamIds = CoachAssignment::query()
-            ->whereHas('coach', fn (Builder $q) => $q->where('member_id', $memberId))
-            ->pluck('team_id')
-            ->filter()
-            ->map(static fn (int|string $id): int => (int) $id)
-            ->all();
-
-        $allTeamIds = array_values(array_unique(array_merge($playerTeamIds, $coachTeamIds)));
         $table = $query->getModel()->getTable();
 
-        return $query->where(function (Builder $sub) use ($table, $memberId, $allTeamIds): void {
-            $sub->where("{$table}.member_id", $memberId)
-                ->orWhereJsonContains("{$table}.lineup_member_ids", $memberId)
-                ->orWhereJsonContains("{$table}.lineup_member_ids", (string) $memberId);
-
-            if ($allTeamIds !== []) {
-                $sub->orWhere(function (Builder $teamQuery) use ($table, $allTeamIds): void {
-                    $teamQuery->whereIn("{$table}.team_id", $allTeamIds)
-                        ->where(function (Builder $emptyLineup) use ($table): void {
-                            $emptyLineup->whereNull("{$table}.lineup_member_ids")
-                                ->orWhereJsonLength("{$table}.lineup_member_ids", 0);
-                        });
-                });
-            }
-        });
+        return $query->where("{$table}.member_id", $memberId);
     }
 }

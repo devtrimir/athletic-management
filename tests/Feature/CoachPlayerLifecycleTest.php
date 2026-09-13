@@ -427,13 +427,12 @@ test('team assigned coach appears in participantCandidates and can participate i
 
     $storeResponse->assertRedirect(route('tournaments.events.show', [$tournament, $teamEvent]));
 
-    $participation = Participation::where('event_id', $teamEvent->id)->first();
-    expect($participation)->not->toBeNull()
-        ->and($participation->lineup_member_ids)->toContain($player->id)
-        ->and($participation->lineup_member_ids)->toContain($coach->member_id);
+    $participations = Participation::where('event_id', $teamEvent->id)->get();
+    expect($participations)->toHaveCount(2)
+        ->and($participations->pluck('member_id')->all())->toContain($player->id, $coach->member_id);
 
-    expect(Participation::whereJsonContains('lineup_member_ids', $coach->member_id)->exists())->toBeTrue()
-        ->and(Achievement::whereHas('participation', fn ($q) => $q->whereJsonContains('lineup_member_ids', $coach->member_id))->exists())->toBeTrue();
+    expect(Participation::where('member_id', $coach->member_id)->exists())->toBeTrue()
+        ->and(Achievement::whereHas('participation', fn ($q) => $q->where('member_id', $coach->member_id))->exists())->toBeTrue();
 
     // 2. Individual event
     $indEvent = Event::factory()->create([
@@ -612,18 +611,32 @@ test('team event medals show for both regular member and coach in member events 
         'name' => 'Volleyball Championship',
     ]);
 
-    // Store team event participants with both regular player and coach in lineup
-    $participation = Participation::create([
+    // Store team event participants with both regular player and coach in relational participations
+    $regularParticipation = Participation::create([
         'event_id' => $teamEvent->id,
         'session_id' => $session->id,
         'team_id' => $team->id,
-        'member_id' => null,
-        'lineup_member_ids' => [$regularMember->id, $coachMember->id],
+        'member_id' => $regularMember->id,
         'position' => 1,
     ]);
 
-    $achievement = Achievement::create([
-        'participation_id' => $participation->id,
+    Achievement::create([
+        'participation_id' => $regularParticipation->id,
+        'medal_type' => 'GOLD',
+        'position' => 1,
+        'remarks' => 'Gold Medal in Team Event',
+    ]);
+
+    $coachParticipation = Participation::create([
+        'event_id' => $teamEvent->id,
+        'session_id' => $session->id,
+        'team_id' => $team->id,
+        'member_id' => $coachMember->id,
+        'position' => 1,
+    ]);
+
+    Achievement::create([
+        'participation_id' => $coachParticipation->id,
         'medal_type' => 'GOLD',
         'position' => 1,
         'remarks' => 'Gold Medal in Team Event',
