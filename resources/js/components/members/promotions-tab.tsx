@@ -12,6 +12,7 @@ import {
     Search,
     Trash2,
     Trophy,
+    Upload,
     X,
 } from 'lucide-react';
 import { Fragment } from 'react';
@@ -20,6 +21,8 @@ import { Combobox } from '@/components/combobox';
 import type { ComboboxItem } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
+import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
+import type { ConfidentialDocument } from '@/components/shared/confidential-document-preview';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -214,17 +217,8 @@ type PromotionRow = {
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
+    document: ConfidentialDocument | null;
     evidences: PromotionEvidence[];
-};
-type PromotionMediaFile = {
-    id: number;
-    url: string;
-    original_name: string;
-    mime_type: string;
-    size_bytes: number;
-    caption: string | null;
-    uploaded_by: { id: number; name: string };
-    created_at: string;
 };
 type RankOption = {
     code: string;
@@ -773,7 +767,11 @@ function resolveRankOrder(
     ranks: RankOption[],
     rankCode: string,
 ): number | null {
-    return ranks.find((rank) => rank.code === rankCode)?.rank_order ?? null;
+    if (!rankCode) {
+        return null;
+    }
+
+    return rankOrderByCode(ranks).get(rankCode) ?? null;
 }
 
 function rankItemsWithMemberFallback(
@@ -853,135 +851,6 @@ function getCsrfToken(): string {
     return (
         (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)
             ?.content ?? ''
-    );
-}
-
-function PromotionDocuments({
-    memberId,
-    promotionId,
-}: {
-    memberId: number;
-    promotionId: number;
-}) {
-    const { t } = useTranslation();
-    const [files, setFiles] = useState<PromotionMediaFile[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [uploading, setUploading] = useState(false);
-    useEffect(() => {
-        let active = true;
-        (async () => {
-            try {
-                const response = await fetch(
-                    `/members/${memberId}/promotions/${promotionId}/media`,
-                    {
-                        headers: { Accept: 'application/json' },
-                    },
-                );
-
-                if (!active) {
-                    return;
-                }
-
-                if (response.ok) {
-                    const json = (await response.json()) as
-                        | PromotionMediaFile[]
-                        | { data: PromotionMediaFile[] };
-                    setFiles(Array.isArray(json) ? json : json.data);
-                }
-            } finally {
-                if (active) {
-                    setLoading(false);
-                }
-            }
-        })();
-
-        return () => {
-            active = false;
-        };
-    }, [memberId, promotionId]);
-
-    async function handleUpload(file: File) {
-        setUploading(true);
-
-        try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const response = await fetch(
-                `/members/${memberId}/promotions/${promotionId}/media`,
-                {
-                    method: 'POST',
-                    headers: {
-                        Accept: 'application/json',
-                        'X-CSRF-TOKEN': getCsrfToken(),
-                    },
-                    body: formData,
-                },
-            );
-
-            if (response.ok) {
-                const json = (await (
-                    await fetch(
-                        `/members/${memberId}/promotions/${promotionId}/media`,
-                        {
-                            headers: { Accept: 'application/json' },
-                        },
-                    )
-                ).json()) as
-                    | PromotionMediaFile[]
-                    | { data: PromotionMediaFile[] };
-                setFiles(Array.isArray(json) ? json : json.data);
-            }
-        } finally {
-            setUploading(false);
-        }
-    }
-
-    return (
-        <div className="space-y-2 rounded-lg border border-dashed p-3">
-            <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-medium">
-                    {t('Promotion documents')}
-                </p>
-                <label className="cursor-pointer text-xs text-primary">
-                    {uploading ? t('Uploading…') : t('Upload file')}
-                    <input
-                        type="file"
-                        accept=".pdf,image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                            const file = e.target.files?.[0];
-
-                            if (file) {
-                                void handleUpload(file);
-                            }
-
-                            e.currentTarget.value = '';
-                        }}
-                    />
-                </label>
-            </div>
-            {loading ? (
-                <p className="text-xs text-muted-foreground">{t('Loading…')}</p>
-            ) : files.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                    {t('No documents uploaded.')}
-                </p>
-            ) : (
-                <div className="space-y-1">
-                    {files.map((file) => (
-                        <a
-                            key={file.id}
-                            href={file.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block truncate text-xs text-primary hover:underline"
-                        >
-                            {file.original_name}
-                        </a>
-                    ))}
-                </div>
-            )}
-        </div>
     );
 }
 
@@ -1244,6 +1113,8 @@ export function PromotionDialog({
     const [open, setOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [availableRanks, setAvailableRanks] = useState(ranks);
+    const [documentFile, setDocumentFile] = useState<File | null>(null);
+    const [documentError, setDocumentError] = useState<string | null>(null);
     const isRewardAction = mode === 'reward';
     const rewardActionLabel = t('Add cash reward');
     const selectedDefaultEvidenceKeys = useMemo(
@@ -1371,6 +1242,8 @@ export function PromotionDialog({
 
     function resetFormState() {
         setEvidenceSearch('');
+        setDocumentFile(null);
+        setDocumentError(null);
         form.setData({
             promotion_date: promotion?.promotion_date ?? '',
             from_rank: resolveRankInputValue(
@@ -1792,6 +1665,7 @@ export function PromotionDialog({
                     selectedDefaultRefsByKey.get(key) ??
                     [],
             ),
+            document: documentFile,
         };
     }
 
@@ -1873,8 +1747,12 @@ export function PromotionDialog({
                         setOpen(false);
                         onSaved();
                     },
-                    onError: () => {
+                    onError: (errors) => {
                         setIsSubmitting(false);
+
+                        if (errors.document) {
+                            setDocumentError(errors.document);
+                        }
                     },
                 },
             );
@@ -1888,10 +1766,15 @@ export function PromotionDialog({
                 setOpen(false);
                 form.reset();
                 setSelected([]);
+                setDocumentFile(null);
                 onSaved();
             },
-            onError: () => {
+            onError: (errors) => {
                 setIsSubmitting(false);
+
+                if (errors.document) {
+                    setDocumentError(errors.document);
+                }
             },
         });
     }
@@ -2585,6 +2468,75 @@ export function PromotionDialog({
                             </div>
                         )}
                     </div>
+
+                    {/* Section 3: Supporting Document */}
+                    <div className="space-y-2 rounded-lg border bg-card p-4 shadow-2xs">
+                        <div className="flex items-center justify-between border-b pb-2.5">
+                            <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                {t('Supporting document')}
+                            </span>
+                        </div>
+                        <label className="relative flex min-w-0 cursor-pointer items-start gap-3 overflow-hidden rounded-lg border border-dashed bg-muted/30 p-3 transition-colors hover:bg-muted/50">
+                            <span className="mt-0.5 rounded-md bg-background p-2 text-muted-foreground shadow-sm">
+                                <Upload className="size-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-medium break-words">
+                                    {documentFile?.name ??
+                                        promotion?.document?.original_name ??
+                                        t('Upload supporting document')}
+                                </span>
+                                <span className="mt-1 block text-xs break-words text-muted-foreground">
+                                    {t(
+                                        'PDF, JPG, PNG, or WEBP. Stored privately and available only to authorized users.',
+                                    )}
+                                </span>
+                            </span>
+                            <input
+                                className="sr-only"
+                                type="file"
+                                accept="application/pdf,image/jpeg,image/png,image/webp"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0] ?? null;
+
+                                    if (file) {
+                                        const allowedTypes = [
+                                            'application/pdf',
+                                            'image/jpeg',
+                                            'image/png',
+                                            'image/webp',
+                                        ];
+
+                                        if (!allowedTypes.includes(file.type)) {
+                                            setDocumentError(
+                                                t(
+                                                    'Only PDF, JPG, PNG, or WEBP files are allowed.',
+                                                ),
+                                            );
+                                            e.target.value = '';
+
+                                            return;
+                                        }
+
+                                        if (file.size > 5 * 1024 * 1024) {
+                                            setDocumentError(
+                                                t(
+                                                    'The document must not be larger than 5 MB.',
+                                                ),
+                                            );
+                                            e.target.value = '';
+
+                                            return;
+                                        }
+                                    }
+
+                                    setDocumentError(null);
+                                    setDocumentFile(file);
+                                }}
+                            />
+                        </label>
+                        <InputError message={documentError ?? undefined} />
+                    </div>
                 </form>
 
                 <DialogFooter className="flex shrink-0 items-center justify-between gap-3 border-t bg-muted/20 px-6 py-3.5 sm:justify-between">
@@ -3219,6 +3171,16 @@ export function PromotionsTab({
                                                                       'Show details',
                                                                   )}
                                                         </Button>
+                                                        {promotion.document && (
+                                                            <ConfidentialDocumentPreview
+                                                                document={
+                                                                    promotion.document
+                                                                }
+                                                                triggerLabel={t(
+                                                                    'View document',
+                                                                )}
+                                                            />
+                                                        )}
                                                         <PromotionDialog
                                                             memberId={memberId}
                                                             memberRank={
@@ -3411,16 +3373,6 @@ export function PromotionsTab({
                                                                     </div>
                                                                 );
                                                             })()}
-                                                            <div className="mt-2 pt-2">
-                                                                <PromotionDocuments
-                                                                    memberId={
-                                                                        memberId
-                                                                    }
-                                                                    promotionId={
-                                                                        promotion.id
-                                                                    }
-                                                                />
-                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -3555,6 +3507,16 @@ export function PromotionsTab({
                                                                       'Show details',
                                                                   )}
                                                         </Button>
+                                                        {promotion.document && (
+                                                            <ConfidentialDocumentPreview
+                                                                document={
+                                                                    promotion.document
+                                                                }
+                                                                triggerLabel={t(
+                                                                    'View document',
+                                                                )}
+                                                            />
+                                                        )}
                                                         <PromotionDialog
                                                             memberId={memberId}
                                                             memberRank={

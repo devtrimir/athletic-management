@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Achievement;
 use App\Models\AuditLog;
+use App\Models\Coach;
 use App\Models\District;
 use App\Models\Event;
 use App\Models\ExternalCoachingAssignment;
@@ -797,6 +798,29 @@ test('update changes member and redirects to show', function () {
 
     expect($memberSportLogs->contains(fn (AuditLog $log) => $log->action === 'created' && (int) ($log->diff['sport_id'] ?? 0) === $addedSport->id))->toBeTrue();
     expect($memberSportLogs->contains(fn (AuditLog $log) => $log->action === 'deleted' && (int) ($log->diff['sport_id'] ?? 0) === $removedSport->id))->toBeTrue();
+});
+
+test('update propagates a changed pno to the linked coach', function () {
+    $user = memberUser('members.update');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => 'OLD-PNO',
+    ]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'pno' => 'OLD-PNO',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('members.update', $member), [
+            'full_name' => $member->full_name,
+            'pno' => 'NEW-PNO',
+        ])
+        ->assertRedirect(route('members.show', $member));
+
+    expect($member->fresh()->pno)->toBe('NEW-PNO')
+        ->and($coach->fresh()->pno)->toBe('NEW-PNO');
 });
 
 test('update normalizes player_category aliases to canonical code', function () {

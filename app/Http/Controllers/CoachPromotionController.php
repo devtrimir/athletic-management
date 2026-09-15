@@ -13,19 +13,28 @@ use App\Models\CoachPromotion;
 use App\Models\CoachPromotionEvidence;
 use App\Models\Member;
 use App\Models\Rank;
+use App\Services\PromotionSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CoachPromotionController extends Controller
 {
+    public function __construct(
+        private readonly PromotionSyncService $promotionSyncService,
+    ) {}
+
     public function store(StoreCoachPromotionRequest $request, Coach $coach): RedirectResponse
     {
         Gate::authorize('managePromotions', $coach);
 
         $validated = $request->validated();
         $evidences = $validated['evidences'] ?? [];
-        unset($validated['evidences']);
+        unset($validated['evidences'], $validated['document']);
 
         $data = array_merge($validated, [
             'from_rank' => $request->input('from_rank') ?: $coach->rankMaster?->code,
@@ -33,6 +42,7 @@ class CoachPromotionController extends Controller
 
         $promotion = CoachPromotion::create(array_merge(
             $data,
+            $this->storeDocument($request, $coach),
             [
                 'organization_id' => $coach->organization_id,
                 'coach_id' => $coach->id,
@@ -42,6 +52,7 @@ class CoachPromotionController extends Controller
 
         $this->syncEvidences($promotion, $coach, $evidences);
         $this->syncCoachPromotionState($coach);
+        $this->promotionSyncService->syncFromCoach($promotion);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion or reward recorded.')]);
 
@@ -57,13 +68,20 @@ class CoachPromotionController extends Controller
         $validated = $request->validated();
         $shouldSyncEvidences = array_key_exists('evidences', $validated);
         $evidences = $validated['evidences'] ?? [];
-        unset($validated['evidences']);
+        unset($validated['evidences'], $validated['document']);
 
         $data = array_merge($validated, [
             'from_rank' => $request->input('from_rank') ?: $promotion->from_rank ?: $coach->rankMaster?->code,
         ]);
 
-        $promotion->update($data);
+        $oldDocumentPath = $promotion->document_path;
+        $documentData = $this->storeDocument($request, $coach);
+
+        $promotion->update(array_merge($data, $documentData));
+
+        if ($documentData !== [] && $oldDocumentPath !== null) {
+            $this->deleteDocument($oldDocumentPath);
+        }
 
         if ($shouldSyncEvidences) {
             $promotion->evidences()->delete();
@@ -71,6 +89,7 @@ class CoachPromotionController extends Controller
         }
 
         $this->syncCoachPromotionState($coach);
+        $this->promotionSyncService->syncFromCoach($promotion);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion or reward updated.')]);
 
@@ -83,12 +102,85 @@ class CoachPromotionController extends Controller
 
         abort_if($promotion->coach_id !== $coach->id, 404);
 
+        if ($promotion->document_path !== null) {
+            $this->deleteDocument($promotion->document_path);
+        }
+
+        $this->promotionSyncService->deleteForCoach($promotion);
         $promotion->delete();
         $this->syncCoachPromotionState($coach);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Promotion or reward removed.')]);
 
         return to_route('coaches.promotions', $coach);
+    }
+
+    public function document(Coach $coach, CoachPromotion $promotion): StreamedResponse
+    {
+        $this->authorizeDocumentAccess($coach, $promotion);
+
+        return Storage::disk('local')->download(
+            $promotion->document_path,
+            $promotion->document_original_name,
+        );
+    }
+
+    public function previewDocument(Coach $coach, CoachPromotion $promotion): BinaryFileResponse
+    {
+        $this->authorizeDocumentAccess($coach, $promotion);
+
+        $response = response()->file(
+            Storage::disk('local')->path($promotion->document_path),
+            array_filter([
+                'Content-Type' => $promotion->document_mime_type,
+            ]),
+        );
+
+        $response->setContentDisposition(
+            ResponseHeaderBag::DISPOSITION_INLINE,
+            $promotion->document_original_name ?? 'promotion-document',
+        );
+
+        return $response;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function storeDocument(
+        StoreCoachPromotionRequest|UpdateCoachPromotionRequest $request,
+        Coach $coach,
+    ): array {
+        $file = $request->file('document');
+
+        if ($file === null) {
+            return [];
+        }
+
+        $path = $file->store(
+            "coach-promotions/{$coach->organization_id}",
+            'local',
+        );
+
+        return [
+            'document_path' => $path,
+            'document_original_name' => $file->getClientOriginalName(),
+            'document_mime_type' => $file->getMimeType(),
+            'document_size_bytes' => $file->getSize(),
+        ];
+    }
+
+    private function deleteDocument(string $path): void
+    {
+        Storage::disk('local')->delete($path);
+    }
+
+    private function authorizeDocumentAccess(Coach $coach, CoachPromotion $promotion): void
+    {
+        Gate::authorize('view', $coach);
+        abort_unless($promotion->coach_id === $coach->id, 404);
+        abort_if($promotion->document_path === null, 404);
+        abort_unless(Storage::disk('local')->exists($promotion->document_path), 404);
     }
 
     private function syncCoachPromotionState(Coach $coach): void
@@ -101,22 +193,26 @@ class CoachPromotionController extends Controller
             ->orderByDesc('id')
             ->first();
 
-        if ($latestPromotion?->to_rank === null) {
+        $member = $coach->member ?? ($coach->member_id ? Member::find($coach->member_id) : null);
+        $rankCode = $latestPromotion?->to_rank ?? $member?->initial_rank;
+
+        if ($rankCode === null) {
             return;
         }
 
         $rank = Rank::query()
-            ->where('code', $latestPromotion->to_rank)
-            ->orWhere('name', $latestPromotion->to_rank)
+            ->where('code', $rankCode)
+            ->orWhere('name', $rankCode)
             ->first();
 
         if ($rank !== null) {
             $coach->update(['rank_master_id' => $rank->id]);
 
-            Member::query()
-                ->where('id', $coach->member_id)
-                ->orWhere('coach_id', $coach->id)
-                ->update(['rank' => $rank->code]);
+            if ($coach->member_id !== null) {
+                Member::query()
+                    ->where('id', $coach->member_id)
+                    ->update(['rank' => $rank->code]);
+            }
         }
     }
 

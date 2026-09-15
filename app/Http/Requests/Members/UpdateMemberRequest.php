@@ -35,10 +35,12 @@ class UpdateMemberRequest extends FormRequest
     public function rules(): array
     {
         $orgId = (int) $this->user()->organization_id;
-        $memberId = (int) $this->route('member')?->getKey();
+        $member = $this->route('member');
+        $memberId = (int) $member?->getKey();
+        $coachId = $member?->coach?->id;
 
         return [
-            'pno' => ['sometimes', 'nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, 'members', $memberId)],
+            'pno' => ['sometimes', 'nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, 'members', $memberId, ignoreCoachId: $coachId)],
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
             'full_name_normalized' => ['sometimes', 'nullable', 'string', 'max:255'],
             'father_name' => ['sometimes', 'nullable', 'string', 'max:255'],

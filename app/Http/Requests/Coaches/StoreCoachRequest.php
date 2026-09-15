@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Coaches;
 
-use App\Models\Member;
 use App\Rules\UniquePnoAcrossPeople;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -63,19 +62,6 @@ class StoreCoachRequest extends FormRequest
             'sports.*.effective_to' => ['nullable', 'date', 'after_or_equal:sports.*.effective_from'],
             'sports.*.notes' => ['nullable', 'string', 'max:1000'],
         ];
-    }
-
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator): void {
-            $memberId = $this->input('member_id');
-            if ($memberId) {
-                $member = Member::find($memberId);
-                if ($member && filled($member->pno) && filled($this->input('pno')) && $member->pno !== $this->input('pno')) {
-                    $validator->errors()->add('pno', __('The PNO must match the linked member\'s PNO.'));
-                }
-            }
-        });
     }
 
     /**

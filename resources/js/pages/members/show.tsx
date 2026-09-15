@@ -56,7 +56,6 @@ import { show as showTournament } from '@/actions/App/Http/Controllers/Tournamen
 import AlertError from '@/components/alert-error';
 import { Combobox } from '@/components/combobox';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
-import { ProfilePhotoLightbox } from '@/components/shared/profile-photo-lightbox';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { ArchivedMemberActionDialog } from '@/components/members/archived-member-action-dialog';
@@ -73,6 +72,8 @@ import type { SpecialAchievementsData } from '@/components/members/special-achie
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
+import type { ConfidentialDocument } from '@/components/shared/confidential-document-preview';
+import { ProfilePhotoLightbox } from '@/components/shared/profile-photo-lightbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -358,6 +359,7 @@ type PromotionRow = {
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
+    document: ConfidentialDocument | null;
     evidences: {
         id: number;
         type: 'achievement' | 'participation';

@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Models\Achievement;
 use App\Models\AchievementBenefit;
 use App\Models\Event;
-use App\Models\MediaFile;
 use App\Models\Member;
 use App\Models\MemberPromotion;
 use App\Models\Organization;
@@ -418,38 +417,62 @@ test('achievement benefit rejects legacy achievement source from coach page', fu
         ->assertInvalid(['benefitable_type']);
 });
 
-test('member promotion accepts uploaded order documents', function () {
-    Storage::fake('public');
+test('member promotion accepts an uploaded document and stores it privately', function () {
+    Storage::fake('local');
 
     $user = promotionUser();
+    $viewer = promotionUser();
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     [$fromRank, $toRank] = promotionRanks($member->organization);
     $member->update(['rank' => $fromRank->code]);
     [, $achievement] = promotionFixtures($member);
-
-    $promotion = MemberPromotion::create([
-        'organization_id' => $member->organization_id,
-        'member_id' => $member->id,
-        'promotion_date' => now()->toDateString(),
-        'from_rank' => $fromRank->code,
-        'to_rank' => $toRank->code,
-        'recorded_by' => $user->id,
-    ]);
-
     $file = UploadedFile::fake()->create('promotion-order.pdf', 200, 'application/pdf');
 
-    $response = $this->actingAs($user)->postJson(route('members.promotions.media.store', [$member, $promotion]), [
-        'file' => $file,
-    ]);
+    $this->actingAs($user)
+        ->post(route('members.promotions.store', $member), [
+            'promotion_date' => now()->toDateString(),
+            'from_rank' => $fromRank->code,
+            'to_rank' => $toRank->code,
+            'document' => $file,
+            'evidences' => [
+                ['type' => 'achievement', 'id' => $achievement->id],
+            ],
+        ])
+        ->assertRedirect(route('members.promotions', $member));
 
-    $response->assertCreated();
+    $promotion = MemberPromotion::where('member_id', $member->id)->firstOrFail();
 
-    $this->assertDatabaseHas('media_files', [
-        'organization_id' => $member->organization_id,
-        'mediable_type' => MemberPromotion::class,
-        'mediable_id' => $promotion->id,
-        'uploaded_by' => $user->id,
-    ]);
+    expect($promotion->document_path)->not->toBeNull()
+        ->and($promotion->document_original_name)->toBe('promotion-order.pdf')
+        ->and($promotion->document_mime_type)->toBe('application/pdf');
+    Storage::disk('local')->assertExists($promotion->document_path);
 
-    expect(MediaFile::query()->where('mediable_id', $promotion->id)->count())->toBe(1);
+    $this->actingAs($user)
+        ->get(route('members.promotions', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('promotions.0.document.original_name', 'promotion-order.pdf')
+            ->where('promotions.0.document.preview_url', route('members.promotions.document.preview', [$member, $promotion]))
+            ->where('promotions.0.document.download_url', route('members.promotions.document', [$member, $promotion]))
+        );
+
+    expect(route('members.promotions.document', [$member, $promotion]))->not->toContain('/storage/');
+
+    $this->actingAs($user)
+        ->get(route('members.promotions.document.preview', [$member, $promotion]))
+        ->assertOk()
+        ->assertHeader('content-disposition', 'inline; filename=promotion-order.pdf');
+
+    $this->actingAs($user)
+        ->get(route('members.promotions.document', [$member, $promotion]))
+        ->assertOk()
+        ->assertDownload('promotion-order.pdf');
+
+    $this->actingAs($viewer)
+        ->get(route('members.promotions.document.preview', [$member, $promotion]))
+        ->assertNotFound();
+
+    $this->actingAs($viewer)
+        ->get(route('members.promotions.document', [$member, $promotion]))
+        ->assertNotFound();
 });

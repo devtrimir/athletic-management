@@ -57,6 +57,7 @@ type Coach = {
     id: number;
     full_name: string;
     pno: string | null;
+    member_id: number | null;
     mobile: string | null;
     email: string | null;
     gender: string | null;
@@ -342,8 +343,16 @@ export default function CoachesEdit({
                                             setData('pno', e.target.value)
                                         }
                                         maxLength={20}
+                                        readOnly={coach.member_id !== null}
                                         className="font-mono"
                                     />
+                                    {coach.member_id !== null && (
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                'PNO is locked to the linked player profile.',
+                                            )}
+                                        </p>
+                                    )}
                                     <InputError message={errors.pno} />
                                 </div>
                             </div>

@@ -62,6 +62,7 @@ class UpdateMemberPromotionRequest extends FormRequest
             'cash_reward_remarks' => ['sometimes', 'nullable', 'string'],
             'reason' => ['sometimes', 'nullable', 'string'],
             'remarks' => ['sometimes', 'nullable', 'string'],
+            'document' => ['sometimes', 'nullable', 'file', 'mimes:pdf,jpeg,jpg,png,webp', 'max:5120'],
             'evidences' => ['sometimes', 'array', 'min:1'],
             'evidences.*.type' => ['required_with:evidences', Rule::in(['achievement', 'participation'])],
             'evidences.*.id' => ['required_with:evidences', 'integer', 'min:1'],

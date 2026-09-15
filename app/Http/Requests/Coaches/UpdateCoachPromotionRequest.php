@@ -31,6 +31,7 @@ class UpdateCoachPromotionRequest extends FormRequest
             'cash_reward_remarks' => ['sometimes', 'nullable', 'string'],
             'reason' => ['sometimes', 'nullable', 'string'],
             'remarks' => ['sometimes', 'nullable', 'string'],
+            'document' => ['sometimes', 'nullable', 'file', 'mimes:pdf,jpeg,jpg,png,webp', 'max:5120'],
             'evidences' => ['sometimes', 'nullable', 'array'],
             'evidences.*.session_id' => ['required', 'integer', 'min:1'],
             'evidences.*.tournament_id' => ['required', 'integer', 'min:1'],

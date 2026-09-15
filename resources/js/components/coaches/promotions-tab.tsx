@@ -2,23 +2,26 @@ import { router, useForm } from '@inertiajs/react';
 import {
     ArrowRight,
     Award,
-    Calendar,
     CheckCircle2,
-    Edit2,
-    ExternalLink,
-    IndianRupee,
+    ChevronDown,
+    ChevronRight,
+    Coins,
     Loader2,
+    Pencil,
     Plus,
     Search,
     Trash2,
     Trophy,
+    Upload,
+    X,
 } from 'lucide-react';
-import React, { useCallback, useMemo, useState } from 'react';
-
-import { Combobox  } from '@/components/combobox';
-import type {ComboboxItem} from '@/components/combobox';
+import React, { Fragment, useMemo, useState } from 'react';
+import { Combobox } from '@/components/combobox';
+import type { ComboboxItem } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
+import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
+import type { ConfidentialDocument } from '@/components/shared/confidential-document-preview';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -39,15 +42,9 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -55,14 +52,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Tooltip,
@@ -92,6 +81,7 @@ export type CoachPromotionEvidence = {
         id: number;
         name: string;
         tier_code?: string | null;
+        tier?: { id: number; code: string } | null;
         date_from?: string | null;
         date_to?: string | null;
         venue?: string | null;
@@ -121,6 +111,7 @@ export type CoachPromotion = {
     remarks: string | null;
     recorded_by_name?: string | null;
     recorder?: { id: number; name: string } | null;
+    document: ConfidentialDocument | null;
     evidences: CoachPromotionEvidence[];
 };
 
@@ -183,9 +174,10 @@ type Props = {
         full_name?: string;
     };
     ranks: RankOption[];
-    promotions: CoachPromotion[];
+    promotions?: CoachPromotion[];
     rewardEvidenceOptions?: CoachedSessionOption[];
     canManage?: boolean;
+    showActions?: boolean;
     onSaved?: () => void;
 };
 
@@ -216,16 +208,16 @@ function resolveRankLabel(value: string | null | undefined, ranks: RankOption[])
     return rank ? rank.name : value;
 }
 
-function resolveRankCode(value: string | null | undefined, ranks: RankOption[]): string {
-    if (!value) {
-        return '';
+function rankOrderByCode(ranks: RankOption[]): Map<string, number> {
+    return new Map(ranks.map((rank, index) => [rank.code, rank.rank_order ?? index]));
+}
+
+function resolveRankOrder(rankOrderLookup: Map<string, number>, rankValue: string | null | undefined): number | null {
+    if (!rankValue) {
+        return null;
     }
 
-    const rank = ranks.find(
-        (r) => r.code === value || r.name === value || r.short_name === value,
-    );
-
-    return rank ? rank.code : value;
+    return rankOrderLookup.get(rankValue) ?? null;
 }
 
 function medalEmoji(medalType?: string | null): string {
@@ -352,117 +344,128 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
                 is_active: true,
             });
             setOpen(false);
+        } catch {
+            setErrors({ code: 'Failed to create rank. Please try again.' });
         } finally {
             setSaving(false);
         }
     }
 
     return (
-        <Dialog
-            open={open}
-            onOpenChange={(nextOpen) => {
-                setOpen(nextOpen);
-
-                if (!nextOpen) {
-                    setErrors({});
-                }
-            }}
-        >
-            <DialogTrigger asChild>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 px-1.5 text-[11px] font-normal text-muted-foreground hover:text-primary"
-                >
-                    <Plus className="mr-1 size-3" />
-                    {t('New rank')}
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-xl" aria-describedby={undefined}>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto p-0 text-xs font-medium text-primary hover:text-primary/80"
+                onClick={() => setOpen(true)}
+            >
+                + {t('Add new rank')}
+            </Button>
+            <DialogContent className="max-w-md">
                 <DialogHeader>
-                    <DialogTitle>{t('Create rank')}</DialogTitle>
+                    <DialogTitle>{t('Add new rank')}</DialogTitle>
+                    <DialogDescription>
+                        {t('Create a new rank master record quickly for this promotion.')}
+                    </DialogDescription>
                 </DialogHeader>
-                <form className="space-y-4" onSubmit={handleSubmit}>
-                    <div className="grid grid-cols-2 gap-4">
+                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+                    <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                            <Label className="text-xs font-semibold">{t('Code')}</Label>
+                            <Label htmlFor="inline-rank-code" className="text-xs">
+                                {t('Rank code')} <span className="text-destructive">*</span>
+                            </Label>
                             <Input
+                                id="inline-rank-code"
                                 value={data.code}
                                 onChange={(e) => setField('code', e.target.value.toUpperCase())}
-                                placeholder="CONSTABLE"
-                                className="h-9 text-xs"
+                                placeholder="e.g. SI"
+                                className="h-8 text-xs uppercase"
                             />
-                            {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
+                            {errors.code && <p className="text-[11px] text-destructive">{errors.code}</p>}
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-xs font-semibold">{t('Name')}</Label>
+                            <Label htmlFor="inline-rank-order" className="text-xs">
+                                {t('Rank order')} <span className="text-destructive">*</span>
+                            </Label>
                             <Input
-                                value={data.name}
-                                onChange={(e) => setField('name', e.target.value)}
-                                placeholder={t('Constable')}
-                                className="h-9 text-xs"
-                            />
-                            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <Label className="text-xs font-semibold">{t('Rank order')}</Label>
-                            <Input
+                                id="inline-rank-order"
                                 type="number"
+                                min={1}
                                 value={data.rank_order}
                                 onChange={(e) => setField('rank_order', e.target.value)}
-                                placeholder="10"
-                                className="h-9 text-xs"
+                                placeholder="e.g. 5"
+                                className="h-8 text-xs"
                             />
                             {errors.rank_order && (
-                                <p className="text-xs text-destructive">{errors.rank_order}</p>
+                                <p className="text-[11px] text-destructive">{errors.rank_order}</p>
                             )}
                         </div>
-                        <div className="space-y-1">
-                            <Label className="text-xs font-semibold">{t('Short name')}</Label>
-                            <Input
-                                value={data.short_name}
-                                onChange={(e) => setField('short_name', e.target.value)}
-                                placeholder="CT"
-                                className="h-9 text-xs"
-                            />
-                        </div>
                     </div>
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                            <Checkbox
-                                id="coach_inline_rank_gazetted"
+
+                    <div className="space-y-1">
+                        <Label htmlFor="inline-rank-name" className="text-xs">
+                            {t('Rank name')} <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="inline-rank-name"
+                            value={data.name}
+                            onChange={(e) => setField('name', e.target.value)}
+                            placeholder="e.g. Sub Inspector"
+                            className="h-8 text-xs"
+                        />
+                        {errors.name && <p className="text-[11px] text-destructive">{errors.name}</p>}
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label htmlFor="inline-rank-short" className="text-xs">
+                            {t('Short name')}
+                        </Label>
+                        <Input
+                            id="inline-rank-short"
+                            value={data.short_name}
+                            onChange={(e) => setField('short_name', e.target.value)}
+                            placeholder="e.g. S.I."
+                            className="h-8 text-xs"
+                        />
+                        {errors.short_name && (
+                            <p className="text-[11px] text-destructive">{errors.short_name}</p>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-4 pt-1">
+                        <label className="flex items-center gap-2 text-xs">
+                            <input
+                                type="checkbox"
                                 checked={data.is_gazetted}
-                                onCheckedChange={(val) => setField('is_gazetted', val === true)}
+                                onChange={(e) => setField('is_gazetted', e.target.checked)}
+                                className="rounded border-input text-primary"
                             />
-                            <Label htmlFor="coach_inline_rank_gazetted" className="text-xs">
-                                {t('Gazetted')}
-                            </Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Checkbox
-                                id="coach_inline_rank_active"
+                            <span>{t('Gazetted officer')}</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs">
+                            <input
+                                type="checkbox"
                                 checked={data.is_active}
-                                onCheckedChange={(val) => setField('is_active', val === true)}
+                                onChange={(e) => setField('is_active', e.target.checked)}
+                                className="rounded border-input text-primary"
                             />
-                            <Label htmlFor="coach_inline_rank_active" className="text-xs">
-                                {t('Active')}
-                            </Label>
-                        </div>
+                            <span>{t('Active')}</span>
+                        </label>
                     </div>
-                    <DialogFooter>
+
+                    <DialogFooter className="pt-2">
                         <Button
                             type="button"
                             variant="outline"
+                            size="sm"
                             onClick={() => setOpen(false)}
                             disabled={saving}
                         >
                             {t('Cancel')}
                         </Button>
-                        <Button type="submit" disabled={saving}>
-                            {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+                        <Button type="submit" size="sm" disabled={saving}>
+                            {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
                             {t('Save rank')}
                         </Button>
                     </DialogFooter>
@@ -473,7 +476,7 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
 }
 
 // ---------------------------------------------------------------------------
-// Evidence Summary Cell
+// Evidence Summary Cell (Mirrors members EvidenceSummaryCell)
 // ---------------------------------------------------------------------------
 
 function EvidenceSummaryCell({
@@ -484,91 +487,75 @@ function EvidenceSummaryCell({
     t: (key: string) => string;
 }) {
     if (!evidences || evidences.length === 0) {
-        return <span className="text-muted-foreground">—</span>;
+        return <span className="text-xs text-muted-foreground">—</span>;
     }
 
-    const first = evidences[0];
-    const tournamentName = first.tournament?.name ?? t('Tournament');
-    const tierCode = first.tournament?.tier_code;
-    const eventName = first.event?.name;
-    const teamName = first.team?.name;
-    const medal = first.achievement?.medal_type;
+    const firstTwo = evidences.slice(0, 2);
+    const remaining = evidences.slice(2);
 
     return (
-        <div className="flex items-center gap-2">
-            <div className="flex flex-col gap-0.5 text-xs">
-                <div className="flex items-center gap-1.5 font-medium">
-                    {tierCode && (
-                        <Badge variant="outline" className="h-4.5 px-1 text-[10px] font-semibold">
-                            {tierCode}
-                        </Badge>
-                    )}
-                    <span className="truncate max-w-[200px]" title={tournamentName}>
-                        {tournamentName}
-                    </span>
-                </div>
-                {(eventName || teamName) && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        {medal && <span>{medalEmoji(medal)}</span>}
-                        {eventName && <span>{eventName}</span>}
-                        {teamName && <span>· {teamName}</span>}
-                    </div>
+        <TooltipProvider>
+            <div className="flex flex-wrap items-center gap-1.5">
+                {firstTwo.map((row, idx) => {
+                    const medal = row.achievement?.medal_type;
+                    const eventName = row.event?.name ?? row.team?.name ?? t('Event');
+                    const tournamentName = row.tournament?.name;
+
+                    return (
+                        <span
+                            key={idx}
+                            title={
+                                tournamentName
+                                    ? `${tournamentName} · ${eventName}`
+                                    : eventName
+                            }
+                            className="inline-flex max-w-[170px] items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-700 shadow-2xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        >
+                            <span className="shrink-0">{medalEmoji(medal)}</span>
+                            <span className="truncate">{eventName}</span>
+                        </span>
+                    );
+                })}
+
+                {remaining.length > 0 && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="inline-flex cursor-pointer items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300">
+                                +{remaining.length} {t('more')}
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs space-y-1.5 p-2 text-xs">
+                            <p className="border-b border-border/50 pb-1 font-semibold text-muted-foreground">
+                                {t('Additional events')}
+                            </p>
+                            {remaining.map((row, idx) => {
+                                const medal = row.achievement?.medal_type;
+                                const eventName = row.event?.name ?? row.team?.name ?? t('Event');
+                                const tournamentName = row.tournament?.name;
+
+                                return (
+                                    <div key={idx} className="flex items-center gap-1.5 text-left">
+                                        <span>{medalEmoji(medal)}</span>
+                                        <span className="font-medium text-foreground">{eventName}</span>
+                                        {tournamentName && (
+                                            <span className="text-muted-foreground">
+                                                ({tournamentName})
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </TooltipContent>
+                    </Tooltip>
                 )}
             </div>
-
-            {evidences.length > 1 && (
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 px-1 text-[11px] font-semibold text-primary"
-                        >
-                            +{evidences.length - 1} {t('more')}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-3 text-xs" align="start">
-                        <div className="space-y-2">
-                            <p className="font-semibold text-foreground">
-                                {t('Attached Tournament Evidence')} ({evidences.length})
-                            </p>
-                            <div className="max-h-60 space-y-1.5 overflow-y-auto pr-1">
-                                {evidences.map((ev, idx) => (
-                                    <div key={idx} className="rounded border bg-muted/30 p-2 text-xs">
-                                        <div className="font-medium text-foreground">
-                                            {ev.tournament?.name ?? t('Tournament')}
-                                        </div>
-                                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                            {ev.achievement?.medal_type && (
-                                                <span>{medalEmoji(ev.achievement.medal_type)}</span>
-                                            )}
-                                            {ev.event?.name && <span>{ev.event.name}</span>}
-                                            {ev.team?.name && <span>· {ev.team.name}</span>}
-                                            {ev.session?.name && <span>({ev.session.name})</span>}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </PopoverContent>
-                </Popover>
-            )}
-        </div>
+        </TooltipProvider>
     );
 }
 
 // ---------------------------------------------------------------------------
-// Coach Promotion / Reward Dialog
+// Coach Promotion Dialog (Mirrors members PromotionDialog styling)
 // ---------------------------------------------------------------------------
-
-type EvidenceSelectionItem = {
-    key: string;
-    session_id: number;
-    tournament_id: number;
-    event_id: number | null;
-    team_id: number;
-};
 
 export function CoachPromotionDialog({
     coach,
@@ -596,6 +583,8 @@ export function CoachPromotionDialog({
     const [selectedSessionId, setSelectedSessionId] = useState<string>('all');
     const [evidenceSearch, setEvidenceSearch] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [documentFile, setDocumentFile] = useState<File | null>(null);
+    const [documentError, setDocumentError] = useState<string | null>(null);
 
     const isRewardAction = actionType === 'reward';
     const currentCoachRankCode = coach.rank_master?.code ?? '';
@@ -645,7 +634,6 @@ export function CoachPromotionDialog({
                         });
                     }
                 } else {
-                    // Fallback for tournaments without event breakdown
                     items.push({
                         key: `${sessionGroup.session.id}:${tourney.tournament.id}:0:${tourney.team.id}`,
                         session_id: sessionGroup.session.id,
@@ -700,6 +688,8 @@ export function CoachPromotionDialog({
         if (open) {
             setActionType(promotion?.cash_reward_amount ? 'reward' : initialMode);
             setSelectedKeys(defaultSelectedKeys);
+            setDocumentFile(null);
+            setDocumentError(null);
             form.setData({
                 promotion_date: promotion?.promotion_date ?? '',
                 from_rank: promotion?.from_rank ?? currentCoachRankCode,
@@ -715,13 +705,29 @@ export function CoachPromotionDialog({
         }
     }, [open, promotion, initialMode, defaultSelectedKeys, currentCoachRankCode]);
 
-    // Available ranks for Combobox
+    // Available ranks for Combobox — only ranks strictly senior to the current rank are promotable
+    const rankOrderLookup = useMemo(() => rankOrderByCode(ranks), [ranks]);
     const toRankItems: ComboboxItem[] = useMemo(() => {
-        return ranks.map((rank) => ({
+        const items = ranks.map((rank) => ({
             value: rank.code,
             label: rank.name,
         }));
-    }, [ranks]);
+
+        const fromRankOrder = resolveRankOrder(
+            rankOrderLookup,
+            form.data.from_rank || currentCoachRankCode,
+        );
+
+        if (fromRankOrder === null) {
+            return items;
+        }
+
+        return items.filter((item) => {
+            const order = resolveRankOrder(rankOrderLookup, item.value);
+
+            return item.value === form.data.to_rank || (order !== null && order > fromRankOrder);
+        });
+    }, [ranks, rankOrderLookup, form.data.from_rank, form.data.to_rank, currentCoachRankCode]);
 
     // Filtered evidence items
     const filteredEvidenceItems = useMemo(() => {
@@ -844,6 +850,7 @@ export function CoachPromotionDialog({
             reason: isRewardAction ? null : form.data.reason || null,
             remarks: isRewardAction ? null : form.data.remarks || null,
             evidences: evidencesPayload,
+            document: documentFile,
         };
 
         if (promotion) {
@@ -853,8 +860,12 @@ export function CoachPromotionDialog({
                     onOpenChange(false);
                     onSaved?.();
                 },
-                onError: () => {
+                onError: (errors) => {
                     setIsSubmitting(false);
+
+                    if (errors.document) {
+                        setDocumentError(errors.document);
+                    }
                 },
             });
 
@@ -867,79 +878,75 @@ export function CoachPromotionDialog({
                 onOpenChange(false);
                 form.reset();
                 setSelectedKeys([]);
+                setDocumentFile(null);
                 onSaved?.();
             },
-            onError: () => {
+            onError: (errors) => {
                 setIsSubmitting(false);
+
+                if (errors.document) {
+                    setDocumentError(errors.document);
+                }
             },
         });
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col p-0" aria-describedby={undefined}>
-                <DialogHeader className="border-b px-6 py-4">
-                    <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                        {isRewardAction ? (
-                            <Award className="size-5 text-amber-500" />
-                        ) : (
-                            <Trophy className="size-5 text-primary" />
-                        )}
-                        <span>
-                            {promotion
-                                ? isRewardAction
-                                    ? t('Edit cash reward')
-                                    : t('Edit promotion')
-                                : isRewardAction
-                                  ? t('Record cash reward')
-                                  : t('Record out-of-turn promotion')}
-                        </span>
-                        {coach.full_name && (
-                            <span className="text-sm font-normal text-muted-foreground">
-                                — {coach.full_name}
-                            </span>
-                        )}
-                    </DialogTitle>
-                    <DialogDescription className="text-xs text-muted-foreground">
-                        {isRewardAction
-                            ? t('Grant a cash incentive to this coach backed by team tournament achievements.')
-                            : t('Promote this coach to a higher rank backed by verified team tournament achievements.')}
-                    </DialogDescription>
-
-                    {/* Mode Toggle Pills (when creating new) */}
-                    {!promotion && (
-                        <div className="pt-2">
-                            <Tabs
-                                value={actionType}
-                                onValueChange={(val) => {
-                                    setActionType(val as 'promotion' | 'reward');
-                                    form.clearErrors();
-                                }}
-                            >
-                                <TabsList className="grid h-8 grid-cols-2">
-                                    <TabsTrigger value="promotion" className="text-xs font-semibold">
-                                        {t('Out-of-turn promotion')}
-                                    </TabsTrigger>
-                                    <TabsTrigger value="reward" className="text-xs font-semibold">
-                                        {t('Cash reward')}
-                                    </TabsTrigger>
-                                </TabsList>
-                            </Tabs>
+            <DialogContent
+                className="flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 shadow-2xl sm:max-w-4xl"
+                aria-describedby="coach-promotion-dialog-description"
+            >
+                <DialogHeader className="shrink-0 border-b bg-muted/20 px-6 py-4">
+                    <div className="flex items-center gap-3">
+                        <div
+                            className={`flex size-10 items-center justify-center rounded-lg ${
+                                isRewardAction
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                                    : 'bg-primary/10 text-primary'
+                            }`}
+                        >
+                            {isRewardAction ? (
+                                <Coins className="size-5" />
+                            ) : (
+                                <Award className="size-5" />
+                            )}
                         </div>
-                    )}
+                        <div>
+                            <DialogTitle className="text-base font-bold sm:text-lg">
+                                {coach.full_name
+                                    ? `${promotion ? (isRewardAction ? t('Edit cash reward') : t('Edit promotion')) : isRewardAction ? t('Record cash reward') : t('Record promotion')} - ${coach.full_name}`
+                                    : promotion
+                                      ? isRewardAction
+                                          ? t('Edit cash reward')
+                                          : t('Edit promotion')
+                                      : isRewardAction
+                                        ? t('Record cash reward')
+                                        : t('Record promotion')}
+                            </DialogTitle>
+                            <DialogDescription
+                                id="coach-promotion-dialog-description"
+                                className="mt-0.5 text-xs text-muted-foreground"
+                            >
+                                {isRewardAction
+                                    ? t('Record sanctioned cash reward for meritorious tournament performance.')
+                                    : t('Promote coach to a higher rank based on verified tournament achievements.')}
+                            </DialogDescription>
+                        </div>
+                    </div>
                 </DialogHeader>
 
                 <form
                     id="coach-promotion-dialog-form"
                     onSubmit={handleSubmit}
-                    className="flex-1 space-y-4 overflow-y-auto px-6 py-4"
+                    className="flex-1 space-y-5 overflow-y-auto p-6"
                 >
                     {/* Section 1: Promotion vs Reward Fields */}
                     {isRewardAction ? (
                         <div className="space-y-4 rounded-lg border bg-card p-4 shadow-2xs">
                             <div className="flex items-center justify-between border-b pb-2.5">
                                 <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                                    {t('Cash Reward Details')}
+                                    {t('Reward details')}
                                 </span>
                                 <Badge
                                     variant="outline"
@@ -1030,7 +1037,7 @@ export function CoachPromotionDialog({
                         <div className="space-y-4 rounded-lg border bg-card p-4 shadow-2xs">
                             <div className="flex items-center justify-between border-b pb-2.5">
                                 <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                                    {t('Rank & Order Details')}
+                                    {t('Promotion details')}
                                 </span>
                                 <Badge
                                     variant="outline"
@@ -1317,11 +1324,133 @@ export function CoachPromotionDialog({
                             </div>
                         )}
 
-                        {selectedKeys.length === 0 && (
-                            <p className="text-xs text-destructive">
-                                {t('At least one tournament achievement must be selected as justification.')}
-                            </p>
+                        {/* Selected Evidence Chips */}
+                        {selectedKeys.length > 0 ? (
+                            <div className="rounded-md border border-primary/20 bg-primary/5 p-2.5">
+                                <div className="mb-1.5 flex items-center justify-between">
+                                    <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                        <CheckCircle2 className="size-3.5 text-primary" />
+                                        <span>{t('Selected evidence')}</span>
+                                        <Badge
+                                            variant="default"
+                                            className="h-4 px-1.5 text-[10px]"
+                                        >
+                                            {selectedKeys.length}
+                                        </Badge>
+                                    </span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setSelectedKeys([])}
+                                        className="h-5 px-1.5 text-[11px] text-muted-foreground hover:text-destructive"
+                                    >
+                                        {t('Clear all')}
+                                    </Button>
+                                </div>
+                                <div className="flex max-h-20 flex-wrap gap-1.5 overflow-y-auto pr-1">
+                                    {selectedKeys.map((key) => {
+                                        const item = allEvidenceItems.find((e) => e.key === key);
+
+                                        if (!item) {
+                                            return null;
+                                        }
+
+                                        const medals = Object.keys(item.medal_counts);
+                                        const firstMedal = medals.length > 0 ? medals[0] : null;
+
+                                        return (
+                                            <span
+                                                key={key}
+                                                className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-0.5 text-xs font-medium shadow-2xs"
+                                            >
+                                                <span>{medalEmoji(firstMedal)}</span>
+                                                <span className="max-w-[160px] truncate text-foreground">
+                                                    {item.event_name}
+                                                </span>
+                                                <span className="max-w-[120px] truncate text-[10px] text-muted-foreground">
+                                                    ({item.tournament_name})
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleEvidence(key);
+                                                    }}
+                                                    className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                    aria-label={t('Remove')}
+                                                >
+                                                    <X className="size-3" />
+                                                </button>
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                                ⚠ {t('At least one tournament achievement must be selected as justification.')}
+                            </div>
                         )}
+                    </div>
+
+                    {/* Section 3: Supporting Document */}
+                    <div className="space-y-2 rounded-lg border bg-card p-4 shadow-2xs">
+                        <div className="flex items-center justify-between border-b pb-2.5">
+                            <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                {t('Supporting document')}
+                            </span>
+                        </div>
+                        <label className="relative flex min-w-0 cursor-pointer items-start gap-3 overflow-hidden rounded-lg border border-dashed bg-muted/30 p-3 transition-colors hover:bg-muted/50">
+                            <span className="mt-0.5 rounded-md bg-background p-2 text-muted-foreground shadow-sm">
+                                <Upload className="size-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-medium break-words">
+                                    {documentFile?.name ??
+                                        promotion?.document?.original_name ??
+                                        t('Upload supporting document')}
+                                </span>
+                                <span className="mt-1 block text-xs break-words text-muted-foreground">
+                                    {t('PDF, JPG, PNG, or WEBP. Stored privately and available only to authorized users.')}
+                                </span>
+                            </span>
+                            <input
+                                className="sr-only"
+                                type="file"
+                                accept="application/pdf,image/jpeg,image/png,image/webp"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0] ?? null;
+
+                                    if (file) {
+                                        const allowedTypes = [
+                                            'application/pdf',
+                                            'image/jpeg',
+                                            'image/png',
+                                            'image/webp',
+                                        ];
+
+                                        if (!allowedTypes.includes(file.type)) {
+                                            setDocumentError(t('Only PDF, JPG, PNG, or WEBP files are allowed.'));
+                                            e.target.value = '';
+
+                                            return;
+                                        }
+
+                                        if (file.size > 5 * 1024 * 1024) {
+                                            setDocumentError(t('The document must not be larger than 5 MB.'));
+                                            e.target.value = '';
+
+                                            return;
+                                        }
+                                    }
+
+                                    setDocumentError(null);
+                                    setDocumentFile(file);
+                                }}
+                            />
+                        </label>
+                        <InputError message={documentError ?? undefined} />
                     </div>
                 </form>
 
@@ -1330,7 +1459,7 @@ export function CoachPromotionDialog({
                         {selectedKeys.length > 0 ? (
                             <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
                                 <CheckCircle2 className="size-3.5" />
-                                {selectedKeys.length} {t('event(s) attached as evidence')}
+                                {selectedKeys.length} {t('achievement(s) attached as evidence')}
                             </span>
                         ) : (
                             <span className="text-muted-foreground">
@@ -1369,7 +1498,7 @@ export function CoachPromotionDialog({
 }
 
 // ---------------------------------------------------------------------------
-// Main Coach Promotions Tab Component
+// Main Coach Promotions Tab Component (Exact replica of members PromotionsTab)
 // ---------------------------------------------------------------------------
 
 export function CoachPromotionsTab({
@@ -1378,9 +1507,11 @@ export function CoachPromotionsTab({
     promotions = [],
     rewardEvidenceOptions = [],
     canManage = true,
+    showActions = true,
     onSaved,
 }: Props) {
     const { t } = useTranslation();
+    const [expandedPromotionIds, setExpandedPromotionIds] = useState<number[]>([]);
     const [activeTab, setActiveTab] = useState<'promotions' | 'rewards'>('promotions');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<'promotion' | 'reward'>('promotion');
@@ -1390,14 +1521,105 @@ export function CoachPromotionsTab({
     const [deletingPromotion, setDeletingPromotion] = useState<CoachPromotion | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Categorize records
-    const promotionRows = useMemo(() => {
-        return promotions.filter((p) => p.to_rank || p.promotion_date || p.from_rank);
-    }, [promotions]);
+    const isAuthorized = canManage && showActions;
 
-    const rewardRows = useMemo(() => {
-        return promotions.filter((p) => p.cash_reward_amount !== null && p.cash_reward_amount !== '');
-    }, [promotions]);
+    function isPromotionExpanded(promotionId: number): boolean {
+        return expandedPromotionIds.includes(promotionId);
+    }
+
+    function togglePromotionDetails(promotionId: number) {
+        setExpandedPromotionIds((prev) =>
+            prev.includes(promotionId)
+                ? prev.filter((id) => id !== promotionId)
+                : [...prev, promotionId],
+        );
+    }
+
+    function promotionCategory(promotion: CoachPromotion): string {
+        const hasReward = !!(
+            promotion.cash_reward_amount ||
+            promotion.cash_reward_date ||
+            promotion.cash_reward_reference ||
+            promotion.cash_reward_remarks
+        );
+        const hasPromotion = !!(
+            promotion.promotion_date ||
+            (promotion.from_rank &&
+                promotion.to_rank &&
+                promotion.from_rank !== promotion.to_rank) ||
+            promotion.reason ||
+            promotion.remarks
+        );
+
+        if (hasReward && hasPromotion) {
+            return t('Promotion + Reward');
+        }
+
+        if (hasReward && !hasPromotion) {
+            return t('Reward');
+        }
+
+        return t('Promotion');
+    }
+
+    function promotionCategoryClass(promotion: CoachPromotion): string {
+        const hasReward = !!(
+            promotion.cash_reward_amount ||
+            promotion.cash_reward_date ||
+            promotion.cash_reward_reference ||
+            promotion.cash_reward_remarks
+        );
+        const hasPromotion = !!(
+            promotion.promotion_date ||
+            (promotion.from_rank &&
+                promotion.to_rank &&
+                promotion.from_rank !== promotion.to_rank) ||
+            promotion.reason ||
+            promotion.remarks
+        );
+
+        if (hasReward && hasPromotion) {
+            return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200';
+        }
+
+        if (hasReward && !hasPromotion) {
+            return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200';
+        }
+
+        return 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200';
+    }
+
+    function hasPromotionFields(promotion: CoachPromotion): boolean {
+        return !!(
+            promotion.promotion_date ||
+            (promotion.from_rank &&
+                promotion.to_rank &&
+                promotion.from_rank !== promotion.to_rank) ||
+            promotion.reason ||
+            promotion.remarks
+        );
+    }
+
+    function hasRewardFields(promotion: CoachPromotion): boolean {
+        return !!(
+            promotion.cash_reward_amount ||
+            promotion.cash_reward_date ||
+            promotion.cash_reward_reference ||
+            promotion.cash_reward_remarks
+        );
+    }
+
+    const promotionRows = useMemo(
+        () => promotions.filter((p) => hasPromotionFields(p)),
+        [promotions],
+    );
+
+    const rewardRows = useMemo(
+        () => promotions.filter((p) => hasRewardFields(p)),
+        [promotions],
+    );
+
+    const activeRows = activeTab === 'promotions' ? promotionRows : rewardRows;
 
     function openCreate(mode: 'promotion' | 'reward') {
         setEditingPromotion(null);
@@ -1435,260 +1657,588 @@ export function CoachPromotionsTab({
     );
 
     return (
-        <div className="space-y-4">
-            {/* Header Card */}
-            <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-4 rounded-xl border bg-card p-6">
+            {/* Header Card (Mirrors Members PromotionsTab Header) */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <Trophy className="size-5 text-amber-500" />
-                        <h2 className="text-base font-bold text-foreground">
-                            {t('Promotions & Rewards')}
-                        </h2>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <h3 className="text-sm font-medium">
+                        {t('Promotions & rewards')}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
                         {t('Current rank')}:{' '}
-                        <span className="font-semibold text-foreground">{currentRankLabel}</span>
-                        {' · '}
-                        {t('Decisions backed by team tournament achievements and performance.')}
+                        {currentRankLabel || t('Unknown')}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        {t(
+                            'Promotion decisions based on multiple achievements and performance evidence.',
+                        )}
                     </p>
                 </div>
-
-                {canManage && (
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openCreate('reward')}
-                            className="h-9 gap-1.5 text-xs font-semibold"
-                        >
-                            <IndianRupee className="size-3.5" />
-                            {t('Add cash reward')}
-                        </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => openCreate('promotion')}
-                            className="h-9 gap-1.5 text-xs font-semibold"
-                        >
-                            <Plus className="size-4" />
-                            {t('Add promotion')}
-                        </Button>
+                {isAuthorized ? (
+                    <div className="flex flex-wrap gap-2">
+                        {activeTab === 'promotions' ? (
+                            <Button
+                                size="sm"
+                                onClick={() => openCreate('promotion')}
+                            >
+                                <Plus className="mr-1.5 size-3.5" />
+                                {t('Add promotion')}
+                            </Button>
+                        ) : (
+                            <Button
+                                size="sm"
+                                onClick={() => openCreate('reward')}
+                            >
+                                <Plus className="mr-1.5 size-3.5" />
+                                {t('Add cash reward')}
+                            </Button>
+                        )}
                     </div>
-                )}
+                ) : null}
             </div>
 
-            {/* Sub-tabs: Promotions vs Cash Rewards */}
+            {/* Sub-tabs: Promotions vs Rewards */}
             <Tabs
                 value={activeTab}
-                onValueChange={(val) => setActiveTab(val as 'promotions' | 'rewards')}
-                className="space-y-4"
+                onValueChange={(value) =>
+                    setActiveTab(value as 'promotions' | 'rewards')
+                }
             >
-                <div className="flex items-center justify-between border-b pb-2">
-                    <TabsList className="h-9">
-                        <TabsTrigger value="promotions" className="gap-2 text-xs font-semibold">
-                            <Award className="size-3.5" />
-                            {t('Promotions')}
-                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                                {promotionRows.length}
-                            </Badge>
-                        </TabsTrigger>
-                        <TabsTrigger value="rewards" className="gap-2 text-xs font-semibold">
-                            <IndianRupee className="size-3.5" />
-                            {t('Cash Rewards')}
-                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                                {rewardRows.length}
-                            </Badge>
-                        </TabsTrigger>
-                    </TabsList>
-                </div>
-
-                {/* Promotions Table */}
-                {activeTab === 'promotions' && (
-                    <div className="rounded-xl border bg-card">
-                        {promotionRows.length === 0 ? (
-                            <div className="p-8 text-center text-xs text-muted-foreground">
-                                {t('No promotion records found for this coach.')}
-                            </div>
-                        ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/40 text-xs">
-                                        <TableHead className="w-24">{t('Type')}</TableHead>
-                                        <TableHead>{t('Rank Progression')}</TableHead>
-                                        <TableHead>{t('Promotion date')}</TableHead>
-                                        <TableHead>{t('Order / Reason')}</TableHead>
-                                        <TableHead>{t('Tournament Evidence')}</TableHead>
-                                        <TableHead>{t('Recorded by')}</TableHead>
-                                        {canManage && <TableHead className="w-20 text-right">{t('Actions')}</TableHead>}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {promotionRows.map((item) => (
-                                        <TableRow key={item.id} className="text-xs">
-                                            <TableCell>
-                                                <Badge
-                                                    variant="outline"
-                                                    className="border-primary/30 text-[10px] font-semibold text-primary"
-                                                >
-                                                    {t('Promotion')}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-1.5 font-medium">
-                                                    <span className="text-muted-foreground">
-                                                        {resolveRankLabel(item.from_rank, ranks)}
-                                                    </span>
-                                                    <ArrowRight className="size-3 text-muted-foreground" />
-                                                    <span className="font-semibold text-primary">
-                                                        {resolveRankLabel(item.to_rank, ranks)}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="font-medium">
-                                                {formatDateDisplay(item.promotion_date)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="space-y-0.5 max-w-[200px]">
-                                                    <p className="truncate font-medium text-foreground">
-                                                        {item.reason || '—'}
-                                                    </p>
-                                                    {item.remarks && (
-                                                        <p className="truncate text-[11px] text-muted-foreground">
-                                                            {item.remarks}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <EvidenceSummaryCell evidences={item.evidences} t={t} />
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                {item.recorder?.name ?? item.recorded_by_name ?? '—'}
-                                            </TableCell>
-                                            {canManage && (
-                                                <TableCell className="text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-7 text-muted-foreground hover:text-foreground"
-                                                            onClick={() => openEdit(item, 'promotion')}
-                                                            title={t('Edit')}
-                                                        >
-                                                            <Edit2 className="size-3.5" />
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-7 text-destructive hover:bg-destructive/10"
-                                                            onClick={() => setDeletingPromotion(item)}
-                                                            title={t('Delete')}
-                                                        >
-                                                            <Trash2 className="size-3.5" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            )}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </div>
-                )}
-
-                {/* Cash Rewards Table */}
-                {activeTab === 'rewards' && (
-                    <div className="rounded-xl border bg-card">
-                        {rewardRows.length === 0 ? (
-                            <div className="p-8 text-center text-xs text-muted-foreground">
-                                {t('No cash reward records found for this coach.')}
-                            </div>
-                        ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/40 text-xs">
-                                        <TableHead className="w-24">{t('Type')}</TableHead>
-                                        <TableHead>{t('Amount')}</TableHead>
-                                        <TableHead>{t('Reward date')}</TableHead>
-                                        <TableHead>{t('Sanction / Reference')}</TableHead>
-                                        <TableHead>{t('Tournament Evidence')}</TableHead>
-                                        <TableHead>{t('Recorded by')}</TableHead>
-                                        {canManage && <TableHead className="w-20 text-right">{t('Actions')}</TableHead>}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {rewardRows.map((item) => (
-                                        <TableRow key={item.id} className="text-xs">
-                                            <TableCell>
-                                                <Badge
-                                                    variant="outline"
-                                                    className="border-emerald-300 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400"
-                                                >
-                                                    {t('Cash Reward')}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="font-bold text-emerald-600 dark:text-emerald-400">
-                                                {formatCurrency(item.cash_reward_amount)}
-                                            </TableCell>
-                                            <TableCell className="font-medium">
-                                                {formatDateDisplay(item.cash_reward_date)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="space-y-0.5 max-w-[200px]">
-                                                    <p className="truncate font-medium text-foreground">
-                                                        {item.cash_reward_reference || '—'}
-                                                    </p>
-                                                    {item.cash_reward_remarks && (
-                                                        <p className="truncate text-[11px] text-muted-foreground">
-                                                            {item.cash_reward_remarks}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <EvidenceSummaryCell evidences={item.evidences} t={t} />
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                {item.recorder?.name ?? item.recorded_by_name ?? '—'}
-                                            </TableCell>
-                                            {canManage && (
-                                                <TableCell className="text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-7 text-muted-foreground hover:text-foreground"
-                                                            onClick={() => openEdit(item, 'reward')}
-                                                            title={t('Edit')}
-                                                        >
-                                                            <Edit2 className="size-3.5" />
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-7 text-destructive hover:bg-destructive/10"
-                                                            onClick={() => setDeletingPromotion(item)}
-                                                            title={t('Delete')}
-                                                        >
-                                                            <Trash2 className="size-3.5" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            )}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </div>
-                )}
+                <TabsList>
+                    <TabsTrigger value="promotions">
+                        {t('Promotions')}
+                    </TabsTrigger>
+                    <TabsTrigger value="rewards">{t('Rewards')}</TabsTrigger>
+                </TabsList>
             </Tabs>
+
+            {/* Empty State */}
+            {activeRows.length === 0 ? (
+                <p className="py-4 text-sm text-muted-foreground">
+                    {activeTab === 'promotions'
+                        ? t('No promotions yet.')
+                        : t('No rewards yet.')}
+                </p>
+            ) : (
+                <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700">
+                    {activeTab === 'promotions' ? (
+                        <table className="w-full border-collapse text-sm">
+                            <thead>
+                                <tr className="border-b bg-slate-50 text-left dark:bg-slate-900">
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('No.')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Type')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('From rank')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('To rank')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Decision date')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Reason / Remarks')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Evidence')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Recorded by')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Actions')}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {activeRows.map((promotion, index) => {
+                                    const showDetails = isPromotionExpanded(promotion.id);
+
+                                    return (
+                                        <Fragment key={promotion.id}>
+                                            <tr className="border-b align-top hover:bg-slate-50/70 dark:hover:bg-slate-950">
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-sm text-slate-500 dark:border-slate-700">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5">
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={`px-2 py-0.5 text-xs ${promotionCategoryClass(promotion)}`}
+                                                    >
+                                                        {promotionCategory(promotion)}
+                                                    </Badge>
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs font-medium">
+                                                    {resolveRankLabel(promotion.from_rank, ranks) || t('Unknown')}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs font-medium">
+                                                    {resolveRankLabel(promotion.to_rank, ranks) || t('Unknown')}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5">
+                                                    {formatDateDisplay(promotion.promotion_date) || '—'}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
+                                                    <div className="space-y-1">
+                                                        {promotion.reason ? (
+                                                            <p className="leading-tight">
+                                                                {promotion.reason}
+                                                            </p>
+                                                        ) : (
+                                                            <p className="leading-tight text-muted-foreground">
+                                                                {promotion.remarks
+                                                                    ? promotion.remarks
+                                                                    : t('No reason provided')}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5">
+                                                    <EvidenceSummaryCell
+                                                        evidences={promotion.evidences}
+                                                        t={t}
+                                                    />
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
+                                                    {promotion.recorder?.name ?? promotion.recorded_by_name ?? (
+                                                        <span className="text-muted-foreground">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-2 py-1.5">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                togglePromotionDetails(promotion.id)
+                                                            }
+                                                        >
+                                                            {showDetails ? (
+                                                                <ChevronDown className="mr-1 size-4" />
+                                                            ) : (
+                                                                <ChevronRight className="mr-1 size-4" />
+                                                            )}
+                                                            {showDetails
+                                                                ? t('Hide details')
+                                                                : t('Show details')}
+                                                        </Button>
+                                                        {promotion.document && (
+                                                            <ConfidentialDocumentPreview
+                                                                document={promotion.document}
+                                                                triggerLabel={t('View document')}
+                                                            />
+                                                        )}
+                                                        {isAuthorized && (
+                                                            <>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEdit(promotion, 'promotion')}
+                                                                >
+                                                                    <Pencil className="mr-1.5 size-3.5" />
+                                                                    {t('Edit')}
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => setDeletingPromotion(promotion)}
+                                                                    title={t('Delete')}
+                                                                >
+                                                                    <Trash2 className="size-4" />
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {showDetails ? (
+                                                <tr className="border-b">
+                                                    <td className="px-2 py-1.5" colSpan={9}>
+                                                        <div className="rounded-md border border-slate-200 bg-slate-50/70 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/20">
+                                                            <p className="mb-1.5 text-xs font-medium tracking-[0.02em] text-muted-foreground uppercase">
+                                                                {t('Evidence list')}
+                                                            </p>
+                                                            <div className="overflow-x-auto">
+                                                                <table className="w-full border-collapse text-xs">
+                                                                    <thead>
+                                                                        <tr className="border-b text-left">
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('No.')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Type')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Session')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Tournament')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Event')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Tier')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Team')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Medal')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Details')}
+                                                                            </th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {!promotion.evidences || promotion.evidences.length === 0 ? (
+                                                                            <tr>
+                                                                                <td
+                                                                                    colSpan={9}
+                                                                                    className="px-2 py-2 text-muted-foreground"
+                                                                                >
+                                                                                    {t('No evidence linked')}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ) : (
+                                                                            promotion.evidences.map((evidence, evidenceIndex) => {
+                                                                                const tier =
+                                                                                    evidence.tournament?.tier_code ??
+                                                                                    evidence.tournament?.tier?.code ??
+                                                                                    '—';
+                                                                                const medal = evidence.achievement?.medal_type;
+                                                                                const eventName = evidence.event?.name ?? t('All Events');
+                                                                                const teamName = evidence.team?.name ?? '—';
+                                                                                const sessionName = evidence.session?.name ?? '—';
+                                                                                const tournamentName = evidence.tournament?.name ?? '—';
+                                                                                const detailsList = [
+                                                                                    evidence.event?.gender_class,
+                                                                                    evidence.event?.discipline,
+                                                                                    evidence.event?.weight_category,
+                                                                                    evidence.tournament?.venue,
+                                                                                ].filter(Boolean);
+
+                                                                                return (
+                                                                                    <tr
+                                                                                        key={evidence.id ?? evidenceIndex}
+                                                                                        className="border-b last:border-0 hover:bg-slate-100/40 dark:hover:bg-slate-800/40"
+                                                                                    >
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {evidenceIndex + 1}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            <Badge
+                                                                                                variant="outline"
+                                                                                                className="border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200"
+                                                                                            >
+                                                                                                {t('Coached Event')}
+                                                                                            </Badge>
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {sessionName}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {tournamentName}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {eventName}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {tier}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {teamName}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {medal ? (
+                                                                                                <span className="flex items-center gap-1">
+                                                                                                    <span>{medalEmoji(medal)}</span>
+                                                                                                    <span>{t(medal)}</span>
+                                                                                                </span>
+                                                                                            ) : (
+                                                                                                '—'
+                                                                                            )}
+                                                                                        </td>
+                                                                                        <td className="px-2 py-1.5">
+                                                                                            {detailsList.length > 0
+                                                                                                ? detailsList.join(' · ')
+                                                                                                : '—'}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : null}
+                                        </Fragment>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <table className="w-full border-collapse text-sm">
+                            <thead>
+                                <tr className="border-b bg-slate-50 text-left dark:bg-slate-900">
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('No.')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Type')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Reward date')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Reward amount')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Reference')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Evidence')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Recorded by')}
+                                    </th>
+                                    <th className="px-2 py-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground uppercase">
+                                        {t('Actions')}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {activeRows.map((promotion, index) => {
+                                    const showDetails = isPromotionExpanded(promotion.id);
+
+                                    return (
+                                        <Fragment key={promotion.id}>
+                                            <tr className="border-b align-top hover:bg-slate-50/70 dark:hover:bg-slate-950">
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-sm text-slate-500 dark:border-slate-700">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5">
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={`px-2 py-0.5 text-xs ${promotionCategoryClass(promotion)}`}
+                                                    >
+                                                        {promotionCategory(promotion)}
+                                                    </Badge>
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5">
+                                                    {formatDateDisplay(
+                                                        promotion.cash_reward_date ??
+                                                            promotion.promotion_date,
+                                                    ) || '—'}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                                    {formatCurrency(promotion.cash_reward_amount)}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
+                                                    {promotion.cash_reward_reference ? (
+                                                        promotion.cash_reward_reference
+                                                    ) : (
+                                                        <span className="text-muted-foreground">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5">
+                                                    <EvidenceSummaryCell
+                                                        evidences={promotion.evidences}
+                                                        t={t}
+                                                    />
+                                                </td>
+                                                <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
+                                                    {promotion.recorder?.name ?? promotion.recorded_by_name ?? (
+                                                        <span className="text-muted-foreground">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-2 py-1.5">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                togglePromotionDetails(promotion.id)
+                                                            }
+                                                        >
+                                                            {showDetails ? (
+                                                                <ChevronDown className="mr-1 size-4" />
+                                                            ) : (
+                                                                <ChevronRight className="mr-1 size-4" />
+                                                            )}
+                                                            {showDetails
+                                                                ? t('Hide details')
+                                                                : t('Show details')}
+                                                        </Button>
+                                                        {promotion.document && (
+                                                            <ConfidentialDocumentPreview
+                                                                document={promotion.document}
+                                                                triggerLabel={t('View document')}
+                                                            />
+                                                        )}
+                                                        {isAuthorized && (
+                                                            <>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEdit(promotion, 'reward')}
+                                                                >
+                                                                    <Pencil className="mr-1.5 size-3.5" />
+                                                                    {t('Edit')}
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => setDeletingPromotion(promotion)}
+                                                                    title={t('Delete')}
+                                                                >
+                                                                    <Trash2 className="size-4" />
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {showDetails ? (
+                                                <tr className="border-b">
+                                                    <td className="px-2 py-1.5" colSpan={8}>
+                                                        <div className="rounded-md border border-slate-200 bg-slate-50/70 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/20">
+                                                            <p className="mb-1.5 text-xs font-medium tracking-[0.02em] text-muted-foreground uppercase">
+                                                                {t('Evidence list')}
+                                                            </p>
+                                                            <div className="overflow-x-auto">
+                                                                <table className="w-full border-collapse text-xs">
+                                                                    <thead>
+                                                                        <tr className="border-b text-left">
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('No.')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Type')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Session')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Tournament')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Event')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Tier')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Team')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Medal')}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t('Details')}
+                                                                            </th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {!promotion.evidences || promotion.evidences.length === 0 ? (
+                                                                            <tr>
+                                                                                <td
+                                                                                    colSpan={9}
+                                                                                    className="px-2 py-2 text-muted-foreground"
+                                                                                >
+                                                                                    {t('No evidence linked')}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ) : (
+                                                                            promotion.evidences.map((evidence, evidenceIndex) => {
+                                                                                const tier =
+                                                                                    evidence.tournament?.tier_code ??
+                                                                                    evidence.tournament?.tier?.code ??
+                                                                                    '—';
+                                                                                const medal = evidence.achievement?.medal_type;
+                                                                                const eventName = evidence.event?.name ?? t('All Events');
+                                                                                const teamName = evidence.team?.name ?? '—';
+                                                                                const sessionName = evidence.session?.name ?? '—';
+                                                                                const tournamentName = evidence.tournament?.name ?? '—';
+                                                                                const detailsList = [
+                                                                                    evidence.event?.gender_class,
+                                                                                    evidence.event?.discipline,
+                                                                                    evidence.event?.weight_category,
+                                                                                    evidence.tournament?.venue,
+                                                                                ].filter(Boolean);
+
+                                                                                return (
+                                                                                    <tr
+                                                                                        key={evidence.id ?? evidenceIndex}
+                                                                                        className="border-b last:border-0 hover:bg-slate-100/40 dark:hover:bg-slate-800/40"
+                                                                                    >
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {evidenceIndex + 1}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            <Badge
+                                                                                                variant="outline"
+                                                                                                className="border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200"
+                                                                                            >
+                                                                                                {t('Coached Event')}
+                                                                                            </Badge>
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {sessionName}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {tournamentName}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {eventName}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {tier}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {teamName}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                            {medal ? (
+                                                                                                <span className="flex items-center gap-1">
+                                                                                                    <span>{medalEmoji(medal)}</span>
+                                                                                                    <span>{t(medal)}</span>
+                                                                                                </span>
+                                                                                            ) : (
+                                                                                                '—'
+                                                                                            )}
+                                                                                        </td>
+                                                                                        <td className="px-2 py-1.5">
+                                                                                            {detailsList.length > 0
+                                                                                                ? detailsList.join(' · ')
+                                                                                                : '—'}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : null}
+                                        </Fragment>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
 
             {/* Promotion / Reward Dialog */}
             <CoachPromotionDialog
@@ -1715,7 +2265,9 @@ export function CoachPromotionsTab({
                     <AlertDialogHeader>
                         <AlertDialogTitle>{t('Delete record?')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {t('This promotion or cash reward record and its attached evidence will be permanently deleted. This action cannot be undone.')}
+                            {t(
+                                'This promotion or cash reward record and its attached evidence will be permanently deleted. This action cannot be undone.',
+                            )}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

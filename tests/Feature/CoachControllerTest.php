@@ -2162,6 +2162,28 @@ test('update ignores submitted member_id because coach members come from team as
         ->member_id->toBeNull();
 });
 
+test('update forces a linked coach pno to stay in sync with its member', function () {
+    $user = coachUser('coaches.update');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => 'MEMBER-PNO-1',
+    ]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'pno' => 'MEMBER-PNO-1',
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('coaches.update', $coach), [
+            'full_name' => $coach->full_name,
+            'pno' => 'SPOOFED-PNO',
+        ])
+        ->assertRedirect(route('coaches.show', $coach));
+
+    expect($coach->fresh()->pno)->toBe('MEMBER-PNO-1');
+});
+
 test('profile update keeps existing certifications and sports when tab data is omitted', function () {
     $user = coachUser('coaches.update');
     $coach = Coach::factory()->create([

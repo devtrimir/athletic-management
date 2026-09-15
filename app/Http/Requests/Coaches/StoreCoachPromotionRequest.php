@@ -31,6 +31,7 @@ class StoreCoachPromotionRequest extends FormRequest
             'cash_reward_remarks' => ['nullable', 'string'],
             'reason' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string'],
+            'document' => ['nullable', 'file', 'mimes:pdf,jpeg,jpg,png,webp', 'max:5120'],
             'evidences' => ['nullable', 'array'],
             'evidences.*.session_id' => ['required', 'integer', 'min:1'],
             'evidences.*.tournament_id' => ['required', 'integer', 'min:1'],

@@ -337,6 +337,11 @@ class MemberController extends Controller
             $this->syncPlayableSports($member, $beforePlayableSports, $playableSports);
         }
 
+        if (array_key_exists('pno', $data)) {
+            $member->loadMissing('coach');
+            $member->coach?->update(['pno' => $member->pno]);
+        }
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member updated.')]);
 
         return to_route('members.show', $member);

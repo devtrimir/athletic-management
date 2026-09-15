@@ -600,6 +600,13 @@ class MemberProfileData
                 'reason' => $promotion->reason,
                 'remarks' => $promotion->remarks,
                 'recorded_by_name' => $promotion->recorder?->name,
+                'document' => $promotion->document_path ? [
+                    'preview_url' => route('members.promotions.document.preview', [$member, $promotion]),
+                    'download_url' => route('members.promotions.document', [$member, $promotion]),
+                    'original_name' => $promotion->document_original_name,
+                    'mime_type' => $promotion->document_mime_type,
+                    'size_bytes' => $promotion->document_size_bytes,
+                ] : null,
                 'evidences' => $promotion->evidences
                     ->map(fn (PromotionEvidence $evidence): array => $this->promotionEvidencePayload($evidence, $participationsMap, $achievementsMap))
                     ->all(),

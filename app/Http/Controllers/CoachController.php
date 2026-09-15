@@ -17,6 +17,7 @@ use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
 use App\Models\Unit;
+use App\Services\PromotionSyncService;
 use App\Support\Coaches\CoachProfileData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -820,7 +821,9 @@ class CoachController extends Controller
                     ->where('pno', $payload['pno'])
                     ->first();
 
-                if (! $member) {
+                if ($member) {
+                    $payload['pno'] = $member->pno;
+                } else {
                     $payload['member_id'] = null;
                 }
             } else {
@@ -841,6 +844,10 @@ class CoachController extends Controller
             return $coach;
         });
 
+        if ($coach->member_id && $coach->member) {
+            app(PromotionSyncService::class)->syncLinkedProfiles($coach->member, $coach);
+        }
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach created.')]);
 
         return to_route('coaches.show', $coach);
@@ -856,7 +863,8 @@ class CoachController extends Controller
             return back();
         }
 
-        DB::transaction(fn (): Member => $coach->ensureLinkedMember());
+        $member = DB::transaction(fn (): Member => $coach->ensureLinkedMember());
+        app(PromotionSyncService::class)->syncLinkedProfiles($member, $coach);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Athlete profile created and linked successfully.')]);
 
@@ -903,6 +911,13 @@ class CoachController extends Controller
             $this->ensureProtectedSportsRemainUnchanged($coach, (array) $payload['sports']);
         }
 
+        if ($coach->member_id) {
+            $coach->loadMissing('member');
+            if ($coach->member) {
+                $payload['pno'] = $coach->member->pno;
+            }
+        }
+
         DB::transaction(function () use ($coach, $payload): void {
             $coach->update(Arr::except($payload, ['certifications', 'sports']));
 
@@ -914,6 +929,13 @@ class CoachController extends Controller
                 $coach->sports()->sync($this->buildSyncPayload((array) $payload['sports']));
             }
         });
+
+        if ($coach->member_id) {
+            $coach->load('member');
+            if ($coach->member) {
+                app(PromotionSyncService::class)->syncLinkedProfiles($coach->member, $coach);
+            }
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach updated.')]);
 

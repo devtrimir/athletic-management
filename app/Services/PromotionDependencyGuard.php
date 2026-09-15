@@ -159,7 +159,7 @@ class PromotionDependencyGuard
         if ($achievementIds !== []) {
             PromotionEvidence::query()
                 ->with('memberPromotion.member:id,full_name')
-                ->where('evidencable_type', Achievement::class)
+                ->whereIn('evidencable_type', [Achievement::class, 'achievement'])
                 ->whereIn('evidencable_id', $achievementIds)
                 ->get()
                 ->each(function (PromotionEvidence $evidence) use ($dependents): void {
@@ -174,7 +174,7 @@ class PromotionDependencyGuard
         if ($participationIds !== []) {
             PromotionEvidence::query()
                 ->with('memberPromotion.member:id,full_name')
-                ->where('evidencable_type', Participation::class)
+                ->whereIn('evidencable_type', [Participation::class, 'participation'])
                 ->whereIn('evidencable_id', $participationIds)
                 ->get()
                 ->each(function (PromotionEvidence $evidence) use ($dependents): void {

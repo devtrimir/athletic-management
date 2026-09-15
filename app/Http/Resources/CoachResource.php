@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use App\Models\Coach;
 use App\Models\CoachCertification;
+use App\Models\CoachPromotion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -121,6 +122,7 @@ class CoachResource extends JsonResource
                     'reason' => $promotion->reason,
                     'remarks' => $promotion->remarks,
                     'recorded_by_name' => $promotion->recorder?->name,
+                    'document' => $this->promotionDocument($promotion),
                     'evidences' => $promotion->relationLoaded('evidences')
                         ? $promotion->evidences->map(fn ($evidence) => [
                             'id' => $evidence->id,
@@ -184,6 +186,30 @@ class CoachResource extends JsonResource
                     ] : null,
                 ])
                 ->values()),
+        ];
+    }
+
+    /**
+     * @return array{preview_url: string, download_url: string, original_name: string|null, mime_type: string|null, size_bytes: int|null}|null
+     */
+    private function promotionDocument(CoachPromotion $promotion): ?array
+    {
+        if ($promotion->document_path === null) {
+            return null;
+        }
+
+        return [
+            'preview_url' => route('coaches.promotions.document.preview', [
+                'coach' => $this->id,
+                'promotion' => $promotion->id,
+            ]),
+            'download_url' => route('coaches.promotions.document', [
+                'coach' => $this->id,
+                'promotion' => $promotion->id,
+            ]),
+            'original_name' => $promotion->document_original_name,
+            'mime_type' => $promotion->document_mime_type,
+            'size_bytes' => $promotion->document_size_bytes,
         ];
     }
 

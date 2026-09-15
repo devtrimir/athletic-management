@@ -1,0 +1,52 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('coach_promotions', function (Blueprint $table) {
+            $table->string('document_path')->nullable()->after('remarks');
+            $table->string('document_original_name')->nullable()->after('document_path');
+            $table->string('document_mime_type', 100)->nullable()->after('document_original_name');
+            $table->unsignedInteger('document_size_bytes')->nullable()->after('document_mime_type');
+        });
+
+        Schema::table('member_promotions', function (Blueprint $table) {
+            $table->string('document_path')->nullable()->after('remarks');
+            $table->string('document_original_name')->nullable()->after('document_path');
+            $table->string('document_mime_type', 100)->nullable()->after('document_original_name');
+            $table->unsignedInteger('document_size_bytes')->nullable()->after('document_mime_type');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('member_promotions', function (Blueprint $table) {
+            $table->dropColumn([
+                'document_path',
+                'document_original_name',
+                'document_mime_type',
+                'document_size_bytes',
+            ]);
+        });
+
+        Schema::table('coach_promotions', function (Blueprint $table) {
+            $table->dropColumn([
+                'document_path',
+                'document_original_name',
+                'document_mime_type',
+                'document_size_bytes',
+            ]);
+        });
+    }
+};
