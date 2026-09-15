@@ -555,11 +555,39 @@ class MemberProfileData
     /** @return array<int, array<string, mixed>> */
     private function promotionsPayload(Member $member): array
     {
-        return MemberPromotion::where('member_id', $member->id)
+        $promotions = MemberPromotion::where('member_id', $member->id)
             ->with(['evidences', 'recorder'])
             ->orderByDesc('promotion_date')
             ->orderByDesc('id')
-            ->get()
+            ->get();
+
+        $allEvidences = $promotions->flatMap->evidences;
+        $participationIds = $allEvidences->where('evidencable_type', 'participation')->pluck('evidencable_id')->unique()->all();
+        $achievementIds = $allEvidences->where('evidencable_type', 'achievement')->pluck('evidencable_id')->unique()->all();
+
+        $participationsMap = empty($participationIds) ? collect() : Participation::query()
+            ->with([
+                'session:id,name',
+                'event:id,tournament_id,name,gender_class,discipline,event_type',
+                'event.tournament:id,name,tier_id,date_from,date_to,venue',
+                'event.tournament.tier:id,code',
+                'achievement.benefits',
+            ])
+            ->findMany($participationIds)
+            ->keyBy('id');
+
+        $achievementsMap = empty($achievementIds) ? collect() : Achievement::query()
+            ->with([
+                'participation.session:id,name',
+                'participation.event:id,tournament_id,name,gender_class,discipline,event_type',
+                'participation.event.tournament:id,name,tier_id,date_from,date_to,venue',
+                'participation.event.tournament.tier:id,code',
+                'benefits',
+            ])
+            ->findMany($achievementIds)
+            ->keyBy('id');
+
+        return $promotions
             ->map(fn (MemberPromotion $promotion): array => [
                 'id' => $promotion->id,
                 'promotion_date' => $promotion->promotion_date?->toDateString(),
@@ -573,14 +601,18 @@ class MemberProfileData
                 'remarks' => $promotion->remarks,
                 'recorded_by_name' => $promotion->recorder?->name,
                 'evidences' => $promotion->evidences
-                    ->map(fn (PromotionEvidence $evidence): array => $this->promotionEvidencePayload($evidence))
+                    ->map(fn (PromotionEvidence $evidence): array => $this->promotionEvidencePayload($evidence, $participationsMap, $achievementsMap))
                     ->all(),
             ])
             ->all();
     }
 
-    /** @return array<string, mixed> */
-    private function promotionEvidencePayload(PromotionEvidence $evidence): array
+    /**
+     * @param  Collection<int, Participation>  $participationsMap
+     * @param  Collection<int, Achievement>  $achievementsMap
+     * @return array<string, mixed>
+     */
+    private function promotionEvidencePayload(PromotionEvidence $evidence, Collection $participationsMap, Collection $achievementsMap): array
     {
         $resolvedType = $this->resolvePromotionEvidenceType($evidence->evidencable_type);
 
@@ -596,15 +628,7 @@ class MemberProfileData
         }
 
         if ($resolvedType === 'participation') {
-            $participation = Participation::query()
-                ->with([
-                    'session:id,name',
-                    'event:id,tournament_id,name,gender_class',
-                    'event.tournament:id,name,tier_id,date_from,date_to,venue',
-                    'event.tournament.tier:id,code',
-                    'achievement.benefits',
-                ])
-                ->find($evidence->evidencable_id);
+            $participation = $participationsMap->get($evidence->evidencable_id);
 
             if ($participation === null) {
                 return $payload;
@@ -639,6 +663,8 @@ class MemberProfileData
                     'id' => $participation->event->id,
                     'name' => $participation->event->name,
                     'gender_class' => $participation->event->gender_class,
+                    'discipline' => $participation->event->discipline,
+                    'event_type' => $participation->event->event_type,
                 ] : null,
                 'achievement' => $achievement ? [
                     'id' => $achievement->id,
@@ -650,15 +676,7 @@ class MemberProfileData
         }
 
         if ($resolvedType === 'achievement') {
-            $achievement = Achievement::query()
-                ->with([
-                    'participation.session:id,name',
-                    'participation.event:id,tournament_id,name,gender_class',
-                    'participation.event.tournament:id,name,tier_id,date_from,date_to,venue',
-                    'participation.event.tournament.tier:id,code',
-                    'benefits',
-                ])
-                ->find($evidence->evidencable_id);
+            $achievement = $achievementsMap->get($evidence->evidencable_id);
 
             if ($achievement === null) {
                 return $payload;
@@ -693,6 +711,8 @@ class MemberProfileData
                     'id' => $event->id,
                     'name' => $event->name,
                     'gender_class' => $event->gender_class,
+                    'discipline' => $event->discipline,
+                    'event_type' => $event->event_type,
                 ] : null,
                 'achievement' => [
                     'id' => $achievement->id,

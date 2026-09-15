@@ -283,6 +283,7 @@ test('member promotion created from coach page redirects back to coach', functio
     $user = promotionUser();
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     [, $toRank] = promotionRanks($member->organization);
+    [$participation] = promotionFixtures($member);
 
     $this->from('/coaches/123')
         ->actingAs($user)
@@ -290,8 +291,40 @@ test('member promotion created from coach page redirects back to coach', functio
             'promotion_date' => now()->toDateString(),
             'to_rank' => $toRank->code,
             'reason' => 'Promoted from coach profile.',
+            'evidences' => [
+                ['type' => 'participation', 'id' => $participation->id],
+            ],
         ])
         ->assertRedirect('/coaches/123');
+});
+
+test('member promotion requires promotion date and target rank', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    [$participation] = promotionFixtures($member);
+
+    $response = $this->actingAs($user)->post(route('members.promotions.store', $member), [
+        'evidences' => [
+            ['type' => 'participation', 'id' => $participation->id],
+        ],
+    ]);
+
+    $response->assertInvalid(['promotion_date', 'to_rank']);
+});
+
+test('cash reward requires amount, date, and reference', function () {
+    $user = promotionUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    [$participation] = promotionFixtures($member);
+
+    $response = $this->actingAs($user)->post(route('members.promotions.store', $member), [
+        'cash_reward_only' => true,
+        'evidences' => [
+            ['type' => 'participation', 'id' => $participation->id],
+        ],
+    ]);
+
+    $response->assertInvalid(['cash_reward_amount', 'cash_reward_date', 'cash_reward_reference']);
 });
 
 test('member promotion updates cash reward fields', function () {

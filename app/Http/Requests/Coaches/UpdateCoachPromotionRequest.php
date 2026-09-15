@@ -25,7 +25,7 @@ class UpdateCoachPromotionRequest extends FormRequest
             'promotion_date' => ['sometimes', 'nullable', 'date'],
             'from_rank' => ['sometimes', 'nullable', 'string', 'max:100'],
             'to_rank' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'cash_reward_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'cash_reward_amount' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'max:9999999999.99'],
             'cash_reward_date' => ['sometimes', 'nullable', 'date'],
             'cash_reward_reference' => ['sometimes', 'nullable', 'string', 'max:100'],
             'cash_reward_remarks' => ['sometimes', 'nullable', 'string'],
@@ -34,8 +34,9 @@ class UpdateCoachPromotionRequest extends FormRequest
             'evidences' => ['sometimes', 'nullable', 'array'],
             'evidences.*.session_id' => ['required', 'integer', 'min:1'],
             'evidences.*.tournament_id' => ['required', 'integer', 'min:1'],
-            'evidences.*.event_id' => ['prohibited'],
-            'evidences.*.team_id' => ['required', 'integer', 'min:1'],
+            'evidences.*.event_id' => ['nullable', 'integer', 'min:1'],
+            'evidences.*.team_id' => ['nullable', 'integer', 'min:1'],
+            'evidences.*.achievement_id' => ['nullable', 'integer', 'min:1'],
         ];
     }
 
@@ -77,7 +78,7 @@ class UpdateCoachPromotionRequest extends FormRequest
                     );
                 }
 
-                $promotionDate = $this->input('promotion_date', $promotion?->promotion_date);
+                $promotionDate = $this->input('promotion_date', $promotion?->promotion_date?->toDateString() ?: $promotion?->promotion_date);
 
                 if (! $promotionDate) {
                     $validator->errors()->add(
@@ -87,11 +88,31 @@ class UpdateCoachPromotionRequest extends FormRequest
                 }
             }
 
-            if (($hasRewardFields || $isRewardRecord) && ! $cashRewardAmount) {
-                $validator->errors()->add(
-                    'cash_reward_amount',
-                    __('The cash reward amount is required.'),
-                );
+            if ($hasRewardFields || $isRewardRecord) {
+                if (! $cashRewardAmount || (float) $cashRewardAmount <= 0) {
+                    $validator->errors()->add(
+                        'cash_reward_amount',
+                        __('The cash reward amount is required.'),
+                    );
+                }
+
+                $cashRewardDate = $this->input('cash_reward_date', $promotion?->cash_reward_date?->toDateString() ?: $promotion?->cash_reward_date);
+
+                if (! $cashRewardDate) {
+                    $validator->errors()->add(
+                        'cash_reward_date',
+                        __('The cash reward date is required.'),
+                    );
+                }
+
+                $cashRewardReference = $this->input('cash_reward_reference', $promotion?->cash_reward_reference);
+
+                if (! $cashRewardReference) {
+                    $validator->errors()->add(
+                        'cash_reward_reference',
+                        __('The cash reward reference is required.'),
+                    );
+                }
             }
 
             if (! $toRank && ! $cashRewardAmount) {

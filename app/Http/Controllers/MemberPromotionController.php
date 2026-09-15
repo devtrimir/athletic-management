@@ -7,10 +7,12 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Members\StoreMemberPromotionRequest;
 use App\Http\Requests\Members\UpdateMemberPromotionRequest;
 use App\Models\Achievement;
+use App\Models\Coach;
 use App\Models\Member;
 use App\Models\MemberPromotion;
 use App\Models\Participation;
 use App\Models\PromotionEvidence;
+use App\Models\Rank;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -160,9 +162,25 @@ class MemberPromotionController extends Controller
             ->orderByDesc('id')
             ->first();
 
+        $newRank = $latestPromotionForRank?->to_rank ?? $member->rank;
+
         $member->update([
             'promotion_date' => $latestPromotionDate?->promotion_date,
-            'rank' => $latestPromotionForRank?->to_rank ?? $member->rank,
+            'rank' => $newRank,
         ]);
+
+        if ($newRank) {
+            $rankModel = Rank::query()
+                ->where('code', $newRank)
+                ->orWhere('name', $newRank)
+                ->first();
+
+            if ($rankModel) {
+                Coach::query()
+                    ->where('member_id', $member->id)
+                    ->when($member->coach_id, fn ($q) => $q->orWhere('id', $member->coach_id))
+                    ->update(['rank_master_id' => $rankModel->id]);
+            }
+        }
     }
 }

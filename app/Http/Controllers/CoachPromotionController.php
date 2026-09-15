@@ -11,6 +11,7 @@ use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\CoachPromotion;
 use App\Models\CoachPromotionEvidence;
+use App\Models\Member;
 use App\Models\Rank;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
@@ -104,17 +105,23 @@ class CoachPromotionController extends Controller
             return;
         }
 
-        $rankId = Rank::query()
+        $rank = Rank::query()
             ->where('code', $latestPromotion->to_rank)
-            ->value('id');
+            ->orWhere('name', $latestPromotion->to_rank)
+            ->first();
 
-        if ($rankId !== null) {
-            $coach->update(['rank_master_id' => $rankId]);
+        if ($rank !== null) {
+            $coach->update(['rank_master_id' => $rank->id]);
+
+            Member::query()
+                ->where('id', $coach->member_id)
+                ->orWhere('coach_id', $coach->id)
+                ->update(['rank' => $rank->code]);
         }
     }
 
     /**
-     * @param  array<int, array{session_id: int, tournament_id: int, team_id: int}>  $evidences
+     * @param  array<int, array{session_id: int, tournament_id: int, event_id?: int|null, team_id?: int|null, achievement_id?: int|null}>  $evidences
      */
     private function syncEvidences(CoachPromotion $promotion, Coach $coach, array $evidences): void
     {
@@ -124,8 +131,8 @@ class CoachPromotionController extends Controller
 
         $availableKeys = $this->availableRewardEvidenceKeys($coach, $promotion);
 
-        foreach (collect($evidences)->unique(fn (array $evidence): string => $this->rewardTournamentEvidenceKey($evidence))->values() as $evidence) {
-            $key = $this->rewardTournamentEvidenceKey($evidence);
+        foreach (collect($evidences)->unique(fn (array $evidence): string => $this->rewardEvidenceKey($evidence))->values() as $evidence) {
+            $key = $this->rewardEvidenceKey($evidence);
 
             abort_if(! isset($availableKeys[$key]) || $this->tournamentEvidenceAlreadyUsed($coach, $promotion, $evidence), 422, 'Invalid or already rewarded coach reward evidence.');
 
@@ -134,22 +141,38 @@ class CoachPromotionController extends Controller
                 'coach_promotion_id' => $promotion->id,
                 'session_id' => $evidence['session_id'],
                 'tournament_id' => $evidence['tournament_id'],
-                'event_id' => null,
-                'team_id' => $evidence['team_id'],
+                'event_id' => $evidence['event_id'] ?? null,
+                'team_id' => $evidence['team_id'] ?? null,
+                'achievement_id' => $evidence['achievement_id'] ?? null,
             ]);
         }
     }
 
-    /** @param  array{session_id: int, tournament_id: int, team_id: int}  $evidence */
+    /** @param  array<string, mixed>  $evidence */
     private function tournamentEvidenceAlreadyUsed(Coach $coach, CoachPromotion $currentPromotion, array $evidence): bool
     {
+        $isReward = $currentPromotion->cash_reward_amount !== null;
+
         return CoachPromotionEvidence::query()
             ->whereHas('coachPromotion', fn ($query) => $query
                 ->where('coach_id', $coach->id)
-                ->whereKeyNot($currentPromotion->id))
+                ->whereKeyNot($currentPromotion->id)
+                ->when(
+                    $isReward,
+                    fn ($q) => $q->whereNotNull('cash_reward_amount'),
+                    fn ($q) => $q->whereNotNull('to_rank'),
+                ))
             ->where('session_id', $evidence['session_id'])
             ->where('tournament_id', $evidence['tournament_id'])
-            ->where('team_id', $evidence['team_id'])
+            ->when(
+                isset($evidence['event_id']) && $evidence['event_id'] !== null,
+                fn ($q) => $q->where(fn ($sub) => $sub->where('event_id', $evidence['event_id'])->orWhereNull('event_id')),
+                fn ($q) => $q->where('team_id', $evidence['team_id'] ?? null),
+            )
+            ->when(
+                isset($evidence['team_id']) && $evidence['team_id'] !== null,
+                fn ($q) => $q->where('team_id', $evidence['team_id']),
+            )
             ->exists();
     }
 
@@ -170,19 +193,37 @@ class CoachPromotionController extends Controller
             ->unique()
             ->values();
 
-        $usedTournamentKeys = CoachPromotionEvidence::query()
+        $isReward = $currentPromotion->cash_reward_amount !== null;
+
+        $usedEvidenceKeys = [];
+        CoachPromotionEvidence::query()
             ->whereHas('coachPromotion', fn ($query) => $query
                 ->where('coach_id', $coach->id)
-                ->whereKeyNot($currentPromotion->id))
-            ->get(['session_id', 'tournament_id', 'team_id'])
-            ->map(fn (CoachPromotionEvidence $evidence): string => $this->rewardTournamentEvidenceKey([
-                'session_id' => $evidence->session_id,
-                'tournament_id' => $evidence->tournament_id,
-                'team_id' => $evidence->team_id,
-            ]))
-            ->flip();
+                ->whereKeyNot($currentPromotion->id)
+                ->when(
+                    $isReward,
+                    fn ($q) => $q->whereNotNull('cash_reward_amount'),
+                    fn ($q) => $q->whereNotNull('to_rank'),
+                ))
+            ->get(['session_id', 'tournament_id', 'event_id', 'team_id'])
+            ->each(function (CoachPromotionEvidence $evidence) use (&$usedEvidenceKeys): void {
+                $usedEvidenceKeys[$this->rewardEvidenceKey([
+                    'session_id' => $evidence->session_id,
+                    'tournament_id' => $evidence->tournament_id,
+                    'event_id' => $evidence->event_id,
+                    'team_id' => $evidence->team_id,
+                ])] = true;
 
-        return Achievement::query()
+                if ($evidence->event_id === null) {
+                    $usedEvidenceKeys[$this->rewardEvidenceKey([
+                        'session_id' => $evidence->session_id,
+                        'tournament_id' => $evidence->tournament_id,
+                        'team_id' => $evidence->team_id,
+                    ])] = true;
+                }
+            });
+
+        $achievements = Achievement::query()
             ->whereHas('participation', function ($query) use ($assignmentPairs, $coach): void {
                 $query
                     ->whereHas('team', fn ($teamQuery) => $teamQuery->where('organization_id', $coach->organization_id))
@@ -199,21 +240,43 @@ class CoachPromotionController extends Controller
                     });
             })
             ->with(['participation:id,session_id,team_id,event_id', 'participation.event:id,tournament_id'])
-            ->get(['id', 'participation_id'])
-            ->map(fn (Achievement $achievement): string => $this->rewardTournamentEvidenceKey([
+            ->get(['id', 'participation_id']);
+
+        $available = [];
+
+        foreach ($achievements as $achievement) {
+            $eventKey = $this->rewardEvidenceKey([
+                'session_id' => $achievement->participation->session_id,
+                'tournament_id' => $achievement->participation->event->tournament_id,
+                'event_id' => $achievement->participation->event_id,
+                'team_id' => $achievement->participation->team_id,
+            ]);
+
+            $tournamentKey = $this->rewardEvidenceKey([
                 'session_id' => $achievement->participation->session_id,
                 'tournament_id' => $achievement->participation->event->tournament_id,
                 'team_id' => $achievement->participation->team_id,
-            ]))
-            ->unique()
-            ->reject(fn (string $key): bool => $usedTournamentKeys->has($key))
-            ->mapWithKeys(fn (string $key): array => [$key => true])
-            ->all();
+            ]);
+
+            if (! isset($usedEvidenceKeys[$eventKey])) {
+                $available[$eventKey] = true;
+            }
+
+            if (! isset($usedEvidenceKeys[$tournamentKey])) {
+                $available[$tournamentKey] = true;
+            }
+        }
+
+        return $available;
     }
 
-    /** @param  array{session_id: int, tournament_id: int, team_id: int}  $evidence */
-    private function rewardTournamentEvidenceKey(array $evidence): string
+    /** @param  array<string, mixed>  $evidence */
+    private function rewardEvidenceKey(array $evidence): string
     {
-        return $evidence['session_id'].':'.$evidence['tournament_id'].':'.$evidence['team_id'];
+        if (isset($evidence['event_id']) && $evidence['event_id'] !== null) {
+            return $evidence['session_id'].':'.$evidence['tournament_id'].':'.$evidence['event_id'].':'.($evidence['team_id'] ?? 0);
+        }
+
+        return $evidence['session_id'].':'.$evidence['tournament_id'].':'.($evidence['team_id'] ?? 0);
     }
 }

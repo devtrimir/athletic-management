@@ -675,58 +675,83 @@ class CoachProfileData
             return [];
         }
 
-        $usedTournamentKeys = CoachPromotionEvidence::query()
-            ->whereHas('coachPromotion', fn ($query) => $query->where('coach_id', $coach->id))
-            ->get(['session_id', 'tournament_id', 'team_id'])
-            ->map(fn (CoachPromotionEvidence $evidence): string => $this->rewardTournamentEvidenceKey(
-                $evidence->session_id,
-                $evidence->tournament_id,
-                $evidence->team_id,
-            ))
-            ->flip();
+        $usedInPromotions = CoachPromotionEvidence::query()
+            ->whereHas('coachPromotion', fn ($query) => $query->where('coach_id', $coach->id)->whereNotNull('to_rank'))
+            ->get(['id', 'coach_promotion_id', 'session_id', 'tournament_id', 'event_id', 'team_id']);
+
+        $usedInRewards = CoachPromotionEvidence::query()
+            ->whereHas('coachPromotion', fn ($query) => $query->where('coach_id', $coach->id)->whereNotNull('cash_reward_amount'))
+            ->get(['id', 'coach_promotion_id', 'session_id', 'tournament_id', 'event_id', 'team_id']);
 
         return $achievementGroups
             ->groupBy(fn (array $group): int => (int) $group['session']['id'])
-            ->map(function (Collection $sessionGroups): array {
+            ->map(function (Collection $sessionGroups) use ($usedInPromotions, $usedInRewards): array {
                 $first = $sessionGroups->first();
 
                 return [
                     'session' => $first['session'],
                     'tournaments' => $sessionGroups
                         ->groupBy(fn (array $group): string => $group['tournament']['id'].':'.$group['team']['id'])
-                        ->map(function (Collection $tournamentGroups): array {
+                        ->map(function (Collection $tournamentGroups) use ($usedInPromotions, $usedInRewards): array {
                             $first = $tournamentGroups->first();
+                            $sessionId = (int) $first['session']['id'];
+                            $tournamentId = (int) $first['tournament']['id'];
+                            $teamId = (int) $first['team']['id'];
+
+                            $events = $tournamentGroups->map(function (array $group) use ($usedInPromotions, $usedInRewards, $sessionId, $tournamentId): array {
+                                $eventId = (int) $group['event']['id'];
+                                $groupTeamId = (int) $group['team']['id'];
+
+                                $usedInPromotion = $usedInPromotions->first(fn (CoachPromotionEvidence $e): bool =>
+                                    (int) $e->session_id === $sessionId &&
+                                    (int) $e->tournament_id === $tournamentId &&
+                                    ($e->event_id === null || (int) $e->event_id === $eventId) &&
+                                    ($e->team_id === null || (int) $e->team_id === $groupTeamId)
+                                );
+
+                                $usedInReward = $usedInRewards->first(fn (CoachPromotionEvidence $e): bool =>
+                                    (int) $e->session_id === $sessionId &&
+                                    (int) $e->tournament_id === $tournamentId &&
+                                    ($e->event_id === null || (int) $e->event_id === $eventId) &&
+                                    ($e->team_id === null || (int) $e->team_id === $groupTeamId)
+                                );
+
+                                return [
+                                    'id' => $sessionId.':'.$tournamentId.':'.$eventId.':'.$groupTeamId,
+                                    'session_id' => $sessionId,
+                                    'tournament_id' => $tournamentId,
+                                    'event_id' => $eventId,
+                                    'team_id' => $groupTeamId,
+                                    'event' => $group['event'],
+                                    'team' => $group['team'],
+                                    'medal_counts' => $group['medal_counts'],
+                                    'players' => $group['players'],
+                                    'used_in_promotion' => $usedInPromotion !== null,
+                                    'used_promotion_id' => $usedInPromotion?->coach_promotion_id,
+                                    'used_in_reward' => $usedInReward !== null,
+                                    'used_reward_id' => $usedInReward?->coach_promotion_id,
+                                ];
+                            })->values()->all();
 
                             return [
                                 'id' => $this->rewardTournamentEvidenceKey(
-                                    (int) $first['session']['id'],
-                                    (int) $first['tournament']['id'],
-                                    (int) $first['team']['id'],
+                                    $sessionId,
+                                    $tournamentId,
+                                    $teamId,
                                 ),
-                                'session_id' => $first['session']['id'],
-                                'tournament_id' => $first['tournament']['id'],
-                                'team_id' => $first['team']['id'],
+                                'session_id' => $sessionId,
+                                'tournament_id' => $tournamentId,
+                                'team_id' => $teamId,
                                 'tournament' => $first['tournament'],
                                 'team' => $first['team'],
-                                'event_count' => $tournamentGroups->count(),
+                                'event_count' => count($events),
                                 'player_count' => $tournamentGroups->sum(fn (array $group): int => count($group['players'])),
+                                'events' => $events,
                             ];
                         })
                         ->values()
                         ->all(),
                 ];
-            })
-            ->map(function (array $sessionGroup) use ($usedTournamentKeys): array {
-                $sessionGroup['tournaments'] = collect($sessionGroup['tournaments'])
-                    ->reject(fn (array $tournamentGroup): bool => $usedTournamentKeys->has($this->rewardTournamentEvidenceKey(
-                        (int) $sessionGroup['session']['id'],
-                        (int) $tournamentGroup['tournament']['id'],
-                        (int) $tournamentGroup['team']['id'],
-                    )))
-                    ->values()
-                    ->all();
-
-                return $sessionGroup;
             })
             ->filter(fn (array $sessionGroup): bool => count($sessionGroup['tournaments']) > 0)
             ->values()

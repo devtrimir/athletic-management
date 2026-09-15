@@ -24,7 +24,12 @@ class UpdateMemberPromotionRequest extends FormRequest
     {
         return [
             'cash_reward_only' => ['sometimes', 'boolean'],
-            'promotion_date' => ['sometimes', 'nullable', 'date'],
+            'promotion_date' => [
+                'sometimes',
+                Rule::requiredIf(fn (): bool => ! $this->boolean('cash_reward_only')),
+                'nullable',
+                'date',
+            ],
             'from_rank' => ['sometimes', 'nullable', 'string', 'max:100'],
             'to_rank' => [
                 'sometimes',
@@ -33,9 +38,27 @@ class UpdateMemberPromotionRequest extends FormRequest
                 'string',
                 'max:100',
             ],
-            'cash_reward_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999999999.99'],
-            'cash_reward_date' => ['sometimes', 'nullable', 'date'],
-            'cash_reward_reference' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'cash_reward_amount' => [
+                'sometimes',
+                Rule::requiredIf(fn (): bool => $this->boolean('cash_reward_only')),
+                'nullable',
+                'numeric',
+                'min:0.01',
+                'max:9999999999.99',
+            ],
+            'cash_reward_date' => [
+                'sometimes',
+                Rule::requiredIf(fn (): bool => $this->boolean('cash_reward_only')),
+                'nullable',
+                'date',
+            ],
+            'cash_reward_reference' => [
+                'sometimes',
+                Rule::requiredIf(fn (): bool => $this->boolean('cash_reward_only')),
+                'nullable',
+                'string',
+                'max:100',
+            ],
             'cash_reward_remarks' => ['sometimes', 'nullable', 'string'],
             'reason' => ['sometimes', 'nullable', 'string'],
             'remarks' => ['sometimes', 'nullable', 'string'],
@@ -49,7 +72,40 @@ class UpdateMemberPromotionRequest extends FormRequest
     {
         $validator->after(function (Validator $validator): void {
             if ($this->boolean('cash_reward_only')) {
+                if ($this->has('cash_reward_amount') && ! $this->filled('cash_reward_amount')) {
+                    $validator->errors()->add(
+                        'cash_reward_amount',
+                        __('The cash reward amount is required.'),
+                    );
+                }
+                if ($this->has('cash_reward_date') && ! $this->filled('cash_reward_date')) {
+                    $validator->errors()->add(
+                        'cash_reward_date',
+                        __('The cash reward date is required.'),
+                    );
+                }
+                if ($this->has('cash_reward_reference') && ! $this->filled('cash_reward_reference')) {
+                    $validator->errors()->add(
+                        'cash_reward_reference',
+                        __('The cash reward reference is required.'),
+                    );
+                }
+
                 return;
+            }
+
+            if ($this->has('promotion_date') && ! $this->filled('promotion_date')) {
+                $validator->errors()->add(
+                    'promotion_date',
+                    __('The promotion date is required.'),
+                );
+            }
+
+            if ($this->has('to_rank') && ! $this->filled('to_rank')) {
+                $validator->errors()->add(
+                    'to_rank',
+                    __('The target rank is required.'),
+                );
             }
 
             $member = $this->route('member');
