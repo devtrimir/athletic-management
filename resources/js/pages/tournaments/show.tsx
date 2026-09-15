@@ -37,11 +37,11 @@ import {
     index as tournamentsIndex,
     show as showTournament,
 } from '@/actions/App/Http/Controllers/TournamentController';
-import { events as tournamentEvents } from '@/actions/App/Http/Controllers/TournamentProfileTabController';
 import {
     eventsReport,
     eventsExport,
 } from '@/actions/App/Http/Controllers/TournamentExportController';
+import { events as tournamentEvents } from '@/actions/App/Http/Controllers/TournamentProfileTabController';
 import { Combobox } from '@/components/combobox';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
 import Heading from '@/components/heading';

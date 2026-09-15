@@ -53,11 +53,6 @@ import {
     status as coachStatus,
 } from '@/actions/App/Http/Controllers/CoachProfileTabController';
 import {
-    CoachPromotionsTab,
-    type CoachPromotion,
-    type CoachedSessionOption,
-} from '@/components/coaches/promotions-tab';
-import {
     destroy as destroyCoachSport,
     store as storeCoachSport,
 } from '@/actions/App/Http/Controllers/CoachSportController';
@@ -66,10 +61,17 @@ import { show as memberShow } from '@/actions/App/Http/Controllers/MemberControl
 import { events as memberEvents } from '@/actions/App/Http/Controllers/MemberProfileTabController';
 import { CoachPlayingAchievementsSection } from '@/components/coaches/playing-achievements-section';
 import type { PlayingAchievementsData } from '@/components/coaches/playing-achievements-section';
+import {
+    CoachPromotionsTab
+    
+    
+} from '@/components/coaches/promotions-tab';
+import type {CoachPromotion, CoachedSessionOption} from '@/components/coaches/promotions-tab';
 import { CoachSpecialAchievementsTab } from '@/components/coaches/special-achievements-tab';
 import type { SpecialAchievementsData } from '@/components/coaches/special-achievements-tab';
 import { Combobox } from '@/components/combobox';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
+import { ProfilePhotoLightbox } from '@/components/shared/profile-photo-lightbox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { RemoveMemberSportDialog } from '@/components/members/remove-member-sport-dialog';
@@ -446,6 +448,7 @@ export default function CoachesShow({
     const [generatingAthleteProfile, setGeneratingAthleteProfile] =
         useState(false);
     const [removePhotoOpen, setRemovePhotoOpen] = useState(false);
+    const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
     const [removingCertification, setRemovingCertification] =
         useState<number | null>(null);
     const [statusOpen, setStatusOpen] = useState(false);
@@ -1002,7 +1005,7 @@ export default function CoachesShow({
                         ) : null}
                     </div>
 
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
                         <Button variant="outline" size="sm" asChild>
                             <Link href={coachesIndex.url()}>
                                 <ArrowLeft className="mr-1.5 h-4 w-4" />
@@ -1066,11 +1069,20 @@ export default function CoachesShow({
                         <div className="flex items-center gap-4">
                             <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
                                 {coach.photo_path ? (
-                                    <img
-                                        src={`/storage/${coach.photo_path}`}
-                                        alt={coach.full_name}
-                                        className="h-full w-full object-cover"
-                                    />
+                                    <button
+                                        type="button"
+                                        className="h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        onClick={() =>
+                                            setPhotoLightboxOpen(true)
+                                        }
+                                        aria-label={`View photo of ${coach.full_name}`}
+                                    >
+                                        <img
+                                            src={`/storage/${coach.photo_path}`}
+                                            alt={coach.full_name}
+                                            className="h-full w-full object-cover transition-opacity hover:opacity-90"
+                                        />
+                                    </button>
                                 ) : (
                                     <Camera className="h-7 w-7 text-muted-foreground" />
                                 )}
@@ -2916,6 +2928,15 @@ export default function CoachesShow({
                 confirmLabel={t('Remove')}
                 onConfirm={handleRemovePhoto}
             />
+
+            {coach.photo_path && (
+                <ProfilePhotoLightbox
+                    src={`/storage/${coach.photo_path}`}
+                    alt={coach.full_name}
+                    open={photoLightboxOpen}
+                    onClose={() => setPhotoLightboxOpen(false)}
+                />
+            )}
 
             <ConfirmationDialog
                 open={removingCertification !== null}

@@ -9,6 +9,7 @@ import {
 import {
     ArrowLeft,
     Award,
+    Camera,
     Download,
     ExternalLink,
     Medal,
@@ -19,8 +20,8 @@ import {
     Trophy,
     UserRound,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, ReactElement } from 'react';
 import type { ComponentProps } from 'react';
 import {
     create as createCoach,
@@ -54,6 +55,8 @@ import {
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import AlertError from '@/components/alert-error';
 import { Combobox } from '@/components/combobox';
+import { ConfirmationDialog } from '@/components/confirmation-dialog';
+import { ProfilePhotoLightbox } from '@/components/shared/profile-photo-lightbox';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { ArchivedMemberActionDialog } from '@/components/members/archived-member-action-dialog';
@@ -706,6 +709,8 @@ export default function MembersShow({
     });
 
     const [statusOpen, setStatusOpen] = useState(false);
+    const [removePhotoOpen, setRemovePhotoOpen] = useState(false);
+    const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
     const [exportOpen, setExportOpen] = useState(false);
     const [achievementPreview, setAchievementPreview] =
         useState<AchievementPreviewTarget | null>(null);
@@ -1794,6 +1799,35 @@ export default function MembersShow({
                 })
               : null;
 
+    const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+    function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        router.post(
+            storeMemberPhoto.url(member),
+            { photo: file },
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onFinish: () => {
+                    event.target.value = '';
+                },
+            },
+        );
+    }
+
+    function handleRemovePhoto() {
+        router.delete(destroyMemberPhoto.url(member), {
+            preserveScroll: true,
+            onSuccess: () => setRemovePhotoOpen(false),
+        });
+    }
+
     function handlePrint(): void {
         const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
         const getValue = (key: string): string => {
@@ -1916,185 +1950,200 @@ export default function MembersShow({
             <Head title={member.full_name} />
 
             <div className="space-y-6">
-                <div className="flex flex-wrap items-start gap-4">
-                    <div className="flex min-w-0 flex-1 items-start gap-4">
-                        {/* Photo */}
-                        <div className="shrink-0">
-                            {member.photo_path ? (
-                                <div className="group relative size-20 overflow-hidden rounded-xl border bg-muted">
-                                    <img
-                                        src={`/storage/${member.photo_path}`}
-                                        alt={member.full_name}
-                                        className="size-full object-cover"
-                                    />
-                                    <button
-                                        className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                {/* Page heading */}
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            {member.full_name}
+                        </h1>
+                        {member.pno ? (
+                            <p className="text-sm text-muted-foreground">
+                                {t('PNO')}: {member.pno}
+                            </p>
+                        ) : null}
+                    </div>
+
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={backUrl}>
+                                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                                {t('Back')}
+                            </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={previewMember.url(member)}>
+                                <Printer className="mr-1.5 h-4 w-4" />
+                                {t('Print preview')}
+                            </Link>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExportOpen(true)}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Export')}
+                        </Button>
+                        {linkedCoach ? (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={coachShow.url(linkedCoach.id)}>
+                                    <UserRound className="mr-1.5 h-4 w-4" />
+                                    {t('Athlete Coach')}
+                                </Link>
+                            </Button>
+                        ) : (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link
+                                    href={createCoach.url({
+                                        query: { member_id: member.id },
+                                    })}
+                                >
+                                    <UserRound className="mr-1.5 h-4 w-4" />
+                                    {t('Register as Coach')}
+                                </Link>
+                            </Button>
+                        )}
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={editMember.url(member)}>
+                                {t('Edit')}
+                            </Link>
+                        </Button>
+                        {member.deleted_at ? (
+                            <>
+                                {canRestoreMember && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
                                         onClick={() =>
-                                            router.delete(
-                                                destroyMemberPhoto.url(member),
+                                            router.post(
+                                                restoreMember.url(member.id),
                                             )
                                         }
                                     >
-                                        {t('Remove photo')}
-                                    </button>
-                                </div>
-                            ) : (
-                                <label className="flex size-20 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-muted transition-colors hover:bg-muted/80">
-                                    <span className="px-1 text-center text-xs leading-tight text-muted-foreground">
-                                        {t('Upload photo')}
-                                    </span>
-                                    <input
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        className="sr-only"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-
-                                            if (!file) {
-                                                return;
-                                            }
-
-                                            const fd = new FormData();
-                                            fd.append('photo', file);
-                                            router.post(
-                                                storeMemberPhoto.url(member),
-                                                fd,
-                                            );
-                                        }}
-                                    />
-                                </label>
-                            )}
-                        </div>
-
-                        <div className="min-w-0">
-                            <h1 className="text-2xl font-bold">
-                                {member.full_name}
-                            </h1>
-                            {member.full_name && (
-                                <p className="text-muted-foreground">
-                                    {member.full_name}
-                                </p>
-                            )}
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                                {member.pno && (
-                                    <span className="font-mono text-sm text-muted-foreground">
-                                        {member.pno}
-                                    </span>
-                                )}
-                                {linkedCoach && (
-                                    <Badge
-                                        variant="secondary"
-                                        className="gap-1 border-primary/20 bg-primary/5 text-primary"
-                                    >
-                                        <UserRound className="h-3 w-3" />
-                                        <Link
-                                            href={coachShow.url(linkedCoach.id)}
-                                            className="hover:underline"
-                                        >
-                                            {t('Coach')}:{' '}
-                                            {linkedCoach.full_name}
-                                        </Link>
-                                    </Badge>
-                                )}
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={backUrl}>
-                                        <ArrowLeft className="mr-1.5 h-4 w-4" />
-                                        {t('Back')}
-                                    </Link>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setExportOpen(true)}
-                                >
-                                    <Download className="mr-1.5 h-4 w-4" />
-                                    {t('Export')}
-                                </Button>
-                                {linkedCoach ? (
-                                    <Button variant="outline" size="sm" asChild>
-                                        <Link
-                                            href={coachShow.url(linkedCoach.id)}
-                                        >
-                                            <UserRound className="mr-1.5 h-4 w-4" />
-                                            {t('Coach Profile')}
-                                        </Link>
-                                    </Button>
-                                ) : (
-                                    <Button variant="outline" size="sm" asChild>
-                                        <Link
-                                            href={createCoach.url({
-                                                query: { member_id: member.id },
-                                            })}
-                                        >
-                                            <UserRound className="mr-1.5 h-4 w-4" />
-                                            {t('Register as Coach')}
-                                        </Link>
+                                        <RotateCcw className="mr-1.5 h-4 w-4" />
+                                        {t('Restore member')}
                                     </Button>
                                 )}
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={editMember.url(member)}>
-                                        {t('Edit')}
-                                    </Link>
-                                </Button>
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={previewMember.url(member)}>
-                                        <Printer className="mr-1.5 h-4 w-4" />
-                                        {t('Print preview')}
-                                    </Link>
-                                </Button>
-                                {member.deleted_at ? (
-                                    <>
-                                        {canRestoreMember && (
+                                {canDeleteMember && (
+                                    <ArchivedMemberActionDialog
+                                        member={member}
+                                        trigger={
                                             <Button
-                                                variant="outline"
+                                                variant="destructive"
                                                 size="sm"
-                                                className="border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
-                                                onClick={() =>
-                                                    router.post(
-                                                        restoreMember.url(
-                                                            member.id,
-                                                        ),
-                                                    )
-                                                }
                                             >
-                                                <RotateCcw className="mr-1.5 h-4 w-4" />
-                                                {t('Restore member')}
+                                                <Trash2 className="mr-1.5 h-4 w-4" />
+                                                {t('Delete / Restore')}
                                             </Button>
-                                        )}
-                                        {canDeleteMember && (
-                                            <ArchivedMemberActionDialog
-                                                member={member}
-                                                trigger={
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                    >
-                                                        <Trash2 className="mr-1.5 h-4 w-4" />
-                                                        {t('Delete / Restore')}
-                                                    </Button>
-                                                }
-                                            />
-                                        )}
-                                    </>
-                                ) : (
-                                    canDeleteMember && (
-                                        <DeleteMemberDialog
-                                            member={member}
-                                            trigger={
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                >
-                                                    <Trash2 className="mr-1.5 h-4 w-4" />
-                                                    {t('Delete')}
-                                                </Button>
-                                            }
+                                        }
+                                    />
+                                )}
+                            </>
+                        ) : (
+                            canDeleteMember && (
+                                <DeleteMemberDialog
+                                    member={member}
+                                    trigger={
+                                        <Button variant="destructive" size="sm">
+                                            <Trash2 className="mr-1.5 h-4 w-4" />
+                                            {t('Delete')}
+                                        </Button>
+                                    }
+                                />
+                            )
+                        )}
+                    </div>
+                </div>
+
+                {/* Identity + photo management card */}
+                <div className="rounded-xl border bg-card p-6">
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                                {member.photo_path ? (
+                                    <button
+                                        type="button"
+                                        className="h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        onClick={() =>
+                                            setPhotoLightboxOpen(true)
+                                        }
+                                        aria-label={`View photo of ${member.full_name}`}
+                                    >
+                                        <img
+                                            src={`/storage/${member.photo_path}`}
+                                            alt={member.full_name}
+                                            className="h-full w-full object-cover transition-opacity hover:opacity-90"
                                         />
-                                    )
+                                    </button>
+                                ) : (
+                                    <Camera className="h-7 w-7 text-muted-foreground" />
                                 )}
                             </div>
+                            <div className="space-y-2">
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge
+                                        variant={
+                                            member.current_status === 'active'
+                                                ? 'default'
+                                                : 'outline'
+                                        }
+                                    >
+                                        {statusLabel(member.current_status, t)}
+                                    </Badge>
+                                    {linkedCoach && (
+                                        <Badge
+                                            variant="secondary"
+                                            className="gap-1 border-primary/20 bg-primary/5 text-primary"
+                                        >
+                                            <UserRound className="h-3 w-3" />
+                                            <Link
+                                                href={coachShow.url(
+                                                    linkedCoach.id,
+                                                )}
+                                                className="hover:underline"
+                                            >
+                                                {t('Coach')}:{' '}
+                                                {linkedCoach.full_name}
+                                            </Link>
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                    {member.pno
+                                        ? `${t('PNO')}: ${member.pno}`
+                                        : t('Member profile')}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <input
+                                ref={photoInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="hidden"
+                                onChange={handlePhotoChange}
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => photoInputRef.current?.click()}
+                            >
+                                <Camera className="mr-1.5 h-4 w-4" />
+                                {t('Upload photo')}
+                            </Button>
+                            {member.photo_path ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setRemovePhotoOpen(true)}
+                                >
+                                    <Trash2 className="mr-1.5 h-4 w-4" />
+                                    {t('Remove photo')}
+                                </Button>
+                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -4835,6 +4884,27 @@ export default function MembersShow({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmationDialog
+                open={removePhotoOpen}
+                onOpenChange={setRemovePhotoOpen}
+                variant="destructive"
+                title={t('Remove photo')}
+                description={t(
+                    "Are you sure you want to remove this member's photo?",
+                )}
+                confirmLabel={t('Remove')}
+                onConfirm={handleRemovePhoto}
+            />
+
+            {member.photo_path && (
+                <ProfilePhotoLightbox
+                    src={`/storage/${member.photo_path}`}
+                    alt={member.full_name}
+                    open={photoLightboxOpen}
+                    onClose={() => setPhotoLightboxOpen(false)}
+                />
+            )}
         </>
     );
 }

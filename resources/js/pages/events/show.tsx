@@ -2221,6 +2221,7 @@ function ParticipantsList({
     });
 
     const teamCountsInFilter = new Map<string, number>();
+
     for (const row of filteredDisplayRows) {
         const teamKey = row.participation.team?.id
             ? `team:${row.participation.team.id}`
@@ -2236,6 +2237,7 @@ function ParticipantsList({
         if (event.event_type !== 'team') {
             return row;
         }
+
         const teamKey = row.participation.team?.id
             ? `team:${row.participation.team.id}`
             : `participation:${row.participation.id}`;

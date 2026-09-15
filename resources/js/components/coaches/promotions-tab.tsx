@@ -1,3 +1,4 @@
+import { router, useForm } from '@inertiajs/react';
 import {
     ArrowRight,
     Award,
@@ -14,7 +15,8 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { Combobox, type ComboboxItem } from '@/components/combobox';
+import { Combobox  } from '@/components/combobox';
+import type {ComboboxItem} from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import {
@@ -69,7 +71,6 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-translation';
-import { router, useForm } from '@inertiajs/react';
 
 export type RankOption = {
     id?: number;
