@@ -47,6 +47,7 @@ class CoachPromotionController extends Controller
                 'organization_id' => $coach->organization_id,
                 'coach_id' => $coach->id,
                 'recorded_by' => $request->user()?->id,
+                'source' => 'native',
             ],
         ));
 

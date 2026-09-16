@@ -36,6 +36,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $document_size_bytes
  * @property int|null $recorded_by
  * @property int|null $member_promotion_id
+ * @property string $source
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Coach $coach
@@ -61,6 +62,7 @@ use Illuminate\Support\Carbon;
     'document_mime_type',
     'document_size_bytes',
     'recorded_by',
+    'source',
 ])]
 #[ObservedBy([AuditObserver::class])]
 class CoachPromotion extends Model

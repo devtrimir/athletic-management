@@ -75,7 +75,7 @@ class PromotionSyncService
                 if ($coachPromotion) {
                     $coachPromotion->update($data);
                 } else {
-                    $coachPromotion = CoachPromotion::create($data);
+                    $coachPromotion = CoachPromotion::create([...$data, 'source' => 'synced']);
                 }
 
                 if ($memberPromotion->coach_promotion_id !== $coachPromotion->id) {
@@ -151,7 +151,7 @@ class PromotionSyncService
                 if ($memberPromotion) {
                     $memberPromotion->update($data);
                 } else {
-                    $memberPromotion = MemberPromotion::create($data);
+                    $memberPromotion = MemberPromotion::create([...$data, 'source' => 'synced']);
                 }
 
                 if ($coachPromotion->member_promotion_id !== $memberPromotion->id) {

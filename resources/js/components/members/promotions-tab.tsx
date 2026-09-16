@@ -52,6 +52,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-translation';
+import { resolveRankLabel as resolveRankLabelShared } from '@/lib/ranks';
 
 type LiveAchievement = {
     id: number;
@@ -71,6 +72,7 @@ type LiveAchievement = {
         name: string;
         gender_class?: string;
         discipline?: string | null;
+        event_type?: string | null;
     };
     benefits: {
         id: number;
@@ -170,6 +172,7 @@ type PromotionEvidence = {
         id: number;
         name: string;
         gender_class?: string;
+        event_type?: string | null;
     };
     period?: string | null;
     level?: string | null;
@@ -741,28 +744,6 @@ function resolveRankInputValue(
     return exactMatch?.code ?? normalized;
 }
 
-function rankDisplaySimple(rank: RankOption): string {
-    return rank.name;
-}
-
-function resolveRankLabelSimple(
-    value: string | null,
-    ranks: RankOption[],
-): string {
-    if (!value) {
-        return '';
-    }
-
-    const rank = ranks.find(
-        (item) =>
-            item.code === value ||
-            item.name === value ||
-            item.short_name === value,
-    );
-
-    return rank ? rankDisplaySimple(rank) : value;
-}
-
 function resolveRankOrder(
     ranks: RankOption[],
     rankCode: string,
@@ -834,18 +815,15 @@ function summarizeBenefits(
 }
 
 function resolveRankLabel(value: string | null, ranks: RankOption[]): string {
-    if (!value) {
-        return '';
-    }
+    // Delegates to the shared rank resolver (@/lib/ranks) so rank matching stays in one
+    // place; locale is accepted but currently unused by the shared implementation.
+    const normalizedRanks = ranks.map((rank) => ({
+        code: rank.code,
+        name: rank.name,
+        short_name: rank.short_name ?? null,
+    }));
 
-    const rank = ranks.find(
-        (item) =>
-            item.code === value ||
-            item.name === value ||
-            item.short_name === value,
-    );
-
-    return rank ? rankDisplaySimple(rank) : value;
+    return resolveRankLabelShared(value, normalizedRanks, '');
 }
 function getCsrfToken(): string {
     return (
@@ -2005,7 +1983,7 @@ export function PromotionDialog({
                                         {t('Current rank')}
                                     </span>
                                     <span className="mt-0.5 block truncate text-sm font-semibold text-foreground">
-                                        {resolveRankLabelSimple(
+                                        {resolveRankLabel(
                                             form.data.from_rank,
                                             ranks,
                                         ) || t('Unknown')}
@@ -2025,7 +2003,7 @@ export function PromotionDialog({
                                                 : 'text-muted-foreground italic'
                                         }`}
                                     >
-                                        {resolveRankLabelSimple(
+                                        {resolveRankLabel(
                                             form.data.to_rank,
                                             ranks,
                                         ) || t('Select target rank')}
@@ -2770,6 +2748,35 @@ export function PromotionsTab({
 
         return t('—');
     }
+    function evidenceEventTypeLabel(evidence: PromotionEvidence): string {
+        let eventType = evidence.event?.event_type;
+
+        if (!eventType && evidence.type === 'participation') {
+            const item = participations
+                .flatMap((group) => group.participations)
+                .find((record) => record.id === evidence.evidence_id);
+
+            eventType = item?.event.event_type;
+        }
+
+        if (!eventType && evidence.type === 'achievement') {
+            const item = achievements.find(
+                (a) => a.id === evidence.evidence_id,
+            );
+
+            eventType = item?.event.event_type;
+        }
+
+        if (eventType === 'team') {
+            return t('Team');
+        }
+
+        if (eventType === 'individual') {
+            return t('Individual');
+        }
+
+        return t('—');
+    }
     function evidenceTierLabel(evidence: PromotionEvidence): string {
         if (evidence.tournament?.tier_code) {
             return evidence.tournament.tier_code;
@@ -3267,6 +3274,11 @@ export function PromotionsTab({
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
+                                                                                            'Event type',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
                                                                                             'Tier',
                                                                                         )}
                                                                                     </th>
@@ -3293,7 +3305,7 @@ export function PromotionsTab({
                                                                                     <tr>
                                                                                         <td
                                                                                             colSpan={
-                                                                                                9
+                                                                                                10
                                                                                             }
                                                                                             className="px-2 py-2 text-muted-foreground"
                                                                                         >
@@ -3341,6 +3353,11 @@ export function PromotionsTab({
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
                                                                                                     {evidenceEventLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    {evidenceEventTypeLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
@@ -3611,6 +3628,11 @@ export function PromotionsTab({
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
+                                                                                            'Event type',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                        {t(
                                                                                             'Tier',
                                                                                         )}
                                                                                     </th>
@@ -3637,7 +3659,7 @@ export function PromotionsTab({
                                                                                     <tr>
                                                                                         <td
                                                                                             colSpan={
-                                                                                                9
+                                                                                                10
                                                                                             }
                                                                                             className="px-2 py-2 text-muted-foreground"
                                                                                         >
@@ -3685,6 +3707,11 @@ export function PromotionsTab({
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
                                                                                                     {evidenceEventLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                    {evidenceEventTypeLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>

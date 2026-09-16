@@ -391,9 +391,9 @@ class MemberProfileData
         $achievements = Achievement::forMember($member)
             ->with([
                 'participation.session:id,name',
-                'participation.event:id,tournament_id,name',
+                'participation.event:id,tournament_id,name,event_type,gender_class',
                 'participation.event.tournament:id,name,tier_id,date_from,date_to,venue',
-                'participation.event.tournament.tier:id,code,weight',
+                'participation.event.tournament.tier:id,code,weight,label_en,label_hi',
                 'benefits',
             ])
             ->orderByDesc('id')
@@ -425,6 +425,8 @@ class MemberProfileData
                         'name' => $achievement->participation->event->tournament->name,
                         'tier_code' => $achievement->participation->event->tournament->tier->code ?? null,
                         'tier_weight' => $achievement->participation->event->tournament->tier->weight ?? null,
+                        'tier_label_en' => $achievement->participation->event->tournament->tier->label_en ?? null,
+                        'tier_label_hi' => $achievement->participation->event->tournament->tier->label_hi ?? null,
                         'date_from' => $achievement->participation->event->tournament->date_from?->toDateString(),
                         'date_to' => $achievement->participation->event->tournament->date_to?->toDateString(),
                         'venue' => $achievement->participation->event->tournament->venue,
@@ -432,6 +434,8 @@ class MemberProfileData
                     'event' => [
                         'id' => $achievement->participation->event->id,
                         'name' => $achievement->participation->event->name,
+                        'event_type' => $achievement->participation->event->event_type,
+                        'gender_class' => $achievement->participation->event->gender_class,
                     ],
                     'benefits' => $this->achievementBenefitsPayload($achievement->benefits),
                 ])
@@ -555,22 +559,25 @@ class MemberProfileData
     /** @return array<int, array<string, mixed>> */
     private function promotionsPayload(Member $member): array
     {
+        // Records synced in from a linked coach's own promotions/rewards are kept for rank
+        // consistency but hidden here to avoid showing the same event twice on both profiles.
         $promotions = MemberPromotion::where('member_id', $member->id)
+            ->where('source', 'native')
             ->with(['evidences', 'recorder'])
             ->orderByDesc('promotion_date')
             ->orderByDesc('id')
             ->get();
 
         $allEvidences = $promotions->flatMap->evidences;
-        $participationIds = $allEvidences->where('evidencable_type', 'participation')->pluck('evidencable_id')->unique()->all();
-        $achievementIds = $allEvidences->where('evidencable_type', 'achievement')->pluck('evidencable_id')->unique()->all();
+        $participationIds = $allEvidences->filter(fn (PromotionEvidence $e): bool => $this->resolvePromotionEvidenceType($e->evidencable_type) === 'participation')->pluck('evidencable_id')->unique()->all();
+        $achievementIds = $allEvidences->filter(fn (PromotionEvidence $e): bool => $this->resolvePromotionEvidenceType($e->evidencable_type) === 'achievement')->pluck('evidencable_id')->unique()->all();
 
         $participationsMap = empty($participationIds) ? collect() : Participation::query()
             ->with([
                 'session:id,name',
                 'event:id,tournament_id,name,gender_class,discipline,event_type',
                 'event.tournament:id,name,tier_id,date_from,date_to,venue',
-                'event.tournament.tier:id,code',
+                'event.tournament.tier:id,code,label_en,label_hi',
                 'achievement.benefits',
             ])
             ->findMany($participationIds)
@@ -581,7 +588,7 @@ class MemberProfileData
                 'participation.session:id,name',
                 'participation.event:id,tournament_id,name,gender_class,discipline,event_type',
                 'participation.event.tournament:id,name,tier_id,date_from,date_to,venue',
-                'participation.event.tournament.tier:id,code',
+                'participation.event.tournament.tier:id,code,label_en,label_hi',
                 'benefits',
             ])
             ->findMany($achievementIds)
@@ -662,6 +669,8 @@ class MemberProfileData
                     'id' => $tournament->id,
                     'name' => $tournament->name,
                     'tier_code' => $tournament->tier?->code,
+                    'tier_label_en' => $tournament->tier?->label_en,
+                    'tier_label_hi' => $tournament->tier?->label_hi,
                     'date_from' => $tournament->date_from?->toDateString(),
                     'date_to' => $tournament->date_to?->toDateString(),
                     'venue' => $tournament->venue,
@@ -710,6 +719,8 @@ class MemberProfileData
                     'id' => $tournament->id,
                     'name' => $tournament->name,
                     'tier_code' => $tournament->tier?->code,
+                    'tier_label_en' => $tournament->tier?->label_en,
+                    'tier_label_hi' => $tournament->tier?->label_hi,
                     'date_from' => $tournament->date_from?->toDateString(),
                     'date_to' => $tournament->date_to?->toDateString(),
                     'venue' => $tournament->venue,

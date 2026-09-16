@@ -869,7 +869,7 @@ export default function MembersShow({
             }
 
             for (const promotion of promotionsForRow) {
-                if (promotion.to_rank) {
+                if (promotion.to_rank && promotion.to_rank !== promotion.from_rank) {
                     types.push('PROMOTION');
                 }
 
@@ -1670,7 +1670,7 @@ export default function MembersShow({
         }
 
         if (classFilter !== 'all') {
-            chips.push(`${t('Class')}: ${eventClassLabel(classFilter, t)}`);
+            chips.push(`${t('Gender')}: ${eventClassLabel(classFilter, t)}`);
         }
 
         if (benefitFilter !== 'all') {
@@ -1715,6 +1715,33 @@ export default function MembersShow({
         },
         [promotionLookup],
     );
+
+    // A single reward/promotion can cite several achievements as evidence. Attribute its
+    // cash amount to only the first row (in display order) so it is never double-counted.
+    const dedupedRowPromotions = useMemo(() => {
+        const seenPromotionIds = new Set<number>();
+        const map = new Map<number, PromotionRow[]>();
+
+        for (const { rows } of achievementTierGroups) {
+            for (const { participation } of rows) {
+                const deduped = eventPromotionRows(participation).filter(
+                    (promotion) => {
+                        if (seenPromotionIds.has(promotion.id)) {
+                            return false;
+                        }
+
+                        seenPromotionIds.add(promotion.id);
+
+                        return true;
+                    },
+                );
+
+                map.set(participation.id, deduped);
+            }
+        }
+
+        return map;
+    }, [achievementTierGroups, eventPromotionRows]);
 
     function eventBadgeClass(
         kind:
@@ -2774,11 +2801,6 @@ export default function MembersShow({
                                                                         </TableHead>
                                                                         <TableHead>
                                                                             {t(
-                                                                                'Tier / Level',
-                                                                            )}
-                                                                        </TableHead>
-                                                                        <TableHead>
-                                                                            {t(
                                                                                 'Tournament',
                                                                             )}
                                                                         </TableHead>
@@ -2804,7 +2826,7 @@ export default function MembersShow({
                                                                         </TableHead>
                                                                         <TableHead>
                                                                             {t(
-                                                                                'Class',
+                                                                                'Gender',
                                                                             )}
                                                                         </TableHead>
                                                                         <TableHead>
@@ -2814,17 +2836,7 @@ export default function MembersShow({
                                                                         </TableHead>
                                                                         <TableHead>
                                                                             {t(
-                                                                                'Position',
-                                                                            )}
-                                                                        </TableHead>
-                                                                        <TableHead>
-                                                                            {t(
-                                                                                'Benefits',
-                                                                            )}
-                                                                        </TableHead>
-                                                                        <TableHead>
-                                                                            {t(
-                                                                                'Prize money',
+                                                                                'Reward',
                                                                             )}
                                                                         </TableHead>
                                                                     </TableRow>
@@ -2835,16 +2847,23 @@ export default function MembersShow({
                                                                             group,
                                                                             participation,
                                                                         }) => {
-                                                                            const promotionsForRow =
+                                                                            // Every achievement used as reward evidence keeps its badge, but only
+                                                                            // the first (highest-tier) row shows the amount, so it's never repeated.
+                                                                            const allPromotionsForRow =
                                                                                 eventPromotionRows(
                                                                                     participation,
                                                                                 );
+                                                                            const dedupedPromotionsForRow =
+                                                                                dedupedRowPromotions.get(
+                                                                                    participation.id,
+                                                                                ) ??
+                                                                                [];
                                                                             const achievementBenefits =
                                                                                 achievementBenefitTypes(
                                                                                     participation
                                                                                         .achievement
                                                                                         ?.benefits,
-                                                                                    promotionsForRow,
+                                                                                    allPromotionsForRow,
                                                                                 );
                                                                             const isHighlightedAchievement =
                                                                                 (highlightedAchievement.achievementId !==
@@ -2886,18 +2905,6 @@ export default function MembersShow({
                                                                                         {
                                                                                             ++tierAchievementSerial
                                                                                         }
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <span
-                                                                                            className={eventBadgeClass(
-                                                                                                'tier',
-                                                                                            )}
-                                                                                        >
-                                                                                            {participation
-                                                                                                .tournament
-                                                                                                .tier_code ??
-                                                                                                tier}
-                                                                                        </span>
                                                                                     </TableCell>
                                                                                     <TableCell>
                                                                                         <div className="space-y-1">
@@ -3016,9 +3023,11 @@ export default function MembersShow({
                                                                                         </div>
                                                                                     </TableCell>
                                                                                     <TableCell>
-                                                                                        {participation
-                                                                                            .tournament
-                                                                                            .date_from ??
+                                                                                        {formatDisplayDate(
+                                                                                            participation
+                                                                                                .tournament
+                                                                                                .date_from,
+                                                                                        ) ??
                                                                                             t(
                                                                                                 'No date',
                                                                                             )}
@@ -3056,6 +3065,21 @@ export default function MembersShow({
                                                                                                     </span>
                                                                                                 );
                                                                                             })()
+                                                                                        ) : (participation
+                                                                                              .achievement
+                                                                                              ?.position ??
+                                                                                          participation.position) ? (
+                                                                                            <span
+                                                                                                className={eventBadgeClass(
+                                                                                                    'medal',
+                                                                                                )}
+                                                                                            >
+                                                                                                #
+                                                                                                {participation
+                                                                                                    .achievement
+                                                                                                    ?.position ??
+                                                                                                    participation.position}
+                                                                                            </span>
                                                                                         ) : (
                                                                                             <span
                                                                                                 className={eventBadgeClass(
@@ -3069,55 +3093,32 @@ export default function MembersShow({
                                                                                         )}
                                                                                     </TableCell>
                                                                                     <TableCell>
-                                                                                        #
-                                                                                        {participation
-                                                                                            .achievement
-                                                                                            ?.position ??
-                                                                                            participation.position ??
-                                                                                            '—'}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                                            {achievementBenefits.length ? (
-                                                                                                achievementBenefits.map(
-                                                                                                    (
-                                                                                                        benefitType,
-                                                                                                        index,
-                                                                                                    ) => (
-                                                                                                        <span
-                                                                                                            key={`${participation.id}-benefit-${index}`}
-                                                                                                            className={eventBadgeClass(
-                                                                                                                'benefit',
-                                                                                                            )}
-                                                                                                        >
-                                                                                                            {t(
-                                                                                                                benefitType,
-                                                                                                            )}
-                                                                                                        </span>
-                                                                                                    ),
-                                                                                                )
-                                                                                            ) : (
-                                                                                                <span className="text-xs text-muted-foreground">
-                                                                                                    —
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-1.5">
-                                                                                            {achievementPrizeMoney(
-                                                                                                participation
-                                                                                                    .achievement
-                                                                                                    ?.benefits,
-                                                                                                promotionsForRow,
-                                                                                            )
-                                                                                                .length >
-                                                                                            0 ? (
-                                                                                                achievementPrizeMoney(
+                                                                                        {achievementBenefits.length ? (
+                                                                                            <div className="space-y-1">
+                                                                                                <div className="flex flex-wrap gap-1.5">
+                                                                                                    {achievementBenefits.map(
+                                                                                                        (
+                                                                                                            benefitType,
+                                                                                                            index,
+                                                                                                        ) => (
+                                                                                                            <span
+                                                                                                                key={`${participation.id}-benefit-${index}`}
+                                                                                                                className={eventBadgeClass(
+                                                                                                                    'benefit',
+                                                                                                                )}
+                                                                                                            >
+                                                                                                                {t(
+                                                                                                                    benefitType,
+                                                                                                                )}
+                                                                                                            </span>
+                                                                                                        ),
+                                                                                                    )}
+                                                                                                </div>
+                                                                                                {achievementPrizeMoney(
                                                                                                     participation
                                                                                                         .achievement
                                                                                                         ?.benefits,
-                                                                                                    promotionsForRow,
+                                                                                                    dedupedPromotionsForRow,
                                                                                                 ).map(
                                                                                                     (
                                                                                                         amount,
@@ -3132,13 +3133,13 @@ export default function MembersShow({
                                                                                                             }
                                                                                                         </div>
                                                                                                     ),
-                                                                                                )
-                                                                                            ) : (
-                                                                                                <span className="text-xs text-muted-foreground">
-                                                                                                    —
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <span className="text-xs text-muted-foreground">
+                                                                                                —
+                                                                                            </span>
+                                                                                        )}
                                                                                     </TableCell>
                                                                                 </TableRow>
                                                                             );
@@ -4449,7 +4450,7 @@ export default function MembersShow({
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-xs font-medium text-muted-foreground">
-                                                {t('Class')}
+                                                {t('Gender')}
                                             </p>
                                             <p>
                                                 {eventClassLabel(
@@ -4762,7 +4763,7 @@ export default function MembersShow({
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-xs font-medium text-muted-foreground">
-                                        {t('Class')}
+                                        {t('Gender')}
                                     </Label>
                                     <Select
                                         value={

@@ -88,11 +88,18 @@ type AchievementRow = {
         name: string;
         tier_code: string | null;
         tier_weight: number | null;
+        tier_label_en?: string | null;
+        tier_label_hi?: string | null;
         date_from: string | null;
         date_to: string | null;
         venue: string | null;
     };
-    event: { id: number; name: string; gender_class?: string | null };
+    event: {
+        id: number;
+        name: string;
+        event_type?: string | null;
+        gender_class?: string | null;
+    };
     benefits: AchievementBenefitRow[];
 };
 type PromotionRow = {
@@ -119,11 +126,18 @@ type PromotionEvidenceRow = {
         id: number;
         name: string;
         tier_code: string | null;
+        tier_label_en?: string | null;
+        tier_label_hi?: string | null;
         date_from: string | null;
         date_to: string | null;
         venue: string | null;
     } | null;
-    event?: { id: number; name: string; gender_class: string | null } | null;
+    event?: {
+        id: number;
+        name: string;
+        gender_class: string | null;
+        event_type?: string | null;
+    } | null;
     achievement?: {
         id: number;
         medal_type: string | null;
@@ -167,6 +181,7 @@ type PromotionEvidenceTableRow = {
     session: ReactNode;
     tournament: ReactNode;
     event: ReactNode;
+    eventType: ReactNode;
     level: ReactNode;
     date: ReactNode;
     gender: ReactNode;
@@ -218,6 +233,7 @@ const UI_LABELS: Record<
     }
 > = {
     Members: { en: 'Members', hi: 'सदस्य' },
+    'S.No.': { en: 'S.No.', hi: 'क्रमांक' },
     Back: { en: 'Back', hi: 'वापस' },
     Print: { en: 'Print', hi: 'प्रिंट' },
     'Print preview': { en: 'Print preview', hi: 'प्रिंट पूर्वावलोकन' },
@@ -338,6 +354,8 @@ const UI_LABELS: Record<
     'Sport event': { en: 'Sport event', hi: 'खेल इवेंट' },
     Notes: { en: 'Notes', hi: 'नोट्स' },
     Team: { en: 'Team', hi: 'टीम' },
+    Individual: { en: 'Individual', hi: 'व्यक्तिगत' },
+    'Event type': { en: 'Event type', hi: 'इवेंट प्रकार' },
     Sport: { en: 'Sport', hi: 'खेल' },
     Session: { en: 'Session', hi: 'सत्र' },
     Role: { en: 'Role', hi: 'भूमिका' },
@@ -444,7 +462,7 @@ function DetailsTable({
 
     return (
         <div className="overflow-hidden rounded-md border print:rounded-sm">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
                 <tbody className="print:text-[10px]">
                     {visibleRows.map((row) => (
                         <tr
@@ -491,9 +509,8 @@ function parseDateValue(value: string): Date | null {
 function formatDateValue(
     value: string | null | undefined,
     locale: string,
-    dateStyle: Intl.DateTimeFormatOptions['dateStyle'] = 'long',
 ): string | null {
-    // Dates are always displayed in English.
+    // Dates are always displayed in plain DD/MM/YYYY, regardless of locale.
     void locale;
 
     if (!value) {
@@ -506,13 +523,15 @@ function formatDateValue(
         return value;
     }
 
-    return new Intl.DateTimeFormat('en-IN', {
-        dateStyle,
-    }).format(date);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+
+    return `${day}/${month}/${year}`;
 }
 
 function formatTimelineTime(value: string, locale: string): string {
-    // Dates are always displayed in English.
+    // Dates are always displayed in plain DD/MM/YYYY, regardless of locale.
     void locale;
 
     const date = parseDateValue(value);
@@ -521,12 +540,21 @@ function formatTimelineTime(value: string, locale: string): string {
         return value;
     }
 
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const datePart = `${day}/${month}/${year}`;
+
     const hasTime = !/^\d{4}-\d{2}-\d{2}$/.test(value);
 
-    return new Intl.DateTimeFormat('en-IN', {
-        dateStyle: 'long',
-        ...(hasTime ? { timeStyle: 'short' as const } : {}),
-    }).format(date);
+    if (!hasTime) {
+        return datePart;
+    }
+
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${datePart} ${hours}:${minutes}`;
 }
 
 const STORY_SUBJECTS: Record<
@@ -730,6 +758,33 @@ function printValue(
     return translated === value ? humanizeCode(value) : translated;
 }
 
+/**
+ * Prefer the admin-configured, locale-specific tournament tier label (from the
+ * tiers master) over guessing a translation from the raw tier code.
+ */
+function tierLabel(
+    tier: {
+        tier_code?: string | null;
+        tier_label_en?: string | null;
+        tier_label_hi?: string | null;
+    } | null,
+    locale: string,
+    t: (key: string) => string,
+): string | number | null {
+    if (!tier) {
+        return null;
+    }
+
+    const configured =
+        locale === 'en' ? tier.tier_label_en : tier.tier_label_hi;
+
+    if (configured) {
+        return configured;
+    }
+
+    return tier.tier_code ? printValue(tier.tier_code, t) : null;
+}
+
 function genderClassLabel(
     value: string | null | undefined,
     t: (key: string) => string,
@@ -806,23 +861,35 @@ function promotionEvidenceTableRows(
     const rows = new Map<string, PromotionEvidenceTableRow>();
 
     for (const evidence of row.evidences) {
-        const result = [
-            evidence.achievement?.medal_type
-                ? printValue(evidence.achievement.medal_type, t)
-                : null,
-            evidence.achievement?.position != null
-                ? `${uiText('Position', locale)}: ${evidence.achievement.position}`
-                : null,
-        ]
-            .filter(Boolean)
-            .join(' · ');
+        const result = evidence.achievement?.medal_type
+            ? printValue(evidence.achievement.medal_type, t)
+            : evidence.achievement?.position != null
+              ? `${uiText('Position', locale)}: ${evidence.achievement.position}`
+              : null;
+
+        const eventType = evidence.event?.event_type
+            ? evidence.event.event_type === 'team'
+                ? uiText('Team', locale)
+                : uiText('Individual', locale)
+            : null;
 
         rows.set(promotionEvidenceKey(evidence), {
             key: promotionEvidenceKey(evidence),
             session: evidence.session?.name,
             tournament: evidence.tournament?.name ?? evidence.summary,
             event: evidence.event?.name,
-            level: evidence.tournament?.tier_code,
+            eventType,
+            level: tierLabel(
+                evidence.tournament
+                    ? {
+                          tier_code: evidence.tournament.tier_code,
+                          tier_label_en: evidence.tournament.tier_label_en,
+                          tier_label_hi: evidence.tournament.tier_label_hi,
+                      }
+                    : null,
+                locale,
+                t,
+            ),
             date: formatDateValue(evidence.tournament?.date_from, locale),
             gender: genderClassLabel(evidence.event?.gender_class, t),
             result,
@@ -848,22 +915,31 @@ function PromotionEvidenceTable({
         <table className="w-full border-collapse text-xs print:text-[9px]">
             <thead className="bg-muted/40 text-left text-[10px] tracking-wide text-muted-foreground uppercase print:text-[8px]">
                 <tr>
-                    <th className="w-8 border p-1.5">
-                        {uiText('S. No.', locale)}
+                    <th className="w-12 border p-1.5 whitespace-nowrap">
+                        {uiText('S.No.', locale)}
                     </th>
-                    <th className="border p-1.5">
+                    <th className="w-16 border p-1.5 whitespace-nowrap">
                         {uiText('Session', locale)}
                     </th>
                     <th className="border p-1.5">
                         {uiText('Tournament', locale)}
                     </th>
                     <th className="border p-1.5">{uiText('Event', locale)}</th>
-                    <th className="border p-1.5">{uiText('Level', locale)}</th>
-                    <th className="border p-1.5">
+                    <th className="w-16 border p-1.5 whitespace-nowrap">
+                        {uiText('Event type', locale)}
+                    </th>
+                    <th className="w-20 border p-1.5 whitespace-nowrap">
+                        {uiText('Level', locale)}
+                    </th>
+                    <th className="w-24 border p-1.5 whitespace-nowrap">
                         {uiText('Event date', locale)}
                     </th>
-                    <th className="border p-1.5">{uiText('Gender', locale)}</th>
-                    <th className="border p-1.5">{uiText('Result', locale)}</th>
+                    <th className="w-14 border p-1.5 whitespace-nowrap">
+                        {uiText('Gender', locale)}
+                    </th>
+                    <th className="border p-1.5 whitespace-nowrap">
+                        {uiText('Result', locale)}
+                    </th>
                     <th className="border p-1.5">{uiText('Venue', locale)}</th>
                 </tr>
             </thead>
@@ -873,17 +949,26 @@ function PromotionEvidenceTable({
                         <td className="border p-1.5 text-center text-muted-foreground">
                             {index + 1}
                         </td>
-                        <td className="border p-1.5 align-top">
+                        <td className="border p-1.5 align-top whitespace-nowrap">
                             {row.session}
                         </td>
                         <td className="border p-1.5 align-top">
                             {row.tournament}
                         </td>
                         <td className="border p-1.5 align-top">{row.event}</td>
-                        <td className="border p-1.5 align-top">{row.level}</td>
-                        <td className="border p-1.5 align-top">{row.date}</td>
-                        <td className="border p-1.5 align-top">{row.gender}</td>
-                        <td className="border p-1.5 align-top font-medium">
+                        <td className="border p-1.5 align-top whitespace-nowrap">
+                            {row.eventType ?? '—'}
+                        </td>
+                        <td className="border p-1.5 align-top whitespace-nowrap">
+                            {row.level}
+                        </td>
+                        <td className="border p-1.5 align-top whitespace-nowrap">
+                            {row.date}
+                        </td>
+                        <td className="border p-1.5 align-top whitespace-nowrap">
+                            {row.gender}
+                        </td>
+                        <td className="border p-1.5 align-top font-medium whitespace-nowrap">
                             {row.result}
                         </td>
                         <td className="border p-1.5 align-top">{row.venue}</td>
@@ -953,6 +1038,72 @@ function countMedals(
             NONE: 0,
         },
     );
+}
+
+const ACHIEVEMENT_TIER_HIERARCHY = new Map<string, number>([
+    ['INTERNATIONAL', 1],
+    ['NATIONAL', 2],
+    ['AIPSC', 3],
+    ['APSC', 3],
+    ['STATE', 4],
+    ['ZONAL', 5],
+]);
+
+function groupAchievementsByTier<
+    T extends { tier: string | null; medal_type?: string | null },
+>(
+    rows: T[],
+): Array<{ tier: string; rows: T[]; summary: ReturnType<typeof countMedals> }> {
+    const groups = new Map<string, { tier: string; rows: T[] }>();
+
+    for (const row of rows) {
+        const tierLabel =
+            row.tier && row.tier.trim() !== '' ? row.tier : 'OTHER';
+        const existing = groups.get(tierLabel);
+
+        if (existing) {
+            existing.rows.push(row);
+        } else {
+            groups.set(tierLabel, { tier: tierLabel, rows: [row] });
+        }
+    }
+
+    return Array.from(groups.values())
+        .sort((a, b) => {
+            const aTier = a.tier.toUpperCase();
+            const bTier = b.tier.toUpperCase();
+            const aIsOther = isOtherTier(aTier);
+            const bIsOther = isOtherTier(bTier);
+
+            if (aIsOther && !bIsOther) {
+                return 1;
+            }
+
+            if (bIsOther && !aIsOther) {
+                return -1;
+            }
+
+            const aHierarchy = ACHIEVEMENT_TIER_HIERARCHY.get(aTier);
+            const bHierarchy = ACHIEVEMENT_TIER_HIERARCHY.get(bTier);
+
+            if (aHierarchy !== undefined && bHierarchy !== undefined) {
+                return aHierarchy - bHierarchy;
+            }
+
+            if (aHierarchy !== undefined) {
+                return -1;
+            }
+
+            if (bHierarchy !== undefined) {
+                return 1;
+            }
+
+            return aTier.localeCompare(bTier);
+        })
+        .map((group) => ({
+            ...group,
+            summary: countMedals(group.rows),
+        }));
 }
 
 function isOtherTier(value: unknown): boolean {
@@ -1049,7 +1200,7 @@ function Timeline({
 
     return (
         <div className="overflow-hidden rounded-md border print:rounded-sm">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
                 <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                     <tr>
                         <th className="p-2">{uiText('Subject', locale)}</th>
@@ -1148,11 +1299,23 @@ export default function PrintPreview({
             id: `normal-${row.id}`,
             session: row.session.name,
             tier: row.tournament.tier_code,
+            tierDisplay: tierLabel(
+                {
+                    tier_code: row.tournament.tier_code,
+                    tier_label_en: row.tournament.tier_label_en,
+                    tier_label_hi: row.tournament.tier_label_hi,
+                },
+                locale,
+                t,
+            ),
             tournament: row.tournament.name,
             event: row.event.name,
+            eventType:
+                row.event.event_type === 'team'
+                    ? uiText('Team', locale)
+                    : uiText('Individual', locale),
             eventDate: row.tournament.date_from,
             venue: row.tournament.venue,
-            sport: null,
             genderClass: genderClassLabel(row.event.gender_class, t),
             position: row.position ?? row.participation_position,
             medal_type: row.medal_type,
@@ -1165,6 +1328,7 @@ export default function PrintPreview({
         (row) => !isOtherTier(row.tier),
     );
     const achievementSummary = countMedals(countableAchievementRows);
+    const achievementTierGroups = groupAchievementsByTier(achievementRows);
     const specialAchievementRows = specialAchievements?.records ?? [];
     const promotionRows = (promotions ?? []).filter(hasPromotionFields);
     const rewardRows = (promotions ?? []).filter(hasRewardFields);
@@ -1469,7 +1633,6 @@ export default function PrintPreview({
                                                 value: formatDateValue(
                                                     member.dob,
                                                     locale,
-                                                    'long',
                                                 ),
                                             },
                                             {
@@ -1620,7 +1783,7 @@ export default function PrintPreview({
                                     </p>
                                 ) : (
                                     <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                        <table className="w-full text-sm">
+                                        <table className="w-full text-xs">
                                             <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                 <tr>
                                                     <th className="p-2">
@@ -1777,7 +1940,7 @@ export default function PrintPreview({
                                     </p>
                                 ) : (
                                     <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                        <table className="w-full text-sm">
+                                        <table className="w-full text-xs">
                                             <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                 <tr>
                                                     <th className="p-2">
@@ -1904,7 +2067,7 @@ export default function PrintPreview({
                                     </p>
                                 ) : (
                                     <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                        <table className="w-full text-sm">
+                                        <table className="w-full text-xs">
                                             <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                 <tr>
                                                     <th className="p-2">
@@ -2037,11 +2200,14 @@ export default function PrintPreview({
                                             </div>
                                         </div>
                                         <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                            <table className="w-full text-sm">
+                                            <table className="w-full text-xs">
                                                 <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                     <tr>
                                                         <th className="w-10 p-2 align-top">
-                                                            #
+                                                            {uiText(
+                                                                'S.No.',
+                                                                locale,
+                                                            )}
                                                         </th>
                                                         <th className="p-2 align-top">
                                                             {uiText(
@@ -2049,19 +2215,43 @@ export default function PrintPreview({
                                                                 locale,
                                                             )}
                                                         </th>
-                                                        <th className="w-[18%] p-2 align-top">
+                                                        <th className="w-[10%] p-2 align-top">
                                                             {uiText(
                                                                 'Session',
                                                                 locale,
                                                             )}
                                                         </th>
-                                                        <th className="w-[22%] p-2 align-top">
+                                                        <th className="p-2 align-top">
+                                                            {uiText(
+                                                                'Event',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                        <th className="w-[9%] p-2 align-top whitespace-nowrap">
+                                                            {uiText(
+                                                                'Event type',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                        <th className="w-[8%] p-2 align-top whitespace-nowrap">
+                                                            {uiText(
+                                                                'Gender',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                        <th className="w-[12%] p-2 align-top whitespace-nowrap">
                                                             {uiText(
                                                                 'Event date',
                                                                 locale,
                                                             )}
                                                         </th>
-                                                        <th className="w-[22%] p-2 align-top">
+                                                        <th className="w-[14%] p-2 align-top">
+                                                            {uiText(
+                                                                'Venue',
+                                                                locale,
+                                                            )}
+                                                        </th>
+                                                        <th className="w-[10%] p-2 align-top">
                                                             {uiText(
                                                                 'Result',
                                                                 locale,
@@ -2070,120 +2260,127 @@ export default function PrintPreview({
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y print:text-[10px]">
-                                                    {achievementRows.map(
-                                                        (row, index) => {
-                                                            const eventLine = [
-                                                                row.event,
-                                                                row.sport,
-                                                                row.genderClass,
-                                                            ]
-                                                                .filter(
-                                                                    hasPrintableValue,
-                                                                )
-                                                                .join(' · ');
-
-                                                            const sessionLine =
-                                                                [
-                                                                    row.session,
-                                                                    printValue(
-                                                                        row.tier,
-                                                                        t,
-                                                                    ),
-                                                                ]
-                                                                    .filter(
-                                                                        hasPrintableValue,
-                                                                    )
-                                                                    .join(
-                                                                        ' · ',
-                                                                    );
-
-                                                            const placeLine = [
-                                                                formatDateValue(
-                                                                    row.eventDate,
-                                                                    locale,
-                                                                ),
-                                                                row.venue,
-                                                            ]
-                                                                .filter(
-                                                                    hasPrintableValue,
-                                                                )
-                                                                .join(' · ');
-
-                                                            const resultLine = [
-                                                                printValue(
-                                                                    row.medal_type,
-                                                                    t,
-                                                                ),
-                                                                row.position
-                                                                    ? `${uiText('Position', locale)}: ${row.position}`
-                                                                    : null,
-                                                            ]
-                                                                .filter(
-                                                                    hasPrintableValue,
-                                                                )
-                                                                .join(' · ');
-
-                                                            return (
-                                                                <tr
-                                                                    key={row.id}
-                                                                    className="align-top odd:bg-muted/10 print:break-inside-avoid"
-                                                                >
-                                                                    <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
-                                                                        {index +
-                                                                            1}
-                                                                    </td>
-                                                                    <td className="p-3 align-top print:p-2">
-                                                                        <div className="leading-5 font-medium break-words text-foreground print:leading-4">
-                                                                            {
-                                                                                row.tournament
-                                                                            }
-                                                                        </div>
-                                                                        {eventLine && (
-                                                                            <div className="mt-1 text-xs leading-4 break-words text-muted-foreground print:text-[9px]">
-                                                                                {
-                                                                                    eventLine
-                                                                                }
-                                                                            </div>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
-                                                                        {
-                                                                            sessionLine
+                                                    {achievementTierGroups.map(
+                                                        (group) => (
+                                                            <Fragment
+                                                                key={group.tier}
+                                                            >
+                                                                <tr className="bg-muted/30 print:break-inside-avoid">
+                                                                    <td
+                                                                        colSpan={
+                                                                            9
                                                                         }
-                                                                    </td>
-                                                                    <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                        className="p-2 text-xs font-semibold tracking-wide text-foreground uppercase print:p-1.5 print:text-[9px]"
+                                                                    >
+                                                                        {group
+                                                                            .rows[0]
+                                                                            ?.tierDisplay ??
+                                                                            printValue(
+                                                                                group.tier,
+                                                                                t,
+                                                                            )}{' '}
+                                                                        ·{' '}
                                                                         {
-                                                                            placeLine
+                                                                            group
+                                                                                .rows
+                                                                                .length
                                                                         }
-                                                                    </td>
-                                                                    <td className="p-3 align-top print:p-2">
-                                                                        {resultLine && (
-                                                                            <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
-                                                                                {
-                                                                                    resultLine
-                                                                                }
-                                                                            </div>
-                                                                        )}
-                                                                        {showAchievementRemarks &&
-                                                                            hasPrintableValue(
-                                                                                row.remarks,
-                                                                            ) && (
-                                                                                <div className="mt-1 text-xs leading-4 break-words text-muted-foreground print:text-[9px]">
-                                                                                    {uiText(
-                                                                                        'Remarks',
-                                                                                        locale,
-                                                                                    )}
-
-                                                                                    :{' '}
-                                                                                    {
-                                                                                        row.remarks
-                                                                                    }
-                                                                                </div>
-                                                                            )}
                                                                     </td>
                                                                 </tr>
-                                                            );
-                                                        },
+                                                                {group.rows.map(
+                                                                    (
+                                                                        row,
+                                                                        index,
+                                                                    ) => {
+                                                                        const resultLine =
+                                                                            row.medal_type
+                                                                                ? printValue(
+                                                                                      row.medal_type,
+                                                                                      t,
+                                                                                  )
+                                                                                : row.position
+                                                                                  ? `${uiText('Position', locale)}: ${row.position}`
+                                                                                  : null;
+
+                                                                        return (
+                                                                            <tr
+                                                                                key={
+                                                                                    row.id
+                                                                                }
+                                                                                className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                                            >
+                                                                                <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                                    {index +
+                                                                                        1}
+                                                                                </td>
+                                                                                <td className="p-3 align-top print:p-2">
+                                                                                    <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                                        {
+                                                                                            row.tournament
+                                                                                        }
+                                                                                    </div>
+                                                                                    {showAchievementRemarks &&
+                                                                                        hasPrintableValue(
+                                                                                            row.remarks,
+                                                                                        ) && (
+                                                                                            <div className="mt-1 text-xs leading-4 break-words text-muted-foreground print:text-[9px]">
+                                                                                                {uiText(
+                                                                                                    'Remarks',
+                                                                                                    locale,
+                                                                                                )}
+
+                                                                                                :{' '}
+                                                                                                {
+                                                                                                    row.remarks
+                                                                                                }
+                                                                                            </div>
+                                                                                        )}
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                    {
+                                                                                        row.session
+                                                                                    }
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                    {
+                                                                                        row.event
+                                                                                    }
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs leading-4 whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                                                    {
+                                                                                        row.eventType
+                                                                                    }
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs leading-4 whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                                                    {row.genderClass ??
+                                                                                        '—'}
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs leading-4 whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                                                    {formatDateValue(
+                                                                                        row.eventDate,
+                                                                                        locale,
+                                                                                    ) ??
+                                                                                        '—'}
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                    {row.venue ??
+                                                                                        '—'}
+                                                                                </td>
+                                                                                <td className="p-3 align-top print:p-2">
+                                                                                    {resultLine && (
+                                                                                        <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
+                                                                                            {
+                                                                                                resultLine
+                                                                                            }
+                                                                                        </div>
+                                                                                    )}
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    },
+                                                                )}
+                                                            </Fragment>
+                                                        ),
                                                     )}
                                                 </tbody>
                                             </table>
@@ -2206,7 +2403,7 @@ export default function PrintPreview({
                                     </p>
                                 ) : (
                                     <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                        <table className="w-full text-sm">
+                                        <table className="w-full text-xs">
                                             <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                 <tr>
                                                     <th className="p-2">
@@ -2349,11 +2546,14 @@ export default function PrintPreview({
                                                 </p>
                                             ) : (
                                                 <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                                    <table className="w-full text-sm">
+                                                    <table className="w-full text-xs">
                                                         <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                             <tr>
                                                                 <th className="w-10 p-2 align-top">
-                                                                    #
+                                                                    {uiText(
+                                                                        'S.No.',
+                                                                        locale,
+                                                                    )}
                                                                 </th>
                                                                 <th className="p-2 align-top">
                                                                     {uiText(
@@ -2405,27 +2605,11 @@ export default function PrintPreview({
                                                                                     : null,
                                                                                 muted: true,
                                                                             },
-                                                                            {
-                                                                                label: uiText(
-                                                                                    'Evidence',
-                                                                                    locale,
-                                                                                ),
-                                                                                value:
-                                                                                    showPromotionEvidence &&
-                                                                                    evidenceRows.length >
-                                                                                        0 ? (
-                                                                                        <PromotionEvidenceTable
-                                                                                            rows={
-                                                                                                evidenceRows
-                                                                                            }
-                                                                                            locale={
-                                                                                                locale
-                                                                                            }
-                                                                                        />
-                                                                                    ) : null,
-                                                                                muted: true,
-                                                                            },
                                                                         ];
+                                                                    const hasEvidence =
+                                                                        showPromotionEvidence &&
+                                                                        evidenceRows.length >
+                                                                            0;
                                                                     const hasDetails =
                                                                         detailItems.some(
                                                                             (
@@ -2434,7 +2618,8 @@ export default function PrintPreview({
                                                                                 hasPrintableValue(
                                                                                     item.value,
                                                                                 ),
-                                                                        );
+                                                                        ) ||
+                                                                        hasEvidence;
 
                                                                     return (
                                                                         <Fragment
@@ -2447,9 +2632,12 @@ export default function PrintPreview({
                                                                                 </td>
                                                                                 <td className="p-3 align-top print:p-2">
                                                                                     <div className="leading-5 font-medium break-words text-foreground print:leading-4">
-                                                                                        {
-                                                                                            row.to_rank
-                                                                                        }
+                                                                                        {resolveRankLabel(
+                                                                                            row.to_rank,
+                                                                                            ranks ??
+                                                                                                [],
+                                                                                            locale,
+                                                                                        )}
                                                                                     </div>
                                                                                     {showPromotionFromRank &&
                                                                                         hasPrintableValue(
@@ -2462,9 +2650,12 @@ export default function PrintPreview({
                                                                                                 )}
 
                                                                                                 :{' '}
-                                                                                                {
-                                                                                                    row.from_rank
-                                                                                                }
+                                                                                                {resolveRankLabel(
+                                                                                                    row.from_rank,
+                                                                                                    ranks ??
+                                                                                                        [],
+                                                                                                    locale,
+                                                                                                )}
                                                                                             </div>
                                                                                         )}
                                                                                 </td>
@@ -2493,6 +2684,24 @@ export default function PrintPreview({
                                                                                                 detailItems
                                                                                             }
                                                                                         />
+                                                                                        {hasEvidence && (
+                                                                                            <div className="mt-2 space-y-1">
+                                                                                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                                                                    {uiText(
+                                                                                                        'Evidence',
+                                                                                                        locale,
+                                                                                                    )}
+                                                                                                </p>
+                                                                                                <PromotionEvidenceTable
+                                                                                                    rows={
+                                                                                                        evidenceRows
+                                                                                                    }
+                                                                                                    locale={
+                                                                                                        locale
+                                                                                                    }
+                                                                                                />
+                                                                                            </div>
+                                                                                        )}
                                                                                     </td>
                                                                                 </tr>
                                                                             )}
@@ -2519,14 +2728,17 @@ export default function PrintPreview({
                                                 </p>
                                             ) : (
                                                 <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                                    <table className="w-full text-sm">
+                                                    <table className="w-full text-xs">
                                                         <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                             <tr>
                                                                 <th className="w-10 p-2 align-top">
-                                                                    #
+                                                                    {uiText(
+                                                                        'S.No.',
+                                                                        locale,
+                                                                    )}
                                                                 </th>
                                                                 {showRewardAmount && (
-                                                                    <th className="p-2 align-top">
+                                                                    <th className="w-[35%] p-2 align-top">
                                                                         {uiText(
                                                                             'Cash reward amount',
                                                                             locale,
@@ -2534,7 +2746,7 @@ export default function PrintPreview({
                                                                     </th>
                                                                 )}
                                                                 {showRewardDate && (
-                                                                    <th className="w-[22%] p-2 align-top">
+                                                                    <th className="w-[25%] p-2 align-top">
                                                                         {uiText(
                                                                             'Cash reward date',
                                                                             locale,
@@ -2577,27 +2789,11 @@ export default function PrintPreview({
                                                                                     : null,
                                                                                 muted: true,
                                                                             },
-                                                                            {
-                                                                                label: uiText(
-                                                                                    'Evidence',
-                                                                                    locale,
-                                                                                ),
-                                                                                value:
-                                                                                    showRewardEvidence &&
-                                                                                    evidenceRows.length >
-                                                                                        0 ? (
-                                                                                        <PromotionEvidenceTable
-                                                                                            rows={
-                                                                                                evidenceRows
-                                                                                            }
-                                                                                            locale={
-                                                                                                locale
-                                                                                            }
-                                                                                        />
-                                                                                    ) : null,
-                                                                                muted: true,
-                                                                            },
                                                                         ];
+                                                                    const hasEvidence =
+                                                                        showRewardEvidence &&
+                                                                        evidenceRows.length >
+                                                                            0;
                                                                     const hasDetails =
                                                                         detailItems.some(
                                                                             (
@@ -2606,7 +2802,8 @@ export default function PrintPreview({
                                                                                 hasPrintableValue(
                                                                                     item.value,
                                                                                 ),
-                                                                        );
+                                                                        ) ||
+                                                                        hasEvidence;
 
                                                                     return (
                                                                         <Fragment
@@ -2652,6 +2849,24 @@ export default function PrintPreview({
                                                                                                 detailItems
                                                                                             }
                                                                                         />
+                                                                                        {hasEvidence && (
+                                                                                            <div className="mt-2 space-y-1">
+                                                                                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                                                                    {uiText(
+                                                                                                        'Evidence',
+                                                                                                        locale,
+                                                                                                    )}
+                                                                                                </p>
+                                                                                                <PromotionEvidenceTable
+                                                                                                    rows={
+                                                                                                        evidenceRows
+                                                                                                    }
+                                                                                                    locale={
+                                                                                                        locale
+                                                                                                    }
+                                                                                                />
+                                                                                            </div>
+                                                                                        )}
                                                                                     </td>
                                                                                 </tr>
                                                                             )}
@@ -2707,7 +2922,7 @@ export default function PrintPreview({
                                     </p>
                                 ) : (
                                     <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                        <table className="w-full text-sm">
+                                        <table className="w-full text-xs">
                                             <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                 <tr>
                                                     <th className="p-2">

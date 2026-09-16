@@ -60,6 +60,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-translation';
+import { resolveRankLabel as resolveRankLabelShared } from '@/lib/ranks';
 
 export type RankOption = {
     id?: number;
@@ -92,9 +93,14 @@ export type CoachPromotionEvidence = {
         gender_class?: string | null;
         discipline?: string | null;
         weight_category?: string | null;
+        event_type?: string | null;
     } | null;
     team?: { id: number; name: string } | null;
-    achievement?: { id: number; medal_type: string; position?: number | null } | null;
+    achievement?: {
+        id: number;
+        medal_type: string;
+        position?: number | null;
+    } | null;
 };
 
 export type CoachPromotion = {
@@ -169,7 +175,12 @@ export type CoachedSessionOption = {
 type Props = {
     coach: {
         id: number;
-        rank_master?: { id: number; code: string | null; name: string; short_name?: string | null } | null;
+        rank_master?: {
+            id: number;
+            code: string | null;
+            name: string;
+            short_name?: string | null;
+        } | null;
         rank_master_id?: number | null;
         full_name?: string;
     };
@@ -196,23 +207,31 @@ function getCsrfToken(): string {
     return meta?.getAttribute('content') ?? '';
 }
 
-function resolveRankLabel(value: string | null | undefined, ranks: RankOption[]): string {
-    if (!value) {
-        return '—';
-    }
+function resolveRankLabel(
+    value: string | null | undefined,
+    ranks: RankOption[],
+): string {
+    // Delegates to the shared rank resolver (@/lib/ranks) so rank matching stays in one
+    // place; locale is accepted but currently unused by the shared implementation.
+    const normalizedRanks = ranks.map((rank) => ({
+        code: rank.code,
+        name: rank.name,
+        short_name: rank.short_name ?? null,
+    }));
 
-    const rank = ranks.find(
-        (r) => r.code === value || r.name === value || r.short_name === value,
-    );
-
-    return rank ? rank.name : value;
+    return resolveRankLabelShared(value, normalizedRanks, '') || '—';
 }
 
 function rankOrderByCode(ranks: RankOption[]): Map<string, number> {
-    return new Map(ranks.map((rank, index) => [rank.code, rank.rank_order ?? index]));
+    return new Map(
+        ranks.map((rank, index) => [rank.code, rank.rank_order ?? index]),
+    );
 }
 
-function resolveRankOrder(rankOrderLookup: Map<string, number>, rankValue: string | null | undefined): number | null {
+function resolveRankOrder(
+    rankOrderLookup: Map<string, number>,
+    rankValue: string | null | undefined,
+): number | null {
     if (!rankValue) {
         return null;
     }
@@ -275,7 +294,11 @@ function formatDateDisplay(value?: string | null): string {
 // Inline Rank Dialog
 // ---------------------------------------------------------------------------
 
-function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void }) {
+function InlineRankDialog({
+    onCreated,
+}: {
+    onCreated: (rank: RankOption) => void;
+}) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -289,7 +312,10 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
         is_active: true,
     });
 
-    function setField<K extends keyof InlineRankPayload>(field: K, value: InlineRankPayload[K]) {
+    function setField<K extends keyof InlineRankPayload>(
+        field: K,
+        value: InlineRankPayload[K],
+    ) {
         setData((prev) => ({ ...prev, [field]: value }));
     }
 
@@ -318,7 +344,9 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
 
             if (!response.ok) {
                 if (response.status === 422) {
-                    const json = (await response.json()) as { errors: Record<string, string[]> };
+                    const json = (await response.json()) as {
+                        errors: Record<string, string[]>;
+                    };
                     const normalized: Record<string, string> = {};
 
                     for (const [key, messages] of Object.entries(json.errors)) {
@@ -366,46 +394,70 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
                 <DialogHeader>
                     <DialogTitle>{t('Add new rank')}</DialogTitle>
                     <DialogDescription>
-                        {t('Create a new rank master record quickly for this promotion.')}
+                        {t(
+                            'Create a new rank master record quickly for this promotion.',
+                        )}
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 pt-2">
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                            <Label htmlFor="inline-rank-code" className="text-xs">
-                                {t('Rank code')} <span className="text-destructive">*</span>
+                            <Label
+                                htmlFor="inline-rank-code"
+                                className="text-xs"
+                            >
+                                {t('Rank code')}{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="inline-rank-code"
                                 value={data.code}
-                                onChange={(e) => setField('code', e.target.value.toUpperCase())}
+                                onChange={(e) =>
+                                    setField(
+                                        'code',
+                                        e.target.value.toUpperCase(),
+                                    )
+                                }
                                 placeholder="e.g. SI"
                                 className="h-8 text-xs uppercase"
                             />
-                            {errors.code && <p className="text-[11px] text-destructive">{errors.code}</p>}
+                            {errors.code && (
+                                <p className="text-[11px] text-destructive">
+                                    {errors.code}
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="inline-rank-order" className="text-xs">
-                                {t('Rank order')} <span className="text-destructive">*</span>
+                            <Label
+                                htmlFor="inline-rank-order"
+                                className="text-xs"
+                            >
+                                {t('Rank order')}{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
                             <Input
                                 id="inline-rank-order"
                                 type="number"
                                 min={1}
                                 value={data.rank_order}
-                                onChange={(e) => setField('rank_order', e.target.value)}
+                                onChange={(e) =>
+                                    setField('rank_order', e.target.value)
+                                }
                                 placeholder="e.g. 5"
                                 className="h-8 text-xs"
                             />
                             {errors.rank_order && (
-                                <p className="text-[11px] text-destructive">{errors.rank_order}</p>
+                                <p className="text-[11px] text-destructive">
+                                    {errors.rank_order}
+                                </p>
                             )}
                         </div>
                     </div>
 
                     <div className="space-y-1">
                         <Label htmlFor="inline-rank-name" className="text-xs">
-                            {t('Rank name')} <span className="text-destructive">*</span>
+                            {t('Rank name')}{' '}
+                            <span className="text-destructive">*</span>
                         </Label>
                         <Input
                             id="inline-rank-name"
@@ -414,7 +466,11 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
                             placeholder="e.g. Sub Inspector"
                             className="h-8 text-xs"
                         />
-                        {errors.name && <p className="text-[11px] text-destructive">{errors.name}</p>}
+                        {errors.name && (
+                            <p className="text-[11px] text-destructive">
+                                {errors.name}
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-1">
@@ -424,12 +480,16 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
                         <Input
                             id="inline-rank-short"
                             value={data.short_name}
-                            onChange={(e) => setField('short_name', e.target.value)}
+                            onChange={(e) =>
+                                setField('short_name', e.target.value)
+                            }
                             placeholder="e.g. S.I."
                             className="h-8 text-xs"
                         />
                         {errors.short_name && (
-                            <p className="text-[11px] text-destructive">{errors.short_name}</p>
+                            <p className="text-[11px] text-destructive">
+                                {errors.short_name}
+                            </p>
                         )}
                     </div>
 
@@ -438,7 +498,9 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
                             <input
                                 type="checkbox"
                                 checked={data.is_gazetted}
-                                onChange={(e) => setField('is_gazetted', e.target.checked)}
+                                onChange={(e) =>
+                                    setField('is_gazetted', e.target.checked)
+                                }
                                 className="rounded border-input text-primary"
                             />
                             <span>{t('Gazetted officer')}</span>
@@ -447,7 +509,9 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
                             <input
                                 type="checkbox"
                                 checked={data.is_active}
-                                onChange={(e) => setField('is_active', e.target.checked)}
+                                onChange={(e) =>
+                                    setField('is_active', e.target.checked)
+                                }
                                 className="rounded border-input text-primary"
                             />
                             <span>{t('Active')}</span>
@@ -465,7 +529,9 @@ function InlineRankDialog({ onCreated }: { onCreated: (rank: RankOption) => void
                             {t('Cancel')}
                         </Button>
                         <Button type="submit" size="sm" disabled={saving}>
-                            {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                            {saving && (
+                                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                            )}
                             {t('Save rank')}
                         </Button>
                     </DialogFooter>
@@ -498,7 +564,8 @@ function EvidenceSummaryCell({
             <div className="flex flex-wrap items-center gap-1.5">
                 {firstTwo.map((row, idx) => {
                     const medal = row.achievement?.medal_type;
-                    const eventName = row.event?.name ?? row.team?.name ?? t('Event');
+                    const eventName =
+                        row.event?.name ?? row.team?.name ?? t('Event');
                     const tournamentName = row.tournament?.name;
 
                     return (
@@ -511,7 +578,9 @@ function EvidenceSummaryCell({
                             }
                             className="inline-flex max-w-[170px] items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-700 shadow-2xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                         >
-                            <span className="shrink-0">{medalEmoji(medal)}</span>
+                            <span className="shrink-0">
+                                {medalEmoji(medal)}
+                            </span>
                             <span className="truncate">{eventName}</span>
                         </span>
                     );
@@ -530,13 +599,21 @@ function EvidenceSummaryCell({
                             </p>
                             {remaining.map((row, idx) => {
                                 const medal = row.achievement?.medal_type;
-                                const eventName = row.event?.name ?? row.team?.name ?? t('Event');
+                                const eventName =
+                                    row.event?.name ??
+                                    row.team?.name ??
+                                    t('Event');
                                 const tournamentName = row.tournament?.name;
 
                                 return (
-                                    <div key={idx} className="flex items-center gap-1.5 text-left">
+                                    <div
+                                        key={idx}
+                                        className="flex items-center gap-1.5 text-left"
+                                    >
                                         <span>{medalEmoji(medal)}</span>
-                                        <span className="font-medium text-foreground">{eventName}</span>
+                                        <span className="font-medium text-foreground">
+                                            {eventName}
+                                        </span>
                                         {tournamentName && (
                                             <span className="text-muted-foreground">
                                                 ({tournamentName})
@@ -603,7 +680,10 @@ export function CoachPromotionDialog({
             team_id: number;
             team_name: string;
             medal_counts: Record<string, number>;
-            players?: Array<{ member: { id: number; full_name: string; pno?: string }; medal_type?: string }>;
+            players?: Array<{
+                member: { id: number; full_name: string; pno?: string };
+                medal_type?: string;
+            }>;
             used_in_promotion?: boolean;
             used_promotion_id?: number | null;
             used_in_reward?: boolean;
@@ -665,10 +745,14 @@ export function CoachPromotionDialog({
 
         return promotion.evidences
             .filter((e) => e.team_id !== null)
-            .map((e) => `${e.session_id}:${e.tournament_id}:${e.event_id ?? 0}:${e.team_id}`);
+            .map(
+                (e) =>
+                    `${e.session_id}:${e.tournament_id}:${e.event_id ?? 0}:${e.team_id}`,
+            );
     }, [promotion]);
 
-    const [selectedKeys, setSelectedKeys] = useState<string[]>(defaultSelectedKeys);
+    const [selectedKeys, setSelectedKeys] =
+        useState<string[]>(defaultSelectedKeys);
 
     // Form
     const form = useForm({
@@ -686,10 +770,14 @@ export function CoachPromotionDialog({
     // Reset when modal opens
     React.useEffect(() => {
         if (open) {
-            setActionType(promotion?.cash_reward_amount ? 'reward' : initialMode);
+            /* eslint-disable react-hooks/set-state-in-effect */
+            setActionType(
+                promotion?.cash_reward_amount ? 'reward' : initialMode,
+            );
             setSelectedKeys(defaultSelectedKeys);
             setDocumentFile(null);
             setDocumentError(null);
+            /* eslint-enable react-hooks/set-state-in-effect */
             form.setData({
                 promotion_date: promotion?.promotion_date ?? '',
                 from_rank: promotion?.from_rank ?? currentCoachRankCode,
@@ -703,7 +791,14 @@ export function CoachPromotionDialog({
             });
             form.clearErrors();
         }
-    }, [open, promotion, initialMode, defaultSelectedKeys, currentCoachRankCode]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        open,
+        promotion,
+        initialMode,
+        defaultSelectedKeys,
+        currentCoachRankCode,
+    ]);
 
     // Available ranks for Combobox — only ranks strictly senior to the current rank are promotable
     const rankOrderLookup = useMemo(() => rankOrderByCode(ranks), [ranks]);
@@ -725,14 +820,26 @@ export function CoachPromotionDialog({
         return items.filter((item) => {
             const order = resolveRankOrder(rankOrderLookup, item.value);
 
-            return item.value === form.data.to_rank || (order !== null && order > fromRankOrder);
+            return (
+                item.value === form.data.to_rank ||
+                (order !== null && order > fromRankOrder)
+            );
         });
-    }, [ranks, rankOrderLookup, form.data.from_rank, form.data.to_rank, currentCoachRankCode]);
+    }, [
+        ranks,
+        rankOrderLookup,
+        form.data.from_rank,
+        form.data.to_rank,
+        currentCoachRankCode,
+    ]);
 
     // Filtered evidence items
     const filteredEvidenceItems = useMemo(() => {
         return allEvidenceItems.filter((item) => {
-            if (selectedSessionId !== 'all' && String(item.session_id) !== selectedSessionId) {
+            if (
+                selectedSessionId !== 'all' &&
+                String(item.session_id) !== selectedSessionId
+            ) {
                 return false;
             }
 
@@ -792,8 +899,14 @@ export function CoachPromotionDialog({
         let hasError = false;
 
         if (!isRewardAction) {
-            if (!form.data.promotion_date || form.data.promotion_date.trim() === '') {
-                form.setError('promotion_date', t('The promotion date is required.'));
+            if (
+                !form.data.promotion_date ||
+                form.data.promotion_date.trim() === ''
+            ) {
+                form.setError(
+                    'promotion_date',
+                    t('The promotion date is required.'),
+                );
                 hasError = true;
             }
 
@@ -802,18 +915,36 @@ export function CoachPromotionDialog({
                 hasError = true;
             }
         } else {
-            if (!form.data.cash_reward_amount || Number(form.data.cash_reward_amount) <= 0) {
-                form.setError('cash_reward_amount', t('The cash reward amount is required.'));
+            if (
+                !form.data.cash_reward_amount ||
+                Number(form.data.cash_reward_amount) <= 0
+            ) {
+                form.setError(
+                    'cash_reward_amount',
+                    t('The cash reward amount is required.'),
+                );
                 hasError = true;
             }
 
-            if (!form.data.cash_reward_date || form.data.cash_reward_date.trim() === '') {
-                form.setError('cash_reward_date', t('The cash reward date is required.'));
+            if (
+                !form.data.cash_reward_date ||
+                form.data.cash_reward_date.trim() === ''
+            ) {
+                form.setError(
+                    'cash_reward_date',
+                    t('The cash reward date is required.'),
+                );
                 hasError = true;
             }
 
-            if (!form.data.cash_reward_reference || form.data.cash_reward_reference.trim() === '') {
-                form.setError('cash_reward_reference', t('The cash reward reference is required.'));
+            if (
+                !form.data.cash_reward_reference ||
+                form.data.cash_reward_reference.trim() === ''
+            ) {
+                form.setError(
+                    'cash_reward_reference',
+                    t('The cash reward reference is required.'),
+                );
                 hasError = true;
             }
         }
@@ -829,7 +960,9 @@ export function CoachPromotionDialog({
         setIsSubmitting(true);
 
         const evidencesPayload = selectedKeys.map((key) => {
-            const [sessionId, tournamentId, eventId, teamId] = key.split(':').map(Number);
+            const [sessionId, tournamentId, eventId, teamId] = key
+                .split(':')
+                .map(Number);
 
             return {
                 session_id: sessionId,
@@ -840,13 +973,25 @@ export function CoachPromotionDialog({
         });
 
         const payload = {
-            promotion_date: isRewardAction ? null : form.data.promotion_date || null,
-            from_rank: isRewardAction ? null : form.data.from_rank || currentCoachRankCode,
+            promotion_date: isRewardAction
+                ? null
+                : form.data.promotion_date || null,
+            from_rank: isRewardAction
+                ? null
+                : form.data.from_rank || currentCoachRankCode,
             to_rank: isRewardAction ? null : form.data.to_rank || null,
-            cash_reward_amount: isRewardAction ? form.data.cash_reward_amount || null : null,
-            cash_reward_date: isRewardAction ? form.data.cash_reward_date || null : null,
-            cash_reward_reference: isRewardAction ? form.data.cash_reward_reference || null : null,
-            cash_reward_remarks: isRewardAction ? form.data.cash_reward_remarks || null : null,
+            cash_reward_amount: isRewardAction
+                ? form.data.cash_reward_amount || null
+                : null,
+            cash_reward_date: isRewardAction
+                ? form.data.cash_reward_date || null
+                : null,
+            cash_reward_reference: isRewardAction
+                ? form.data.cash_reward_reference || null
+                : null,
+            cash_reward_remarks: isRewardAction
+                ? form.data.cash_reward_remarks || null
+                : null,
             reason: isRewardAction ? null : form.data.reason || null,
             remarks: isRewardAction ? null : form.data.remarks || null,
             evidences: evidencesPayload,
@@ -854,20 +999,24 @@ export function CoachPromotionDialog({
         };
 
         if (promotion) {
-            router.patch(`/coaches/${coach.id}/promotions/${promotion.id}`, payload, {
-                onSuccess: () => {
-                    setIsSubmitting(false);
-                    onOpenChange(false);
-                    onSaved?.();
-                },
-                onError: (errors) => {
-                    setIsSubmitting(false);
+            router.patch(
+                `/coaches/${coach.id}/promotions/${promotion.id}`,
+                payload,
+                {
+                    onSuccess: () => {
+                        setIsSubmitting(false);
+                        onOpenChange(false);
+                        onSaved?.();
+                    },
+                    onError: (errors) => {
+                        setIsSubmitting(false);
 
-                    if (errors.document) {
-                        setDocumentError(errors.document);
-                    }
+                        if (errors.document) {
+                            setDocumentError(errors.document);
+                        }
+                    },
                 },
-            });
+            );
 
             return;
         }
@@ -929,8 +1078,12 @@ export function CoachPromotionDialog({
                                 className="mt-0.5 text-xs text-muted-foreground"
                             >
                                 {isRewardAction
-                                    ? t('Record sanctioned cash reward for meritorious tournament performance.')
-                                    : t('Promote coach to a higher rank based on verified tournament achievements.')}
+                                    ? t(
+                                          'Record sanctioned cash reward for meritorious tournament performance.',
+                                      )
+                                    : t(
+                                          'Promote coach to a higher rank based on verified tournament achievements.',
+                                      )}
                             </DialogDescription>
                         </div>
                     </div>
@@ -961,7 +1114,9 @@ export function CoachPromotionDialog({
                                     <div className="flex h-5 items-center justify-between">
                                         <Label className="text-xs font-semibold">
                                             {t('Cash reward amount')}{' '}
-                                            <span className="text-destructive">*</span>
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
                                         </Label>
                                     </div>
                                     <div className="relative">
@@ -974,26 +1129,37 @@ export function CoachPromotionDialog({
                                             min="0.01"
                                             value={form.data.cash_reward_amount}
                                             onChange={(e) =>
-                                                form.setData('cash_reward_amount', e.target.value)
+                                                form.setData(
+                                                    'cash_reward_amount',
+                                                    e.target.value,
+                                                )
                                             }
                                             placeholder="50000"
                                             className="h-9 pl-7 text-xs font-medium"
                                         />
                                     </div>
-                                    <InputError message={form.errors.cash_reward_amount} />
+                                    <InputError
+                                        message={form.errors.cash_reward_amount}
+                                    />
                                 </div>
                                 <div className="grid gap-1.5">
                                     <div className="flex h-5 items-center justify-between">
                                         <Label className="text-xs font-semibold">
                                             {t('Cash reward date')}{' '}
-                                            <span className="text-destructive">*</span>
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
                                         </Label>
                                     </div>
                                     <DatePicker
                                         value={form.data.cash_reward_date}
-                                        onChange={(v) => form.setData('cash_reward_date', v)}
+                                        onChange={(v) =>
+                                            form.setData('cash_reward_date', v)
+                                        }
                                     />
-                                    <InputError message={form.errors.cash_reward_date} />
+                                    <InputError
+                                        message={form.errors.cash_reward_date}
+                                    />
                                 </div>
                             </div>
 
@@ -1002,18 +1168,29 @@ export function CoachPromotionDialog({
                                     <div className="flex h-5 items-center justify-between">
                                         <Label className="text-xs font-semibold">
                                             {t('Sanction / Order reference')}{' '}
-                                            <span className="text-destructive">*</span>
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
                                         </Label>
                                     </div>
                                     <Input
                                         value={form.data.cash_reward_reference}
                                         onChange={(e) =>
-                                            form.setData('cash_reward_reference', e.target.value)
+                                            form.setData(
+                                                'cash_reward_reference',
+                                                e.target.value,
+                                            )
                                         }
-                                        placeholder={t('e.g. GO No. 128/Sports/2026')}
+                                        placeholder={t(
+                                            'e.g. GO No. 128/Sports/2026',
+                                        )}
                                         className="h-9 text-xs"
                                     />
-                                    <InputError message={form.errors.cash_reward_reference} />
+                                    <InputError
+                                        message={
+                                            form.errors.cash_reward_reference
+                                        }
+                                    />
                                 </div>
                                 <div className="grid gap-1.5">
                                     <div className="flex h-5 items-center justify-between">
@@ -1024,12 +1201,21 @@ export function CoachPromotionDialog({
                                     <Input
                                         value={form.data.cash_reward_remarks}
                                         onChange={(e) =>
-                                            form.setData('cash_reward_remarks', e.target.value)
+                                            form.setData(
+                                                'cash_reward_remarks',
+                                                e.target.value,
+                                            )
                                         }
-                                        placeholder={t('Disbursement notes or remarks')}
+                                        placeholder={t(
+                                            'Disbursement notes or remarks',
+                                        )}
                                         className="h-9 text-xs"
                                     />
-                                    <InputError message={form.errors.cash_reward_remarks} />
+                                    <InputError
+                                        message={
+                                            form.errors.cash_reward_remarks
+                                        }
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -1055,7 +1241,8 @@ export function CoachPromotionDialog({
                                     </span>
                                     <span className="mt-0.5 block truncate text-sm font-semibold text-foreground">
                                         {resolveRankLabel(
-                                            form.data.from_rank || currentCoachRankCode,
+                                            form.data.from_rank ||
+                                                currentCoachRankCode,
                                             ranks,
                                         )}
                                     </span>
@@ -1071,11 +1258,13 @@ export function CoachPromotionDialog({
                                         className={`mt-0.5 block truncate text-sm font-semibold ${
                                             form.data.to_rank
                                                 ? 'text-primary'
-                                                : 'italic text-muted-foreground'
+                                                : 'text-muted-foreground italic'
                                         }`}
                                     >
-                                        {resolveRankLabel(form.data.to_rank, ranks) ||
-                                            t('Select target rank')}
+                                        {resolveRankLabel(
+                                            form.data.to_rank,
+                                            ranks,
+                                        ) || t('Select target rank')}
                                     </span>
                                 </div>
                             </div>
@@ -1086,29 +1275,45 @@ export function CoachPromotionDialog({
                                     <div className="flex h-5 items-center justify-between">
                                         <Label className="text-xs font-semibold">
                                             {t('Promotion date')}{' '}
-                                            <span className="text-destructive">*</span>
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
                                         </Label>
                                     </div>
                                     <DatePicker
                                         value={form.data.promotion_date}
-                                        onChange={(v) => form.setData('promotion_date', v)}
+                                        onChange={(v) =>
+                                            form.setData('promotion_date', v)
+                                        }
                                     />
-                                    <InputError message={form.errors.promotion_date} />
+                                    <InputError
+                                        message={form.errors.promotion_date}
+                                    />
                                 </div>
                                 <div className="grid gap-1.5">
                                     <div className="flex h-5 items-center justify-between">
                                         <Label className="text-xs font-semibold">
                                             {t('Promoted to rank')}{' '}
-                                            <span className="text-destructive">*</span>
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
                                         </Label>
-                                        <InlineRankDialog onCreated={handleRankCreated} />
+                                        <InlineRankDialog
+                                            onCreated={handleRankCreated}
+                                        />
                                     </div>
                                     <Combobox
                                         value={form.data.to_rank}
-                                        onValueChange={(v) => form.setData('to_rank', v)}
+                                        onValueChange={(v) =>
+                                            form.setData('to_rank', v)
+                                        }
                                         items={toRankItems}
-                                        placeholder={t('Search and select rank')}
-                                        searchPlaceholder={t('Search ranks by code or name…')}
+                                        placeholder={t(
+                                            'Search and select rank',
+                                        )}
+                                        searchPlaceholder={t(
+                                            'Search ranks by code or name…',
+                                        )}
                                         emptyMessage={t('No ranks found.')}
                                     />
                                     <InputError message={form.errors.to_rank} />
@@ -1124,7 +1329,12 @@ export function CoachPromotionDialog({
                                     </div>
                                     <Input
                                         value={form.data.reason}
-                                        onChange={(e) => form.setData('reason', e.target.value)}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'reason',
+                                                e.target.value,
+                                            )
+                                        }
                                         placeholder={t(
                                             'e.g. PHQ Order No. 45/Sports/2026 - Out of turn promotion',
                                         )}
@@ -1140,8 +1350,15 @@ export function CoachPromotionDialog({
                                     </div>
                                     <Input
                                         value={form.data.remarks}
-                                        onChange={(e) => form.setData('remarks', e.target.value)}
-                                        placeholder={t('Additional committee remarks or remarks')}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'remarks',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder={t(
+                                            'Additional committee remarks or remarks',
+                                        )}
                                         className="h-9 text-xs"
                                     />
                                     <InputError message={form.errors.remarks} />
@@ -1159,20 +1376,27 @@ export function CoachPromotionDialog({
                                     <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                                         {t('Supporting tournament evidence')}
                                     </span>
-                                    <span className="font-bold text-destructive">*</span>
+                                    <span className="font-bold text-destructive">
+                                        *
+                                    </span>
                                     {selectedKeys.length > 0 && (
                                         <Badge
                                             variant="default"
                                             className="h-5 px-1.5 text-[11px] font-semibold"
                                         >
-                                            {selectedKeys.length} {t('selected')}
+                                            {selectedKeys.length}{' '}
+                                            {t('selected')}
                                         </Badge>
                                     )}
                                 </div>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
                                     {isRewardAction
-                                        ? t('Select the tournament event achievements justifying this cash reward.')
-                                        : t('Select the tournament event achievements justifying this promotion.')}
+                                        ? t(
+                                              'Select the tournament event achievements justifying this cash reward.',
+                                          )
+                                        : t(
+                                              'Select the tournament event achievements justifying this promotion.',
+                                          )}
                                 </p>
                             </div>
 
@@ -1184,10 +1408,14 @@ export function CoachPromotionDialog({
                                         onValueChange={setSelectedSessionId}
                                     >
                                         <SelectTrigger className="h-8 w-36 text-xs">
-                                            <SelectValue placeholder={t('Session')} />
+                                            <SelectValue
+                                                placeholder={t('Session')}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">{t('All sessions')}</SelectItem>
+                                            <SelectItem value="all">
+                                                {t('All sessions')}
+                                            </SelectItem>
                                             {evidenceOptions.map((s) => (
                                                 <SelectItem
                                                     key={s.session.id}
@@ -1204,8 +1432,12 @@ export function CoachPromotionDialog({
                                     <Search className="absolute top-2 left-2.5 size-3.5 text-muted-foreground" />
                                     <Input
                                         value={evidenceSearch}
-                                        onChange={(e) => setEvidenceSearch(e.target.value)}
-                                        placeholder={t('Search events or tournaments…')}
+                                        onChange={(e) =>
+                                            setEvidenceSearch(e.target.value)
+                                        }
+                                        placeholder={t(
+                                            'Search events or tournaments…',
+                                        )}
                                         className="h-8 w-44 pl-8 text-xs sm:w-56"
                                     />
                                 </div>
@@ -1215,7 +1447,9 @@ export function CoachPromotionDialog({
                         {/* Evidence Items List */}
                         {groupedEvidenceByTournament.length === 0 ? (
                             <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
-                                {t('No tournament achievements found for the selected session or search filter.')}
+                                {t(
+                                    'No tournament achievements found for the selected session or search filter.',
+                                )}
                             </div>
                         ) : (
                             <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
@@ -1242,7 +1476,10 @@ export function CoachPromotionDialog({
                                                     · {group.session_name}
                                                 </span>
                                             </div>
-                                            <Badge variant="secondary" className="h-5 text-[10px]">
+                                            <Badge
+                                                variant="secondary"
+                                                className="h-5 text-[10px]"
+                                            >
                                                 {group.team_name}
                                             </Badge>
                                         </div>
@@ -1250,16 +1487,26 @@ export function CoachPromotionDialog({
                                         {/* Events under this tournament */}
                                         <div className="space-y-1.5">
                                             {group.items.map((item) => {
-                                                const isSelected = selectedKeys.includes(item.key);
-                                                const isUsedInOther = isRewardAction
-                                                    ? item.used_in_reward &&
-                                                      item.used_reward_id !== promotion?.id
-                                                    : item.used_in_promotion &&
-                                                      item.used_promotion_id !== promotion?.id;
+                                                const isSelected =
+                                                    selectedKeys.includes(
+                                                        item.key,
+                                                    );
+                                                const isUsedInOther =
+                                                    isRewardAction
+                                                        ? item.used_in_reward &&
+                                                          item.used_reward_id !==
+                                                              promotion?.id
+                                                        : item.used_in_promotion &&
+                                                          item.used_promotion_id !==
+                                                              promotion?.id;
 
-                                                const medalsList = Object.entries(item.medal_counts).filter(
-                                                    ([, count]) => count > 0,
-                                                );
+                                                const medalsList =
+                                                    Object.entries(
+                                                        item.medal_counts,
+                                                    ).filter(
+                                                        ([, count]) =>
+                                                            count > 0,
+                                                    );
 
                                                 return (
                                                     <label
@@ -1272,14 +1519,24 @@ export function CoachPromotionDialog({
                                                     >
                                                         <div className="flex items-center gap-2.5">
                                                             <Checkbox
-                                                                checked={isSelected}
-                                                                onCheckedChange={() => toggleEvidence(item.key)}
-                                                                disabled={isUsedInOther}
+                                                                checked={
+                                                                    isSelected
+                                                                }
+                                                                onCheckedChange={() =>
+                                                                    toggleEvidence(
+                                                                        item.key,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    isUsedInOther
+                                                                }
                                                             />
                                                             <div className="space-y-0.5">
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="font-semibold text-foreground">
-                                                                        {item.event_name}
+                                                                        {
+                                                                            item.event_name
+                                                                        }
                                                                     </span>
                                                                     {isUsedInOther && (
                                                                         <Badge
@@ -1287,33 +1544,62 @@ export function CoachPromotionDialog({
                                                                             className="h-4.5 px-1 text-[10px] text-muted-foreground"
                                                                         >
                                                                             {isRewardAction
-                                                                                ? t('Already rewarded')
-                                                                                : t('Already promoted')}
+                                                                                ? t(
+                                                                                      'Already rewarded',
+                                                                                  )
+                                                                                : t(
+                                                                                      'Already promoted',
+                                                                                  )}
                                                                         </Badge>
                                                                     )}
                                                                 </div>
-                                                                {item.players && item.players.length > 0 && (
-                                                                    <p className="text-[11px] text-muted-foreground">
-                                                                        {t('Players')}:{' '}
-                                                                        {item.players
-                                                                            .map((p) => p.member.full_name)
-                                                                            .join(', ')}
-                                                                    </p>
-                                                                )}
+                                                                {item.players &&
+                                                                    item.players
+                                                                        .length >
+                                                                        0 && (
+                                                                        <p className="text-[11px] text-muted-foreground">
+                                                                            {t(
+                                                                                'Players',
+                                                                            )}
+                                                                            :{' '}
+                                                                            {item.players
+                                                                                .map(
+                                                                                    (
+                                                                                        p,
+                                                                                    ) =>
+                                                                                        p
+                                                                                            .member
+                                                                                            .full_name,
+                                                                                )
+                                                                                .join(
+                                                                                    ', ',
+                                                                                )}
+                                                                        </p>
+                                                                    )}
                                                             </div>
                                                         </div>
 
                                                         {/* Medal count badges */}
                                                         <div className="flex shrink-0 items-center gap-1.5">
-                                                            {medalsList.map(([type, count]) => (
-                                                                <Badge
-                                                                    key={type}
-                                                                    variant="secondary"
-                                                                    className="h-5 px-1.5 text-[11px] font-semibold"
-                                                                >
-                                                                    {medalEmoji(type)} {count}
-                                                                </Badge>
-                                                            ))}
+                                                            {medalsList.map(
+                                                                ([
+                                                                    type,
+                                                                    count,
+                                                                ]) => (
+                                                                    <Badge
+                                                                        key={
+                                                                            type
+                                                                        }
+                                                                        variant="secondary"
+                                                                        className="h-5 px-1.5 text-[11px] font-semibold"
+                                                                    >
+                                                                        {medalEmoji(
+                                                                            type,
+                                                                        )}{' '}
+                                                                        {count}
+                                                                    </Badge>
+                                                                ),
+                                                            )}
                                                         </div>
                                                     </label>
                                                 );
@@ -1350,21 +1636,30 @@ export function CoachPromotionDialog({
                                 </div>
                                 <div className="flex max-h-20 flex-wrap gap-1.5 overflow-y-auto pr-1">
                                     {selectedKeys.map((key) => {
-                                        const item = allEvidenceItems.find((e) => e.key === key);
+                                        const item = allEvidenceItems.find(
+                                            (e) => e.key === key,
+                                        );
 
                                         if (!item) {
                                             return null;
                                         }
 
-                                        const medals = Object.keys(item.medal_counts);
-                                        const firstMedal = medals.length > 0 ? medals[0] : null;
+                                        const medals = Object.keys(
+                                            item.medal_counts,
+                                        );
+                                        const firstMedal =
+                                            medals.length > 0
+                                                ? medals[0]
+                                                : null;
 
                                         return (
                                             <span
                                                 key={key}
                                                 className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-0.5 text-xs font-medium shadow-2xs"
                                             >
-                                                <span>{medalEmoji(firstMedal)}</span>
+                                                <span>
+                                                    {medalEmoji(firstMedal)}
+                                                </span>
                                                 <span className="max-w-[160px] truncate text-foreground">
                                                     {item.event_name}
                                                 </span>
@@ -1389,7 +1684,10 @@ export function CoachPromotionDialog({
                             </div>
                         ) : (
                             <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-                                ⚠ {t('At least one tournament achievement must be selected as justification.')}
+                                ⚠{' '}
+                                {t(
+                                    'At least one tournament achievement must be selected as justification.',
+                                )}
                             </div>
                         )}
                     </div>
@@ -1412,7 +1710,9 @@ export function CoachPromotionDialog({
                                         t('Upload supporting document')}
                                 </span>
                                 <span className="mt-1 block text-xs break-words text-muted-foreground">
-                                    {t('PDF, JPG, PNG, or WEBP. Stored privately and available only to authorized users.')}
+                                    {t(
+                                        'PDF, JPG, PNG, or WEBP. Stored privately and available only to authorized users.',
+                                    )}
                                 </span>
                             </span>
                             <input
@@ -1431,14 +1731,22 @@ export function CoachPromotionDialog({
                                         ];
 
                                         if (!allowedTypes.includes(file.type)) {
-                                            setDocumentError(t('Only PDF, JPG, PNG, or WEBP files are allowed.'));
+                                            setDocumentError(
+                                                t(
+                                                    'Only PDF, JPG, PNG, or WEBP files are allowed.',
+                                                ),
+                                            );
                                             e.target.value = '';
 
                                             return;
                                         }
 
                                         if (file.size > 5 * 1024 * 1024) {
-                                            setDocumentError(t('The document must not be larger than 5 MB.'));
+                                            setDocumentError(
+                                                t(
+                                                    'The document must not be larger than 5 MB.',
+                                                ),
+                                            );
                                             e.target.value = '';
 
                                             return;
@@ -1459,7 +1767,8 @@ export function CoachPromotionDialog({
                         {selectedKeys.length > 0 ? (
                             <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
                                 <CheckCircle2 className="size-3.5" />
-                                {selectedKeys.length} {t('achievement(s) attached as evidence')}
+                                {selectedKeys.length}{' '}
+                                {t('achievement(s) attached as evidence')}
                             </span>
                         ) : (
                             <span className="text-muted-foreground">
@@ -1481,7 +1790,9 @@ export function CoachPromotionDialog({
                             form="coach-promotion-dialog-form"
                             disabled={selectedKeys.length === 0 || isSubmitting}
                         >
-                            {isSubmitting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+                            {isSubmitting && (
+                                <Loader2 className="mr-1.5 size-4 animate-spin" />
+                            )}
                             {isRewardAction
                                 ? promotion
                                     ? t('Save cash reward')
@@ -1511,14 +1822,22 @@ export function CoachPromotionsTab({
     onSaved,
 }: Props) {
     const { t } = useTranslation();
-    const [expandedPromotionIds, setExpandedPromotionIds] = useState<number[]>([]);
-    const [activeTab, setActiveTab] = useState<'promotions' | 'rewards'>('promotions');
+    const [expandedPromotionIds, setExpandedPromotionIds] = useState<number[]>(
+        [],
+    );
+    const [activeTab, setActiveTab] = useState<'promotions' | 'rewards'>(
+        'promotions',
+    );
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [dialogMode, setDialogMode] = useState<'promotion' | 'reward'>('promotion');
-    const [editingPromotion, setEditingPromotion] = useState<CoachPromotion | null>(null);
+    const [dialogMode, setDialogMode] = useState<'promotion' | 'reward'>(
+        'promotion',
+    );
+    const [editingPromotion, setEditingPromotion] =
+        useState<CoachPromotion | null>(null);
 
     // Delete confirmation state
-    const [deletingPromotion, setDeletingPromotion] = useState<CoachPromotion | null>(null);
+    const [deletingPromotion, setDeletingPromotion] =
+        useState<CoachPromotion | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
     const isAuthorized = canManage && showActions;
@@ -1639,16 +1958,19 @@ export function CoachPromotionsTab({
         }
 
         setIsDeleting(true);
-        router.delete(`/coaches/${coach.id}/promotions/${deletingPromotion.id}`, {
-            onSuccess: () => {
-                setIsDeleting(false);
-                setDeletingPromotion(null);
-                onSaved?.();
+        router.delete(
+            `/coaches/${coach.id}/promotions/${deletingPromotion.id}`,
+            {
+                onSuccess: () => {
+                    setIsDeleting(false);
+                    setDeletingPromotion(null);
+                    onSaved?.();
+                },
+                onError: () => {
+                    setIsDeleting(false);
+                },
             },
-            onError: () => {
-                setIsDeleting(false);
-            },
-        });
+        );
     }
 
     const currentRankLabel = resolveRankLabel(
@@ -1665,8 +1987,7 @@ export function CoachPromotionsTab({
                         {t('Promotions & rewards')}
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                        {t('Current rank')}:{' '}
-                        {currentRankLabel || t('Unknown')}
+                        {t('Current rank')}: {currentRankLabel || t('Unknown')}
                     </p>
                     <p className="text-xs text-muted-foreground">
                         {t(
@@ -1756,7 +2077,9 @@ export function CoachPromotionsTab({
                             </thead>
                             <tbody>
                                 {activeRows.map((promotion, index) => {
-                                    const showDetails = isPromotionExpanded(promotion.id);
+                                    const showDetails = isPromotionExpanded(
+                                        promotion.id,
+                                    );
 
                                     return (
                                         <Fragment key={promotion.id}>
@@ -1769,43 +2092,62 @@ export function CoachPromotionsTab({
                                                         variant="outline"
                                                         className={`px-2 py-0.5 text-xs ${promotionCategoryClass(promotion)}`}
                                                     >
-                                                        {promotionCategory(promotion)}
+                                                        {promotionCategory(
+                                                            promotion,
+                                                        )}
                                                     </Badge>
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs font-medium">
-                                                    {resolveRankLabel(promotion.from_rank, ranks) || t('Unknown')}
+                                                    {resolveRankLabel(
+                                                        promotion.from_rank,
+                                                        ranks,
+                                                    ) || t('Unknown')}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs font-medium">
-                                                    {resolveRankLabel(promotion.to_rank, ranks) || t('Unknown')}
+                                                    {resolveRankLabel(
+                                                        promotion.to_rank,
+                                                        ranks,
+                                                    ) || t('Unknown')}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    {formatDateDisplay(promotion.promotion_date) || '—'}
+                                                    {formatDateDisplay(
+                                                        promotion.promotion_date,
+                                                    ) || '—'}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
                                                     <div className="space-y-1">
                                                         {promotion.reason ? (
                                                             <p className="leading-tight">
-                                                                {promotion.reason}
+                                                                {
+                                                                    promotion.reason
+                                                                }
                                                             </p>
                                                         ) : (
                                                             <p className="leading-tight text-muted-foreground">
                                                                 {promotion.remarks
                                                                     ? promotion.remarks
-                                                                    : t('No reason provided')}
+                                                                    : t(
+                                                                          'No reason provided',
+                                                                      )}
                                                             </p>
                                                         )}
                                                     </div>
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
                                                     <EvidenceSummaryCell
-                                                        evidences={promotion.evidences}
+                                                        evidences={
+                                                            promotion.evidences
+                                                        }
                                                         t={t}
                                                     />
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
-                                                    {promotion.recorder?.name ?? promotion.recorded_by_name ?? (
-                                                        <span className="text-muted-foreground">—</span>
-                                                    )}
+                                                    {promotion.recorder?.name ??
+                                                        promotion.recorded_by_name ?? (
+                                                            <span className="text-muted-foreground">
+                                                                —
+                                                            </span>
+                                                        )}
                                                 </td>
                                                 <td className="px-2 py-1.5">
                                                     <div className="flex items-center justify-end gap-1">
@@ -1813,7 +2155,9 @@ export function CoachPromotionsTab({
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() =>
-                                                                togglePromotionDetails(promotion.id)
+                                                                togglePromotionDetails(
+                                                                    promotion.id,
+                                                                )
                                                             }
                                                         >
                                                             {showDetails ? (
@@ -1822,13 +2166,21 @@ export function CoachPromotionsTab({
                                                                 <ChevronRight className="mr-1 size-4" />
                                                             )}
                                                             {showDetails
-                                                                ? t('Hide details')
-                                                                : t('Show details')}
+                                                                ? t(
+                                                                      'Hide details',
+                                                                  )
+                                                                : t(
+                                                                      'Show details',
+                                                                  )}
                                                         </Button>
                                                         {promotion.document && (
                                                             <ConfidentialDocumentPreview
-                                                                document={promotion.document}
-                                                                triggerLabel={t('View document')}
+                                                                document={
+                                                                    promotion.document
+                                                                }
+                                                                triggerLabel={t(
+                                                                    'View document',
+                                                                )}
                                                             />
                                                         )}
                                                         {isAuthorized && (
@@ -1836,7 +2188,12 @@ export function CoachPromotionsTab({
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    onClick={() => openEdit(promotion, 'promotion')}
+                                                                    onClick={() =>
+                                                                        openEdit(
+                                                                            promotion,
+                                                                            'promotion',
+                                                                        )
+                                                                    }
                                                                 >
                                                                     <Pencil className="mr-1.5 size-3.5" />
                                                                     {t('Edit')}
@@ -1844,8 +2201,14 @@ export function CoachPromotionsTab({
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    onClick={() => setDeletingPromotion(promotion)}
-                                                                    title={t('Delete')}
+                                                                    onClick={() =>
+                                                                        setDeletingPromotion(
+                                                                            promotion,
+                                                                        )
+                                                                    }
+                                                                    title={t(
+                                                                        'Delete',
+                                                                    )}
                                                                 >
                                                                     <Trash2 className="size-4" />
                                                                 </Button>
@@ -1856,121 +2219,247 @@ export function CoachPromotionsTab({
                                             </tr>
                                             {showDetails ? (
                                                 <tr className="border-b">
-                                                    <td className="px-2 py-1.5" colSpan={9}>
+                                                    <td
+                                                        className="px-2 py-1.5"
+                                                        colSpan={9}
+                                                    >
                                                         <div className="rounded-md border border-slate-200 bg-slate-50/70 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/20">
                                                             <p className="mb-1.5 text-xs font-medium tracking-[0.02em] text-muted-foreground uppercase">
-                                                                {t('Evidence list')}
+                                                                {t(
+                                                                    'Evidence list',
+                                                                )}
                                                             </p>
                                                             <div className="overflow-x-auto">
                                                                 <table className="w-full border-collapse text-xs">
                                                                     <thead>
                                                                         <tr className="border-b text-left">
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('No.')}
+                                                                                {t(
+                                                                                    'No.',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Type')}
+                                                                                {t(
+                                                                                    'Type',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Session')}
+                                                                                {t(
+                                                                                    'Session',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Tournament')}
+                                                                                {t(
+                                                                                    'Tournament',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Event')}
+                                                                                {t(
+                                                                                    'Event',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Tier')}
+                                                                                {t(
+                                                                                    'Event type',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Team')}
+                                                                                {t(
+                                                                                    'Tier',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Medal')}
+                                                                                {t(
+                                                                                    'Team',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Details')}
+                                                                                {t(
+                                                                                    'Medal',
+                                                                                )}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t(
+                                                                                    'Details',
+                                                                                )}
                                                                             </th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
-                                                                        {!promotion.evidences || promotion.evidences.length === 0 ? (
+                                                                        {!promotion.evidences ||
+                                                                        promotion
+                                                                            .evidences
+                                                                            .length ===
+                                                                            0 ? (
                                                                             <tr>
                                                                                 <td
-                                                                                    colSpan={9}
+                                                                                    colSpan={
+                                                                                        10
+                                                                                    }
                                                                                     className="px-2 py-2 text-muted-foreground"
                                                                                 >
-                                                                                    {t('No evidence linked')}
+                                                                                    {t(
+                                                                                        'No evidence linked',
+                                                                                    )}
                                                                                 </td>
                                                                             </tr>
                                                                         ) : (
-                                                                            promotion.evidences.map((evidence, evidenceIndex) => {
-                                                                                const tier =
-                                                                                    evidence.tournament?.tier_code ??
-                                                                                    evidence.tournament?.tier?.code ??
-                                                                                    '—';
-                                                                                const medal = evidence.achievement?.medal_type;
-                                                                                const eventName = evidence.event?.name ?? t('All Events');
-                                                                                const teamName = evidence.team?.name ?? '—';
-                                                                                const sessionName = evidence.session?.name ?? '—';
-                                                                                const tournamentName = evidence.tournament?.name ?? '—';
-                                                                                const detailsList = [
-                                                                                    evidence.event?.gender_class,
-                                                                                    evidence.event?.discipline,
-                                                                                    evidence.event?.weight_category,
-                                                                                    evidence.tournament?.venue,
-                                                                                ].filter(Boolean);
+                                                                            promotion.evidences.map(
+                                                                                (
+                                                                                    evidence,
+                                                                                    evidenceIndex,
+                                                                                ) => {
+                                                                                    const tier =
+                                                                                        evidence
+                                                                                            .tournament
+                                                                                            ?.tier_code ??
+                                                                                        evidence
+                                                                                            .tournament
+                                                                                            ?.tier
+                                                                                            ?.code ??
+                                                                                        '—';
+                                                                                    const medal =
+                                                                                        evidence
+                                                                                            .achievement
+                                                                                            ?.medal_type;
+                                                                                    const eventName =
+                                                                                        evidence
+                                                                                            .event
+                                                                                            ?.name ??
+                                                                                        t(
+                                                                                            'All Events',
+                                                                                        );
+                                                                                    const teamName =
+                                                                                        evidence
+                                                                                            .team
+                                                                                            ?.name ??
+                                                                                        '—';
+                                                                                    const sessionName =
+                                                                                        evidence
+                                                                                            .session
+                                                                                            ?.name ??
+                                                                                        '—';
+                                                                                    const tournamentName =
+                                                                                        evidence
+                                                                                            .tournament
+                                                                                            ?.name ??
+                                                                                        '—';
+                                                                                    const detailsList =
+                                                                                        [
+                                                                                            evidence
+                                                                                                .event
+                                                                                                ?.gender_class,
+                                                                                            evidence
+                                                                                                .event
+                                                                                                ?.discipline,
+                                                                                            evidence
+                                                                                                .event
+                                                                                                ?.weight_category,
+                                                                                            evidence
+                                                                                                .tournament
+                                                                                                ?.venue,
+                                                                                        ].filter(
+                                                                                            Boolean,
+                                                                                        );
 
-                                                                                return (
-                                                                                    <tr
-                                                                                        key={evidence.id ?? evidenceIndex}
-                                                                                        className="border-b last:border-0 hover:bg-slate-100/40 dark:hover:bg-slate-800/40"
-                                                                                    >
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {evidenceIndex + 1}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            <Badge
-                                                                                                variant="outline"
-                                                                                                className="border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200"
-                                                                                            >
-                                                                                                {t('Coached Event')}
-                                                                                            </Badge>
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {sessionName}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {tournamentName}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {eventName}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {tier}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {teamName}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {medal ? (
-                                                                                                <span className="flex items-center gap-1">
-                                                                                                    <span>{medalEmoji(medal)}</span>
-                                                                                                    <span>{t(medal)}</span>
-                                                                                                </span>
-                                                                                            ) : (
-                                                                                                '—'
-                                                                                            )}
-                                                                                        </td>
-                                                                                        <td className="px-2 py-1.5">
-                                                                                            {detailsList.length > 0
-                                                                                                ? detailsList.join(' · ')
-                                                                                                : '—'}
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                );
-                                                                            })
+                                                                                    return (
+                                                                                        <tr
+                                                                                            key={
+                                                                                                evidence.id ??
+                                                                                                evidenceIndex
+                                                                                            }
+                                                                                            className="border-b last:border-0 hover:bg-slate-100/40 dark:hover:bg-slate-800/40"
+                                                                                        >
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {evidenceIndex +
+                                                                                                    1}
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                <Badge
+                                                                                                    variant="outline"
+                                                                                                    className="border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200"
+                                                                                                >
+                                                                                                    {t(
+                                                                                                        'Coached Event',
+                                                                                                    )}
+                                                                                                </Badge>
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    sessionName
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    tournamentName
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    eventName
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {evidence
+                                                                                                    .event
+                                                                                                    ?.event_type ===
+                                                                                                'team'
+                                                                                                    ? t(
+                                                                                                          'Team',
+                                                                                                      )
+                                                                                                    : evidence
+                                                                                                            .event
+                                                                                                            ?.event_type ===
+                                                                                                        'individual'
+                                                                                                      ? t(
+                                                                                                            'Individual',
+                                                                                                        )
+                                                                                                      : evidence.team
+                                                                                                        ? t(
+                                                                                                              'Team',
+                                                                                                          )
+                                                                                                        : '—'}
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    tier
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    teamName
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {medal ? (
+                                                                                                    <span className="flex items-center gap-1">
+                                                                                                        <span>
+                                                                                                            {medalEmoji(
+                                                                                                                medal,
+                                                                                                            )}
+                                                                                                        </span>
+                                                                                                        <span>
+                                                                                                            {t(
+                                                                                                                medal,
+                                                                                                            )}
+                                                                                                        </span>
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    '—'
+                                                                                                )}
+                                                                                            </td>
+                                                                                            <td className="px-2 py-1.5">
+                                                                                                {detailsList.length >
+                                                                                                0
+                                                                                                    ? detailsList.join(
+                                                                                                          ' · ',
+                                                                                                      )
+                                                                                                    : '—'}
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    );
+                                                                                },
+                                                                            )
                                                                         )}
                                                                     </tbody>
                                                                 </table>
@@ -2016,7 +2505,9 @@ export function CoachPromotionsTab({
                             </thead>
                             <tbody>
                                 {activeRows.map((promotion, index) => {
-                                    const showDetails = isPromotionExpanded(promotion.id);
+                                    const showDetails = isPromotionExpanded(
+                                        promotion.id,
+                                    );
 
                                     return (
                                         <Fragment key={promotion.id}>
@@ -2029,7 +2520,9 @@ export function CoachPromotionsTab({
                                                         variant="outline"
                                                         className={`px-2 py-0.5 text-xs ${promotionCategoryClass(promotion)}`}
                                                     >
-                                                        {promotionCategory(promotion)}
+                                                        {promotionCategory(
+                                                            promotion,
+                                                        )}
                                                     </Badge>
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
@@ -2039,25 +2532,34 @@ export function CoachPromotionsTab({
                                                     ) || '—'}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                                    {formatCurrency(promotion.cash_reward_amount)}
+                                                    {formatCurrency(
+                                                        promotion.cash_reward_amount,
+                                                    )}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
                                                     {promotion.cash_reward_reference ? (
                                                         promotion.cash_reward_reference
                                                     ) : (
-                                                        <span className="text-muted-foreground">—</span>
+                                                        <span className="text-muted-foreground">
+                                                            —
+                                                        </span>
                                                     )}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
                                                     <EvidenceSummaryCell
-                                                        evidences={promotion.evidences}
+                                                        evidences={
+                                                            promotion.evidences
+                                                        }
                                                         t={t}
                                                     />
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
-                                                    {promotion.recorder?.name ?? promotion.recorded_by_name ?? (
-                                                        <span className="text-muted-foreground">—</span>
-                                                    )}
+                                                    {promotion.recorder?.name ??
+                                                        promotion.recorded_by_name ?? (
+                                                            <span className="text-muted-foreground">
+                                                                —
+                                                            </span>
+                                                        )}
                                                 </td>
                                                 <td className="px-2 py-1.5">
                                                     <div className="flex items-center justify-end gap-1">
@@ -2065,7 +2567,9 @@ export function CoachPromotionsTab({
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() =>
-                                                                togglePromotionDetails(promotion.id)
+                                                                togglePromotionDetails(
+                                                                    promotion.id,
+                                                                )
                                                             }
                                                         >
                                                             {showDetails ? (
@@ -2074,13 +2578,21 @@ export function CoachPromotionsTab({
                                                                 <ChevronRight className="mr-1 size-4" />
                                                             )}
                                                             {showDetails
-                                                                ? t('Hide details')
-                                                                : t('Show details')}
+                                                                ? t(
+                                                                      'Hide details',
+                                                                  )
+                                                                : t(
+                                                                      'Show details',
+                                                                  )}
                                                         </Button>
                                                         {promotion.document && (
                                                             <ConfidentialDocumentPreview
-                                                                document={promotion.document}
-                                                                triggerLabel={t('View document')}
+                                                                document={
+                                                                    promotion.document
+                                                                }
+                                                                triggerLabel={t(
+                                                                    'View document',
+                                                                )}
                                                             />
                                                         )}
                                                         {isAuthorized && (
@@ -2088,7 +2600,12 @@ export function CoachPromotionsTab({
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    onClick={() => openEdit(promotion, 'reward')}
+                                                                    onClick={() =>
+                                                                        openEdit(
+                                                                            promotion,
+                                                                            'reward',
+                                                                        )
+                                                                    }
                                                                 >
                                                                     <Pencil className="mr-1.5 size-3.5" />
                                                                     {t('Edit')}
@@ -2096,8 +2613,14 @@ export function CoachPromotionsTab({
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    onClick={() => setDeletingPromotion(promotion)}
-                                                                    title={t('Delete')}
+                                                                    onClick={() =>
+                                                                        setDeletingPromotion(
+                                                                            promotion,
+                                                                        )
+                                                                    }
+                                                                    title={t(
+                                                                        'Delete',
+                                                                    )}
                                                                 >
                                                                     <Trash2 className="size-4" />
                                                                 </Button>
@@ -2108,121 +2631,247 @@ export function CoachPromotionsTab({
                                             </tr>
                                             {showDetails ? (
                                                 <tr className="border-b">
-                                                    <td className="px-2 py-1.5" colSpan={8}>
+                                                    <td
+                                                        className="px-2 py-1.5"
+                                                        colSpan={8}
+                                                    >
                                                         <div className="rounded-md border border-slate-200 bg-slate-50/70 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900/20">
                                                             <p className="mb-1.5 text-xs font-medium tracking-[0.02em] text-muted-foreground uppercase">
-                                                                {t('Evidence list')}
+                                                                {t(
+                                                                    'Evidence list',
+                                                                )}
                                                             </p>
                                                             <div className="overflow-x-auto">
                                                                 <table className="w-full border-collapse text-xs">
                                                                     <thead>
                                                                         <tr className="border-b text-left">
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('No.')}
+                                                                                {t(
+                                                                                    'No.',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Type')}
+                                                                                {t(
+                                                                                    'Type',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Session')}
+                                                                                {t(
+                                                                                    'Session',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Tournament')}
+                                                                                {t(
+                                                                                    'Tournament',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Event')}
+                                                                                {t(
+                                                                                    'Event',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Tier')}
+                                                                                {t(
+                                                                                    'Event type',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Team')}
+                                                                                {t(
+                                                                                    'Tier',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Medal')}
+                                                                                {t(
+                                                                                    'Team',
+                                                                                )}
                                                                             </th>
                                                                             <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                {t('Details')}
+                                                                                {t(
+                                                                                    'Medal',
+                                                                                )}
+                                                                            </th>
+                                                                            <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {t(
+                                                                                    'Details',
+                                                                                )}
                                                                             </th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
-                                                                        {!promotion.evidences || promotion.evidences.length === 0 ? (
+                                                                        {!promotion.evidences ||
+                                                                        promotion
+                                                                            .evidences
+                                                                            .length ===
+                                                                            0 ? (
                                                                             <tr>
                                                                                 <td
-                                                                                    colSpan={9}
+                                                                                    colSpan={
+                                                                                        10
+                                                                                    }
                                                                                     className="px-2 py-2 text-muted-foreground"
                                                                                 >
-                                                                                    {t('No evidence linked')}
+                                                                                    {t(
+                                                                                        'No evidence linked',
+                                                                                    )}
                                                                                 </td>
                                                                             </tr>
                                                                         ) : (
-                                                                            promotion.evidences.map((evidence, evidenceIndex) => {
-                                                                                const tier =
-                                                                                    evidence.tournament?.tier_code ??
-                                                                                    evidence.tournament?.tier?.code ??
-                                                                                    '—';
-                                                                                const medal = evidence.achievement?.medal_type;
-                                                                                const eventName = evidence.event?.name ?? t('All Events');
-                                                                                const teamName = evidence.team?.name ?? '—';
-                                                                                const sessionName = evidence.session?.name ?? '—';
-                                                                                const tournamentName = evidence.tournament?.name ?? '—';
-                                                                                const detailsList = [
-                                                                                    evidence.event?.gender_class,
-                                                                                    evidence.event?.discipline,
-                                                                                    evidence.event?.weight_category,
-                                                                                    evidence.tournament?.venue,
-                                                                                ].filter(Boolean);
+                                                                            promotion.evidences.map(
+                                                                                (
+                                                                                    evidence,
+                                                                                    evidenceIndex,
+                                                                                ) => {
+                                                                                    const tier =
+                                                                                        evidence
+                                                                                            .tournament
+                                                                                            ?.tier_code ??
+                                                                                        evidence
+                                                                                            .tournament
+                                                                                            ?.tier
+                                                                                            ?.code ??
+                                                                                        '—';
+                                                                                    const medal =
+                                                                                        evidence
+                                                                                            .achievement
+                                                                                            ?.medal_type;
+                                                                                    const eventName =
+                                                                                        evidence
+                                                                                            .event
+                                                                                            ?.name ??
+                                                                                        t(
+                                                                                            'All Events',
+                                                                                        );
+                                                                                    const teamName =
+                                                                                        evidence
+                                                                                            .team
+                                                                                            ?.name ??
+                                                                                        '—';
+                                                                                    const sessionName =
+                                                                                        evidence
+                                                                                            .session
+                                                                                            ?.name ??
+                                                                                        '—';
+                                                                                    const tournamentName =
+                                                                                        evidence
+                                                                                            .tournament
+                                                                                            ?.name ??
+                                                                                        '—';
+                                                                                    const detailsList =
+                                                                                        [
+                                                                                            evidence
+                                                                                                .event
+                                                                                                ?.gender_class,
+                                                                                            evidence
+                                                                                                .event
+                                                                                                ?.discipline,
+                                                                                            evidence
+                                                                                                .event
+                                                                                                ?.weight_category,
+                                                                                            evidence
+                                                                                                .tournament
+                                                                                                ?.venue,
+                                                                                        ].filter(
+                                                                                            Boolean,
+                                                                                        );
 
-                                                                                return (
-                                                                                    <tr
-                                                                                        key={evidence.id ?? evidenceIndex}
-                                                                                        className="border-b last:border-0 hover:bg-slate-100/40 dark:hover:bg-slate-800/40"
-                                                                                    >
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {evidenceIndex + 1}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            <Badge
-                                                                                                variant="outline"
-                                                                                                className="border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200"
-                                                                                            >
-                                                                                                {t('Coached Event')}
-                                                                                            </Badge>
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {sessionName}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {tournamentName}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {eventName}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {tier}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {teamName}
-                                                                                        </td>
-                                                                                        <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                            {medal ? (
-                                                                                                <span className="flex items-center gap-1">
-                                                                                                    <span>{medalEmoji(medal)}</span>
-                                                                                                    <span>{t(medal)}</span>
-                                                                                                </span>
-                                                                                            ) : (
-                                                                                                '—'
-                                                                                            )}
-                                                                                        </td>
-                                                                                        <td className="px-2 py-1.5">
-                                                                                            {detailsList.length > 0
-                                                                                                ? detailsList.join(' · ')
-                                                                                                : '—'}
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                );
-                                                                            })
+                                                                                    return (
+                                                                                        <tr
+                                                                                            key={
+                                                                                                evidence.id ??
+                                                                                                evidenceIndex
+                                                                                            }
+                                                                                            className="border-b last:border-0 hover:bg-slate-100/40 dark:hover:bg-slate-800/40"
+                                                                                        >
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {evidenceIndex +
+                                                                                                    1}
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                <Badge
+                                                                                                    variant="outline"
+                                                                                                    className="border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200"
+                                                                                                >
+                                                                                                    {t(
+                                                                                                        'Coached Event',
+                                                                                                    )}
+                                                                                                </Badge>
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    sessionName
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    tournamentName
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    eventName
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {evidence
+                                                                                                    .event
+                                                                                                    ?.event_type ===
+                                                                                                'team'
+                                                                                                    ? t(
+                                                                                                          'Team',
+                                                                                                      )
+                                                                                                    : evidence
+                                                                                                            .event
+                                                                                                            ?.event_type ===
+                                                                                                        'individual'
+                                                                                                      ? t(
+                                                                                                            'Individual',
+                                                                                                        )
+                                                                                                      : evidence.team
+                                                                                                        ? t(
+                                                                                                              'Team',
+                                                                                                          )
+                                                                                                        : '—'}
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    tier
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {
+                                                                                                    teamName
+                                                                                                }
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                {medal ? (
+                                                                                                    <span className="flex items-center gap-1">
+                                                                                                        <span>
+                                                                                                            {medalEmoji(
+                                                                                                                medal,
+                                                                                                            )}
+                                                                                                        </span>
+                                                                                                        <span>
+                                                                                                            {t(
+                                                                                                                medal,
+                                                                                                            )}
+                                                                                                        </span>
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    '—'
+                                                                                                )}
+                                                                                            </td>
+                                                                                            <td className="px-2 py-1.5">
+                                                                                                {detailsList.length >
+                                                                                                0
+                                                                                                    ? detailsList.join(
+                                                                                                          ' · ',
+                                                                                                      )
+                                                                                                    : '—'}
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    );
+                                                                                },
+                                                                            )
                                                                         )}
                                                                     </tbody>
                                                                 </table>
@@ -2263,7 +2912,9 @@ export function CoachPromotionsTab({
             >
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>{t('Delete record?')}</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            {t('Delete record?')}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             {t(
                                 'This promotion or cash reward record and its attached evidence will be permanently deleted. This action cannot be undone.',
@@ -2271,13 +2922,17 @@ export function CoachPromotionsTab({
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>{t('Cancel')}</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeleting}>
+                            {t('Cancel')}
+                        </AlertDialogCancel>
                         <AlertDialogAction
                             onClick={confirmDelete}
                             disabled={isDeleting}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            {isDeleting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+                            {isDeleting && (
+                                <Loader2 className="mr-1.5 size-4 animate-spin" />
+                            )}
                             {t('Delete')}
                         </AlertDialogAction>
                     </AlertDialogFooter>

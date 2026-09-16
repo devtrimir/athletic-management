@@ -1,12 +1,21 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTranslation } from '@/hooks/use-translation';
 import { coachRoleLabel } from '@/lib/coach';
+import { resolveRankLabel } from '@/lib/ranks';
+import type { RankOption } from '@/lib/ranks';
+
+type TournamentTierInfo = {
+    tier_code?: string | null;
+    tier_label_en?: string | null;
+    tier_label_hi?: string | null;
+    tier_label?: string | null;
+};
 
 type Coach = {
     id: number;
@@ -108,6 +117,9 @@ type CoachAchievementGroup = {
         id: number;
         name: string;
         tier_code: string | null;
+        tier_label_en?: string | null;
+        tier_label_hi?: string | null;
+        tier_label?: string | null;
         date_from: string | null;
         date_to: string | null;
         venue: string | null;
@@ -181,6 +193,8 @@ type MemberPlayingAchievementRecord = {
         name: string;
         tier_code: string | null;
         tier_label: string | null;
+        tier_label_en?: string | null;
+        tier_label_hi?: string | null;
         date_from: string | null;
         date_to: string | null;
         venue: string | null;
@@ -224,14 +238,41 @@ type CoachPromotion = {
             id: number;
             name: string;
             tier_code: string | null;
+            tier_label_en?: string | null;
+            tier_label_hi?: string | null;
+            tier_label?: string | null;
+            date_from?: string | null;
+            date_to?: string | null;
+            venue?: string | null;
         } | null;
         event: {
             id: number;
             name: string;
+            gender_class?: string | null;
+            discipline?: string | null;
             weight_category: string | null;
+            event_type?: string | null;
         } | null;
         team: { id: number; name: string } | null;
+        achievement?: {
+            id: number;
+            medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | null;
+            position: number | null;
+        } | null;
     }[];
+};
+
+type PromotionEvidenceTableRow = {
+    key: string;
+    session?: string | null;
+    tournament?: string | null;
+    event?: string | null;
+    eventType?: string | null;
+    level?: string | number | null;
+    date?: string | null;
+    gender?: string | null;
+    result?: string | null;
+    venue?: string | null;
 };
 
 type SectionKey =
@@ -253,6 +294,7 @@ type Props = {
     coachAchievements?: CoachAchievementsData;
     specialAchievements?: SpecialAchievementsData;
     playingAchievements?: PlayingAchievementsData;
+    ranks?: RankOption[];
 };
 
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
@@ -331,15 +373,6 @@ function genderLabel(value: string | null | undefined): string {
     return value ?? '';
 }
 
-function medalSummary(
-    counts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>,
-): string {
-    return (['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const)
-        .filter((medal) => counts[medal] > 0)
-        .map((medal) => `${humanize(medal)}: ${counts[medal]}`)
-        .join(', ');
-}
-
 function rankLabel(coach: Coach): string {
     return (
         coach.rank_master?.name ??
@@ -347,6 +380,51 @@ function rankLabel(coach: Coach): string {
         coach.rank_master?.code ??
         ''
     );
+}
+
+const TIER_FALLBACKS: Record<string, { en: string; hi: string }> = {
+    INTERNATIONAL: { en: 'International', hi: 'अंतरराष्ट्रीय' },
+    NATIONAL: { en: 'National', hi: 'राष्ट्रीय' },
+    AIPSC: { en: 'All India Police (AIPSC)', hi: 'अखिल भारतीय पुलिस (AIPSC)' },
+    STATE: { en: 'State', hi: 'राज्य' },
+    ZONAL: { en: 'Zonal', hi: 'क्षेत्रीय' },
+    OTHER: { en: 'Other', hi: 'अन्य' },
+};
+
+function tierLabel(
+    tier: TournamentTierInfo | null | undefined,
+    locale: string,
+    t: (key: string) => string,
+): string | null {
+    if (!tier) {
+        return null;
+    }
+
+    const configured =
+        locale === 'en'
+            ? (tier.tier_label_en ?? tier.tier_label)
+            : (tier.tier_label_hi ?? tier.tier_label);
+
+    if (configured) {
+        return configured;
+    }
+
+    if (tier.tier_code) {
+        const codeUpper = tier.tier_code.toUpperCase();
+        const fallback = TIER_FALLBACKS[codeUpper];
+
+        if (fallback) {
+            return locale === 'en' ? fallback.en : fallback.hi;
+        }
+
+        const translated = t(tier.tier_code);
+
+        return translated === tier.tier_code
+            ? humanize(tier.tier_code)
+            : translated;
+    }
+
+    return null;
 }
 
 function Section({
@@ -379,7 +457,7 @@ function DetailsTable({
 
     return (
         <div className="overflow-hidden rounded-md border print:rounded-sm">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
                 <tbody className="print:text-[10px]">
                     {visibleRows.map((row) => (
                         <tr
@@ -400,51 +478,213 @@ function DetailsTable({
     );
 }
 
-function DataTable({
-    columns,
+function hasAnyValue<T>(items: T[], extractor: (item: T) => unknown): boolean {
+    return items.some((item) => hasValue(extractor(item)));
+}
+
+function genderClassLabel(
+    value: string | null | undefined,
+    t: (key: string) => string,
+): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const labels: Record<string, string> = {
+        F: 'Female',
+        M: 'Male',
+        MIXED: 'Mixed',
+        OPEN: 'Open',
+        O: 'Other',
+    };
+
+    return t(labels[value.toUpperCase()] ?? humanize(value));
+}
+
+function hasPromotionFields(row: CoachPromotion): boolean {
+    const hasRankChange = !!(
+        row.from_rank &&
+        row.to_rank &&
+        row.from_rank !== row.to_rank
+    );
+
+    return !!(row.promotion_date || hasRankChange || row.reason || row.remarks);
+}
+
+function hasRewardFields(row: CoachPromotion): boolean {
+    return !!(
+        row.cash_reward_amount ||
+        row.cash_reward_date ||
+        row.cash_reward_reference ||
+        row.cash_reward_remarks
+    );
+}
+
+function promotionEvidenceKey(
+    evidence: CoachPromotion['evidences'][number],
+): string {
+    if (evidence.tournament?.id && evidence.event?.id) {
+        return `event:${evidence.tournament.id}:${evidence.event.id}`;
+    }
+
+    return `evidence:${evidence.id}`;
+}
+
+function promotionEvidenceTableRows(
+    row: CoachPromotion,
+    locale: string,
+    t: (key: string) => string,
+): PromotionEvidenceTableRow[] {
+    const rows = new Map<string, PromotionEvidenceTableRow>();
+
+    for (const evidence of row.evidences) {
+        const result = evidence.achievement?.medal_type
+            ? t(evidence.achievement.medal_type) ===
+              evidence.achievement.medal_type
+                ? humanize(evidence.achievement.medal_type)
+                : t(evidence.achievement.medal_type)
+            : evidence.achievement?.position != null
+              ? `${t('Position')}: ${evidence.achievement.position}`
+              : null;
+
+        const eventType = evidence.event?.event_type
+            ? evidence.event.event_type === 'team'
+                ? t('Team')
+                : t('Individual')
+            : evidence.team
+              ? t('Team')
+              : null;
+
+        rows.set(promotionEvidenceKey(evidence), {
+            key: promotionEvidenceKey(evidence),
+            session: evidence.session?.name,
+            tournament: evidence.tournament?.name ?? evidence.summary,
+            event: evidence.event?.name,
+            eventType,
+            level: tierLabel(evidence.tournament, locale, t),
+            date: formatDate(evidence.tournament?.date_from),
+            gender: genderClassLabel(evidence.event?.gender_class, t),
+            result,
+            venue: evidence.tournament?.venue,
+        });
+    }
+
+    return Array.from(rows.values());
+}
+
+function PromotionEvidenceTable({
     rows,
-    serialLabel,
+    t,
 }: {
-    columns: string[];
-    rows: React.ReactNode[][];
-    serialLabel: string;
+    rows: PromotionEvidenceTableRow[];
+    t: (key: string) => string;
 }) {
     if (rows.length === 0) {
         return null;
     }
 
     return (
-        <div className="overflow-hidden rounded-md border print:rounded-sm">
-            <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
-                    <tr>
-                        <th className="w-10 p-2 text-center">{serialLabel}</th>
-                        {columns.map((column) => (
-                            <th key={column} className="p-2 font-semibold">
-                                {column}
-                            </th>
-                        ))}
+        <table className="w-full border-collapse text-xs print:text-[9px]">
+            <thead className="bg-muted/40 text-left text-[10px] tracking-wide text-muted-foreground uppercase print:text-[8px]">
+                <tr>
+                    <th className="w-12 border p-1.5 whitespace-nowrap">
+                        {t('S. No.')}
+                    </th>
+                    <th className="w-16 border p-1.5 whitespace-nowrap">
+                        {t('Session')}
+                    </th>
+                    <th className="border p-1.5">{t('Tournament')}</th>
+                    <th className="border p-1.5">{t('Event')}</th>
+                    <th className="w-16 border p-1.5 whitespace-nowrap">
+                        {t('Event type')}
+                    </th>
+                    <th className="w-20 border p-1.5 whitespace-nowrap">
+                        {t('Level')}
+                    </th>
+                    <th className="w-24 border p-1.5 whitespace-nowrap">
+                        {t('Event date')}
+                    </th>
+                    <th className="w-14 border p-1.5 whitespace-nowrap">
+                        {t('Gender')}
+                    </th>
+                    <th className="border p-1.5 whitespace-nowrap">
+                        {t('Result')}
+                    </th>
+                    <th className="border p-1.5">{t('Venue')}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map((row, index) => (
+                    <tr key={row.key}>
+                        <td className="border p-1.5 text-center text-muted-foreground">
+                            {index + 1}
+                        </td>
+                        <td className="border p-1.5 align-top whitespace-nowrap">
+                            {row.session || '—'}
+                        </td>
+                        <td className="border p-1.5 align-top">
+                            {row.tournament || '—'}
+                        </td>
+                        <td className="border p-1.5 align-top">
+                            {row.event || '—'}
+                        </td>
+                        <td className="border p-1.5 align-top whitespace-nowrap">
+                            {row.eventType || '—'}
+                        </td>
+                        <td className="border p-1.5 align-top whitespace-nowrap">
+                            {row.level || '—'}
+                        </td>
+                        <td className="border p-1.5 align-top whitespace-nowrap">
+                            {row.date || '—'}
+                        </td>
+                        <td className="border p-1.5 align-top whitespace-nowrap">
+                            {row.gender || '—'}
+                        </td>
+                        <td className="border p-1.5 align-top font-medium whitespace-nowrap">
+                            {row.result || '—'}
+                        </td>
+                        <td className="border p-1.5 align-top">
+                            {row.venue || '—'}
+                        </td>
                     </tr>
-                </thead>
-                <tbody className="print:text-[10px]">
-                    {rows.map((row, index) => (
-                        <tr key={index} className="border-t print:align-top">
-                            <td className="p-2 text-center text-muted-foreground print:py-1">
-                                {index + 1}
-                            </td>
-                            {row.map((cell, cellIndex) => (
-                                <td
-                                    key={cellIndex}
-                                    className="p-2 align-top print:py-1"
-                                >
-                                    {cell}
-                                </td>
-                            ))}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
+function DetailStack({
+    items,
+}: {
+    items: { label: string; value: React.ReactNode; muted?: boolean }[];
+}) {
+    const visibleItems = items.filter((item) => hasValue(item.value));
+
+    if (visibleItems.length === 0) {
+        return null;
+    }
+
+    return (
+        <table className="w-full border-collapse overflow-hidden rounded-sm border border-border/70 bg-background text-xs leading-4 print:text-[9px]">
+            <tbody>
+                {visibleItems.map((item) => (
+                    <tr key={item.label} className="border-b last:border-b-0">
+                        <th className="w-36 border-r bg-muted/30 px-2 py-1.5 text-left align-top font-medium text-muted-foreground print:w-28 print:px-1.5 print:py-1">
+                            {item.label}
+                        </th>
+                        <td
+                            className={
+                                item.muted
+                                    ? 'px-2 py-1.5 align-top break-words text-muted-foreground print:px-1.5 print:py-1'
+                                    : 'px-2 py-1.5 align-top break-words text-foreground print:px-1.5 print:py-1'
+                            }
+                        >
+                            {item.value}
+                        </td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
     );
 }
 
@@ -455,8 +695,10 @@ export default function CoachPrintPreview({
     coachAchievements,
     specialAchievements,
     playingAchievements,
+    ranks = [],
 }: Props) {
     const { t } = useTranslation();
+    const { locale = 'en' } = usePage().props as { locale?: string };
     const printTargetRef = useRef<HTMLDivElement | null>(null);
     const [selectedSections, setSelectedSections] =
         useState<SectionKey[]>(DEFAULT_SECTIONS);
@@ -520,6 +762,103 @@ export default function CoachPrintPreview({
     const achievements = coachAchievements?.groups ?? [];
     const specialAchievementRecords = specialAchievements?.records ?? [];
     const playingAchievementRecords = playingAchievements?.records ?? [];
+
+    const showSportEvent = hasAnyValue(sports, (s) => s.sport_event);
+    const showSportLevel = hasAnyValue(sports, (s) => s.level);
+    const showSportPeriod = hasAnyValue(
+        sports,
+        (s) => s.effective_from || s.effective_to,
+    );
+    const showSportNotes = hasAnyValue(sports, (s) => s.notes);
+
+    const showAssignmentSport = hasAnyValue(coachTeams, (a) => a.sport?.name);
+    const showAssignmentSession = hasAnyValue(
+        coachTeams,
+        (a) => a.session?.name,
+    );
+    const showAssignmentRole = hasAnyValue(coachTeams, (a) => a.role);
+    const showAssignmentAssignedAt = hasAnyValue(
+        coachTeams,
+        (a) => a.assigned_at,
+    );
+    const showAssignmentRemovedAt = hasAnyValue(
+        coachTeams,
+        (a) => a.removed_at,
+    );
+
+    const showSpecialAwardedOn = hasAnyValue(
+        specialAchievementRecords,
+        (r) => r.awarded_on,
+    );
+    const showSpecialIssuingAuthority = hasAnyValue(
+        specialAchievementRecords,
+        (r) => r.issuing_authority,
+    );
+    const showSpecialOrderReference = hasAnyValue(
+        specialAchievementRecords,
+        (r) => r.order_reference,
+    );
+    const showSpecialPlace = hasAnyValue(
+        specialAchievementRecords,
+        (r) => r.place,
+    );
+    const showSpecialRemarks = hasAnyValue(
+        specialAchievementRecords,
+        (r) => r.remarks,
+    );
+
+    const showCertType = hasAnyValue(certifications, (c) => c.certificate_type);
+    const showCertIssuer = hasAnyValue(certifications, (c) => c.issuer);
+    const showCertIssuedAt = hasAnyValue(certifications, (c) => c.issued_at);
+    const showCertExpiredAt = hasAnyValue(certifications, (c) => c.expired_at);
+
+    const showStatusReason = hasAnyValue(statusHistory, (s) => s.reason);
+    const showStatusRecordedBy = hasAnyValue(
+        statusHistory,
+        (s) => s.recorded_by_name,
+    );
+
+    const promotionRows = promotions.filter(hasPromotionFields);
+    const rewardRows = promotions.filter(hasRewardFields);
+
+    const showPromotionFromRank = hasAnyValue(
+        promotionRows,
+        (row) => row.from_rank,
+    );
+    const showPromotionDate = hasAnyValue(
+        promotionRows,
+        (row) => row.promotion_date,
+    );
+    const showPromotionReason = hasAnyValue(promotionRows, (row) => row.reason);
+    const showPromotionRemarks = hasAnyValue(
+        promotionRows,
+        (row) => row.remarks,
+    );
+    const showPromotionEvidence = hasAnyValue(
+        promotionRows,
+        (row) => row.evidences.length,
+    );
+
+    const showRewardAmount = hasAnyValue(
+        rewardRows,
+        (row) => row.cash_reward_amount,
+    );
+    const showRewardDate = hasAnyValue(
+        rewardRows,
+        (row) => row.cash_reward_date,
+    );
+    const showRewardReference = hasAnyValue(
+        rewardRows,
+        (row) => row.cash_reward_reference,
+    );
+    const showRewardRemarks = hasAnyValue(
+        rewardRows,
+        (row) => row.cash_reward_remarks,
+    );
+    const showRewardEvidence = hasAnyValue(
+        rewardRows,
+        (row) => row.evidences.length,
+    );
 
     return (
         <>
@@ -716,48 +1055,198 @@ export default function CoachPrintPreview({
 
                     {enabled('sports') && sports.length > 0 && (
                         <Section title={t('Playable sports')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[t('Sport'), t('Event / Weight')]}
-                                rows={sports.map((sport) => [
-                                    sport.name,
-                                    sport.sport_event,
-                                ])}
-                            />
+                            <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                <table className="w-full text-xs">
+                                    <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                        <tr>
+                                            <th className="p-2">
+                                                {t('Sport')}
+                                            </th>
+                                            {showSportEvent && (
+                                                <th className="p-2">
+                                                    {t('Event / Discipline')}
+                                                </th>
+                                            )}
+                                            {showSportLevel && (
+                                                <th className="p-2">
+                                                    {t('Level')}
+                                                </th>
+                                            )}
+                                            {showSportPeriod && (
+                                                <th className="p-2 whitespace-nowrap">
+                                                    {t('Period')}
+                                                </th>
+                                            )}
+                                            {showSportNotes && (
+                                                <th className="p-2">
+                                                    {t('Notes')}
+                                                </th>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="print:text-[10px]">
+                                        {sports.map((sport) => (
+                                            <tr
+                                                key={sport.id}
+                                                className="border-t print:align-top"
+                                            >
+                                                <td className="p-2 font-medium print:py-1">
+                                                    {sport.name}
+                                                    {sport.is_primary && (
+                                                        <span className="ml-2 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary uppercase print:text-[8px]">
+                                                            {t('Primary')}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                {showSportEvent && (
+                                                    <td className="p-2 print:py-1">
+                                                        {sport.sport_event ||
+                                                            '—'}
+                                                    </td>
+                                                )}
+                                                {showSportLevel && (
+                                                    <td className="p-2 print:py-1">
+                                                        {sport.level || '—'}
+                                                    </td>
+                                                )}
+                                                {showSportPeriod && (
+                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                        {[
+                                                            formatDate(
+                                                                sport.effective_from,
+                                                            ),
+                                                            formatDate(
+                                                                sport.effective_to,
+                                                            ),
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' - ') || '—'}
+                                                    </td>
+                                                )}
+                                                {showSportNotes && (
+                                                    <td className="p-2 print:py-1">
+                                                        {sport.notes || '—'}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </Section>
                     )}
 
                     {enabled('assignments') && coachTeams.length > 0 && (
                         <Section title={t('Team assignments')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[
-                                    t('Team'),
-                                    t('Sport'),
-                                    t('Session'),
-                                    t('Role'),
-                                    t('Assigned at'),
-                                    t('Removed at'),
-                                    t('Status'),
-                                ]}
-                                rows={coachTeams.map((assignment) => [
-                                    assignment.team?.name,
-                                    assignment.sport?.name,
-                                    assignment.session?.name,
-                                    coachRoleLabel(assignment.role, t),
-                                    formatDate(assignment.assigned_at),
-                                    formatDate(assignment.removed_at),
-                                    assignment.is_current
-                                        ? t('Current')
-                                        : t('Removed'),
-                                ])}
-                            />
+                            <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                <table className="w-full text-xs">
+                                    <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                        <tr>
+                                            <th className="w-10 p-2 text-center align-top">
+                                                {t('S. No.')}
+                                            </th>
+                                            <th className="p-2">{t('Team')}</th>
+                                            {showAssignmentSport && (
+                                                <th className="p-2">
+                                                    {t('Sport')}
+                                                </th>
+                                            )}
+                                            {showAssignmentSession && (
+                                                <th className="p-2">
+                                                    {t('Session')}
+                                                </th>
+                                            )}
+                                            {showAssignmentRole && (
+                                                <th className="p-2">
+                                                    {t('Role')}
+                                                </th>
+                                            )}
+                                            {showAssignmentAssignedAt && (
+                                                <th className="p-2 whitespace-nowrap">
+                                                    {t('Assigned at')}
+                                                </th>
+                                            )}
+                                            {showAssignmentRemovedAt && (
+                                                <th className="p-2 whitespace-nowrap">
+                                                    {t('Removed at')}
+                                                </th>
+                                            )}
+                                            <th className="p-2 whitespace-nowrap">
+                                                {t('Status')}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="print:text-[10px]">
+                                        {coachTeams.map((assignment, index) => (
+                                            <tr
+                                                key={assignment.id}
+                                                className="border-t print:align-top"
+                                            >
+                                                <td className="p-2 text-center text-muted-foreground print:py-1">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="p-2 font-medium print:py-1">
+                                                    {assignment.team?.name ??
+                                                        '—'}
+                                                </td>
+                                                {showAssignmentSport && (
+                                                    <td className="p-2 print:py-1">
+                                                        {assignment.sport
+                                                            ?.name ?? '—'}
+                                                    </td>
+                                                )}
+                                                {showAssignmentSession && (
+                                                    <td className="p-2 print:py-1">
+                                                        {assignment.session
+                                                            ?.name ?? '—'}
+                                                    </td>
+                                                )}
+                                                {showAssignmentRole && (
+                                                    <td className="p-2 print:py-1">
+                                                        {coachRoleLabel(
+                                                            assignment.role,
+                                                            t,
+                                                        ) || '—'}
+                                                    </td>
+                                                )}
+                                                {showAssignmentAssignedAt && (
+                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                        {formatDate(
+                                                            assignment.assigned_at,
+                                                        ) || '—'}
+                                                    </td>
+                                                )}
+                                                {showAssignmentRemovedAt && (
+                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                        {formatDate(
+                                                            assignment.removed_at,
+                                                        ) || '—'}
+                                                    </td>
+                                                )}
+                                                <td className="p-2 whitespace-nowrap print:py-1">
+                                                    <span
+                                                        className={
+                                                            assignment.is_current
+                                                                ? 'font-medium text-emerald-700'
+                                                                : 'text-muted-foreground'
+                                                        }
+                                                    >
+                                                        {assignment.is_current
+                                                            ? t('Current')
+                                                            : t('Removed')}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </Section>
                     )}
 
                     {enabled('achievements') && achievements.length > 0 && (
                         <Section title={t('Achievements')}>
-                            <div className="mb-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-6 print:grid-cols-6 print:text-[9px]">
+                            <div className="mb-3 grid grid-cols-2 gap-2 rounded-md border bg-muted/20 p-3 text-xs sm:grid-cols-6 print:grid-cols-6 print:p-2 print:text-[9px]">
                                 {(
                                     [
                                         'GOLD',
@@ -766,108 +1255,299 @@ export default function CoachPrintPreview({
                                         'MERIT',
                                     ] as const
                                 ).map((medal) => (
-                                    <div
-                                        key={medal}
-                                        className="rounded-md border px-2 py-1.5 text-center print:py-1"
-                                    >
-                                        <div className="font-semibold">
+                                    <div key={medal} className="text-center">
+                                        <div className="text-xs font-semibold text-muted-foreground uppercase print:text-[8px]">
                                             {humanize(medal)}
                                         </div>
-                                        <div>
-                                            {coachAchievements?.summary[medal]}
+                                        <div className="text-sm font-bold text-foreground print:text-[11px]">
+                                            {coachAchievements?.summary[
+                                                medal
+                                            ] ?? 0}
                                         </div>
                                     </div>
                                 ))}
-                                <div className="rounded-md border px-2 py-1.5 text-center print:py-1">
-                                    <div className="font-semibold">
+                                <div className="text-center">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase print:text-[8px]">
                                         {t('Events')}
                                     </div>
-                                    <div>
-                                        {
-                                            coachAchievements?.summary
-                                                .total_events
-                                        }
+                                    <div className="text-sm font-bold text-foreground print:text-[11px]">
+                                        {coachAchievements?.summary
+                                            .total_events ?? 0}
                                     </div>
                                 </div>
-                                <div className="rounded-md border px-2 py-1.5 text-center print:py-1">
-                                    <div className="font-semibold">
+                                <div className="text-center">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase print:text-[8px]">
                                         {t('Players')}
                                     </div>
-                                    <div>
-                                        {
-                                            coachAchievements?.summary
-                                                .medal_winning_players
-                                        }
+                                    <div className="text-sm font-bold text-foreground print:text-[11px]">
+                                        {coachAchievements?.summary
+                                            .medal_winning_players ?? 0}
                                     </div>
                                 </div>
                             </div>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[
-                                    t('Session'),
-                                    t('Team'),
-                                    t('Tournament'),
-                                    t('Event / Weight'),
-                                    t('Medals'),
-                                    t('Players'),
-                                ]}
-                                rows={achievements.map((group) => [
-                                    group.session.name,
-                                    group.team.name,
-                                    [
-                                        group.tournament.name,
-                                        group.tournament.tier_code,
-                                        formatDate(group.tournament.date_from),
-                                    ]
-                                        .filter(Boolean)
-                                        .join(' · '),
-                                    [
-                                        group.event.name,
-                                        group.event.weight_category,
-                                    ]
-                                        .filter(Boolean)
-                                        .join(' / '),
-                                    medalSummary(group.medal_counts),
-                                    group.players
-                                        .map((player) =>
-                                            [
-                                                player.member.full_name,
-                                                player.member.pno,
-                                                humanize(player.medal_type),
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' - '),
-                                        )
-                                        .join('; '),
-                                ])}
-                            />
+                            <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                <table className="w-full text-xs">
+                                    <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                        <tr>
+                                            <th className="w-10 p-2 text-center align-top">
+                                                {t('S. No.')}
+                                            </th>
+                                            <th className="p-2 align-top">
+                                                {t('Tournament')}
+                                            </th>
+                                            <th className="w-[10%] p-2 align-top whitespace-nowrap">
+                                                {t('Session')}
+                                            </th>
+                                            <th className="w-[12%] p-2 align-top">
+                                                {t('Team')}
+                                            </th>
+                                            <th className="p-2 align-top">
+                                                {t('Event')}
+                                            </th>
+                                            <th className="w-[12%] p-2 align-top">
+                                                {t('Medals')}
+                                            </th>
+                                            <th className="p-2 align-top">
+                                                {t('Players')}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y print:text-[10px]">
+                                        {achievements.map((group, index) => (
+                                            <tr
+                                                key={group.id}
+                                                className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                            >
+                                                <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="p-3 align-top print:p-2">
+                                                    <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                        {group.tournament.name}
+                                                    </div>
+                                                    <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
+                                                        {[
+                                                            tierLabel(
+                                                                group.tournament,
+                                                                locale,
+                                                                t,
+                                                            ),
+                                                            formatDate(
+                                                                group.tournament
+                                                                    .date_from,
+                                                            ),
+                                                            group.tournament
+                                                                .venue,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' · ')}
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                    {group.session.name}
+                                                </td>
+                                                <td className="p-3 align-top text-xs font-medium text-foreground print:p-2 print:text-[9px]">
+                                                    {group.team.name}
+                                                </td>
+                                                <td className="p-3 align-top print:p-2">
+                                                    <div className="text-xs font-medium text-foreground print:text-[9px]">
+                                                        {group.event.name}
+                                                    </div>
+                                                    {group.event
+                                                        .weight_category && (
+                                                        <div className="text-xs text-muted-foreground print:text-[9px]">
+                                                            {
+                                                                group.event
+                                                                    .weight_category
+                                                            }
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="p-3 align-top whitespace-nowrap print:p-2">
+                                                    <div className="space-y-0.5 text-xs print:text-[9px]">
+                                                        {(
+                                                            [
+                                                                'GOLD',
+                                                                'SILVER',
+                                                                'BRONZE',
+                                                                'MERIT',
+                                                            ] as const
+                                                        )
+                                                            .filter(
+                                                                (m) =>
+                                                                    (group
+                                                                        .medal_counts[
+                                                                        m
+                                                                    ] ?? 0) > 0,
+                                                            )
+                                                            .map((m) => (
+                                                                <div
+                                                                    key={m}
+                                                                    className="font-semibold text-foreground"
+                                                                >
+                                                                    {humanize(
+                                                                        m,
+                                                                    )}
+                                                                    :{' '}
+                                                                    {
+                                                                        group
+                                                                            .medal_counts[
+                                                                            m
+                                                                        ]
+                                                                    }
+                                                                </div>
+                                                            ))}
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 align-top print:p-2">
+                                                    <div className="space-y-1">
+                                                        {group.players.map(
+                                                            (player) => (
+                                                                <div
+                                                                    key={
+                                                                        player.achievement_id
+                                                                    }
+                                                                    className="text-xs leading-4 print:text-[9px]"
+                                                                >
+                                                                    <span className="font-medium text-foreground">
+                                                                        {
+                                                                            player
+                                                                                .member
+                                                                                .full_name
+                                                                        }
+                                                                    </span>
+                                                                    {player
+                                                                        .member
+                                                                        .pno && (
+                                                                        <span className="ml-1 font-mono text-muted-foreground">
+                                                                            (
+                                                                            {
+                                                                                player
+                                                                                    .member
+                                                                                    .pno
+                                                                            }
+                                                                            )
+                                                                        </span>
+                                                                    )}
+                                                                    <span className="mx-1 text-muted-foreground">
+                                                                        ·
+                                                                    </span>
+                                                                    <span className="font-semibold text-foreground">
+                                                                        {humanize(
+                                                                            player.medal_type,
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </Section>
                     )}
 
                     {enabled('specialAchievements') &&
                         specialAchievementRecords.length > 0 && (
                             <Section title={t('Special achievements')}>
-                                <DataTable
-                                    serialLabel={t('S. No.')}
-                                    columns={[
-                                        t('Type'),
-                                        t('Title'),
-                                        t('Award date'),
-                                        t('Issuing authority'),
-                                        t('Order reference'),
-                                        t('Place'),
-                                    ]}
-                                    rows={specialAchievementRecords.map(
-                                        (record) => [
-                                            humanize(record.achievement_type),
-                                            record.title,
-                                            formatDate(record.awarded_on),
-                                            record.issuing_authority,
-                                            record.order_reference,
-                                            record.place,
-                                        ],
-                                    )}
-                                />
+                                <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                    <table className="w-full text-xs">
+                                        <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                            <tr>
+                                                <th className="w-10 p-2 text-center align-top">
+                                                    {t('S. No.')}
+                                                </th>
+                                                <th className="p-2">
+                                                    {t('Achievement type')}
+                                                </th>
+                                                <th className="p-2">
+                                                    {t('Title')}
+                                                </th>
+                                                {showSpecialAwardedOn && (
+                                                    <th className="p-2 whitespace-nowrap">
+                                                        {t('Award date')}
+                                                    </th>
+                                                )}
+                                                {showSpecialIssuingAuthority && (
+                                                    <th className="p-2">
+                                                        {t('Issuing authority')}
+                                                    </th>
+                                                )}
+                                                {showSpecialOrderReference && (
+                                                    <th className="p-2">
+                                                        {t('Order reference')}
+                                                    </th>
+                                                )}
+                                                {showSpecialPlace && (
+                                                    <th className="p-2">
+                                                        {t('Place')}
+                                                    </th>
+                                                )}
+                                                {showSpecialRemarks && (
+                                                    <th className="p-2">
+                                                        {t('Remarks')}
+                                                    </th>
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="print:text-[10px]">
+                                            {specialAchievementRecords.map(
+                                                (record, index) => (
+                                                    <tr
+                                                        key={record.id}
+                                                        className="border-t print:align-top"
+                                                    >
+                                                        <td className="p-2 text-center text-muted-foreground print:py-1">
+                                                            {index + 1}
+                                                        </td>
+                                                        <td className="p-2 print:py-1">
+                                                            {humanize(
+                                                                record.achievement_type,
+                                                            )}
+                                                        </td>
+                                                        <td className="p-2 font-medium text-foreground print:py-1">
+                                                            {record.title}
+                                                        </td>
+                                                        {showSpecialAwardedOn && (
+                                                            <td className="p-2 whitespace-nowrap print:py-1">
+                                                                {formatDate(
+                                                                    record.awarded_on,
+                                                                ) || '—'}
+                                                            </td>
+                                                        )}
+                                                        {showSpecialIssuingAuthority && (
+                                                            <td className="p-2 print:py-1">
+                                                                {record.issuing_authority ||
+                                                                    '—'}
+                                                            </td>
+                                                        )}
+                                                        {showSpecialOrderReference && (
+                                                            <td className="p-2 print:py-1">
+                                                                {record.order_reference ||
+                                                                    '—'}
+                                                            </td>
+                                                        )}
+                                                        {showSpecialPlace && (
+                                                            <td className="p-2 print:py-1">
+                                                                {record.place ||
+                                                                    '—'}
+                                                            </td>
+                                                        )}
+                                                        {showSpecialRemarks && (
+                                                            <td className="p-2 print:py-1">
+                                                                {record.remarks ||
+                                                                    '—'}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ),
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </Section>
                         )}
 
@@ -881,36 +1561,111 @@ export default function CoachPrintPreview({
                                 }`}
                             >
                                 {playingAchievements?.source === 'member' ? (
-                                    <DataTable
-                                        serialLabel={t('S. No.')}
-                                        columns={[
-                                            t('Medal'),
-                                            t('Tournament'),
-                                            t('Event'),
-                                            t('Kind'),
-                                            t('Date'),
-                                            t('Venue'),
-                                        ]}
-                                        rows={(
-                                            playingAchievementRecords as MemberPlayingAchievementRecord[]
-                                        ).map((record) => [
-                                            record.medal_type
-                                                ? humanize(record.medal_type)
-                                                : '—',
-                                            [
-                                                record.tournament.name,
-                                                record.tournament.tier_code,
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' · '),
-                                            record.event.name,
-                                            record.event_kind === 'team'
-                                                ? t('Team')
-                                                : t('Individual'),
-                                            formatDate(record.achieved_on),
-                                            record.tournament.venue,
-                                        ])}
-                                    />
+                                    <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                        <table className="w-full text-xs">
+                                            <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                <tr>
+                                                    <th className="w-10 p-2 text-center align-top">
+                                                        {t('S. No.')}
+                                                    </th>
+                                                    <th className="p-2 align-top">
+                                                        {t('Tournament')}
+                                                    </th>
+                                                    <th className="w-[10%] p-2 align-top whitespace-nowrap">
+                                                        {t('Session')}
+                                                    </th>
+                                                    <th className="p-2 align-top">
+                                                        {t('Event')}
+                                                    </th>
+                                                    <th className="w-[9%] p-2 align-top whitespace-nowrap">
+                                                        {t('Kind')}
+                                                    </th>
+                                                    <th className="w-[12%] p-2 align-top whitespace-nowrap">
+                                                        {t('Date')}
+                                                    </th>
+                                                    <th className="w-[14%] p-2 align-top">
+                                                        {t('Venue')}
+                                                    </th>
+                                                    <th className="w-[10%] p-2 align-top">
+                                                        {t('Result')}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y print:text-[10px]">
+                                                {(
+                                                    playingAchievementRecords as MemberPlayingAchievementRecord[]
+                                                ).map((record, index) => (
+                                                    <tr
+                                                        key={record.id}
+                                                        className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                    >
+                                                        <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                            {index + 1}
+                                                        </td>
+                                                        <td className="p-3 align-top print:p-2">
+                                                            <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                {
+                                                                    record
+                                                                        .tournament
+                                                                        .name
+                                                                }
+                                                            </div>
+                                                            {tierLabel(
+                                                                record.tournament,
+                                                                locale,
+                                                                t,
+                                                            ) && (
+                                                                <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
+                                                                    {tierLabel(
+                                                                        record.tournament,
+                                                                        locale,
+                                                                        t,
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                            {
+                                                                record.session
+                                                                    .name
+                                                            }
+                                                        </td>
+                                                        <td className="p-3 align-top text-xs font-medium text-foreground print:p-2 print:text-[9px]">
+                                                            {record.event.name}
+                                                        </td>
+                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                            {record.event_kind ===
+                                                            'team'
+                                                                ? t('Team')
+                                                                : t(
+                                                                      'Individual',
+                                                                  )}
+                                                        </td>
+                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                            {formatDate(
+                                                                record.achieved_on,
+                                                            ) || '—'}
+                                                        </td>
+                                                        <td className="p-3 align-top text-xs break-words text-foreground print:p-2 print:text-[9px]">
+                                                            {record.tournament
+                                                                .venue || '—'}
+                                                        </td>
+                                                        <td className="p-3 align-top print:p-2">
+                                                            <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
+                                                                {record.medal_type
+                                                                    ? humanize(
+                                                                          record.medal_type,
+                                                                      )
+                                                                    : record.position
+                                                                      ? `${t('Position')}: ${record.position}`
+                                                                      : '—'}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 ) : (
                                     (() => {
                                         const legacyRecords =
@@ -951,60 +1706,138 @@ export default function CoachPrintPreview({
                                             <div className="space-y-4">
                                                 {groups.map((group) => (
                                                     <div key={group.key}>
-                                                        <div className="mb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                                                        <div className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                             {group.label}
                                                         </div>
-                                                        <DataTable
-                                                            serialLabel={t(
-                                                                'S. No.',
-                                                            )}
-                                                            columns={[
-                                                                t('Medal'),
-                                                                t('Title'),
-                                                                t('Level'),
-                                                                t('Kind'),
-                                                                t(
-                                                                    'Competition',
-                                                                ),
-                                                                t('Event date'),
-                                                                t('Venue'),
-                                                            ]}
-                                                            rows={group.rows.map(
-                                                                (record) => [
-                                                                    record.medal_type
-                                                                        ? humanize(
-                                                                              record.medal_type,
-                                                                          )
-                                                                        : '—',
-                                                                    record.title,
-                                                                    record.level,
-                                                                    record.event_type
-                                                                        ? record.event_type ===
-                                                                          'team'
-                                                                            ? t(
-                                                                                  'Team',
-                                                                              )
-                                                                            : t(
-                                                                                  'Individual',
-                                                                              )
-                                                                        : '—',
-                                                                    [
-                                                                        record.competition_details,
-                                                                        record.event,
-                                                                    ]
-                                                                        .filter(
-                                                                            Boolean,
-                                                                        )
-                                                                        .join(
-                                                                            ' · ',
+                                                        <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                                            <table className="w-full text-xs">
+                                                                <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                                    <tr>
+                                                                        <th className="w-10 p-2 text-center align-top">
+                                                                            {t(
+                                                                                'S. No.',
+                                                                            )}
+                                                                        </th>
+                                                                        <th className="p-2 align-top">
+                                                                            {t(
+                                                                                'Title',
+                                                                            )}
+                                                                        </th>
+                                                                        <th className="p-2 align-top">
+                                                                            {t(
+                                                                                'Competition / Event',
+                                                                            )}
+                                                                        </th>
+                                                                        <th className="w-[10%] p-2 align-top whitespace-nowrap">
+                                                                            {t(
+                                                                                'Level',
+                                                                            )}
+                                                                        </th>
+                                                                        <th className="w-[9%] p-2 align-top whitespace-nowrap">
+                                                                            {t(
+                                                                                'Kind',
+                                                                            )}
+                                                                        </th>
+                                                                        <th className="w-[12%] p-2 align-top whitespace-nowrap">
+                                                                            {t(
+                                                                                'Event date',
+                                                                            )}
+                                                                        </th>
+                                                                        <th className="w-[14%] p-2 align-top">
+                                                                            {t(
+                                                                                'Venue',
+                                                                            )}
+                                                                        </th>
+                                                                        <th className="w-[10%] p-2 align-top">
+                                                                            {t(
+                                                                                'Result',
+                                                                            )}
+                                                                        </th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y print:text-[10px]">
+                                                                    {group.rows.map(
+                                                                        (
+                                                                            record,
+                                                                            index,
+                                                                        ) => (
+                                                                            <tr
+                                                                                key={
+                                                                                    record.id
+                                                                                }
+                                                                                className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                                            >
+                                                                                <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                                    {index +
+                                                                                        1}
+                                                                                </td>
+                                                                                <td className="p-3 align-top font-medium text-foreground print:p-2">
+                                                                                    {
+                                                                                        record.title
+                                                                                    }
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                    {[
+                                                                                        record.competition_details,
+                                                                                        record.event,
+                                                                                    ]
+                                                                                        .filter(
+                                                                                            Boolean,
+                                                                                        )
+                                                                                        .join(
+                                                                                            ' · ',
+                                                                                        ) ||
+                                                                                        '—'}
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                                                    {tierLabel(
+                                                                                        {
+                                                                                            tier_code:
+                                                                                                record.level,
+                                                                                        },
+                                                                                        locale,
+                                                                                        t,
+                                                                                    ) ||
+                                                                                        record.level ||
+                                                                                        '—'}
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                                                    {record.event_type
+                                                                                        ? record.event_type ===
+                                                                                          'team'
+                                                                                            ? t(
+                                                                                                  'Team',
+                                                                                              )
+                                                                                            : t(
+                                                                                                  'Individual',
+                                                                                              )
+                                                                                        : '—'}
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                                                    {formatDate(
+                                                                                        record.event_date,
+                                                                                    ) ||
+                                                                                        '—'}
+                                                                                </td>
+                                                                                <td className="p-3 align-top text-xs break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                    {record.venue ||
+                                                                                        '—'}
+                                                                                </td>
+                                                                                <td className="p-3 align-top print:p-2">
+                                                                                    <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
+                                                                                        {record.medal_type
+                                                                                            ? humanize(
+                                                                                                  record.medal_type,
+                                                                                              )
+                                                                                            : '—'}
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
                                                                         ),
-                                                                    formatDate(
-                                                                        record.event_date,
-                                                                    ),
-                                                                    record.venue,
-                                                                ],
-                                                            )}
-                                                        />
+                                                                    )}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1016,64 +1849,462 @@ export default function CoachPrintPreview({
 
                     {enabled('certifications') && certifications.length > 0 && (
                         <Section title={t('Certifications')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[t('Name'), t('Type'), t('Issuer')]}
-                                rows={certifications.map((certification) => [
-                                    certification.name,
-                                    certification.certificate_type,
-                                    certification.issuer,
-                                ])}
-                            />
+                            <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                <table className="w-full text-xs">
+                                    <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                        <tr>
+                                            <th className="w-10 p-2 text-center align-top">
+                                                {t('S. No.')}
+                                            </th>
+                                            <th className="p-2">
+                                                {t('Certificate')}
+                                            </th>
+                                            {showCertType && (
+                                                <th className="p-2">
+                                                    {t('Type')}
+                                                </th>
+                                            )}
+                                            {showCertIssuer && (
+                                                <th className="p-2">
+                                                    {t('Issuer')}
+                                                </th>
+                                            )}
+                                            {showCertIssuedAt && (
+                                                <th className="p-2 whitespace-nowrap">
+                                                    {t('Issued at')}
+                                                </th>
+                                            )}
+                                            {showCertExpiredAt && (
+                                                <th className="p-2 whitespace-nowrap">
+                                                    {t('Expired at')}
+                                                </th>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="print:text-[10px]">
+                                        {certifications.map((cert, index) => (
+                                            <tr
+                                                key={cert.id}
+                                                className="border-t print:align-top"
+                                            >
+                                                <td className="p-2 text-center text-muted-foreground print:py-1">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="p-2 font-medium text-foreground print:py-1">
+                                                    {cert.name}
+                                                </td>
+                                                {showCertType && (
+                                                    <td className="p-2 print:py-1">
+                                                        {cert.certificate_type ||
+                                                            '—'}
+                                                    </td>
+                                                )}
+                                                {showCertIssuer && (
+                                                    <td className="p-2 print:py-1">
+                                                        {cert.issuer || '—'}
+                                                    </td>
+                                                )}
+                                                {showCertIssuedAt && (
+                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                        {formatDate(
+                                                            cert.issued_at,
+                                                        ) || '—'}
+                                                    </td>
+                                                )}
+                                                {showCertExpiredAt && (
+                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                        {formatDate(
+                                                            cert.expired_at,
+                                                        ) || '—'}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </Section>
                     )}
 
-                    {enabled('promotions') && promotions.length > 0 && (
+                    {enabled('promotions') && (
                         <Section title={t('Promotions / rewards')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[
-                                    t('Promotion date'),
-                                    t('From rank'),
-                                    t('To rank'),
-                                    t('Cash reward amount'),
-                                    t('Cash reward date'),
-                                    t('Reference'),
-                                    t('Evidence'),
-                                ]}
-                                rows={promotions.map((promotion) => [
-                                    formatDate(promotion.promotion_date),
-                                    promotion.from_rank,
-                                    promotion.to_rank,
-                                    promotion.cash_reward_amount,
-                                    formatDate(promotion.cash_reward_date),
-                                    promotion.cash_reward_reference,
-                                    promotion.evidences
-                                        .map((evidence) => evidence.summary)
-                                        .filter(Boolean)
-                                        .join('; '),
-                                ])}
-                            />
+                            {promotions.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    {t('No promotions yet.')}
+                                </p>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <h3 className="text-sm font-semibold text-foreground">
+                                            {t('Promotions')}
+                                        </h3>
+                                        {promotionRows.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground">
+                                                {t('No promotions yet.')}
+                                            </p>
+                                        ) : (
+                                            <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                                <table className="w-full text-xs">
+                                                    <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                        <tr>
+                                                            <th className="w-10 p-2 text-center align-top">
+                                                                {t('S. No.')}
+                                                            </th>
+                                                            <th className="p-2 align-top">
+                                                                {t('Promotion')}
+                                                            </th>
+                                                            {showPromotionDate && (
+                                                                <th className="w-[20%] p-2 align-top">
+                                                                    {t(
+                                                                        'Promotion date',
+                                                                    )}
+                                                                </th>
+                                                            )}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y print:text-[10px]">
+                                                        {promotionRows.map(
+                                                            (row, index) => {
+                                                                const evidenceRows =
+                                                                    promotionEvidenceTableRows(
+                                                                        row,
+                                                                        locale,
+                                                                        t,
+                                                                    );
+                                                                const detailItems =
+                                                                    [
+                                                                        {
+                                                                            label: t(
+                                                                                'Reason',
+                                                                            ),
+                                                                            value: showPromotionReason
+                                                                                ? row.reason
+                                                                                : null,
+                                                                        },
+                                                                        {
+                                                                            label: t(
+                                                                                'Remarks',
+                                                                            ),
+                                                                            value: showPromotionRemarks
+                                                                                ? row.remarks
+                                                                                : null,
+                                                                            muted: true,
+                                                                        },
+                                                                    ];
+                                                                const hasEvidence =
+                                                                    showPromotionEvidence &&
+                                                                    evidenceRows.length >
+                                                                        0;
+                                                                const hasDetails =
+                                                                    detailItems.some(
+                                                                        (
+                                                                            item,
+                                                                        ) =>
+                                                                            hasValue(
+                                                                                item.value,
+                                                                            ),
+                                                                    ) ||
+                                                                    hasEvidence;
+
+                                                                return (
+                                                                    <Fragment
+                                                                        key={`promotion-${row.id}`}
+                                                                    >
+                                                                        <tr className="align-top odd:bg-muted/10">
+                                                                            <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                                {index +
+                                                                                    1}
+                                                                            </td>
+                                                                            <td className="p-3 align-top print:p-2">
+                                                                                <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                                    {resolveRankLabel(
+                                                                                        row.to_rank,
+                                                                                        ranks,
+                                                                                        '',
+                                                                                    ) ||
+                                                                                        '—'}
+                                                                                </div>
+                                                                                {showPromotionFromRank &&
+                                                                                    hasValue(
+                                                                                        row.from_rank,
+                                                                                    ) && (
+                                                                                        <div className="mt-1 text-xs leading-4 break-words text-muted-foreground print:text-[9px]">
+                                                                                            {t(
+                                                                                                'From rank',
+                                                                                            )}
+
+                                                                                            :{' '}
+                                                                                            {resolveRankLabel(
+                                                                                                row.from_rank,
+                                                                                                ranks,
+                                                                                                '',
+                                                                                            )}
+                                                                                        </div>
+                                                                                    )}
+                                                                            </td>
+                                                                            {showPromotionDate && (
+                                                                                <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                    {formatDate(
+                                                                                        row.promotion_date,
+                                                                                    ) ||
+                                                                                        '—'}
+                                                                                </td>
+                                                                            )}
+                                                                        </tr>
+                                                                        {hasDetails && (
+                                                                            <tr className="bg-muted/5 print:break-inside-avoid">
+                                                                                <td
+                                                                                    className="px-3 pt-0 pb-3 print:px-2 print:pb-2"
+                                                                                    colSpan={
+                                                                                        2 +
+                                                                                        (showPromotionDate
+                                                                                            ? 1
+                                                                                            : 0)
+                                                                                    }
+                                                                                >
+                                                                                    <DetailStack
+                                                                                        items={
+                                                                                            detailItems
+                                                                                        }
+                                                                                    />
+                                                                                    {hasEvidence && (
+                                                                                        <div className="mt-2 space-y-1">
+                                                                                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                                                                {t(
+                                                                                                    'Evidence',
+                                                                                                )}
+                                                                                            </p>
+                                                                                            <PromotionEvidenceTable
+                                                                                                rows={
+                                                                                                    evidenceRows
+                                                                                                }
+                                                                                                t={
+                                                                                                    t
+                                                                                                }
+                                                                                            />
+                                                                                        </div>
+                                                                                    )}
+                                                                                </td>
+                                                                            </tr>
+                                                                        )}
+                                                                    </Fragment>
+                                                                );
+                                                            },
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <h3 className="text-sm font-semibold text-foreground">
+                                            {t('Rewards')}
+                                        </h3>
+                                        {rewardRows.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground">
+                                                {t('No rewards yet.')}
+                                            </p>
+                                        ) : (
+                                            <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                                <table className="w-full text-xs">
+                                                    <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                        <tr>
+                                                            <th className="w-10 p-2 text-center align-top">
+                                                                {t('S. No.')}
+                                                            </th>
+                                                            {showRewardAmount && (
+                                                                <th className="w-[35%] p-2 align-top">
+                                                                    {t(
+                                                                        'Cash reward amount',
+                                                                    )}
+                                                                </th>
+                                                            )}
+                                                            {showRewardDate && (
+                                                                <th className="w-[25%] p-2 align-top">
+                                                                    {t(
+                                                                        'Cash reward date',
+                                                                    )}
+                                                                </th>
+                                                            )}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y print:text-[10px]">
+                                                        {rewardRows.map(
+                                                            (row, index) => {
+                                                                const evidenceRows =
+                                                                    promotionEvidenceTableRows(
+                                                                        row,
+                                                                        locale,
+                                                                        t,
+                                                                    );
+                                                                const detailItems =
+                                                                    [
+                                                                        {
+                                                                            label: t(
+                                                                                'Cash reward reference',
+                                                                            ),
+                                                                            value: showRewardReference
+                                                                                ? row.cash_reward_reference
+                                                                                : null,
+                                                                        },
+                                                                        {
+                                                                            label: t(
+                                                                                'Remarks',
+                                                                            ),
+                                                                            value: showRewardRemarks
+                                                                                ? row.cash_reward_remarks
+                                                                                : null,
+                                                                            muted: true,
+                                                                        },
+                                                                    ];
+                                                                const hasEvidence =
+                                                                    showRewardEvidence &&
+                                                                    evidenceRows.length >
+                                                                        0;
+                                                                const hasDetails =
+                                                                    detailItems.some(
+                                                                        (
+                                                                            item,
+                                                                        ) =>
+                                                                            hasValue(
+                                                                                item.value,
+                                                                            ),
+                                                                    ) ||
+                                                                    hasEvidence;
+
+                                                                return (
+                                                                    <Fragment
+                                                                        key={`reward-${row.id}`}
+                                                                    >
+                                                                        <tr className="align-top odd:bg-muted/10">
+                                                                            <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                                {index +
+                                                                                    1}
+                                                                            </td>
+                                                                            {showRewardAmount && (
+                                                                                <td className="p-3 align-top font-medium text-foreground print:p-2">
+                                                                                    {row.cash_reward_amount
+                                                                                        ? `₹${row.cash_reward_amount}`
+                                                                                        : '—'}
+                                                                                </td>
+                                                                            )}
+                                                                            {showRewardDate && (
+                                                                                <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                    {formatDate(
+                                                                                        row.cash_reward_date,
+                                                                                    ) ||
+                                                                                        '—'}
+                                                                                </td>
+                                                                            )}
+                                                                        </tr>
+                                                                        {hasDetails && (
+                                                                            <tr className="bg-muted/5 print:break-inside-avoid">
+                                                                                <td
+                                                                                    className="px-3 pt-0 pb-3 print:px-2 print:pb-2"
+                                                                                    colSpan={
+                                                                                        1 +
+                                                                                        (showRewardAmount
+                                                                                            ? 1
+                                                                                            : 0) +
+                                                                                        (showRewardDate
+                                                                                            ? 1
+                                                                                            : 0)
+                                                                                    }
+                                                                                >
+                                                                                    <DetailStack
+                                                                                        items={
+                                                                                            detailItems
+                                                                                        }
+                                                                                    />
+                                                                                    {hasEvidence && (
+                                                                                        <div className="mt-2 space-y-1">
+                                                                                            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                                                                {t(
+                                                                                                    'Evidence',
+                                                                                                )}
+                                                                                            </p>
+                                                                                            <PromotionEvidenceTable
+                                                                                                rows={
+                                                                                                    evidenceRows
+                                                                                                }
+                                                                                                t={
+                                                                                                    t
+                                                                                                }
+                                                                                            />
+                                                                                        </div>
+                                                                                    )}
+                                                                                </td>
+                                                                            </tr>
+                                                                        )}
+                                                                    </Fragment>
+                                                                );
+                                                            },
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </Section>
                     )}
 
                     {enabled('status') && statusHistory.length > 0 && (
                         <Section title={t('Status history')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[
-                                    t('Status'),
-                                    t('Effective on'),
-                                    t('Reason'),
-                                    t('Recorded by'),
-                                ]}
-                                rows={statusHistory.map((row) => [
-                                    humanize(row.status),
-                                    formatDate(row.effective_on),
-                                    row.reason,
-                                    row.recorded_by_name,
-                                ])}
-                            />
+                            <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                <table className="w-full text-xs">
+                                    <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                        <tr>
+                                            <th className="p-2">
+                                                {t('Status')}
+                                            </th>
+                                            <th className="p-2 whitespace-nowrap">
+                                                {t('Effective on')}
+                                            </th>
+                                            {showStatusReason && (
+                                                <th className="p-2">
+                                                    {t('Reason')}
+                                                </th>
+                                            )}
+                                            {showStatusRecordedBy && (
+                                                <th className="p-2">
+                                                    {t('Recorded by')}
+                                                </th>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="print:text-[10px]">
+                                        {statusHistory.map((row) => (
+                                            <tr
+                                                key={row.id}
+                                                className="border-t print:align-top"
+                                            >
+                                                <td className="p-2 font-medium print:py-1">
+                                                    {humanize(row.status)}
+                                                </td>
+                                                <td className="p-2 whitespace-nowrap print:py-1">
+                                                    {formatDate(
+                                                        row.effective_on,
+                                                    ) || '—'}
+                                                </td>
+                                                {showStatusReason && (
+                                                    <td className="p-2 print:py-1">
+                                                        {row.reason || '—'}
+                                                    </td>
+                                                )}
+                                                {showStatusRecordedBy && (
+                                                    <td className="p-2 print:py-1">
+                                                        {row.recorded_by_name ||
+                                                            '—'}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </Section>
                     )}
                 </div>

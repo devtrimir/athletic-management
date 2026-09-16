@@ -521,6 +521,161 @@ test('cash reward only synchronizes between member and coach without altering pr
         ->and($coach->fresh()->rank_master_id)->toBe($ct->id);
 });
 
+test('a promotion recorded on the member side is hidden from the linked coach tab but stays linked for rank sync', function () {
+    $user = syncTestUser();
+    [$ct, $hc, $si] = syncTestRanks();
+
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank' => 'CONSTABLE',
+        'initial_rank' => 'CONSTABLE',
+    ]);
+
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'rank_master_id' => $ct->id,
+    ]);
+
+    $fixtures = syncTestFixtures($user, $member, $coach);
+
+    $this->actingAs($user)->post(route('members.promotions.store', $member), [
+        'promotion_date' => '2026-06-15',
+        'from_rank' => 'CONSTABLE',
+        'to_rank' => 'HEAD_CONSTABLE',
+        'reason' => 'Outstanding national tournament performance.',
+        'evidences' => [
+            ['type' => 'achievement', 'id' => $fixtures['achievement']->id],
+        ],
+    ]);
+
+    $memberPromotion = MemberPromotion::where('member_id', $member->id)->firstOrFail();
+    $coachPromotion = CoachPromotion::where('coach_id', $coach->id)->firstOrFail();
+
+    expect($memberPromotion->source)->toBe('native')
+        ->and($coachPromotion->source)->toBe('synced');
+
+    // The member's own tab still shows the record it natively created.
+    $this->actingAs($user)
+        ->get(route('members.promotions', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('promotions', fn ($promotions) => collect($promotions)->pluck('id')->contains($memberPromotion->id))
+        );
+
+    // The linked coach's tab does not show the mirror record synced in from the member.
+    $this->actingAs($user)
+        ->get(route('coaches.promotions', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('coach.promotions', fn ($promotions) => collect($promotions)->pluck('id')->doesntContain($coachPromotion->id))
+        );
+
+    // Rank stays synchronized on both sides even though the tab hides the mirror.
+    expect($member->fresh()->rank)->toBe('HEAD_CONSTABLE')
+        ->and($coach->fresh()->rank_master_id)->toBe($hc->id);
+});
+
+test('a promotion recorded on the coach side is hidden from the linked member tab but stays linked for rank sync', function () {
+    $user = syncTestUser();
+    [$ct, $hc, $si] = syncTestRanks();
+
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank' => 'CONSTABLE',
+        'initial_rank' => 'CONSTABLE',
+    ]);
+
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'rank_master_id' => $ct->id,
+    ]);
+
+    $fixtures = syncTestFixtures($user, $member, $coach);
+
+    $this->actingAs($user)->post(route('coaches.promotions.store', $coach), [
+        'promotion_date' => '2026-07-20',
+        'from_rank' => 'CONSTABLE',
+        'to_rank' => 'HEAD_CONSTABLE',
+        'reason' => 'Exceptional coaching and team leadership.',
+        'evidences' => [
+            [
+                'session_id' => $fixtures['session']->id,
+                'tournament_id' => $fixtures['tournament']->id,
+                'event_id' => $fixtures['event']->id,
+                'team_id' => $fixtures['team']->id,
+                'achievement_id' => $fixtures['achievement']->id,
+            ],
+        ],
+    ]);
+
+    $coachPromotion = CoachPromotion::where('coach_id', $coach->id)->firstOrFail();
+    $memberPromotion = MemberPromotion::where('member_id', $member->id)->firstOrFail();
+
+    expect($coachPromotion->source)->toBe('native')
+        ->and($memberPromotion->source)->toBe('synced');
+
+    // The coach's own tab still shows the record it natively created.
+    $this->actingAs($user)
+        ->get(route('coaches.promotions', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('coach.promotions', fn ($promotions) => collect($promotions)->pluck('id')->contains($coachPromotion->id))
+        );
+
+    // The linked member's tab does not show the mirror record synced in from the coach.
+    $this->actingAs($user)
+        ->get(route('members.promotions', $member))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('promotions', fn ($promotions) => collect($promotions)->pluck('id')->doesntContain($memberPromotion->id))
+        );
+
+    // Rank stays synchronized on both sides even though the tab hides the mirror.
+    expect($member->fresh()->rank)->toBe('HEAD_CONSTABLE')
+        ->and($coach->fresh()->rank_master_id)->toBe($hc->id);
+});
+
+test('a synced mirror promotion is also hidden from the coach print preview', function () {
+    $user = syncTestUser();
+    [$ct, $hc, $si] = syncTestRanks();
+
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank' => 'CONSTABLE',
+        'initial_rank' => 'CONSTABLE',
+    ]);
+
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'rank_master_id' => $ct->id,
+    ]);
+
+    $fixtures = syncTestFixtures($user, $member, $coach);
+
+    $this->actingAs($user)->post(route('members.promotions.store', $member), [
+        'promotion_date' => '2026-06-15',
+        'from_rank' => 'CONSTABLE',
+        'to_rank' => 'HEAD_CONSTABLE',
+        'reason' => 'Outstanding national tournament performance.',
+        'evidences' => [
+            ['type' => 'achievement', 'id' => $fixtures['achievement']->id],
+        ],
+    ]);
+
+    $coachPromotion = CoachPromotion::where('coach_id', $coach->id)->firstOrFail();
+    expect($coachPromotion->source)->toBe('synced');
+
+    $this->actingAs($user)
+        ->get(route('coaches.preview', $coach))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('coach.promotions', fn ($promotions) => collect($promotions)->pluck('id')->doesntContain($coachPromotion->id))
+        );
+});
+
 test('generating athlete profile for an existing coach synchronizes all coach promotions to the new member', function () {
     $user = syncTestUser();
     [$ct, $hc, $si] = syncTestRanks();

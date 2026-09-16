@@ -44,6 +44,7 @@ class MemberPromotionController extends Controller
                 'organization_id' => $member->organization_id,
                 'member_id' => $member->id,
                 'recorded_by' => $request->user()?->id,
+                'source' => 'native',
             ],
         ));
 

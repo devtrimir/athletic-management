@@ -2054,7 +2054,7 @@ export default function CoachesShow({
                                                                                     </TableHead>
                                                                                     <TableHead>
                                                                                         {t(
-                                                                                            'Class',
+                                                                                            'Gender',
                                                                                         )}
                                                                                     </TableHead>
                                                                                     <TableHead>

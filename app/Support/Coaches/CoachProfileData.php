@@ -131,13 +131,16 @@ class CoachProfileData
     public function promotions(Coach $coach): array
     {
         $coach->loadMissing([
+            // Records synced in from a linked member's own promotions/rewards are kept for rank
+            // consistency but hidden here to avoid showing the same event twice on both profiles.
             'promotions' => fn ($query) => $query
+                ->where('source', 'native')
                 ->with([
                     'recorder:id,name',
                     'evidences.session:id,name',
                     'evidences.tournament:id,name,tier_id,date_from,date_to,venue',
-                    'evidences.tournament.tier:id,code',
-                    'evidences.event:id,tournament_id,name,gender_class,discipline,weight_category',
+                    'evidences.tournament.tier:id,code,label_en,label_hi',
+                    'evidences.event:id,tournament_id,name,gender_class,discipline,weight_category,event_type',
                     'evidences.team:id,name',
                     'evidences.achievement:id,medal_type,position',
                 ])
@@ -205,13 +208,16 @@ class CoachProfileData
                 ->orderByDesc('id'),
             'sports' => fn ($query) => $query->withPivot(['is_primary', 'level_master_id', 'level', 'sport_event', 'effective_from', 'effective_to', 'notes']),
             'certifications:id,coach_id,name,certificate_type,issuer,issued_at,expired_at,attachment_path,attachment_original_name,mime_type,size_bytes,metadata',
+            // Records synced in from a linked member's own promotions/rewards are kept for rank
+            // consistency but hidden here to avoid showing the same event twice on both profiles.
             'promotions' => fn ($query) => $query
+                ->where('source', 'native')
                 ->with([
                     'recorder:id,name',
                     'evidences.session:id,name',
                     'evidences.tournament:id,name,tier_id,date_from,date_to,venue',
-                    'evidences.tournament.tier:id,code',
-                    'evidences.event:id,tournament_id,name,gender_class,discipline,weight_category',
+                    'evidences.tournament.tier:id,code,label_en,label_hi',
+                    'evidences.event:id,tournament_id,name,gender_class,discipline,weight_category,event_type',
                     'evidences.team:id,name',
                     'evidences.achievement:id,medal_type,position',
                 ])
@@ -227,6 +233,7 @@ class CoachProfileData
             'coachAchievements' => $this->achievementsPayload($coach),
             'specialAchievements' => $this->specialAchievementsPayload($coach),
             'playingAchievements' => $this->playingAchievementsPayload($coach),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name', 'rank_order']),
         ];
     }
 
@@ -329,7 +336,7 @@ class CoachProfileData
                 'participation.event.sport:id,name',
                 'participation.event.tournament:id,name,tier_id,date_from,date_to,venue,session_id,sport_id',
                 'participation.event.tournament.sport:id,name',
-                'participation.event.tournament.tier:id,code,weight',
+                'participation.event.tournament.tier:id,code,weight,label_en,label_hi',
                 'benefits',
             ])
             ->orderByDesc('id')
@@ -392,13 +399,15 @@ class CoachProfileData
             ])->join(':'))
             ->map(function (Collection $group) use ($rewardEvidenceByKey, $seenRewardIds, $lineupMembers): array {
                 $payload = $this->coachAchievementGroupPayload($group, $rewardEvidenceByKey, $lineupMembers);
+                // A single reward can cite several achievements as evidence; attribute its
+                // cash amount to only the first group encountered so it is never double-counted.
                 $payload['rewards'] = collect($payload['rewards'])
                     ->reject(function (array $reward) use ($seenRewardIds): bool {
-                        if ($seenRewardIds->has($reward['id'])) {
+                        if ($seenRewardIds->has($reward['coach_promotion_id'])) {
                             return true;
                         }
 
-                        $seenRewardIds->put($reward['id'], true);
+                        $seenRewardIds->put($reward['coach_promotion_id'], true);
 
                         return false;
                     })
@@ -567,7 +576,7 @@ class CoachProfileData
                 'participation.session:id,name',
                 'participation.event:id,tournament_id,name,event_type',
                 'participation.event.tournament:id,name,tier_id,date_from,date_to,venue',
-                'participation.event.tournament.tier:id,code,label_en,weight',
+                'participation.event.tournament.tier:id,code,label_en,label_hi,weight',
             ])
             ->orderByDesc('id')
             ->get();
@@ -593,6 +602,8 @@ class CoachProfileData
                         'name' => $tournament->name,
                         'tier_code' => $tournament->tier?->code,
                         'tier_label' => $tournament->tier?->label_en,
+                        'tier_label_en' => $tournament->tier?->label_en,
+                        'tier_label_hi' => $tournament->tier?->label_hi,
                         'date_from' => $tournament->date_from?->toDateString(),
                         'date_to' => $tournament->date_to?->toDateString(),
                         'venue' => $tournament->venue,
@@ -702,15 +713,13 @@ class CoachProfileData
                                 $eventId = (int) $group['event']['id'];
                                 $groupTeamId = (int) $group['team']['id'];
 
-                                $usedInPromotion = $usedInPromotions->first(fn (CoachPromotionEvidence $e): bool =>
-                                    (int) $e->session_id === $sessionId &&
+                                $usedInPromotion = $usedInPromotions->first(fn (CoachPromotionEvidence $e): bool => (int) $e->session_id === $sessionId &&
                                     (int) $e->tournament_id === $tournamentId &&
                                     ($e->event_id === null || (int) $e->event_id === $eventId) &&
                                     ($e->team_id === null || (int) $e->team_id === $groupTeamId)
                                 );
 
-                                $usedInReward = $usedInRewards->first(fn (CoachPromotionEvidence $e): bool =>
-                                    (int) $e->session_id === $sessionId &&
+                                $usedInReward = $usedInRewards->first(fn (CoachPromotionEvidence $e): bool => (int) $e->session_id === $sessionId &&
                                     (int) $e->tournament_id === $tournamentId &&
                                     ($e->event_id === null || (int) $e->event_id === $eventId) &&
                                     ($e->team_id === null || (int) $e->team_id === $groupTeamId)
@@ -820,6 +829,8 @@ class CoachProfileData
                 'name' => $tournament->name,
                 'tier_code' => $tournament->tier?->code,
                 'tier_weight' => $tournament->tier?->weight,
+                'tier_label_en' => $tournament->tier?->label_en,
+                'tier_label_hi' => $tournament->tier?->label_hi,
                 'date_from' => $tournament->date_from?->toDateString(),
                 'date_to' => $tournament->date_to?->toDateString(),
                 'venue' => $tournament->venue,
@@ -834,6 +845,7 @@ class CoachProfileData
                 'gender_class' => $event->gender_class,
                 'discipline' => $event->discipline,
                 'weight_category' => $event->weight_category,
+                'event_type' => $event->event_type,
                 'sport' => $event->sport ? [
                     'id' => $event->sport->id,
                     'name' => $event->sport->name,
@@ -929,12 +941,13 @@ class CoachProfileData
         return $evidences
             ->map(fn (CoachPromotionEvidence $evidence): array => [
                 'id' => $evidence->id,
+                'coach_promotion_id' => $evidence->coach_promotion_id,
                 'cash_reward_amount' => $evidence->coachPromotion?->cash_reward_amount,
                 'cash_reward_date' => $evidence->coachPromotion?->cash_reward_date?->toDateString(),
                 'cash_reward_reference' => $evidence->coachPromotion?->cash_reward_reference,
             ])
             ->filter(fn (array $reward): bool => $reward['cash_reward_amount'] !== null || $reward['cash_reward_date'] !== null || $reward['cash_reward_reference'] !== null)
-            ->unique('id')
+            ->unique('coach_promotion_id')
             ->values()
             ->all();
     }

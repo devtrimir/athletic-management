@@ -145,6 +145,8 @@ class CoachResource extends JsonResource
                                 'id' => $evidence->tournament->id,
                                 'name' => $evidence->tournament->name,
                                 'tier_code' => $evidence->tournament->tier?->code,
+                                'tier_label_en' => $evidence->tournament->tier?->label_en,
+                                'tier_label_hi' => $evidence->tournament->tier?->label_hi,
                                 'date_from' => $evidence->tournament->date_from?->toDateString(),
                                 'date_to' => $evidence->tournament->date_to?->toDateString(),
                                 'venue' => $evidence->tournament->venue,
@@ -155,10 +157,16 @@ class CoachResource extends JsonResource
                                 'gender_class' => $evidence->event->gender_class,
                                 'discipline' => $evidence->event->discipline,
                                 'weight_category' => $evidence->event->weight_category,
+                                'event_type' => $evidence->event->event_type,
                             ] : null,
                             'team' => $evidence->team ? [
                                 'id' => $evidence->team->id,
                                 'name' => $evidence->team->name,
+                            ] : null,
+                            'achievement' => $evidence->achievement ? [
+                                'id' => $evidence->achievement->id,
+                                'medal_type' => $evidence->achievement->medal_type,
+                                'position' => $evidence->achievement->position,
                             ] : null,
                         ])->values()
                         : [],
