@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Concerns\Auditable;
+use App\Concerns\HasPromotionRecordType;
 use App\Concerns\Tenanted;
 use App\Observers\AuditObserver;
 use Database\Factories\CoachPromotionFactory;
@@ -24,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $promotion_date
  * @property string|null $from_rank
  * @property string|null $to_rank
+ * @property string $record_type
  * @property string|null $cash_reward_amount
  * @property Carbon|null $cash_reward_date
  * @property string|null $cash_reward_reference
@@ -68,7 +70,7 @@ use Illuminate\Support\Carbon;
 class CoachPromotion extends Model
 {
     /** @use HasFactory<CoachPromotionFactory> */
-    use Auditable, HasFactory, Tenanted;
+    use Auditable, HasFactory, HasPromotionRecordType, Tenanted;
 
     protected function casts(): array
     {

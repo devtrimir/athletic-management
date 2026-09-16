@@ -334,6 +334,7 @@ type AchievementBenefitRow = {
 
 type PromotionRow = {
     id: number;
+    record_type: 'promotion' | 'reward' | 'promotion_reward';
     promotion_date: string | null;
     from_rank: string | null;
     to_rank: string;

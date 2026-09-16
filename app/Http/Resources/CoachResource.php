@@ -112,6 +112,7 @@ class CoachResource extends JsonResource
             'promotions' => $this->whenLoaded('promotions', fn () => $this->promotions
                 ->map(fn ($promotion) => [
                     'id' => $promotion->id,
+                    'record_type' => $promotion->record_type,
                     'promotion_date' => $promotion->promotion_date?->toDateString(),
                     'from_rank' => $promotion->from_rank,
                     'to_rank' => $promotion->to_rank,

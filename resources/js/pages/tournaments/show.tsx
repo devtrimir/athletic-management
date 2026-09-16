@@ -77,6 +77,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate, formatDateRange } from '@/lib/dates';
+import type { RankOption } from '@/lib/ranks';
+import { resolveRankLabel } from '@/lib/ranks';
 
 type Tournament = {
     id: number;
@@ -1280,6 +1282,7 @@ export default function TournamentsShow({
     eventVariants = [],
     eventFilters = {},
     events,
+    ranks = [],
 }: {
     tournament: Tournament;
     eventSummary?: EventSummary;
@@ -1289,9 +1292,11 @@ export default function TournamentsShow({
     eventVariants?: EventVariant[];
     eventFilters?: EventFilters;
     events?: EventRow[];
+    ranks?: RankOption[];
 }) {
     const { t } = useTranslation();
     const page = usePage();
+    const locale = (page.props.locale as string) || 'en';
 
     const [addEventOpen, setAddEventOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
@@ -1431,7 +1436,7 @@ export default function TournamentsShow({
             query: buildEventFilterQuery({ report_type: reportType }),
         });
 
-        window.location.href = url;
+        window.location.assign(url);
     }
 
     setLayoutProps({
@@ -2422,18 +2427,24 @@ export default function TournamentsShow({
                                         </form>
                                         <div className="flex flex-wrap items-center gap-2">
                                             <Combobox
-                                                value={eventFilters.sport_id ?? 'all'}
+                                                value={
+                                                    eventFilters.sport_id ??
+                                                    'all'
+                                                }
                                                 onValueChange={(value) =>
                                                     applyEventFilters({
                                                         sport_id:
                                                             value === 'all' ||
                                                             value === ''
-                                                            ? null
-                                                            : value,
+                                                                ? null
+                                                                : value,
                                                     })
                                                 }
                                                 items={[
-                                                    { value: 'all', label: t('All sports') },
+                                                    {
+                                                        value: 'all',
+                                                        label: t('All sports'),
+                                                    },
                                                     ...sports.map((sport) => ({
                                                         value: String(sport.id),
                                                         label: sport.name,
@@ -2444,7 +2455,9 @@ export default function TournamentsShow({
                                                     'Search sports…',
                                                 )}
                                                 className="w-44"
-                                                emptyMessage={t('No sports found.')}
+                                                emptyMessage={t(
+                                                    'No sports found.',
+                                                )}
                                             />
                                             <Select
                                                 value={
@@ -2585,7 +2598,7 @@ export default function TournamentsShow({
                                                 <TableRow className="hover:bg-muted/30">
                                                     <TableHead
                                                         rowSpan={2}
-                                                        className="w-14 whitespace-nowrap align-middle"
+                                                        className="w-14 align-middle whitespace-nowrap"
                                                     >
                                                         {t('S.No.')}
                                                     </TableHead>
@@ -2770,7 +2783,9 @@ export default function TournamentsShow({
                                                                         </TableCell>
                                                                     </TableRow>
                                                                     {group.events.map(
-                                                                        (ev) => {
+                                                                        (
+                                                                            ev,
+                                                                        ) => {
                                                                             eventSerialNumber += 1;
                                                                             const label =
                                                                                 eventSubtitle(
@@ -2778,13 +2793,12 @@ export default function TournamentsShow({
                                                                                     t,
                                                                                 );
                                                                             const participantPreviews =
-                                                                                {
+                                                                                ev.participant_previews ?? {
                                                                                     players:
                                                                                         [],
                                                                                     more_players:
                                                                                         [],
                                                                                     total_players: 0,
-                                                                                    ...ev.participant_previews,
                                                                                 };
                                                                             const allPlayers =
                                                                                 [
@@ -2846,6 +2860,12 @@ export default function TournamentsShow({
                                                                                                 player
                                                                                                     .sport_profile
                                                                                                     ?.sport_event;
+                                                                                            const playerRankLabel =
+                                                                                                resolveRankLabel(
+                                                                                                    player.rank,
+                                                                                                    ranks,
+                                                                                                    locale,
+                                                                                                );
 
                                                                                             return (
                                                                                                 <TableRow
@@ -2857,7 +2877,7 @@ export default function TournamentsShow({
                                                                                                             rowSpan={
                                                                                                                 playerRows.length
                                                                                                             }
-                                                                                                            className="w-14 px-2 py-1.5 text-[11px] text-muted-foreground tabular-nums align-top"
+                                                                                                            className="w-14 px-2 py-1.5 align-top text-[11px] text-muted-foreground tabular-nums"
                                                                                                         >
                                                                                                             {
                                                                                                                 eventSerialNumber
@@ -2883,7 +2903,7 @@ export default function TournamentsShow({
                                                                                                                             query: buildEventFilterQuery(),
                                                                                                                         },
                                                                                                                     )}
-                                                                                                                    className="font-medium leading-snug hover:underline"
+                                                                                                                    className="leading-snug font-medium hover:underline"
                                                                                                                 >
                                                                                                                     {
                                                                                                                         label.title
@@ -2899,19 +2919,19 @@ export default function TournamentsShow({
                                                                                                             </div>
                                                                                                         </TableCell>
                                                                                                     ) : null}
-                                                                                                    <TableCell className="w-20 whitespace-nowrap px-2 py-1.5 text-[11px] text-muted-foreground tabular-nums">
+                                                                                                    <TableCell className="w-20 px-2 py-1.5 text-[11px] whitespace-nowrap text-muted-foreground tabular-nums">
                                                                                                         {player.pno ??
                                                                                                             '—'}
                                                                                                     </TableCell>
                                                                                                     <TableCell className="w-32 px-2 py-1.5">
                                                                                                         <span
                                                                                                             className={
-                                                                                                                player.rank
+                                                                                                                playerRankLabel
                                                                                                                     ? 'font-medium text-foreground'
                                                                                                                     : 'text-muted-foreground'
                                                                                                             }
                                                                                                         >
-                                                                                                            {player.rank ??
+                                                                                                            {playerRankLabel ||
                                                                                                                 '—'}
                                                                                                         </span>
                                                                                                     </TableCell>
@@ -3001,7 +3021,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-12 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                    className="w-12 px-2 py-1.5 text-right align-top tabular-nums"
                                                                                                                 >
                                                                                                                     <span className="text-amber-600">
                                                                                                                         {
@@ -3013,7 +3033,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-12 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                    className="w-12 px-2 py-1.5 text-right align-top tabular-nums"
                                                                                                                 >
                                                                                                                     {
                                                                                                                         rowMedals.silver
@@ -3023,7 +3043,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-12 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                    className="w-12 px-2 py-1.5 text-right align-top tabular-nums"
                                                                                                                 >
                                                                                                                     {
                                                                                                                         rowMedals.bronze
@@ -3033,7 +3053,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-12 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                    className="w-12 px-2 py-1.5 text-right align-top tabular-nums"
                                                                                                                 >
                                                                                                                     <span className="text-emerald-700 dark:text-emerald-300">
                                                                                                                         {
@@ -3045,7 +3065,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-14 px-2 py-1.5 text-right tabular-nums align-top"
+                                                                                                                    className="w-14 px-2 py-1.5 text-right align-top tabular-nums"
                                                                                                                 >
                                                                                                                     <span className="font-semibold">
                                                                                                                         {

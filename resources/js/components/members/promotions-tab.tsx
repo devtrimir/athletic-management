@@ -213,6 +213,7 @@ type PromotionEvidenceRef = { type: PromotionEvidence['type']; id: number };
 
 type PromotionRow = {
     id: number;
+    record_type: 'promotion' | 'reward' | 'promotion_reward';
     promotion_date: string | null;
     from_rank: string | null;
     to_rank: string;
@@ -2596,52 +2597,22 @@ export function PromotionsTab({
     }
 
     function promotionCategory(promotion: PromotionRow): string {
-        const hasRewardFields = !!(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks
-        );
-        const hasPromotionFields = !!(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.reason ||
-            promotion.remarks
-        );
-
-        if (hasRewardFields && hasPromotionFields) {
+        if (promotion.record_type === 'promotion_reward') {
             return t('Promotion + Reward');
         }
 
-        if (hasRewardFields && !hasPromotionFields) {
+        if (promotion.record_type === 'reward') {
             return t('Reward');
         }
 
         return t('Promotion');
     }
     function promotionCategoryClass(promotion: PromotionRow): string {
-        const hasRewardFields = !!(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks
-        );
-        const hasPromotionFields = !!(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.reason ||
-            promotion.remarks
-        );
-
-        if (hasRewardFields && hasPromotionFields) {
+        if (promotion.record_type === 'promotion_reward') {
             return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200';
         }
 
-        if (hasRewardFields && !hasPromotionFields) {
+        if (promotion.record_type === 'reward') {
             return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200';
         }
 
@@ -2998,22 +2969,10 @@ export function PromotionsTab({
         });
     }
     function hasPromotionFields(promotion: PromotionRow): boolean {
-        return !!(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.reason ||
-            promotion.remarks
-        );
+        return promotion.record_type !== 'reward';
     }
     function hasRewardFields(promotion: PromotionRow): boolean {
-        return !!(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks
-        );
+        return promotion.record_type !== 'promotion';
     }
     const promotionRows = useMemo(
         () =>

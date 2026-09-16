@@ -108,6 +108,7 @@ export type CoachPromotionEvidence = {
 export type CoachPromotion = {
     id: number;
     coach_id: number;
+    record_type: 'promotion' | 'reward' | 'promotion_reward';
     promotion_date: string | null;
     from_rank: string | null;
     to_rank: string | null;
@@ -1878,26 +1879,11 @@ export function CoachPromotionsTab({
     }
 
     function promotionCategory(promotion: CoachPromotion): string {
-        const hasReward = !!(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks
-        );
-        const hasPromotion = !!(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.reason ||
-            promotion.remarks
-        );
-
-        if (hasReward && hasPromotion) {
+        if (promotion.record_type === 'promotion_reward') {
             return t('Promotion + Reward');
         }
 
-        if (hasReward && !hasPromotion) {
+        if (promotion.record_type === 'reward') {
             return t('Reward');
         }
 
@@ -1905,26 +1891,11 @@ export function CoachPromotionsTab({
     }
 
     function promotionCategoryClass(promotion: CoachPromotion): string {
-        const hasReward = !!(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks
-        );
-        const hasPromotion = !!(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.reason ||
-            promotion.remarks
-        );
-
-        if (hasReward && hasPromotion) {
+        if (promotion.record_type === 'promotion_reward') {
             return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200';
         }
 
-        if (hasReward && !hasPromotion) {
+        if (promotion.record_type === 'reward') {
             return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200';
         }
 
@@ -1932,23 +1903,11 @@ export function CoachPromotionsTab({
     }
 
     function hasPromotionFields(promotion: CoachPromotion): boolean {
-        return !!(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.reason ||
-            promotion.remarks
-        );
+        return promotion.record_type !== 'reward';
     }
 
     function hasRewardFields(promotion: CoachPromotion): boolean {
-        return !!(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks
-        );
+        return promotion.record_type !== 'promotion';
     }
 
     const promotionRows = useMemo(

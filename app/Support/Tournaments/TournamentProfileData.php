@@ -8,6 +8,7 @@ use App\Http\Resources\TournamentResource;
 use App\Models\Achievement;
 use App\Models\Member;
 use App\Models\Participation;
+use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\Tournament;
 use Illuminate\Database\Eloquent\Builder;
@@ -62,6 +63,7 @@ class TournamentProfileData
                 ->orderBy('name')
                 ->get(),
             'eventVariants' => $this->eventVariants($tournament),
+            'ranks' => Rank::active()->ordered()->get(['code', 'name', 'short_name']),
         ];
     }
 
