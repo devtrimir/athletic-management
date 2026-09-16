@@ -101,6 +101,8 @@ type CoachAchievementPlayer = {
         id: number;
         full_name: string;
         pno: string | null;
+        is_coach?: boolean;
+        coach_id?: number | null;
     };
     medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT';
     position: number | null;
@@ -131,6 +133,7 @@ type CoachAchievementGroup = {
         gender_class: string | null;
         discipline: string | null;
         weight_category: string | null;
+        event_type?: string | null;
         sport: { id: number; name: string } | null;
     };
     medal_counts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
@@ -259,7 +262,27 @@ type CoachPromotion = {
             medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | null;
             position: number | null;
         } | null;
+        medal_counts?: Record<string, number>;
+        players?: {
+            member: {
+                id: number;
+                full_name: string;
+                pno: string | null;
+                is_coach?: boolean;
+            };
+            medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | null;
+        }[];
     }[];
+};
+
+type PromotionEvidenceTablePlayer = {
+    member: {
+        id: number;
+        full_name: string;
+        pno: string | null;
+        is_coach?: boolean;
+    };
+    medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | null;
 };
 
 type PromotionEvidenceTableRow = {
@@ -273,6 +296,7 @@ type PromotionEvidenceTableRow = {
     gender?: string | null;
     result?: string | null;
     venue?: string | null;
+    players?: PromotionEvidenceTablePlayer[];
 };
 
 type SectionKey =
@@ -355,6 +379,20 @@ function formatDate(value: string | null | undefined): string {
     }
 
     return `${day}/${month}/${year}`;
+}
+
+function formatTournamentDateRange(tournament: {
+    date_from?: string | null;
+    date_to?: string | null;
+}): string {
+    const from = formatDate(tournament.date_from);
+    const to = formatDate(tournament.date_to);
+
+    if (from && to && from !== to) {
+        return `${from} - ${to}`;
+    }
+
+    return from || to;
 }
 
 function genderLabel(value: string | null | undefined): string {
@@ -530,6 +568,27 @@ function promotionEvidenceKey(
     return `evidence:${evidence.id}`;
 }
 
+function medalCountsResultLabel(
+    medalCounts: Record<string, number> | undefined,
+    locale: string,
+    t: (key: string) => string,
+): string | null {
+    if (!medalCounts) {
+        return null;
+    }
+
+    const parts = (['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const)
+        .filter((medal) => (medalCounts[medal] ?? 0) > 0)
+        .map((medal) => {
+            const label = locale === 'hi' ? t(medal) : humanize(medal);
+            const count = medalCounts[medal];
+
+            return count > 1 ? `${label}: ${count}` : label;
+        });
+
+    return parts.length > 0 ? parts.join(', ') : null;
+}
+
 function promotionEvidenceTableRows(
     row: CoachPromotion,
     locale: string,
@@ -538,14 +597,16 @@ function promotionEvidenceTableRows(
     const rows = new Map<string, PromotionEvidenceTableRow>();
 
     for (const evidence of row.evidences) {
-        const result = evidence.achievement?.medal_type
-            ? t(evidence.achievement.medal_type) ===
-              evidence.achievement.medal_type
-                ? humanize(evidence.achievement.medal_type)
-                : t(evidence.achievement.medal_type)
-            : evidence.achievement?.position != null
-              ? `${t('Position')}: ${evidence.achievement.position}`
-              : null;
+        const result =
+            medalCountsResultLabel(evidence.medal_counts, locale, t) ??
+            (evidence.achievement?.medal_type
+                ? t(evidence.achievement.medal_type) ===
+                  evidence.achievement.medal_type
+                    ? humanize(evidence.achievement.medal_type)
+                    : t(evidence.achievement.medal_type)
+                : evidence.achievement?.position != null
+                  ? `${t('Position')}: ${evidence.achievement.position}`
+                  : null);
 
         const eventType = evidence.event?.event_type
             ? evidence.event.event_type === 'team'
@@ -562,14 +623,65 @@ function promotionEvidenceTableRows(
             event: evidence.event?.name,
             eventType,
             level: tierLabel(evidence.tournament, locale, t),
-            date: formatDate(evidence.tournament?.date_from),
+            date: evidence.tournament
+                ? formatTournamentDateRange(evidence.tournament)
+                : '',
             gender: genderClassLabel(evidence.event?.gender_class, t),
             result,
             venue: evidence.tournament?.venue,
+            players: evidence.players,
         });
     }
 
     return Array.from(rows.values());
+}
+
+function computeRowSpans<T>(rows: T[], keyFn: (row: T) => string): number[] {
+    const spans = new Array(rows.length).fill(1);
+    let i = 0;
+
+    while (i < rows.length) {
+        let j = i + 1;
+
+        while (j < rows.length && keyFn(rows[j]) === keyFn(rows[i])) {
+            spans[j] = 0;
+            j++;
+        }
+
+        spans[i] = j - i;
+        i = j;
+    }
+
+    return spans;
+}
+
+function groupPromotionEvidenceRows(
+    rows: PromotionEvidenceTableRow[],
+): { key: string; rows: PromotionEvidenceTableRow[] }[] {
+    const groups: { key: string; rows: PromotionEvidenceTableRow[] }[] = [];
+    const groupIndexByKey = new Map<string, number>();
+
+    for (const row of rows) {
+        const key = [
+            row.session,
+            row.tournament,
+            row.level,
+            row.date,
+            row.venue,
+        ].join('|');
+
+        const existingIndex = groupIndexByKey.get(key);
+
+        if (existingIndex !== undefined) {
+            groups[existingIndex].rows.push(row);
+            continue;
+        }
+
+        groupIndexByKey.set(key, groups.length);
+        groups.push({ key, rows: [row] });
+    }
+
+    return groups;
 }
 
 function PromotionEvidenceTable({
@@ -582,6 +694,9 @@ function PromotionEvidenceTable({
     if (rows.length === 0) {
         return null;
     }
+
+    const groups = groupPromotionEvidenceRows(rows);
+    let rowNumber = 0;
 
     return (
         <table className="w-full border-collapse text-xs print:text-[9px]">
@@ -614,40 +729,68 @@ function PromotionEvidenceTable({
                 </tr>
             </thead>
             <tbody>
-                {rows.map((row, index) => (
-                    <tr key={row.key}>
-                        <td className="border p-1.5 text-center text-muted-foreground">
-                            {index + 1}
-                        </td>
-                        <td className="border p-1.5 align-top whitespace-nowrap">
-                            {row.session || '—'}
-                        </td>
-                        <td className="border p-1.5 align-top">
-                            {row.tournament || '—'}
-                        </td>
-                        <td className="border p-1.5 align-top">
-                            {row.event || '—'}
-                        </td>
-                        <td className="border p-1.5 align-top whitespace-nowrap">
-                            {row.eventType || '—'}
-                        </td>
-                        <td className="border p-1.5 align-top whitespace-nowrap">
-                            {row.level || '—'}
-                        </td>
-                        <td className="border p-1.5 align-top whitespace-nowrap">
-                            {row.date || '—'}
-                        </td>
-                        <td className="border p-1.5 align-top whitespace-nowrap">
-                            {row.gender || '—'}
-                        </td>
-                        <td className="border p-1.5 align-top font-medium whitespace-nowrap">
-                            {row.result || '—'}
-                        </td>
-                        <td className="border p-1.5 align-top">
-                            {row.venue || '—'}
-                        </td>
-                    </tr>
-                ))}
+                {groups.map((group) =>
+                    group.rows.map((row, rowIndex) => (
+                        <Fragment key={row.key}>
+                            <tr>
+                                <td className="border p-1.5 text-center text-muted-foreground">
+                                    {++rowNumber}
+                                </td>
+                            {rowIndex === 0 && (
+                                <td
+                                    className="border p-1.5 text-center align-middle whitespace-nowrap"
+                                    rowSpan={group.rows.length}
+                                >
+                                    {row.session || '—'}
+                                </td>
+                            )}
+                            {rowIndex === 0 && (
+                                <td
+                                    className="border p-1.5 text-center align-middle"
+                                    rowSpan={group.rows.length}
+                                >
+                                    {row.tournament || '—'}
+                                </td>
+                            )}
+                            <td className="border p-1.5 align-top">
+                                {row.event || '—'}
+                            </td>
+                            <td className="border p-1.5 align-top whitespace-nowrap">
+                                {row.eventType || '—'}
+                            </td>
+                            {rowIndex === 0 && (
+                                <td
+                                    className="border p-1.5 text-center align-middle whitespace-nowrap"
+                                    rowSpan={group.rows.length}
+                                >
+                                    {row.level || '—'}
+                                </td>
+                            )}
+                            {rowIndex === 0 && (
+                                <td
+                                    className="border p-1.5 text-center align-middle whitespace-nowrap"
+                                    rowSpan={group.rows.length}
+                                >
+                                    {row.date || '—'}
+                                </td>
+                            )}
+                            <td className="border p-1.5 align-top whitespace-nowrap">
+                                {row.gender || '—'}
+                            </td>
+                            <td className="border p-1.5 align-top font-medium whitespace-nowrap">
+                                {row.result || '—'}
+                            </td>
+                            {rowIndex === 0 && (
+                                <td
+                                    className="border p-1.5 text-center align-middle"
+                                    rowSpan={group.rows.length}
+                                >
+                                    {row.venue || '—'}
+                                </td>
+                            )}
+                        </tr>
+                    )),
+                )}
             </tbody>
         </table>
     );
@@ -759,9 +902,50 @@ export default function CoachPrintPreview({
     const sports = coach.sports ?? [];
     const certifications = coach.certifications ?? [];
     const promotions = coach.promotions ?? [];
-    const achievements = coachAchievements?.groups ?? [];
+    const achievements = useMemo(
+        () => coachAchievements?.groups ?? [],
+        [coachAchievements],
+    );
     const specialAchievementRecords = specialAchievements?.records ?? [];
-    const playingAchievementRecords = playingAchievements?.records ?? [];
+    const playingAchievementRecords = useMemo(
+        () => playingAchievements?.records ?? [],
+        [playingAchievements],
+    );
+
+    const groupedMemberPlayingRecords = useMemo(() => {
+        if (playingAchievements?.source !== 'member') {
+            return [];
+        }
+
+        const records =
+            playingAchievementRecords as MemberPlayingAchievementRecord[];
+        const groups: {
+            key: string;
+            rows: MemberPlayingAchievementRecord[];
+        }[] = [];
+        const groupIndexByKey = new Map<string, number>();
+
+        for (const record of records) {
+            const key = [
+                record.tournament.name,
+                record.session.name,
+                formatTournamentDateRange(record.tournament),
+                record.tournament.venue,
+            ].join('|');
+
+            const existingIndex = groupIndexByKey.get(key);
+
+            if (existingIndex !== undefined) {
+                groups[existingIndex].rows.push(record);
+                continue;
+            }
+
+            groupIndexByKey.set(key, groups.length);
+            groups.push({ key, rows: [record] });
+        }
+
+        return groups;
+    }, [playingAchievements, playingAchievementRecords]);
 
     const showSportEvent = hasAnyValue(sports, (s) => s.sport_event);
     const showSportLevel = hasAnyValue(sports, (s) => s.level);
@@ -1285,167 +1469,314 @@ export default function CoachPrintPreview({
                                     </div>
                                 </div>
                             </div>
-                            <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                <table className="w-full text-xs">
-                                    <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
-                                        <tr>
-                                            <th className="w-10 p-2 text-center align-top">
-                                                {t('S. No.')}
-                                            </th>
-                                            <th className="p-2 align-top">
-                                                {t('Tournament')}
-                                            </th>
-                                            <th className="w-[10%] p-2 align-top whitespace-nowrap">
-                                                {t('Session')}
-                                            </th>
-                                            <th className="w-[12%] p-2 align-top">
-                                                {t('Team')}
-                                            </th>
-                                            <th className="p-2 align-top">
-                                                {t('Event')}
-                                            </th>
-                                            <th className="w-[12%] p-2 align-top">
-                                                {t('Medals')}
-                                            </th>
-                                            <th className="p-2 align-top">
-                                                {t('Players')}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y print:text-[10px]">
-                                        {achievements.map((group, index) => (
-                                            <tr
-                                                key={group.id}
-                                                className="align-top odd:bg-muted/10 print:break-inside-avoid"
-                                            >
-                                                <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
-                                                    {index + 1}
-                                                </td>
-                                                <td className="p-3 align-top print:p-2">
-                                                    <div className="leading-5 font-medium break-words text-foreground print:leading-4">
-                                                        {group.tournament.name}
-                                                    </div>
-                                                    <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
-                                                        {[
-                                                            tierLabel(
-                                                                group.tournament,
-                                                                locale,
-                                                                t,
-                                                            ),
-                                                            formatDate(
-                                                                group.tournament
-                                                                    .date_from,
-                                                            ),
-                                                            group.tournament
-                                                                .venue,
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' · ')}
-                                                    </div>
-                                                </td>
-                                                <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
-                                                    {group.session.name}
-                                                </td>
-                                                <td className="p-3 align-top text-xs font-medium text-foreground print:p-2 print:text-[9px]">
-                                                    {group.team.name}
-                                                </td>
-                                                <td className="p-3 align-top print:p-2">
-                                                    <div className="text-xs font-medium text-foreground print:text-[9px]">
-                                                        {group.event.name}
-                                                    </div>
-                                                    {group.event
-                                                        .weight_category && (
-                                                        <div className="text-xs text-muted-foreground print:text-[9px]">
-                                                            {
-                                                                group.event
-                                                                    .weight_category
-                                                            }
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="p-3 align-top whitespace-nowrap print:p-2">
-                                                    <div className="space-y-0.5 text-xs print:text-[9px]">
-                                                        {(
-                                                            [
-                                                                'GOLD',
-                                                                'SILVER',
-                                                                'BRONZE',
-                                                                'MERIT',
-                                                            ] as const
-                                                        )
-                                                            .filter(
-                                                                (m) =>
-                                                                    (group
-                                                                        .medal_counts[
-                                                                        m
-                                                                    ] ?? 0) > 0,
-                                                            )
-                                                            .map((m) => (
-                                                                <div
-                                                                    key={m}
-                                                                    className="font-semibold text-foreground"
-                                                                >
-                                                                    {humanize(
-                                                                        m,
+                            <div className="space-y-1.5">
+                                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase print:text-[10px] print:text-black">
+                                    {t('Team achievements')}
+                                </h3>
+                                <div className="space-y-3">
+                                    {achievements.map((group, index) => (
+                                        <div
+                                            key={group.id}
+                                            className="overflow-hidden rounded-md border print:break-inside-avoid print:rounded-sm"
+                                        >
+                                            <table className="w-full text-xs">
+                                                <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                                    <tr>
+                                                        <th className="w-10 p-2 text-center align-top">
+                                                            {t('S. No.')}
+                                                        </th>
+                                                        <th className="p-2 align-top">
+                                                            {t('Tournament')}
+                                                        </th>
+                                                        <th className="w-[10%] p-2 align-top whitespace-nowrap">
+                                                            {t('Session')}
+                                                        </th>
+                                                        <th className="w-[12%] p-2 align-top">
+                                                            {t('Team')}
+                                                        </th>
+                                                        <th className="p-2 align-top">
+                                                            {t('Event')}
+                                                        </th>
+                                                        <th className="w-[10%] p-2 align-top whitespace-nowrap">
+                                                            {t('Event type')}
+                                                        </th>
+                                                        <th className="w-[14%] p-2 align-top whitespace-nowrap">
+                                                            {t('Medals')}
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y print:text-[10px]">
+                                                    <tr className="bg-muted/10 align-top">
+                                                        <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                            {index + 1}
+                                                        </td>
+                                                        <td className="p-3 align-top print:p-2">
+                                                            <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                {
+                                                                    group
+                                                                        .tournament
+                                                                        .name
+                                                                }
+                                                            </div>
+                                                            <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
+                                                                {[
+                                                                    tierLabel(
+                                                                        group.tournament,
+                                                                        locale,
+                                                                        t,
+                                                                    ),
+                                                                    formatTournamentDateRange(
+                                                                        group.tournament,
+                                                                    ),
+                                                                    group
+                                                                        .tournament
+                                                                        .venue,
+                                                                ]
+                                                                    .filter(
+                                                                        Boolean,
+                                                                    )
+                                                                    .join(
+                                                                        ' · ',
                                                                     )}
-                                                                    :{' '}
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                            {group.session.name}
+                                                        </td>
+                                                        <td className="p-3 align-top text-xs font-medium text-foreground print:p-2 print:text-[9px]">
+                                                            {group.team.name}
+                                                        </td>
+                                                        <td className="p-3 align-top print:p-2">
+                                                            <div className="text-xs font-medium text-foreground print:text-[9px]">
+                                                                {
+                                                                    group.event
+                                                                        .name
+                                                                }
+                                                            </div>
+                                                            {group.event
+                                                                .weight_category && (
+                                                                <div className="text-xs text-muted-foreground print:text-[9px]">
                                                                     {
                                                                         group
-                                                                            .medal_counts[
-                                                                            m
-                                                                        ]
+                                                                            .event
+                                                                            .weight_category
                                                                     }
                                                                 </div>
-                                                            ))}
-                                                    </div>
-                                                </td>
-                                                <td className="p-3 align-top print:p-2">
-                                                    <div className="space-y-1">
-                                                        {group.players.map(
-                                                            (player) => (
-                                                                <div
-                                                                    key={
-                                                                        player.achievement_id
-                                                                    }
-                                                                    className="text-xs leading-4 print:text-[9px]"
-                                                                >
-                                                                    <span className="font-medium text-foreground">
-                                                                        {
-                                                                            player
-                                                                                .member
-                                                                                .full_name
-                                                                        }
-                                                                    </span>
-                                                                    {player
-                                                                        .member
-                                                                        .pno && (
-                                                                        <span className="ml-1 font-mono text-muted-foreground">
-                                                                            (
-                                                                            {
-                                                                                player
-                                                                                    .member
-                                                                                    .pno
-                                                                            }
-                                                                            )
-                                                                        </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                            {group.event
+                                                                .event_type ===
+                                                            'team'
+                                                                ? t('Team')
+                                                                : group.event
+                                                                        .event_type ===
+                                                                    'individual'
+                                                                  ? t(
+                                                                        'Individual',
+                                                                    )
+                                                                  : '—'}
+                                                        </td>
+                                                        <td className="p-3 align-top whitespace-nowrap print:p-2">
+                                                            <div className="space-y-0.5 text-xs print:text-[9px]">
+                                                                {(
+                                                                    [
+                                                                        'GOLD',
+                                                                        'SILVER',
+                                                                        'BRONZE',
+                                                                        'MERIT',
+                                                                    ] as const
+                                                                )
+                                                                    .filter(
+                                                                        (m) =>
+                                                                            (group
+                                                                                .medal_counts[
+                                                                                m
+                                                                            ] ??
+                                                                                0) >
+                                                                            0,
+                                                                    )
+                                                                    .map(
+                                                                        (m) => (
+                                                                            <div
+                                                                                key={
+                                                                                    m
+                                                                                }
+                                                                                className="font-semibold text-foreground"
+                                                                            >
+                                                                                {locale ===
+                                                                                'hi'
+                                                                                    ? t(
+                                                                                          m,
+                                                                                      )
+                                                                                    : humanize(
+                                                                                          m,
+                                                                                      )}
+
+                                                                                :{' '}
+                                                                                {
+                                                                                    group
+                                                                                        .medal_counts[
+                                                                                        m
+                                                                                    ]
+                                                                                }
+                                                                            </div>
+                                                                        ),
                                                                     )}
-                                                                    <span className="mx-1 text-muted-foreground">
-                                                                        ·
-                                                                    </span>
-                                                                    <span className="font-semibold text-foreground">
-                                                                        {humanize(
-                                                                            player.medal_type,
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+
+                                            {group.players.length > 0 && (
+                                                <table className="w-full border-t text-xs">
+                                                    <thead className="bg-muted/20 text-left text-[10px] tracking-wide text-muted-foreground uppercase print:text-[8px]">
+                                                        <tr>
+                                                            <th className="w-10 p-2 text-center align-top">
+                                                                {t('S. No.')}
+                                                            </th>
+                                                            <th className="p-2 align-top">
+                                                                {t(
+                                                                    'Player name',
+                                                                )}
+                                                            </th>
+                                                            <th className="w-[15%] p-2 align-top whitespace-nowrap">
+                                                                {t('PNO')}
+                                                            </th>
+                                                            <th className="w-[18%] p-2 align-top whitespace-nowrap">
+                                                                {t('Medal')}
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y print:text-[9px]">
+                                                        {group.players.map(
+                                                            (
+                                                                player,
+                                                                playerIndex,
+                                                            ) => {
+                                                                const isTeamEvent =
+                                                                    group.event
+                                                                        .event_type ===
+                                                                    'team';
+                                                                const teamRemarks =
+                                                                    isTeamEvent
+                                                                        ? Array.from(
+                                                                              new Set(
+                                                                                  group.players
+                                                                                      .map(
+                                                                                          (
+                                                                                              p,
+                                                                                          ) =>
+                                                                                              p.remarks,
+                                                                                      )
+                                                                                      .filter(
+                                                                                          (
+                                                                                              remark,
+                                                                                          ): remark is string =>
+                                                                                              Boolean(
+                                                                                                  remark,
+                                                                                              ),
+                                                                                      ),
+                                                                              ),
+                                                                          )
+                                                                        : [];
+
+                                                                return (
+                                                                    <tr
+                                                                        key={`${group.id}-${player.achievement_id}-${player.member.id}`}
+                                                                        className="align-top odd:bg-muted/5 print:break-inside-avoid"
+                                                                    >
+                                                                        <td className="p-2 text-center text-muted-foreground">
+                                                                            {playerIndex +
+                                                                                1}
+                                                                        </td>
+                                                                        <td className="p-2 font-medium text-foreground">
+                                                                            <span>
+                                                                                {
+                                                                                    player
+                                                                                        .member
+                                                                                        .full_name
+                                                                                }
+                                                                            </span>
+                                                                            {player
+                                                                                .member
+                                                                                .is_coach && (
+                                                                                <span className="py-0.2 ml-1.5 inline-block rounded border border-amber-300 bg-amber-50 px-1 text-[9px] font-semibold text-amber-900 print:border-amber-400 print:bg-amber-50 print:text-[8px] print:text-amber-900">
+                                                                                    {t(
+                                                                                        'Coach',
+                                                                                    )}
+                                                                                </span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="p-2 font-mono text-muted-foreground">
+                                                                            {player
+                                                                                .member
+                                                                                .pno ||
+                                                                                '—'}
+                                                                        </td>
+                                                                        {(!isTeamEvent ||
+                                                                            playerIndex ===
+                                                                                0) && (
+                                                                            <td
+                                                                                className="p-2 text-center align-middle"
+                                                                                rowSpan={
+                                                                                    isTeamEvent
+                                                                                        ? group
+                                                                                              .players
+                                                                                              .length
+                                                                                        : undefined
+                                                                                }
+                                                                            >
+                                                                                <span className="font-semibold text-foreground">
+                                                                                    {locale ===
+                                                                                    'hi'
+                                                                                        ? t(
+                                                                                              player.medal_type,
+                                                                                          ) ||
+                                                                                          humanize(
+                                                                                              player.medal_type,
+                                                                                          )
+                                                                                        : humanize(
+                                                                                              player.medal_type,
+                                                                                          )}
+                                                                                </span>
+                                                                                {isTeamEvent
+                                                                                    ? teamRemarks.map(
+                                                                                          (
+                                                                                              remark,
+                                                                                          ) => (
+                                                                                              <div
+                                                                                                  key={
+                                                                                                      remark
+                                                                                                  }
+                                                                                                  className="mt-0.5 text-muted-foreground"
+                                                                                              >
+                                                                                                  {
+                                                                                                      remark
+                                                                                                  }
+                                                                                              </div>
+                                                                                          ),
+                                                                                      )
+                                                                                    : player.remarks && (
+                                                                                          <div className="mt-0.5 text-muted-foreground">
+                                                                                              {
+                                                                                                  player.remarks
+                                                                                              }
+                                                                                          </div>
+                                                                                      )}
+                                                                            </td>
                                                                         )}
-                                                                    </span>
-                                                                </div>
-                                                            ),
+                                                                    </tr>
+                                                                );
+                                                            },
                                                         )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                    </tbody>
+                                                </table>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </Section>
                     )}
@@ -1592,77 +1923,161 @@ export default function CoachPrintPreview({
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y print:text-[10px]">
-                                                {(
-                                                    playingAchievementRecords as MemberPlayingAchievementRecord[]
-                                                ).map((record, index) => (
-                                                    <tr
-                                                        key={record.id}
-                                                        className="align-top odd:bg-muted/10 print:break-inside-avoid"
-                                                    >
-                                                        <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
-                                                            {index + 1}
-                                                        </td>
-                                                        <td className="p-3 align-top print:p-2">
-                                                            <div className="leading-5 font-medium break-words text-foreground print:leading-4">
-                                                                {
-                                                                    record
-                                                                        .tournament
-                                                                        .name
-                                                                }
-                                                            </div>
-                                                            {tierLabel(
-                                                                record.tournament,
-                                                                locale,
-                                                                t,
-                                                            ) && (
-                                                                <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
-                                                                    {tierLabel(
-                                                                        record.tournament,
-                                                                        locale,
-                                                                        t,
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
-                                                            {
-                                                                record.session
-                                                                    .name
-                                                            }
-                                                        </td>
-                                                        <td className="p-3 align-top text-xs font-medium text-foreground print:p-2 print:text-[9px]">
-                                                            {record.event.name}
-                                                        </td>
-                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
-                                                            {record.event_kind ===
-                                                            'team'
-                                                                ? t('Team')
-                                                                : t(
-                                                                      'Individual',
-                                                                  )}
-                                                        </td>
-                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
-                                                            {formatDate(
-                                                                record.achieved_on,
-                                                            ) || '—'}
-                                                        </td>
-                                                        <td className="p-3 align-top text-xs break-words text-foreground print:p-2 print:text-[9px]">
-                                                            {record.tournament
-                                                                .venue || '—'}
-                                                        </td>
-                                                        <td className="p-3 align-top print:p-2">
-                                                            <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
-                                                                {record.medal_type
-                                                                    ? humanize(
-                                                                          record.medal_type,
-                                                                      )
-                                                                    : record.position
-                                                                      ? `${t('Position')}: ${record.position}`
-                                                                      : '—'}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                {(() => {
+                                                    let rowNumber = 0;
+
+                                                    return groupedMemberPlayingRecords.map(
+                                                        (group) => {
+                                                            const kindSpans =
+                                                                computeRowSpans(
+                                                                    group.rows,
+                                                                    (r) =>
+                                                                        r.event_kind,
+                                                                );
+
+                                                            return group.rows.map(
+                                                                (
+                                                                    record,
+                                                                    rowIndex,
+                                                                ) => (
+                                                                    <tr
+                                                                        key={
+                                                                            record.id
+                                                                        }
+                                                                        className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                                    >
+                                                                        <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                            {
+                                                                                ++rowNumber
+                                                                            }
+                                                                        </td>
+                                                                        {rowIndex ===
+                                                                            0 && (
+                                                                            <td
+                                                                                className="p-3 text-center align-middle print:p-2"
+                                                                                rowSpan={
+                                                                                    group
+                                                                                        .rows
+                                                                                        .length
+                                                                                }
+                                                                            >
+                                                                                <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                                    {
+                                                                                        record
+                                                                                            .tournament
+                                                                                            .name
+                                                                                    }
+                                                                                </div>
+                                                                                {tierLabel(
+                                                                                    record.tournament,
+                                                                                    locale,
+                                                                                    t,
+                                                                                ) && (
+                                                                                    <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
+                                                                                        {tierLabel(
+                                                                                            record.tournament,
+                                                                                            locale,
+                                                                                            t,
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
+                                                                            </td>
+                                                                        )}
+                                                                        {rowIndex ===
+                                                                            0 && (
+                                                                            <td
+                                                                                className="p-3 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]"
+                                                                                rowSpan={
+                                                                                    group
+                                                                                        .rows
+                                                                                        .length
+                                                                                }
+                                                                            >
+                                                                                {
+                                                                                    record
+                                                                                        .session
+                                                                                        .name
+                                                                                }
+                                                                            </td>
+                                                                        )}
+                                                                        <td className="p-3 align-top text-xs font-medium text-foreground print:p-2 print:text-[9px]">
+                                                                            {
+                                                                                record
+                                                                                    .event
+                                                                                    .name
+                                                                            }
+                                                                        </td>
+                                                                        {kindSpans[
+                                                                            rowIndex
+                                                                        ] >
+                                                                            0 && (
+                                                                            <td
+                                                                                className="p-3 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]"
+                                                                                rowSpan={
+                                                                                    kindSpans[
+                                                                                        rowIndex
+                                                                                    ]
+                                                                                }
+                                                                            >
+                                                                                {record.event_kind ===
+                                                                                'team'
+                                                                                    ? t(
+                                                                                          'Team',
+                                                                                      )
+                                                                                    : t(
+                                                                                          'Individual',
+                                                                                      )}
+                                                                            </td>
+                                                                        )}
+                                                                        {rowIndex ===
+                                                                            0 && (
+                                                                            <td
+                                                                                className="p-3 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]"
+                                                                                rowSpan={
+                                                                                    group
+                                                                                        .rows
+                                                                                        .length
+                                                                                }
+                                                                            >
+                                                                                {formatTournamentDateRange(
+                                                                                    record.tournament,
+                                                                                ) ||
+                                                                                    '—'}
+                                                                            </td>
+                                                                        )}
+                                                                        {rowIndex ===
+                                                                            0 && (
+                                                                            <td
+                                                                                className="p-3 text-center align-middle text-xs break-words text-foreground print:p-2 print:text-[9px]"
+                                                                                rowSpan={
+                                                                                    group
+                                                                                        .rows
+                                                                                        .length
+                                                                                }
+                                                                            >
+                                                                                {record
+                                                                                    .tournament
+                                                                                    .venue ||
+                                                                                    '—'}
+                                                                            </td>
+                                                                        )}
+                                                                        <td className="p-3 align-top print:p-2">
+                                                                            <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
+                                                                                {record.medal_type
+                                                                                    ? humanize(
+                                                                                          record.medal_type,
+                                                                                      )
+                                                                                    : record.position
+                                                                                      ? `${t('Position')}: ${record.position}`
+                                                                                      : '—'}
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ),
+                                                            );
+                                                        },
+                                                    );
+                                                })()}
                                             </tbody>
                                         </table>
                                     </div>

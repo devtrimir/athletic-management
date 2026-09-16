@@ -145,6 +145,7 @@ class CoachResource extends JsonResource
                                 'id' => $evidence->tournament->id,
                                 'name' => $evidence->tournament->name,
                                 'tier_code' => $evidence->tournament->tier?->code,
+                                'tier_label' => $evidence->tournament->tier?->label,
                                 'tier_label_en' => $evidence->tournament->tier?->label_en,
                                 'tier_label_hi' => $evidence->tournament->tier?->label_hi,
                                 'date_from' => $evidence->tournament->date_from?->toDateString(),

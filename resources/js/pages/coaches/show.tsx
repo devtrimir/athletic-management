@@ -13,6 +13,7 @@ import {
     ChevronRight,
     Download,
     ExternalLink,
+    GraduationCap,
     Medal,
     Pencil,
     Plus,
@@ -61,17 +62,15 @@ import { show as memberShow } from '@/actions/App/Http/Controllers/MemberControl
 import { events as memberEvents } from '@/actions/App/Http/Controllers/MemberProfileTabController';
 import { CoachPlayingAchievementsSection } from '@/components/coaches/playing-achievements-section';
 import type { PlayingAchievementsData } from '@/components/coaches/playing-achievements-section';
-import {
-    CoachPromotionsTab
-    
-    
+import { CoachPromotionsTab } from '@/components/coaches/promotions-tab';
+import type {
+    CoachPromotion,
+    CoachedSessionOption,
 } from '@/components/coaches/promotions-tab';
-import type {CoachPromotion, CoachedSessionOption} from '@/components/coaches/promotions-tab';
 import { CoachSpecialAchievementsTab } from '@/components/coaches/special-achievements-tab';
 import type { SpecialAchievementsData } from '@/components/coaches/special-achievements-tab';
 import { Combobox } from '@/components/combobox';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
-import { ProfilePhotoLightbox } from '@/components/shared/profile-photo-lightbox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { RemoveMemberSportDialog } from '@/components/members/remove-member-sport-dialog';
@@ -80,6 +79,7 @@ import PlayerCoachBadge from '@/components/player-coach-badge';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
+import { ProfilePhotoLightbox } from '@/components/shared/profile-photo-lightbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -110,9 +110,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 import { coachRoleLabel } from '@/lib/coach';
+import { resolveRankLabel } from '@/lib/ranks';
 
 type CoachCertification = {
     id: number;
@@ -161,6 +161,8 @@ type CoachAchievementPlayer = {
         id: number;
         full_name: string;
         pno: string | null;
+        is_coach?: boolean;
+        coach_id?: number | null;
     };
     medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT';
     position: number | null;
@@ -174,6 +176,12 @@ type CoachAchievementReward = {
     cash_reward_amount: string | null;
     cash_reward_date: string | null;
     cash_reward_reference: string | null;
+};
+
+type CoachAchievementPromotion = {
+    id: number;
+    to_rank: string | null;
+    promotion_date: string | null;
 };
 
 type CoachAchievementGroup = {
@@ -196,10 +204,12 @@ type CoachAchievementGroup = {
         gender_class: string | null;
         discipline: string | null;
         weight_category: string | null;
+        event_type?: string | null;
         sport: { id: number; name: string } | null;
     };
     medal_counts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
     rewards: CoachAchievementReward[];
+    promotions: CoachAchievementPromotion[];
     players: CoachAchievementPlayer[];
 };
 
@@ -215,6 +225,9 @@ type CoachAchievementTournamentGroup = {
     rewardCount: number;
     rewardDates: string[];
     rewardReferences: string[];
+    promotionCount: number;
+    promotionToRanks: string[];
+    promotionDates: string[];
 };
 
 type CoachAchievementsData = {
@@ -409,6 +422,28 @@ function formatDate(value: string | null | undefined): string {
     return value;
 }
 
+function formatTournamentDateRange(tournament: {
+    date_from?: string | null;
+    date_to?: string | null;
+}): string | null {
+    const from = tournament.date_from ? formatDate(tournament.date_from) : null;
+    const to = tournament.date_to ? formatDate(tournament.date_to) : null;
+
+    if (from && from !== '—' && to && to !== '—' && from !== to) {
+        return `${from} - ${to}`;
+    }
+
+    if (from && from !== '—') {
+        return from;
+    }
+
+    if (to && to !== '—') {
+        return to;
+    }
+
+    return null;
+}
+
 export default function CoachesShow({
     coach,
     activeTab: activeTabProp = 'overview',
@@ -449,8 +484,9 @@ export default function CoachesShow({
         useState(false);
     const [removePhotoOpen, setRemovePhotoOpen] = useState(false);
     const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
-    const [removingCertification, setRemovingCertification] =
-        useState<number | null>(null);
+    const [removingCertification, setRemovingCertification] = useState<
+        number | null
+    >(null);
     const [statusOpen, setStatusOpen] = useState(false);
     const [removingSport, setRemovingSport] = useState<CoachSport | null>(null);
     const [sportDialogOpen, setSportDialogOpen] = useState(false);
@@ -729,6 +765,9 @@ export default function CoachesShow({
                 rewardCount: 0,
                 rewardDates: [],
                 rewardReferences: [],
+                promotionCount: 0,
+                promotionToRanks: [],
+                promotionDates: [],
             };
 
             existing.rows.push(group);
@@ -776,6 +815,17 @@ export default function CoachesShow({
                     .filter((reference): reference is string =>
                         Boolean(reference),
                     ),
+            );
+            existing.promotionCount += group.promotions.length;
+            existing.promotionToRanks.push(
+                ...group.promotions
+                    .map((promotion) => promotion.to_rank)
+                    .filter((toRank): toRank is string => Boolean(toRank)),
+            );
+            existing.promotionDates.push(
+                ...group.promotions
+                    .map((promotion) => promotion.promotion_date)
+                    .filter((date): date is string => Boolean(date)),
             );
 
             groups.set(key, existing);
@@ -1109,7 +1159,9 @@ export default function CoachesShow({
                                     {coach.linked_member && (
                                         <PlayerCoachBadge
                                             memberId={coach.linked_member.id}
-                                            memberName={coach.linked_member.full_name}
+                                            memberName={
+                                                coach.linked_member.full_name
+                                            }
                                             pno={coach.linked_member.pno}
                                             variant="chip"
                                         />
@@ -1234,7 +1286,7 @@ export default function CoachesShow({
                                     )}
                                     {detail(
                                         t('Date of birth'),
-                                        coach.date_of_birth ?? '',
+                                        formatDate(coach.date_of_birth),
                                     )}
                                     {detail(t('Address'), coach.address ?? '')}
                                     {detail(
@@ -1262,12 +1314,23 @@ export default function CoachesShow({
                                             <div>
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <h3 className="text-base font-semibold text-foreground">
-                                                        {t('Linked Athlete Identity')}
+                                                        {t(
+                                                            'Linked Athlete Identity',
+                                                        )}
                                                     </h3>
                                                     <PlayerCoachBadge
-                                                        memberId={coach.linked_member.id}
-                                                        memberName={coach.linked_member.full_name}
-                                                        pno={coach.linked_member.pno}
+                                                        memberId={
+                                                            coach.linked_member
+                                                                .id
+                                                        }
+                                                        memberName={
+                                                            coach.linked_member
+                                                                .full_name
+                                                        }
+                                                        pno={
+                                                            coach.linked_member
+                                                                .pno
+                                                        }
                                                     />
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">
@@ -1277,9 +1340,15 @@ export default function CoachesShow({
                                                 </p>
                                             </div>
                                         </div>
-                                        <Button asChild variant="outline" size="sm">
+                                        <Button
+                                            asChild
+                                            variant="outline"
+                                            size="sm"
+                                        >
                                             <Link
-                                                href={memberShow.url(coach.linked_member.id)}
+                                                href={memberShow.url(
+                                                    coach.linked_member.id,
+                                                )}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                             >
@@ -1290,16 +1359,30 @@ export default function CoachesShow({
                                     </div>
                                     <div className="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-3">
                                         <div>
-                                            <dt className="text-xs font-medium text-muted-foreground">{t('Athlete Name')}</dt>
-                                            <dd className="mt-1 text-sm font-medium">{coach.linked_member.full_name}</dd>
+                                            <dt className="text-xs font-medium text-muted-foreground">
+                                                {t('Athlete Name')}
+                                            </dt>
+                                            <dd className="mt-1 text-sm font-medium">
+                                                {coach.linked_member.full_name}
+                                            </dd>
                                         </div>
                                         <div>
-                                            <dt className="text-xs font-medium text-muted-foreground">{t('PNO')}</dt>
-                                            <dd className="mt-1 text-sm font-medium">{coach.linked_member.pno || '—'}</dd>
+                                            <dt className="text-xs font-medium text-muted-foreground">
+                                                {t('PNO')}
+                                            </dt>
+                                            <dd className="mt-1 text-sm font-medium">
+                                                {coach.linked_member.pno || '—'}
+                                            </dd>
                                         </div>
                                         <div>
-                                            <dt className="text-xs font-medium text-muted-foreground">{t('Current Status')}</dt>
-                                            <dd className="mt-1 text-sm font-medium">{coach.linked_member.current_status || t('Active')}</dd>
+                                            <dt className="text-xs font-medium text-muted-foreground">
+                                                {t('Current Status')}
+                                            </dt>
+                                            <dd className="mt-1 text-sm font-medium">
+                                                {coach.linked_member
+                                                    .current_status ||
+                                                    t('Active')}
+                                            </dd>
                                         </div>
                                     </div>
                                 </div>
@@ -1546,12 +1629,14 @@ export default function CoachesShow({
                                                                     ''}
                                                             </TableCell>
                                                             <TableCell>
-                                                                {sport.effective_from ??
-                                                                    ''}
+                                                                {formatDate(
+                                                                    sport.effective_from,
+                                                                )}
                                                             </TableCell>
                                                             <TableCell>
-                                                                {sport.effective_to ??
-                                                                    ''}
+                                                                {formatDate(
+                                                                    sport.effective_to,
+                                                                )}
                                                             </TableCell>
                                                             <TableCell>
                                                                 {sport.notes ??
@@ -1669,12 +1754,14 @@ export default function CoachesShow({
                                                             : t('Historical')}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {assignment.assigned_at ??
-                                                            ''}
+                                                        {formatDate(
+                                                            assignment.assigned_at,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {assignment.removed_at ??
-                                                            ''}
+                                                        {formatDate(
+                                                            assignment.removed_at,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell>
                                                         {assignment.notes ?? ''}
@@ -1887,6 +1974,15 @@ export default function CoachesShow({
                                                 <TableHead>
                                                     {t('Prize date')}
                                                 </TableHead>
+                                                <TableHead>
+                                                    {t('Promoted')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('New rank')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Promotion date')}
+                                                </TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -1937,9 +2033,9 @@ export default function CoachesShow({
                                                                                 tournamentGroup
                                                                                     .tournament
                                                                                     .venue,
-                                                                                tournamentGroup
-                                                                                    .tournament
-                                                                                    .date_from,
+                                                                                formatTournamentDateRange(
+                                                                                    tournamentGroup.tournament,
+                                                                                ),
                                                                             ]
                                                                                 .filter(
                                                                                     Boolean,
@@ -2021,16 +2117,77 @@ export default function CoachesShow({
                                                                         new Set(
                                                                             tournamentGroup.rewardDates,
                                                                         ),
-                                                                    ).join(
-                                                                        ', ',
-                                                                    ) || '—'}
+                                                                    )
+                                                                        .map(
+                                                                            (
+                                                                                d,
+                                                                            ) =>
+                                                                                formatDate(
+                                                                                    d,
+                                                                                ),
+                                                                        )
+                                                                        .join(
+                                                                            ', ',
+                                                                        ) ||
+                                                                        '—'}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {tournamentGroup.promotionCount >
+                                                                    0
+                                                                        ? t(
+                                                                              'Yes',
+                                                                          )
+                                                                        : t(
+                                                                              'No',
+                                                                          )}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {Array.from(
+                                                                        new Set(
+                                                                            tournamentGroup.promotionToRanks,
+                                                                        ),
+                                                                    )
+                                                                        .map(
+                                                                            (
+                                                                                rank,
+                                                                            ) =>
+                                                                                resolveRankLabel(
+                                                                                    rank,
+                                                                                    ranks,
+                                                                                    '',
+                                                                                ) ||
+                                                                                rank,
+                                                                        )
+                                                                        .join(
+                                                                            ', ',
+                                                                        ) ||
+                                                                        '—'}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {Array.from(
+                                                                        new Set(
+                                                                            tournamentGroup.promotionDates,
+                                                                        ),
+                                                                    )
+                                                                        .map(
+                                                                            (
+                                                                                d,
+                                                                            ) =>
+                                                                                formatDate(
+                                                                                    d,
+                                                                                ),
+                                                                        )
+                                                                        .join(
+                                                                            ', ',
+                                                                        ) ||
+                                                                        '—'}
                                                                 </TableCell>
                                                             </TableRow>
                                                             {expanded ? (
                                                                 <TableRow>
                                                                     <TableCell
                                                                         colSpan={
-                                                                            12
+                                                                            15
                                                                         }
                                                                         className="bg-muted/20 p-0"
                                                                     >
@@ -2055,6 +2212,11 @@ export default function CoachesShow({
                                                                                     <TableHead>
                                                                                         {t(
                                                                                             'Gender',
+                                                                                        )}
+                                                                                    </TableHead>
+                                                                                    <TableHead>
+                                                                                        {t(
+                                                                                            'Event type',
                                                                                         )}
                                                                                     </TableHead>
                                                                                     <TableHead>
@@ -2140,9 +2302,9 @@ export default function CoachesShow({
                                                                                                         </div>
                                                                                                     </TableCell>
                                                                                                     <TableCell>
-                                                                                                        {group
-                                                                                                            .tournament
-                                                                                                            .date_from ??
+                                                                                                        {formatTournamentDateRange(
+                                                                                                            group.tournament,
+                                                                                                        ) ??
                                                                                                             t(
                                                                                                                 'No date',
                                                                                                             )}
@@ -2157,6 +2319,20 @@ export default function CoachesShow({
                                                                                                                       .gender_class,
                                                                                                               )
                                                                                                             : '—'}
+                                                                                                    </TableCell>
+                                                                                                    <TableCell>
+                                                                                                        <Badge variant="secondary">
+                                                                                                            {group
+                                                                                                                .event
+                                                                                                                .event_type ===
+                                                                                                            'team'
+                                                                                                                ? t(
+                                                                                                                      'Team',
+                                                                                                                  )
+                                                                                                                : t(
+                                                                                                                      'Individual',
+                                                                                                                  )}
+                                                                                                        </Badge>
                                                                                                     </TableCell>
                                                                                                     <TableCell>
                                                                                                         <div className="flex flex-wrap gap-1.5">
@@ -2210,7 +2386,7 @@ export default function CoachesShow({
                                                                                                     <TableRow>
                                                                                                         <TableCell
                                                                                                             colSpan={
-                                                                                                                6
+                                                                                                                7
                                                                                                             }
                                                                                                             className="bg-muted/20 p-0"
                                                                                                         >
@@ -2271,23 +2447,65 @@ export default function CoachesShow({
                                                                                                                                             1}
                                                                                                                                     </TableCell>
                                                                                                                                     <TableCell>
-                                                                                                                                        <a
-                                                                                                                                            href={
-                                                                                                                                                playerAchievementUrl
-                                                                                                                                            }
-                                                                                                                                            target="_blank"
-                                                                                                                                            rel="noreferrer"
-                                                                                                                                            className="font-medium text-primary underline-offset-4 hover:underline"
-                                                                                                                                            title={t(
-                                                                                                                                                'Open member achievement in a new tab',
-                                                                                                                                            )}
-                                                                                                                                        >
-                                                                                                                                            {
-                                                                                                                                                player
+                                                                                                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                                                                                                            <a
+                                                                                                                                                href={
+                                                                                                                                                    playerAchievementUrl
+                                                                                                                                                }
+                                                                                                                                                target="_blank"
+                                                                                                                                                rel="noreferrer"
+                                                                                                                                                className="font-medium text-primary underline-offset-4 hover:underline"
+                                                                                                                                                title={t(
+                                                                                                                                                    'Open member achievement in a new tab',
+                                                                                                                                                )}
+                                                                                                                                            >
+                                                                                                                                                {
+                                                                                                                                                    player
+                                                                                                                                                        .member
+                                                                                                                                                        .full_name
+                                                                                                                                                }
+                                                                                                                                            </a>
+                                                                                                                                            {player
+                                                                                                                                                .member
+                                                                                                                                                .is_coach &&
+                                                                                                                                                (player
                                                                                                                                                     .member
-                                                                                                                                                    .full_name
-                                                                                                                                            }
-                                                                                                                                        </a>
+                                                                                                                                                    .coach_id ? (
+                                                                                                                                                    <a
+                                                                                                                                                        href={coachOverview.url(
+                                                                                                                                                            player
+                                                                                                                                                                .member
+                                                                                                                                                                .coach_id,
+                                                                                                                                                        )}
+                                                                                                                                                        target="_blank"
+                                                                                                                                                        rel="noreferrer"
+                                                                                                                                                        title={t(
+                                                                                                                                                            'Open coach profile in a new tab',
+                                                                                                                                                        )}
+                                                                                                                                                        className="inline-flex focus:outline-none"
+                                                                                                                                                    >
+                                                                                                                                                        <Badge
+                                                                                                                                                            variant="outline"
+                                                                                                                                                            className="cursor-pointer border-amber-300 bg-amber-50 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-900/50"
+                                                                                                                                                        >
+                                                                                                                                                            <GraduationCap className="mr-1 inline h-3 w-3" />
+                                                                                                                                                            {t(
+                                                                                                                                                                'Coach',
+                                                                                                                                                            )}
+                                                                                                                                                        </Badge>
+                                                                                                                                                    </a>
+                                                                                                                                                ) : (
+                                                                                                                                                    <Badge
+                                                                                                                                                        variant="outline"
+                                                                                                                                                        className="border-amber-300 bg-amber-50 text-[10px] font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+                                                                                                                                                    >
+                                                                                                                                                        <GraduationCap className="mr-1 inline h-3 w-3" />
+                                                                                                                                                        {t(
+                                                                                                                                                            'Coach',
+                                                                                                                                                        )}
+                                                                                                                                                    </Badge>
+                                                                                                                                                ))}
+                                                                                                                                        </div>
                                                                                                                                     </TableCell>
                                                                                                                                     <TableCell>
                                                                                                                                         {player
@@ -2485,7 +2703,11 @@ export default function CoachesShow({
                                                     ) : null}
                                                 </div>
                                                 <div className="text-right text-xs text-muted-foreground">
-                                                    <p>{row.effective_on}</p>
+                                                    <p>
+                                                        {formatDate(
+                                                            row.effective_on,
+                                                        )}
+                                                    </p>
                                                     {row.recorded_by_name ? (
                                                         <p>
                                                             {
@@ -2923,7 +3145,7 @@ export default function CoachesShow({
                 variant="destructive"
                 title={t('Remove photo')}
                 description={t(
-                    'Are you sure you want to remove this coach\'s photo?',
+                    "Are you sure you want to remove this coach's photo?",
                 )}
                 confirmLabel={t('Remove')}
                 onConfirm={handleRemovePhoto}

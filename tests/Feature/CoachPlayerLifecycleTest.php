@@ -670,7 +670,7 @@ test('team event medals show for both regular member and coach in member events 
             ->where('achievementsData.achievements.0.medal_type', 'GOLD')
         );
 
-    // 4. Coach profile Playing Achievements (Departmental Tournament Medals)
+    // 4. Coach profile Playing Achievements (Departmental Tournament Medals) and Coached Achievements
     $coachProfileResponse = $this->actingAs($user)->get(route('coaches.achievements', $coach));
     $coachProfileResponse->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
@@ -681,5 +681,11 @@ test('team event medals show for both regular member and coach in member events 
             ->where('playingAchievements.records.0.medal_type', 'GOLD')
             ->where('playingAchievements.records.0.event_kind', 'team')
             ->where('playingAchievements.records.0.event.name', 'Volleyball Championship')
+            ->where('coachAchievements.summary.GOLD', 1)
+            ->where('coachAchievements.summary.total_events', 1)
+            ->where('coachAchievements.summary.medal_winning_players', 2)
+            ->has('coachAchievements.groups', 1)
+            ->where('coachAchievements.groups.0.event.name', 'Volleyball Championship')
+            ->has('coachAchievements.groups.0.players', 2)
         );
 });

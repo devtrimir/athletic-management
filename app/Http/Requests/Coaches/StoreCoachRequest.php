@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Coaches;
 
+use App\Models\Member;
 use App\Rules\UniquePnoAcrossPeople;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -73,5 +75,17 @@ class StoreCoachRequest extends FormRequest
             'district_id.prohibits' => __('Please select either a unit or a district, not both.'),
             'unit_id.prohibits' => __('Please select either a unit or a district, not both.'),
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($this->filled('member_id') && $this->filled('pno')) {
+                $member = Member::find($this->input('member_id'));
+                if ($member && $member->pno && $member->pno !== $this->input('pno')) {
+                    $validator->errors()->add('pno', __('The PNO does not match the linked member.'));
+                }
+            }
+        });
     }
 }

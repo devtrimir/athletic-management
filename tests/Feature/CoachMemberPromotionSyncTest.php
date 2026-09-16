@@ -25,6 +25,7 @@ use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\User;
+use App\Support\Coaches\CoachProfileData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -183,11 +184,9 @@ test('creating a promotion in member module automatically synchronizes to coach 
         ->and($coachPromotion->to_rank)->toBe('HEAD_CONSTABLE')
         ->and($coachPromotion->promotion_date?->toDateString())->toBe('2026-06-15');
 
-    // Assert CoachPromotionEvidence created
+    // Assert CoachPromotionEvidence is NOT created (athlete tournament evidences do not cross over)
     $coachEvidence = CoachPromotionEvidence::where('coach_promotion_id', $coachPromotion->id)->first();
-    expect($coachEvidence)->not->toBeNull()
-        ->and($coachEvidence->achievement_id)->toBe($fixtures['achievement']->id)
-        ->and($coachEvidence->tournament_id)->toBe($fixtures['tournament']->id);
+    expect($coachEvidence)->toBeNull();
 
     // Assert Member and Coach ranks updated in tandem
     expect($member->fresh()->rank)->toBe('HEAD_CONSTABLE')
@@ -246,11 +245,9 @@ test('creating a promotion in coach module automatically synchronizes to member 
         ->and($memberPromotion->to_rank)->toBe('HEAD_CONSTABLE')
         ->and($memberPromotion->promotion_date?->toDateString())->toBe('2026-07-20');
 
-    // Assert Member PromotionEvidence created
+    // Assert Member PromotionEvidence is NOT created (coaching evidences do not cross over)
     $memberEvidence = PromotionEvidence::where('member_promotion_id', $memberPromotion->id)->first();
-    expect($memberEvidence)->not->toBeNull()
-        ->and($memberEvidence->evidencable_type)->toBe('achievement')
-        ->and($memberEvidence->evidencable_id)->toBe($fixtures['achievement']->id);
+    expect($memberEvidence)->toBeNull();
 
     // Assert ranks synchronized
     expect($member->fresh()->rank)->toBe('HEAD_CONSTABLE')
@@ -473,7 +470,7 @@ test('deleting a promotion in coach module deletes the linked member promotion a
         ->and($coach->fresh()->rank_master_id)->toBe($ct->id);
 });
 
-test('cash reward only synchronizes between member and coach without altering promotion rank', function () {
+test('cash reward only does not synchronize to coach promotion and preserves rank', function () {
     $user = syncTestUser();
     [$ct, $hc, $si] = syncTestRanks();
 
@@ -510,11 +507,9 @@ test('cash reward only synchronizes between member and coach without altering pr
         ->and((float) $memberPromotion->cash_reward_amount)->toBe(50000.0)
         ->and($memberPromotion->cash_reward_reference)->toBe('REWARD-2026-01');
 
-    // Assert CoachPromotion synchronized
+    // Assert CoachPromotion is NOT synchronized (cash rewards do not cross over to coaching role)
     $coachPromotion = CoachPromotion::where('coach_id', $coach->id)->first();
-    expect($coachPromotion)->not->toBeNull()
-        ->and((float) $coachPromotion->cash_reward_amount)->toBe(50000.0)
-        ->and($coachPromotion->cash_reward_reference)->toBe('REWARD-2026-01');
+    expect($coachPromotion)->toBeNull();
 
     // Assert ranks remain Constable
     expect($member->fresh()->rank)->toBe('CONSTABLE')
@@ -713,4 +708,44 @@ test('generating athlete profile for an existing coach synchronizes all coach pr
         ->and($memberPromotion->to_rank)->toBe('HEAD_CONSTABLE')
         ->and($memberPromotion->promotion_date?->toDateString())->toBe('2026-04-10')
         ->and($member->rank)->toBe('HEAD_CONSTABLE');
+});
+
+test('player cash reward does not appear as coaching prize in coached player achievements', function () {
+    $user = syncTestUser();
+    [$ct, $hc, $si] = syncTestRanks();
+
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank' => 'CONSTABLE',
+        'initial_rank' => 'CONSTABLE',
+    ]);
+
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'rank_master_id' => $ct->id,
+    ]);
+
+    $fixtures = syncTestFixtures($user, $member, $coach);
+
+    // Record cash reward as an athlete in the player area
+    $this->actingAs($user)->post(route('members.promotions.store', $member), [
+        'cash_reward_only' => true,
+        'cash_reward_amount' => 50000,
+        'cash_reward_date' => '2026-05-10',
+        'cash_reward_reference' => 'ATHLETE-PRIZE-01',
+        'cash_reward_remarks' => 'Won gold medal as athlete.',
+        'evidences' => [
+            ['type' => 'achievement', 'id' => $fixtures['achievement']->id],
+        ],
+    ])->assertRedirect(route('members.promotions', $member));
+
+    // In Coached Player Achievements, rewards should remain empty
+    $achievementsData = app(CoachProfileData::class)->achievements($coach);
+    $groups = $achievementsData['coachAchievements']['groups'];
+
+    expect($groups)->not->toBeEmpty();
+    foreach ($groups as $group) {
+        expect($group['rewards'])->toBeEmpty();
+    }
 });

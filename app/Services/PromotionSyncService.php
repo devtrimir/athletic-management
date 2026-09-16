@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Achievement;
 use App\Models\Coach;
 use App\Models\CoachPromotion;
 use App\Models\CoachPromotionEvidence;
 use App\Models\Member;
 use App\Models\MemberPromotion;
-use App\Models\Participation;
 use App\Models\PromotionEvidence;
 use App\Models\Rank;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +21,40 @@ class PromotionSyncService
     private bool $isSyncing = false;
 
     /**
+     * Check whether a MemberPromotion represents an actual rank promotion.
+     */
+    public function isMemberRankPromotion(MemberPromotion $memberPromotion): bool
+    {
+        if ($memberPromotion->promotion_date === null || empty($memberPromotion->to_rank)) {
+            return false;
+        }
+
+        if ($memberPromotion->from_rank !== null && $memberPromotion->from_rank === $memberPromotion->to_rank) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check whether a CoachPromotion represents an actual rank promotion.
+     */
+    public function isCoachRankPromotion(CoachPromotion $coachPromotion): bool
+    {
+        if ($coachPromotion->promotion_date === null || empty($coachPromotion->to_rank)) {
+            return false;
+        }
+
+        if ($coachPromotion->from_rank !== null && $coachPromotion->from_rank === $coachPromotion->to_rank) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Synchronize a MemberPromotion to its corresponding CoachPromotion.
+     * Only rank promotions are synchronized; cash rewards and tournament evidences do not cross over.
      */
     public function syncFromMember(MemberPromotion $memberPromotion): ?CoachPromotion
     {
@@ -44,16 +75,35 @@ class PromotionSyncService
         $this->isSyncing = true;
 
         try {
-            return DB::transaction(function () use ($memberPromotion, $member, $coach): CoachPromotion {
+            return DB::transaction(function () use ($memberPromotion, $member, $coach): ?CoachPromotion {
                 $coachPromotion = null;
 
                 if ($memberPromotion->coach_promotion_id) {
-                    $coachPromotion = CoachPromotion::where('coach_id', $coach->id)
+                    $coachPromotion = CoachPromotion::withoutGlobalScopes()
+                        ->where('coach_id', $coach->id)
                         ->find($memberPromotion->coach_promotion_id);
                 }
 
                 if (! $coachPromotion) {
-                    $coachPromotion = CoachPromotion::where('member_promotion_id', $memberPromotion->id)->first();
+                    $coachPromotion = CoachPromotion::withoutGlobalScopes()
+                        ->where('member_promotion_id', $memberPromotion->id)
+                        ->first();
+                }
+
+                // If not a rank promotion (e.g. cash reward only), do not mirror onto coach profile.
+                if (! $this->isMemberRankPromotion($memberPromotion)) {
+                    if ($coachPromotion) {
+                        $coachPromotion->evidences()->delete();
+                        $coachPromotion->delete();
+                    }
+
+                    if ($memberPromotion->coach_promotion_id !== null) {
+                        $memberPromotion->updateQuietly(['coach_promotion_id' => null]);
+                    }
+
+                    $this->syncPromotionStates($member, $coach);
+
+                    return null;
                 }
 
                 $data = [
@@ -63,10 +113,10 @@ class PromotionSyncService
                     'promotion_date' => $memberPromotion->promotion_date,
                     'from_rank' => $memberPromotion->from_rank,
                     'to_rank' => $memberPromotion->to_rank,
-                    'cash_reward_amount' => $memberPromotion->cash_reward_amount,
-                    'cash_reward_date' => $memberPromotion->cash_reward_date,
-                    'cash_reward_reference' => $memberPromotion->cash_reward_reference,
-                    'cash_reward_remarks' => $memberPromotion->cash_reward_remarks,
+                    'cash_reward_amount' => null,
+                    'cash_reward_date' => null,
+                    'cash_reward_reference' => null,
+                    'cash_reward_remarks' => null,
                     'reason' => $memberPromotion->reason,
                     'remarks' => $memberPromotion->remarks,
                     'recorded_by' => $memberPromotion->recorded_by,
@@ -82,7 +132,8 @@ class PromotionSyncService
                     $memberPromotion->updateQuietly(['coach_promotion_id' => $coachPromotion->id]);
                 }
 
-                $this->syncEvidencesToCoach($memberPromotion, $coachPromotion);
+                // Synced promotions on the coach side must not carry athlete evidences.
+                $coachPromotion->evidences()->delete();
                 $this->syncPromotionStates($member, $coach);
 
                 return $coachPromotion;
@@ -94,6 +145,7 @@ class PromotionSyncService
 
     /**
      * Synchronize a CoachPromotion to its corresponding MemberPromotion.
+     * Only rank promotions are synchronized; cash rewards and tournament evidences do not cross over.
      */
     public function syncFromCoach(CoachPromotion $coachPromotion): ?MemberPromotion
     {
@@ -101,12 +153,12 @@ class PromotionSyncService
             return null;
         }
 
-        $coach = $coachPromotion->coach ?? Coach::find($coachPromotion->coach_id);
+        $coach = $coachPromotion->coach ?? Coach::withoutGlobalScopes()->find($coachPromotion->coach_id);
         if (! $coach || ! $coach->member_id) {
             return null;
         }
 
-        $member = $coach->member ?? Member::find($coach->member_id);
+        $member = $coach->member ?? Member::withoutGlobalScopes()->find($coach->member_id);
         if (! $member) {
             return null;
         }
@@ -114,16 +166,35 @@ class PromotionSyncService
         $this->isSyncing = true;
 
         try {
-            return DB::transaction(function () use ($coachPromotion, $member, $coach): MemberPromotion {
+            return DB::transaction(function () use ($coachPromotion, $member, $coach): ?MemberPromotion {
                 $memberPromotion = null;
 
                 if ($coachPromotion->member_promotion_id) {
-                    $memberPromotion = MemberPromotion::where('member_id', $member->id)
+                    $memberPromotion = MemberPromotion::withoutGlobalScopes()
+                        ->where('member_id', $member->id)
                         ->find($coachPromotion->member_promotion_id);
                 }
 
                 if (! $memberPromotion) {
-                    $memberPromotion = MemberPromotion::where('coach_promotion_id', $coachPromotion->id)->first();
+                    $memberPromotion = MemberPromotion::withoutGlobalScopes()
+                        ->where('coach_promotion_id', $coachPromotion->id)
+                        ->first();
+                }
+
+                // If not a rank promotion (e.g. coach reward only), do not mirror onto member profile.
+                if (! $this->isCoachRankPromotion($coachPromotion)) {
+                    if ($memberPromotion) {
+                        $memberPromotion->evidences()->delete();
+                        $memberPromotion->delete();
+                    }
+
+                    if ($coachPromotion->member_promotion_id !== null) {
+                        $coachPromotion->updateQuietly(['member_promotion_id' => null]);
+                    }
+
+                    $this->syncPromotionStates($member, $coach);
+
+                    return null;
                 }
 
                 // In member_promotions, to_rank is non-nullable string.
@@ -139,10 +210,10 @@ class PromotionSyncService
                     'promotion_date' => $coachPromotion->promotion_date,
                     'from_rank' => $fromRank,
                     'to_rank' => $toRank,
-                    'cash_reward_amount' => $coachPromotion->cash_reward_amount,
-                    'cash_reward_date' => $coachPromotion->cash_reward_date,
-                    'cash_reward_reference' => $coachPromotion->cash_reward_reference,
-                    'cash_reward_remarks' => $coachPromotion->cash_reward_remarks,
+                    'cash_reward_amount' => null,
+                    'cash_reward_date' => null,
+                    'cash_reward_reference' => null,
+                    'cash_reward_remarks' => null,
                     'reason' => $coachPromotion->reason,
                     'remarks' => $coachPromotion->remarks,
                     'recorded_by' => $coachPromotion->recorded_by,
@@ -158,7 +229,8 @@ class PromotionSyncService
                     $coachPromotion->updateQuietly(['member_promotion_id' => $memberPromotion->id]);
                 }
 
-                $this->syncEvidencesToMember($coachPromotion, $memberPromotion, $member);
+                // Synced promotions on the member side must not carry coach evidences.
+                $memberPromotion->evidences()->delete();
                 $this->syncPromotionStates($member, $coach);
 
                 return $memberPromotion;
@@ -182,15 +254,15 @@ class PromotionSyncService
         try {
             $coachPromotion = null;
             if ($memberPromotion->coach_promotion_id) {
-                $coachPromotion = CoachPromotion::find($memberPromotion->coach_promotion_id);
+                $coachPromotion = CoachPromotion::withoutGlobalScopes()->find($memberPromotion->coach_promotion_id);
             }
             if (! $coachPromotion) {
-                $coachPromotion = CoachPromotion::where('member_promotion_id', $memberPromotion->id)->first();
+                $coachPromotion = CoachPromotion::withoutGlobalScopes()->where('member_promotion_id', $memberPromotion->id)->first();
             }
 
             if ($coachPromotion) {
-                $coach = $coachPromotion->coach;
-                $member = $memberPromotion->member ?? ($coach?->member_id ? Member::find($coach->member_id) : null);
+                $coach = $coachPromotion->coach ?? Coach::withoutGlobalScopes()->find($coachPromotion->coach_id);
+                $member = $memberPromotion->member ?? ($coach?->member_id ? Member::withoutGlobalScopes()->find($coach->member_id) : null);
 
                 $coachPromotion->evidences()->delete();
                 $coachPromotion->delete();
@@ -218,14 +290,14 @@ class PromotionSyncService
         try {
             $memberPromotion = null;
             if ($coachPromotion->member_promotion_id) {
-                $memberPromotion = MemberPromotion::find($coachPromotion->member_promotion_id);
+                $memberPromotion = MemberPromotion::withoutGlobalScopes()->find($coachPromotion->member_promotion_id);
             }
             if (! $memberPromotion) {
-                $memberPromotion = MemberPromotion::where('coach_promotion_id', $coachPromotion->id)->first();
+                $memberPromotion = MemberPromotion::withoutGlobalScopes()->where('coach_promotion_id', $coachPromotion->id)->first();
             }
 
             if ($memberPromotion) {
-                $member = $memberPromotion->member;
+                $member = $memberPromotion->member ?? Member::withoutGlobalScopes()->find($memberPromotion->member_id);
                 $coach = $coachPromotion->coach ?? ($member?->coach ?? null);
 
                 $memberPromotion->evidences()->delete();
@@ -245,15 +317,53 @@ class PromotionSyncService
      */
     public function syncLinkedProfiles(Member $member, Coach $coach): void
     {
-        $memberPromotions = MemberPromotion::where('member_id', $member->id)->with('evidences')->get();
-        $coachPromotions = CoachPromotion::where('coach_id', $coach->id)->with('evidences')->get();
+        // Purge obsolete synced promotions that had cash rewards or are not rank promotions
+        CoachPromotion::withoutGlobalScopes()
+            ->where('coach_id', $coach->id)
+            ->where('source', 'synced')
+            ->where(function ($q): void {
+                $q->whereNotNull('cash_reward_amount')
+                    ->orWhereNull('promotion_date')
+                    ->orWhereNull('to_rank')
+                    ->orWhereColumn('from_rank', '=', 'to_rank');
+            })
+            ->each(function (CoachPromotion $p): void {
+                $p->evidences()->delete();
+                $p->delete();
+            });
+
+        MemberPromotion::withoutGlobalScopes()
+            ->where('member_id', $member->id)
+            ->where('source', 'synced')
+            ->where(function ($q): void {
+                $q->whereNotNull('cash_reward_amount')
+                    ->orWhereNull('promotion_date')
+                    ->orWhereNull('to_rank')
+                    ->orWhereColumn('from_rank', '=', 'to_rank');
+            })
+            ->each(function (MemberPromotion $p): void {
+                $p->evidences()->delete();
+                $p->delete();
+            });
+
+        // Ensure no synced promotions carry evidences
+        CoachPromotionEvidence::withoutGlobalScopes()
+            ->whereHas('coachPromotion', fn ($q) => $q->withoutGlobalScopes()->where('coach_id', $coach->id)->where('source', 'synced'))
+            ->delete();
+
+        PromotionEvidence::withoutGlobalScopes()
+            ->whereHas('memberPromotion', fn ($q) => $q->withoutGlobalScopes()->where('member_id', $member->id)->where('source', 'synced'))
+            ->delete();
+
+        $memberPromotions = MemberPromotion::withoutGlobalScopes()->where('member_id', $member->id)->where('source', 'native')->get();
+        $coachPromotions = CoachPromotion::withoutGlobalScopes()->where('coach_id', $coach->id)->where('source', 'native')->get();
 
         // 1. Sync member promotions to coach
         foreach ($memberPromotions as $memberPromo) {
             $this->syncFromMember($memberPromo);
         }
 
-        // 2. Sync any coach promotions that weren't in member promotions
+        // 2. Sync coach promotions to member
         foreach ($coachPromotions as $coachPromo) {
             $this->syncFromCoach($coachPromo);
         }
@@ -270,11 +380,11 @@ class PromotionSyncService
         $latestRankPromotion = MemberPromotion::query()
             ->where('member_id', $member->id)
             ->whereNotNull('to_rank')
+            ->whereNotNull('promotion_date')
             ->where(function ($q): void {
                 $q->whereNull('from_rank')
                     ->orWhereColumn('from_rank', '!=', 'to_rank');
             })
-            ->orderByRaw('promotion_date IS NULL')
             ->orderByDesc('promotion_date')
             ->orderByDesc('id')
             ->first();
@@ -283,11 +393,11 @@ class PromotionSyncService
             $latestCoachRankPromo = CoachPromotion::query()
                 ->where('coach_id', $coach->id)
                 ->whereNotNull('to_rank')
+                ->whereNotNull('promotion_date')
                 ->where(function ($q): void {
                     $q->whereNull('from_rank')
                         ->orWhereColumn('from_rank', '!=', 'to_rank');
                 })
-                ->orderByRaw('promotion_date IS NULL')
                 ->orderByDesc('promotion_date')
                 ->orderByDesc('id')
                 ->first();
@@ -300,11 +410,32 @@ class PromotionSyncService
         $latestDatePromotion = MemberPromotion::query()
             ->where('member_id', $member->id)
             ->whereNotNull('promotion_date')
+            ->whereNotNull('to_rank')
+            ->where(function ($q): void {
+                $q->whereNull('from_rank')
+                    ->orWhereColumn('from_rank', '!=', 'to_rank');
+            })
             ->orderByDesc('promotion_date')
             ->orderByDesc('id')
             ->first();
 
-        $promotionDate = $latestDatePromotion?->promotion_date;
+        if (! $latestDatePromotion && ! $latestRankPromotion) {
+            $latestCoachDatePromo = CoachPromotion::query()
+                ->where('coach_id', $coach->id)
+                ->whereNotNull('promotion_date')
+                ->whereNotNull('to_rank')
+                ->where(function ($q): void {
+                    $q->whereNull('from_rank')
+                        ->orWhereColumn('from_rank', '!=', 'to_rank');
+                })
+                ->orderByDesc('promotion_date')
+                ->orderByDesc('id')
+                ->first();
+
+            $promotionDate = $latestCoachDatePromo?->promotion_date;
+        } else {
+            $promotionDate = $latestDatePromotion?->promotion_date;
+        }
 
         $targetRankCode = $rankValue ?: $member->initial_rank ?: $member->rank;
 
@@ -328,143 +459,6 @@ class PromotionSyncService
             $member->update([
                 'promotion_date' => $promotionDate,
             ]);
-        }
-    }
-
-    /**
-     * Sync evidences from MemberPromotion to CoachPromotion.
-     */
-    private function syncEvidencesToCoach(MemberPromotion $memberPromotion, CoachPromotion $coachPromotion): void
-    {
-        $coachPromotion->evidences()->delete();
-
-        $memberEvidences = $memberPromotion->evidences()->get();
-        if ($memberEvidences->isEmpty()) {
-            return;
-        }
-
-        $createdKeys = [];
-
-        foreach ($memberEvidences as $evidence) {
-            $resolvedType = match ($evidence->evidencable_type) {
-                'achievement', Achievement::class => 'achievement',
-                'participation', Participation::class => 'participation',
-                default => null,
-            };
-
-            if ($resolvedType === 'achievement') {
-                $achievement = Achievement::with(['participation.event', 'participation.team'])->find($evidence->evidencable_id);
-                if ($achievement && $achievement->participation) {
-                    $p = $achievement->participation;
-                    $sessionId = (int) $p->session_id;
-                    $tournamentId = (int) ($p->event?->tournament_id ?? 0);
-                    $eventId = $p->event_id ? (int) $p->event_id : null;
-                    $teamId = $p->team_id ? (int) $p->team_id : null;
-                    $achievementId = (int) $achievement->id;
-
-                    $key = "{$sessionId}:{$tournamentId}:{$eventId}:{$teamId}:{$achievementId}";
-                    if ($tournamentId > 0 && ! isset($createdKeys[$key])) {
-                        CoachPromotionEvidence::create([
-                            'organization_id' => $coachPromotion->organization_id,
-                            'coach_promotion_id' => $coachPromotion->id,
-                            'session_id' => $sessionId,
-                            'tournament_id' => $tournamentId,
-                            'event_id' => $eventId,
-                            'team_id' => $teamId,
-                            'achievement_id' => $achievementId,
-                        ]);
-                        $createdKeys[$key] = true;
-                    }
-                }
-            } elseif ($resolvedType === 'participation') {
-                $participation = Participation::with(['event', 'team', 'achievement'])->find($evidence->evidencable_id);
-                if ($participation) {
-                    $sessionId = (int) $participation->session_id;
-                    $tournamentId = (int) ($participation->event?->tournament_id ?? 0);
-                    $eventId = $participation->event_id ? (int) $participation->event_id : null;
-                    $teamId = $participation->team_id ? (int) $participation->team_id : null;
-                    $achievementId = $participation->achievement?->id ? (int) $participation->achievement->id : null;
-
-                    $key = "{$sessionId}:{$tournamentId}:{$eventId}:{$teamId}:{$achievementId}";
-                    if ($tournamentId > 0 && ! isset($createdKeys[$key])) {
-                        CoachPromotionEvidence::create([
-                            'organization_id' => $coachPromotion->organization_id,
-                            'coach_promotion_id' => $coachPromotion->id,
-                            'session_id' => $sessionId,
-                            'tournament_id' => $tournamentId,
-                            'event_id' => $eventId,
-                            'team_id' => $teamId,
-                            'achievement_id' => $achievementId,
-                        ]);
-                        $createdKeys[$key] = true;
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Sync evidences from CoachPromotion to MemberPromotion.
-     */
-    private function syncEvidencesToMember(CoachPromotion $coachPromotion, MemberPromotion $memberPromotion, Member $member): void
-    {
-        $memberPromotion->evidences()->delete();
-
-        $coachEvidences = $coachPromotion->evidences()->get();
-        if ($coachEvidences->isEmpty()) {
-            return;
-        }
-
-        $createdTypes = [];
-
-        foreach ($coachEvidences as $evidence) {
-            if ($evidence->achievement_id) {
-                $key = "achievement:{$evidence->achievement_id}";
-                if (! isset($createdTypes[$key])) {
-                    PromotionEvidence::create([
-                        'organization_id' => $memberPromotion->organization_id,
-                        'member_promotion_id' => $memberPromotion->id,
-                        'evidencable_type' => 'achievement',
-                        'evidencable_id' => $evidence->achievement_id,
-                    ]);
-                    $createdTypes[$key] = true;
-                }
-            } elseif ($evidence->event_id) {
-                $participation = Participation::forMember($member)
-                    ->where('event_id', $evidence->event_id)
-                    ->first();
-
-                if ($participation) {
-                    $key = "participation:{$participation->id}";
-                    if (! isset($createdTypes[$key])) {
-                        PromotionEvidence::create([
-                            'organization_id' => $memberPromotion->organization_id,
-                            'member_promotion_id' => $memberPromotion->id,
-                            'evidencable_type' => 'participation',
-                            'evidencable_id' => $participation->id,
-                        ]);
-                        $createdTypes[$key] = true;
-                    }
-                }
-            } elseif ($evidence->tournament_id) {
-                $participation = Participation::forMember($member)
-                    ->where('session_id', $evidence->session_id)
-                    ->whereHas('event', fn ($q) => $q->where('tournament_id', $evidence->tournament_id))
-                    ->first();
-
-                if ($participation) {
-                    $key = "participation:{$participation->id}";
-                    if (! isset($createdTypes[$key])) {
-                        PromotionEvidence::create([
-                            'organization_id' => $memberPromotion->organization_id,
-                            'member_promotion_id' => $memberPromotion->id,
-                            'evidencable_type' => 'participation',
-                            'evidencable_id' => $participation->id,
-                        ]);
-                        $createdTypes[$key] = true;
-                    }
-                }
-            }
         }
     }
 }

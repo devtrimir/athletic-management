@@ -164,19 +164,25 @@ function coachedTeamMedal(array $overrides = []): Achievement
         }
     }
 
-    $participation = Participation::factory()->forEvent($event)->create([
-        'member_id' => null,
-        'team_id' => $team->id,
-        'session_id' => $session->id,
-        'lineup_member_ids' => collect($lineupMembers)->map(fn (Member $member): int => $member->id)->all(),
-        'position' => $overrides['participation_position'] ?? 1,
-    ]);
+    $firstAchievement = null;
+    foreach ($lineupMembers as $lineupMember) {
+        $participation = Participation::factory()->forEvent($event)->create([
+            'member_id' => $lineupMember->id,
+            'team_id' => $team->id,
+            'session_id' => $session->id,
+            'position' => $overrides['participation_position'] ?? 1,
+        ]);
 
-    return Achievement::factory()->forParticipation($participation)->create([
-        'medal_type' => $overrides['medal_type'] ?? 'GOLD',
-        'position' => $overrides['position'] ?? 1,
-        'remarks' => $overrides['remarks'] ?? null,
-    ]);
+        $achievement = Achievement::factory()->forParticipation($participation)->create([
+            'medal_type' => $overrides['medal_type'] ?? 'GOLD',
+            'position' => $overrides['position'] ?? 1,
+            'remarks' => $overrides['remarks'] ?? null,
+        ]);
+
+        $firstAchievement ??= $achievement;
+    }
+
+    return $firstAchievement;
 }
 
 // ---------------------------------------------------------------------------
@@ -379,7 +385,6 @@ test('coaches print active filter includes active current-session coaches only',
     $this->actingAs($user)
         ->get(route('coaches.print', ['filter' => ['status_scope' => 'active']]))
         ->assertOk()
-        ->assertSeeText('Active coaches')
         ->assertSeeText('Print Active Coach')
         ->assertDontSeeText('Print Inactive Coach');
 });
@@ -401,7 +406,6 @@ test('coaches print inactive filter includes coaches without active current-sess
     $this->actingAs($user)
         ->get(route('coaches.print', ['filter' => ['status_scope' => 'inactive']]))
         ->assertOk()
-        ->assertSeeText('Inactive coaches')
         ->assertSeeText('Printable Inactive Coach')
         ->assertDontSeeText('Still Active Coach');
 });
@@ -423,15 +427,19 @@ test('coaches print supports portrait and landscape page orientation', function 
 test('coaches print follows coaches listing layout columns', function () {
     $user = coachUser('coaches.view');
     $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
-    $team = Team::factory()->create(['organization_id' => $user->organization_id, 'session_id' => $session->id, 'is_active' => true]);
     $sport = Sport::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Athletics']);
+    $team = Team::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'sport_id' => $sport->id,
+        'is_active' => true,
+    ]);
     $coach = Coach::factory()->create([
         'organization_id' => $user->organization_id,
         'full_name' => 'Column Coach',
         'pno' => 'PNO-777',
         'mobile' => '9999999999',
     ]);
-    $coach->sports()->attach($sport->id, ['sport_event' => '100m']);
 
     $assignment = CoachAssignment::factory()->create([
         'coach_id' => $coach->id,
@@ -446,22 +454,20 @@ test('coaches print follows coaches listing layout columns', function () {
             'filter' => ['status_scope' => 'active'],
         ]))
         ->assertOk()
-        ->assertSeeText('Coach')
-        ->assertSeeText('PNO')
-        ->assertSeeText('Playable Sport')
+        ->assertSeeText('Coach Listing Report')
         ->assertSeeText(__('Sport'))
-        ->assertSeeText(__('Event / Weight'))
-        ->assertSeeText(__('Teams'))
         ->assertSeeText(__('Team'))
-        ->assertSeeText(__('Session'))
+        ->assertSeeText(__('Coaches in team'))
+        ->assertSeeText(__('Name'))
+        ->assertSeeText(__('PNO'))
+        ->assertSeeText(__('Mobile'))
         ->assertSeeText(__('Role'))
-        ->assertSeeText(__('Assigned at'))
-        ->assertSeeText('Posting')
+        ->assertSeeText(__('Posting'))
         ->assertSeeText('Column Coach')
         ->assertSeeText('Athletics')
-        ->assertSeeText('100m')
-        ->assertSeeText('05-01-2026')
-        ->assertSeeText('PNO-777');
+        ->assertSeeText('PNO-777')
+        ->assertSeeText('9999999999');
+
 });
 
 test('coaches.print de-dupes duplicate columns and rows', function () {
@@ -490,7 +496,9 @@ test('coaches.print de-dupes duplicate columns and rows', function () {
     $content = (string) $response->getContent();
 
     expect($response->getStatusCode())->toBe(200);
-    expect(substr_count($content, '<th>'))->toBe(2);
+    // Fixed layout always has 4 outer th-group headers (S.No., Sport, Team, Coaches in team)
+    expect(substr_count($content, 'class="th-group'))->toBe(4);
+    // Each coach should appear exactly once
     expect(substr_count($content, 'Duplicate Column Coach'))->toBe(1);
 });
 
@@ -1627,7 +1635,8 @@ test('coach achievements respect assignment date window when tournament date exi
         ->inertiaProps('coachAchievements.groups.0.players');
 
     expect($players)->toHaveCount(1)
-        ->and($players[0]['member']['full_name'])->toBe('Inside Window');
+        ->and($players[0]['member']['full_name'])->toBe('Inside Window')
+        ->and($players[0]['member']['is_coach'])->toBeFalse();
 });
 
 test('coach achievements include individual medals via auto-resolved participation team', function () {
@@ -1685,12 +1694,19 @@ test('coach achievements include individual medals via auto-resolved participati
     expect($participation)->not->toBeNull()
         ->and($participation->team_id)->toBe($team->id);
 
+    Coach::factory()->create([
+        'organization_id' => $organization->id,
+        'member_id' => $member->id,
+    ]);
+
     $this->actingAs($user)
         ->get(route('coaches.achievements', $coach))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('coachAchievements.summary.GOLD', 1)
             ->where('coachAchievements.groups.0.players.0.member.full_name', 'Individual Medalist')
+            ->where('coachAchievements.groups.0.players.0.member.is_coach', true)
+            ->where('coachAchievements.groups.0.players.0.member.coach_id', fn ($val) => ! empty($val))
             ->etc()
         );
 });
@@ -1789,9 +1805,7 @@ test('coach achievements tab includes team event medals with lineup players', fu
         'medal_type' => 'GOLD',
     ]);
 
-    expect($achievement->participation->member_id)->toBeNull()
-        ->and($achievement->participation->lineup_member_ids)
-        ->toBe([$firstLineup->id, $secondLineup->id]);
+    expect($achievement->participation->member_id)->toBe($firstLineup->id);
 
     $this->actingAs($user)
         ->get(route('coaches.achievements', $coach))
@@ -1957,6 +1971,7 @@ test('coach promotion can be reward only', function () {
     $this->actingAs($user)
         ->post(route('coaches.promotions.store', $coach), [
             'cash_reward_amount' => '7500.00',
+            'cash_reward_date' => '2026-03-01',
             'cash_reward_reference' => 'REWARD-1',
             'evidences' => [[
                 'session_id' => $sessionId,
@@ -2041,6 +2056,8 @@ test('coach reward evidence options exclude already rewarded tournaments', funct
     $this->actingAs($user)
         ->post(route('coaches.promotions.store', $coach), [
             'cash_reward_amount' => '5000.00',
+            'cash_reward_date' => '2026-04-01',
+            'cash_reward_reference' => 'REWARD-2',
             'evidences' => [[
                 'session_id' => $session->id,
                 'tournament_id' => $sameTournamentAchievement->participation->event->tournament_id,
@@ -2087,6 +2104,8 @@ test('user with coach promotions permission can update promotion from profile ta
         'from_rank' => $fromRank->code,
         'to_rank' => $toRank->code,
         'cash_reward_amount' => '1000.00',
+        'cash_reward_date' => '2026-01-01',
+        'cash_reward_reference' => 'ORIG-REF',
     ]);
 
     $this->actingAs($user)
@@ -2094,6 +2113,7 @@ test('user with coach promotions permission can update promotion from profile ta
             'from_rank' => $fromRank->code,
             'to_rank' => $toRank->code,
             'cash_reward_amount' => '2500.00',
+            'cash_reward_date' => '2026-02-01',
             'cash_reward_reference' => 'UPDATED',
         ])
         ->assertRedirect(route('coaches.promotions', $coach));

@@ -165,22 +165,47 @@ function defaults(row?: PlayingAchievementRow): PlayingAchievementFormData {
     };
 }
 
-function formatDate(value: string | null): string {
+function formatDate(value: string | null | undefined): string {
     if (!value) {
         return '—';
     }
 
-    const date = new Date(value);
+    const trimmed = value.trim();
 
-    if (Number.isNaN(date.getTime())) {
-        return value;
+    if (!trimmed) {
+        return '—';
     }
 
-    return new Intl.DateTimeFormat('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(date);
+    const datePart = trimmed.split('T')[0].split(' ')[0];
+    const parts = datePart.split('-');
+
+    if (parts.length === 3 && parts[0].length === 4) {
+        const [year, month, day] = parts;
+
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+    }
+
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(datePart)) {
+        const [day, month, year] = datePart.split('/');
+
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+    }
+
+    return value;
+}
+
+function formatTournamentDateRange(tournament: {
+    date_from?: string | null;
+    date_to?: string | null;
+}): string {
+    const from = tournament.date_from ? formatDate(tournament.date_from) : null;
+    const to = tournament.date_to ? formatDate(tournament.date_to) : null;
+
+    if (from && from !== '—' && to && to !== '—' && from !== to) {
+        return `${from} - ${to}`;
+    }
+
+    return from ?? to ?? '—';
 }
 
 function periodLabel(value: string | null, t: (key: string) => string): string {
@@ -997,9 +1022,9 @@ function MemberPlayingAchievementsList({
                             </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                            {formatDate(
-                                row.achieved_on ?? row.tournament.date_from,
-                            )}
+                            {row.achieved_on
+                                ? formatDate(row.achieved_on)
+                                : formatTournamentDateRange(row.tournament)}
                         </TableCell>
                         <TableCell className="max-w-[12rem]">
                             <span

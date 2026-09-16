@@ -101,6 +101,7 @@ export type CoachPromotionEvidence = {
         medal_type: string;
         position?: number | null;
     } | null;
+    medal_counts?: Record<string, number>;
 };
 
 export type CoachPromotion = {
@@ -133,6 +134,7 @@ export type CoachedEventOption = {
         gender_class?: string | null;
         discipline?: string | null;
         weight_category?: string | null;
+        event_type?: string | null;
     };
     team: { id: number; name: string };
     medal_counts: Record<string, number>;
@@ -254,6 +256,16 @@ function medalEmoji(medalType?: string | null): string {
         default:
             return '🏅';
     }
+}
+
+function medalCountsList(
+    medalCounts?: Record<string, number>,
+): Array<[string, number]> {
+    if (!medalCounts) {
+        return [];
+    }
+
+    return Object.entries(medalCounts).filter(([, count]) => count > 0);
 }
 
 function formatCurrency(amount: string | number | null | undefined): string {
@@ -563,7 +575,9 @@ function EvidenceSummaryCell({
         <TooltipProvider>
             <div className="flex flex-wrap items-center gap-1.5">
                 {firstTwo.map((row, idx) => {
-                    const medal = row.achievement?.medal_type;
+                    const medal =
+                        row.achievement?.medal_type ??
+                        medalCountsList(row.medal_counts)[0]?.[0];
                     const eventName =
                         row.event?.name ?? row.team?.name ?? t('Event');
                     const tournamentName = row.tournament?.name;
@@ -598,7 +612,9 @@ function EvidenceSummaryCell({
                                 {t('Additional events')}
                             </p>
                             {remaining.map((row, idx) => {
-                                const medal = row.achievement?.medal_type;
+                                const medal =
+                                    row.achievement?.medal_type ??
+                                    medalCountsList(row.medal_counts)[0]?.[0];
                                 const eventName =
                                     row.event?.name ??
                                     row.team?.name ??
@@ -677,6 +693,7 @@ export function CoachPromotionDialog({
             tier_code?: string | null;
             event_id: number | null;
             event_name: string;
+            event_type?: string | null;
             team_id: number;
             team_name: string;
             medal_counts: Record<string, number>;
@@ -703,6 +720,7 @@ export function CoachPromotionDialog({
                             tier_code: tourney.tournament.tier_code,
                             event_id: ev.event.id,
                             event_name: ev.event.name,
+                            event_type: ev.event.event_type,
                             team_id: tourney.team.id,
                             team_name: tourney.team.name,
                             medal_counts: ev.medal_counts,
@@ -1538,6 +1556,26 @@ export function CoachPromotionDialog({
                                                                             item.event_name
                                                                         }
                                                                     </span>
+                                                                    {item.event_type && (
+                                                                        <Badge
+                                                                            variant="outline"
+                                                                            className={
+                                                                                item.event_type ===
+                                                                                'team'
+                                                                                    ? 'h-4.5 border-indigo-200 bg-indigo-50 px-1 text-[10px] text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200'
+                                                                                    : 'h-4.5 border-teal-200 bg-teal-50 px-1 text-[10px] text-teal-700 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-200'
+                                                                            }
+                                                                        >
+                                                                            {item.event_type ===
+                                                                            'team'
+                                                                                ? t(
+                                                                                      'Team',
+                                                                                  )
+                                                                                : t(
+                                                                                      'Individual',
+                                                                                  )}
+                                                                        </Badge>
+                                                                    )}
                                                                     {isUsedInOther && (
                                                                         <Badge
                                                                             variant="outline"
@@ -2318,10 +2356,10 @@ export function CoachPromotionsTab({
                                                                                             ?.tier
                                                                                             ?.code ??
                                                                                         '—';
-                                                                                    const medal =
-                                                                                        evidence
-                                                                                            .achievement
-                                                                                            ?.medal_type;
+                                                                                    const medals =
+                                                                                        medalCountsList(
+                                                                                            evidence.medal_counts,
+                                                                                        );
                                                                                     const eventName =
                                                                                         evidence
                                                                                             .event
@@ -2431,18 +2469,37 @@ export function CoachPromotionsTab({
                                                                                                 }
                                                                                             </td>
                                                                                             <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                {medal ? (
-                                                                                                    <span className="flex items-center gap-1">
-                                                                                                        <span>
-                                                                                                            {medalEmoji(
-                                                                                                                medal,
-                                                                                                            )}
-                                                                                                        </span>
-                                                                                                        <span>
-                                                                                                            {t(
-                                                                                                                medal,
-                                                                                                            )}
-                                                                                                        </span>
+                                                                                                {medals.length >
+                                                                                                0 ? (
+                                                                                                    <span className="flex flex-wrap items-center gap-1.5">
+                                                                                                        {medals.map(
+                                                                                                            ([
+                                                                                                                type,
+                                                                                                                count,
+                                                                                                            ]) => (
+                                                                                                                <span
+                                                                                                                    key={
+                                                                                                                        type
+                                                                                                                    }
+                                                                                                                    className="flex items-center gap-1"
+                                                                                                                >
+                                                                                                                    <span>
+                                                                                                                        {medalEmoji(
+                                                                                                                            type,
+                                                                                                                        )}
+                                                                                                                    </span>
+                                                                                                                    <span>
+                                                                                                                        {t(
+                                                                                                                            type,
+                                                                                                                        )}
+                                                                                                                        {count >
+                                                                                                                        1
+                                                                                                                            ? ` ×${count}`
+                                                                                                                            : ''}
+                                                                                                                    </span>
+                                                                                                                </span>
+                                                                                                            ),
+                                                                                                        )}
                                                                                                     </span>
                                                                                                 ) : (
                                                                                                     '—'
@@ -2730,10 +2787,10 @@ export function CoachPromotionsTab({
                                                                                             ?.tier
                                                                                             ?.code ??
                                                                                         '—';
-                                                                                    const medal =
-                                                                                        evidence
-                                                                                            .achievement
-                                                                                            ?.medal_type;
+                                                                                    const medals =
+                                                                                        medalCountsList(
+                                                                                            evidence.medal_counts,
+                                                                                        );
                                                                                     const eventName =
                                                                                         evidence
                                                                                             .event
@@ -2843,18 +2900,37 @@ export function CoachPromotionsTab({
                                                                                                 }
                                                                                             </td>
                                                                                             <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                {medal ? (
-                                                                                                    <span className="flex items-center gap-1">
-                                                                                                        <span>
-                                                                                                            {medalEmoji(
-                                                                                                                medal,
-                                                                                                            )}
-                                                                                                        </span>
-                                                                                                        <span>
-                                                                                                            {t(
-                                                                                                                medal,
-                                                                                                            )}
-                                                                                                        </span>
+                                                                                                {medals.length >
+                                                                                                0 ? (
+                                                                                                    <span className="flex flex-wrap items-center gap-1.5">
+                                                                                                        {medals.map(
+                                                                                                            ([
+                                                                                                                type,
+                                                                                                                count,
+                                                                                                            ]) => (
+                                                                                                                <span
+                                                                                                                    key={
+                                                                                                                        type
+                                                                                                                    }
+                                                                                                                    className="flex items-center gap-1"
+                                                                                                                >
+                                                                                                                    <span>
+                                                                                                                        {medalEmoji(
+                                                                                                                            type,
+                                                                                                                        )}
+                                                                                                                    </span>
+                                                                                                                    <span>
+                                                                                                                        {t(
+                                                                                                                            type,
+                                                                                                                        )}
+                                                                                                                        {count >
+                                                                                                                        1
+                                                                                                                            ? ` ×${count}`
+                                                                                                                            : ''}
+                                                                                                                    </span>
+                                                                                                                </span>
+                                                                                                            ),
+                                                                                                        )}
                                                                                                     </span>
                                                                                                 ) : (
                                                                                                     '—'

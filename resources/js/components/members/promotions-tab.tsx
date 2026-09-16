@@ -137,6 +137,7 @@ type EvidenceOption = {
     eventName: string;
     genderClass?: string | null;
     discipline?: string | null;
+    eventType?: string | null;
     medalType?: string | null;
     position?: number | null;
     benefitsSummary?: string | null;
@@ -1393,6 +1394,7 @@ export function PromotionDialog({
                         eventName: item.event.name,
                         genderClass: item.event.gender_class,
                         discipline: item.event.discipline,
+                        eventType: item.event.event_type,
                         medalType,
                         position,
                         benefitsSummary,
@@ -1475,6 +1477,7 @@ export function PromotionDialog({
                     eventName: item.event.name,
                     genderClass: item.event.gender_class,
                     discipline: item.event.discipline,
+                    eventType: item.event.event_type,
                     medalType,
                     position,
                     benefitsSummary,
@@ -2357,6 +2360,26 @@ export function PromotionDialog({
                                                             </div>
 
                                                             <div className="flex shrink-0 items-center gap-1.5">
+                                                                {item.eventType && (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className={
+                                                                            item.eventType ===
+                                                                            'team'
+                                                                                ? 'border-indigo-200 bg-indigo-50 text-[10px] text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200'
+                                                                                : 'border-teal-200 bg-teal-50 text-[10px] text-teal-700 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-200'
+                                                                        }
+                                                                    >
+                                                                        {item.eventType ===
+                                                                        'team'
+                                                                            ? t(
+                                                                                  'Team',
+                                                                              )
+                                                                            : t(
+                                                                                  'Individual',
+                                                                              )}
+                                                                    </Badge>
+                                                                )}
                                                                 {item.benefitsSummary && (
                                                                     <Badge
                                                                         variant="outline"
