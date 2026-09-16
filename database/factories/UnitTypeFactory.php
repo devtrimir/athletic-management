@@ -2,15 +2,13 @@
 
 namespace Database\Factories;
 
-use App\Models\Organization;
-use App\Models\Unit;
 use App\Models\UnitType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<Unit>
+ * @extends Factory<UnitType>
  */
-class UnitFactory extends Factory
+class UnitTypeFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -19,12 +17,14 @@ class UnitFactory extends Factory
      */
     public function definition(): array
     {
+        $code = strtoupper(fake()->unique()->lexify('TYPE???'));
+
         return [
-            'organization_id' => Organization::factory(),
+            'code' => $code,
             'name' => fake()->words(2, true),
-            'unit_type_id' => UnitType::query()->inRandomOrder()->value('id') ?? UnitType::factory(),
-            'commandant' => null,
-            'district_id' => null,
+            'name_en' => fake()->words(2, true),
+            'is_active' => true,
+            'sort_order' => fake()->numberBetween(1, 100),
         ];
     }
 }

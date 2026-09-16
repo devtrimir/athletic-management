@@ -36,7 +36,8 @@ class ReferenceDataController extends Controller
 
     public function units(Request $request): AnonymousResourceCollection
     {
-        $units = Unit::where('organization_id', $request->user()->organization_id)
+        $units = Unit::with('unitType')
+            ->where('organization_id', $request->user()->organization_id)
             ->orderBy('name')
             ->get();
 

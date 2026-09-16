@@ -248,7 +248,7 @@ return [
         'tier_id' => 'श्रेणी',
         'to_date' => 'दिनांक तक',
         'unit_id' => 'वाहिनी',
-        'unit_type' => 'वाहिनी प्रकार',
+        'unit_type_id' => 'वाहिनी प्रकार',
         'venue' => 'स्थान',
         'weight' => 'वज़न',
         'weight_category' => 'वज़न वर्ग',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Unit;
+use App\Models\UnitType;
 use App\Services\Reports\UnitHeadcountReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -89,16 +90,18 @@ test('excludes soft-deleted members', function (): void {
     expect($result[0]['total'])->toBe(0);
 });
 
-test('returns all units for org ordered by unit_type then name', function (): void {
+test('returns all units for org ordered by unit_type sort_order then name', function (): void {
     $org = hcOrg();
-    $unitA = Unit::factory()->create(['organization_id' => $org->id, 'unit_type' => 'GRP']);
-    $unitB = Unit::factory()->create(['organization_id' => $org->id, 'unit_type' => 'PAC']);
+    $grpType = UnitType::where('code', 'GRP')->firstOrFail();
+    $pacType = UnitType::where('code', 'PAC')->firstOrFail();
+    $unitA = Unit::factory()->create(['organization_id' => $org->id, 'unit_type_id' => $grpType->id]);
+    $unitB = Unit::factory()->create(['organization_id' => $org->id, 'unit_type_id' => $pacType->id]);
 
     $result = app(UnitHeadcountReport::class)->run($org->id, []);
 
     expect($result)->toHaveCount(2);
-    // GRP comes before PAC alphabetically
-    expect($result[0]['unit']['unit_type'])->toBe('GRP');
+    // PAC has a lower sort_order than GRP, so it comes first
+    expect($result[0]['unit']['unit_type'])->toBe('PAC');
 });
 
 test('filters by unit_id returns single unit', function (): void {

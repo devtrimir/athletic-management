@@ -13,6 +13,7 @@ use App\Models\Role;
 use App\Models\Sport;
 use App\Models\TournamentTier;
 use App\Models\Unit;
+use App\Models\UnitType;
 use App\Models\User;
 use App\Support\Members\MemberImportSchema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -100,6 +101,7 @@ function importRow(array $overrides = [], string $templateType = MemberImportSch
         'home_district' => null,
         'other_home_district' => null,
         'posting_district' => null,
+        'unit_type' => null,
         'unit' => null,
         'joining_date' => null,
         'blood_group' => null,
@@ -173,7 +175,8 @@ test('template download returns an xlsx with the schema headings', function () {
 test('template has db-backed dropdowns and date-formatted columns', function () {
     $user = importUser('imports.run');
     $district = District::factory()->create();
-    Unit::factory()->create(['organization_id' => $user->organization_id]);
+    $pacType = UnitType::where('code', 'PAC')->firstOrFail();
+    $unit = Unit::factory()->create(['organization_id' => $user->organization_id, 'unit_type_id' => $pacType->id]);
     Sport::factory()->create(['organization_id' => $user->organization_id]);
 
     $this->actingAs($user)->get(route('members.import.template'));
@@ -193,20 +196,26 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     // inverted: "1" hides the arrow — PhpSpreadsheet models it as "show").
     expect($sheet->getCell('D2')->getDataValidation()->getShowDropDown())->toBeTrue()
         ->and($sheet->getCell('J2')->getDataValidation()->getShowDropDown())->toBeTrue()
-        ->and($sheet->getCell('Q2')->getDataValidation()->getShowDropDown())->toBeTrue();
+        ->and($sheet->getCell('R2')->getDataValidation()->getShowDropDown())->toBeTrue();
 
     // Category dropdown shows friendly labels, not raw codes.
     expect($sheet->getCell('H2')->getDataValidation()->getFormula1())->toBe('"Ground Duty,Sports Quota"');
 
     // DB-backed dropdowns via named ranges.
     expect($sheet->getCell('J2')->getDataValidation()->getFormula1())->toBe('DistrictList')
-        ->and($sheet->getCell('L2')->getDataValidation()->getFormula1())->toBe('UnitList')
-        ->and($sheet->getCell('Q2')->getDataValidation()->getFormula1())->toBe('SportList')
+        ->and($sheet->getCell('L2')->getDataValidation()->getFormula1())->toBe('UnitTypeList')
+        ->and($sheet->getCell('R2')->getDataValidation()->getFormula1())->toBe('SportList')
         ->and($sheet->getCell('I2')->getDataValidation()->getFormula1())->toBe('TierList')
         ->and($sheet->getCell('F2')->getDataValidation()->getFormula1())->toBe('RankList')
-        ->and($sheet->getCell('P2')->getDataValidation()->getFormula1())->toBe('RankList')
+        ->and($sheet->getCell('Q2')->getDataValidation()->getFormula1())->toBe('RankList')
         ->and($sheet->getCell('F2')->getDataValidation()->getShowDropDown())->toBeTrue()
-        ->and($sheet->getCell('P2')->getDataValidation()->getShowDropDown())->toBeTrue();
+        ->and($sheet->getCell('Q2')->getDataValidation()->getShowDropDown())->toBeTrue();
+
+    // The Unit column (M) cascades off the Unit Type column (L) of the same
+    // row via INDIRECT into a per-type named range instead of one flat list.
+    expect($sheet->getCell('M2')->getDataValidation()->getFormula1())->toBe('INDIRECT("Units_"&$L2)')
+        ->and($sheet->getCell('M3')->getDataValidation()->getFormula1())->toBe('INDIRECT("Units_"&$L3)')
+        ->and($sheet->getCell('M2')->getDataValidation()->getShowDropDown())->toBeTrue();
 
     $districtRange = $spreadsheet->getNamedRange('DistrictList');
     expect($districtRange)->not->toBeNull()
@@ -219,15 +228,52 @@ test('template has db-backed dropdowns and date-formatted columns', function () 
     expect($rankRange)->not->toBeNull()
         ->and($rankRange->getWorksheet()->getTitle())->toBe('Reference');
 
-    // Reference sheet lists the seeded district and the top-weight tier label.
+    $unitTypeRange = $spreadsheet->getNamedRange('UnitTypeList');
+    expect($unitTypeRange)->not->toBeNull()
+        ->and($unitTypeRange->getWorksheet()->getTitle())->toBe('Reference');
+
+    // Per-type cascading range exists for the seeded PAC unit's type.
+    $pacRange = $spreadsheet->getNamedRange('Units_PAC');
+    expect($pacRange)->not->toBeNull()
+        ->and($pacRange->getWorksheet()->getTitle())->toBe('Reference');
+    expect($reference->getCell('B3')->getValue())->toBe($unit->name);
+
+    // Reference sheet lists the seeded district, unit type, and top-weight tier label.
     expect($reference->getCell('A3')->getValue())->toBe($district->name)
         ->and($reference->getCell('D3')->getValue())->toBe('International')
-        ->and($reference->getCell('E3')->getValue())->toBe('आरक्षी / सिपाही');
+        ->and($reference->getCell('E3')->getValue())->toBe('आरक्षी / सिपाही')
+        ->and($reference->getCell('F3')->getValue())->toBe('PAC');
 
     // Date columns carry a real Excel date format.
     expect($sheet->getStyle('E2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
-        ->and($sheet->getStyle('M2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
-        ->and($sheet->getStyle('S2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY');
+        ->and($sheet->getStyle('N2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY')
+        ->and($sheet->getStyle('T2')->getNumberFormat()->getFormatCode())->toBe('DD.MM.YYYY');
+});
+
+test('cascading unit ranges stay grouped by type even with multiple units per type', function () {
+    $user = importUser('imports.run');
+    $pacType = UnitType::where('code', 'PAC')->firstOrFail();
+    $grpType = UnitType::where('code', 'GRP')->firstOrFail();
+
+    // Interleave creation order so a naive sort would scatter GRP among PAC.
+    $pacA = Unit::factory()->create(['organization_id' => $user->organization_id, 'unit_type_id' => $pacType->id, 'name' => 'PAC Alpha']);
+    $grp = Unit::factory()->create(['organization_id' => $user->organization_id, 'unit_type_id' => $grpType->id, 'name' => 'GRP One']);
+    $pacB = Unit::factory()->create(['organization_id' => $user->organization_id, 'unit_type_id' => $pacType->id, 'name' => 'PAC Bravo']);
+
+    $binary = Excel::raw(new MemberImportTemplateExport($user->organization_id), Maatwebsite\Excel\Excel::XLSX);
+    $path = tempnam(sys_get_temp_dir(), 'member-template-').'.xlsx';
+    file_put_contents($path, $binary);
+
+    $spreadsheet = IOFactory::load($path);
+    $reference = $spreadsheet->getSheetByName('Reference');
+
+    // PAC's two units must be contiguous, and GRP's range must not overlap them.
+    expect($reference->getCell('B3')->getValue())->toBe($pacA->name)
+        ->and($reference->getCell('B4')->getValue())->toBe($pacB->name)
+        ->and($reference->getCell('B5')->getValue())->toBe($grp->name);
+
+    expect($spreadsheet->getNamedRange('Units_PAC')->getValue())->toBe("'Reference'!\$B\$3:\$B\$4")
+        ->and($spreadsheet->getNamedRange('Units_GRP')->getValue())->toBe("'Reference'!\$B\$5:\$B\$5");
 });
 
 // ---------------------------------------------------------------------------

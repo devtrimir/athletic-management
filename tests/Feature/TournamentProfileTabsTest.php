@@ -87,6 +87,7 @@ test('tournament events tab returns event rows only when requested', function ()
             ->where('activeTab', 'events')
             ->where('tournament.id', $tournament->id)
             ->has('sports')
+            ->has('ranks')
             ->has('events', 1)
             ->where('events.0.name', '100m Sprint')
         );

@@ -13,12 +13,20 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class UnitResource extends JsonResource
 {
+    /**
+     * @return array{id: int, name: string, unit_type: array{id: int, code: string, name: string, name_en: string|null}}
+     */
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'unit_type' => $this->unit_type,
+            'unit_type' => [
+                'id' => $this->unitType->id,
+                'code' => $this->unitType->code,
+                'name' => $this->unitType->name,
+                'name_en' => $this->unitType->name_en,
+            ],
         ];
     }
 }

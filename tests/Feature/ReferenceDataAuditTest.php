@@ -10,6 +10,7 @@ use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\TournamentTier;
 use App\Models\Unit;
+use App\Models\UnitType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -68,7 +69,7 @@ function storeCase(string $resource, int $orgId): array
                 'organization_id' => $orgId,
                 'name' => 'मुख्यालय',
                 'name' => 'Headquarters',
-                'unit_type' => 'HQ',
+                'unit_type_id' => UnitType::where('code', 'HQ')->firstOrFail()->id,
             ],
         ],
         'District' => [
@@ -128,9 +129,9 @@ test('update fires an updated audit log with a diff', function (string $resource
             '2025-26',
         ],
         'Unit' => [
-            Unit::factory()->create(['organization_id' => $this->org->id, 'name' => 'मुख्यालय', 'unit_type' => 'HQ']),
+            Unit::factory()->create(['organization_id' => $this->org->id, 'name' => 'मुख्यालय', 'unit_type_id' => UnitType::where('code', 'HQ')->firstOrFail()->id]),
             'units.update',
-            ['organization_id' => $this->org->id, 'name' => 'HQ Unit Updated', 'unit_type' => 'HQ'],
+            ['organization_id' => $this->org->id, 'name' => 'HQ Unit Updated', 'unit_type_id' => UnitType::where('code', 'HQ')->firstOrFail()->id],
             'name',
             'HQ Unit Updated',
         ],

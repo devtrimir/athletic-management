@@ -20,6 +20,7 @@ class UnitHeadcountReport
         $unitId = $filters['unit_id'] ?? null;
 
         $rows = DB::table('units as u')
+            ->join('unit_types as ut', 'ut.id', '=', 'u.unit_type_id')
             ->leftJoin('members as m', function ($join) use ($orgId): void {
                 $join->on('m.current_unit_id', '=', 'u.id')
                     ->where('m.organization_id', $orgId)
@@ -29,23 +30,24 @@ class UnitHeadcountReport
             ->select([
                 'u.id',
                 'u.name',
-                'u.unit_type',
+                'ut.code as unit_type',
+                'ut.sort_order as unit_type_sort_order',
                 DB::raw('COUNT(m.id) as total'),
                 DB::raw("SUM(CASE WHEN m.player_category = 'GD'      THEN 1 ELSE 0 END) as gd_count"),
                 DB::raw("SUM(CASE WHEN m.player_category = 'SPORTS_QUOTA' THEN 1 ELSE 0 END) as sports_quota_count"),
             ])
             ->where('u.organization_id', $orgId)
             ->when($unitId, fn ($q) => $q->where('u.id', $unitId))
-            ->groupBy('u.id', 'u.name', 'u.unit_type')
-            ->orderBy('u.unit_type')
+            ->groupBy('u.id', 'u.name', 'ut.code', 'ut.sort_order')
+            ->orderBy('ut.sort_order')
             ->orderBy('u.name')
             ->get();
 
         return $rows->map(fn (object $row): array => [
             'unit' => [
-                'id' => $row->id,
-                'name' => $row->name,
-                'unit_type' => $row->unit_type,
+                'id' => (int) $row->id,
+                'name' => (string) $row->name,
+                'unit_type' => (string) $row->unit_type,
             ],
             'total' => (int) $row->total,
             'GD' => (int) ($row->gd_count ?? $row->gd ?? $row->GD ?? 0),

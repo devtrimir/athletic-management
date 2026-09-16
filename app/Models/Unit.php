@@ -17,13 +17,14 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $organization_id
  * @property string $name
- * @property string $unit_type
+ * @property int $unit_type_id
  * @property string|null $commandant
  * @property int|null $district_id
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ * @property-read UnitType $unitType
  */
-#[Fillable(['organization_id', 'name', 'name_en', 'unit_type', 'commandant', 'district_id'])]
+#[Fillable(['organization_id', 'name', 'name_en', 'unit_type_id', 'commandant', 'district_id'])]
 #[ObservedBy([AuditObserver::class])]
 class Unit extends Model
 {
@@ -38,5 +39,11 @@ class Unit extends Model
     public function district(): BelongsTo
     {
         return $this->belongsTo(District::class);
+    }
+
+    /** @return BelongsTo<UnitType, $this> */
+    public function unitType(): BelongsTo
+    {
+        return $this->belongsTo(UnitType::class);
     }
 }

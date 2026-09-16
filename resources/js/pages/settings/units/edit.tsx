@@ -14,23 +14,21 @@ import {
 } from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
 
-const UNIT_TYPES = [
-    { value: 'PAC', label: 'PAC' },
-    { value: 'GRP', label: 'GRP' },
-    { value: 'DISTRICT', label: 'District' },
-    { value: 'HQ', label: 'HQ' },
-    { value: 'OTHER', label: 'Other' },
-] as const;
-
 type District = {
     id: number;
     name: string;
 };
 
+type UnitType = {
+    id: number;
+    name: string;
+    name_en: string | null;
+};
+
 type Unit = {
     id: number;
     name: string;
-    unit_type: string;
+    unit_type_id: number;
     commandant: string | null;
     district_id: number | null;
 };
@@ -38,9 +36,11 @@ type Unit = {
 export default function Edit({
     unit,
     districts,
+    unitTypes,
 }: {
     unit: Unit;
     districts: District[];
+    unitTypes: UnitType[];
 }) {
     const { t } = useTranslation();
     setLayoutProps({
@@ -95,32 +95,36 @@ export default function Edit({
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="unit_type">
+                                    <Label htmlFor="unit_type_id">
                                         {t('Unit type')}
                                     </Label>
                                     <Select
-                                        name="unit_type"
-                                        defaultValue={unit.unit_type}
+                                        name="unit_type_id"
+                                        defaultValue={String(
+                                            unit.unit_type_id,
+                                        )}
                                         required
                                     >
                                         <SelectTrigger
-                                            id="unit_type"
+                                            id="unit_type_id"
                                             className="w-full"
                                         >
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {UNIT_TYPES.map((u) => (
+                                            {unitTypes.map((u) => (
                                                 <SelectItem
-                                                    key={u.value}
-                                                    value={u.value}
+                                                    key={u.id}
+                                                    value={String(u.id)}
                                                 >
-                                                    {u.label}
+                                                    {u.name_en ?? u.name}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <InputError message={errors.unit_type} />
+                                    <InputError
+                                        message={errors.unit_type_id}
+                                    />
                                 </div>
 
                                 <div className="grid gap-5 sm:grid-cols-2">

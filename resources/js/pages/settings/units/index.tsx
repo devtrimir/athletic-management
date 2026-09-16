@@ -28,10 +28,16 @@ type District = {
     name: string;
 };
 
+type UnitType = {
+    id: number;
+    name: string;
+    name_en: string | null;
+};
+
 type Unit = {
     id: number;
     name: string;
-    unit_type: string;
+    unit_type: UnitType;
     commandant: string | null;
     district: District | null;
 };
@@ -41,10 +47,15 @@ export default function Index({ units }: { units: Unit[] }) {
     const [query, setQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
 
-    const unitTypes = useMemo(
-        () => Array.from(new Set(units.map((u) => u.unit_type))).sort(),
-        [units],
-    );
+    const unitTypeOptions = useMemo(() => {
+        const byId = new Map<number, UnitType>();
+
+        units.forEach((u) => byId.set(u.unit_type.id, u.unit_type));
+
+        return Array.from(byId.values()).sort((a, b) =>
+            a.name.localeCompare(b.name),
+        );
+    }, [units]);
 
     const filtered = useMemo(() => {
         const q = query.toLowerCase().trim();
@@ -56,7 +67,8 @@ export default function Index({ units }: { units: Unit[] }) {
                 (u.commandant ?? '').toLowerCase().includes(q) ||
                 (u.district?.name ?? '').toLowerCase().includes(q);
             const matchesType =
-                typeFilter === 'all' || u.unit_type === typeFilter;
+                typeFilter === 'all' ||
+                String(u.unit_type.id) === typeFilter;
 
             return matchesQuery && matchesType;
         });
@@ -101,9 +113,12 @@ export default function Index({ units }: { units: Unit[] }) {
                             <SelectItem value="all">
                                 {t('All types')}
                             </SelectItem>
-                            {unitTypes.map((t_) => (
-                                <SelectItem key={t_} value={t_}>
-                                    {t_}
+                            {unitTypeOptions.map((ut) => (
+                                <SelectItem
+                                    key={ut.id}
+                                    value={String(ut.id)}
+                                >
+                                    {ut.name_en ?? ut.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -143,7 +158,8 @@ export default function Index({ units }: { units: Unit[] }) {
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary">
-                                                {t(unit.unit_type)}
+                                                {unit.unit_type.name_en ??
+                                                    unit.unit_type.name}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">

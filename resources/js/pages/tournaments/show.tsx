@@ -2598,79 +2598,79 @@ export default function TournamentsShow({
                                                 <TableRow className="hover:bg-muted/30">
                                                     <TableHead
                                                         rowSpan={2}
-                                                        className="w-14 align-middle whitespace-nowrap"
+                                                        className="w-14 text-center align-middle whitespace-nowrap"
                                                     >
                                                         {t('S.No.')}
                                                     </TableHead>
                                                     <TableHead
                                                         rowSpan={2}
-                                                        className="min-w-56 align-middle"
+                                                        className="text-center align-middle"
                                                     >
                                                         {t('Event')}
                                                     </TableHead>
                                                     <TableHead
                                                         colSpan={4}
-                                                        className="text-center"
+                                                        className="text-center align-middle"
                                                     >
                                                         {t('Player')}
                                                     </TableHead>
                                                     <TableHead
                                                         rowSpan={2}
-                                                        className="w-20 align-middle"
+                                                        className="w-20 text-center align-middle"
                                                     >
                                                         {t('Gender')}
                                                     </TableHead>
                                                     <TableHead
                                                         rowSpan={2}
-                                                        className="w-20 align-middle"
+                                                        className="w-20 text-center align-middle"
                                                     >
                                                         {t('Type')}
                                                     </TableHead>
                                                     <TableHead
                                                         rowSpan={2}
-                                                        className="w-20 text-right align-middle"
+                                                        className="w-20 text-center align-middle"
                                                     >
                                                         {t('Participants')}
                                                     </TableHead>
                                                     <TableHead
                                                         colSpan={5}
-                                                        className="text-center"
+                                                        className="text-center align-middle"
                                                     >
                                                         {t('Medals')}
                                                     </TableHead>
                                                     <TableHead
                                                         rowSpan={2}
-                                                        className="sticky right-0 z-20 w-0 bg-card text-right align-middle"
+                                                        className="sticky right-0 z-20 w-0 bg-card text-center align-middle"
                                                     >
                                                         {t('Actions')}
                                                     </TableHead>
                                                 </TableRow>
                                                 <TableRow className="hover:bg-muted/30">
-                                                    <TableHead className="w-20 whitespace-nowrap">
+                                                    <TableHead className="w-20 text-center align-middle whitespace-nowrap">
                                                         {t('PNO')}
                                                     </TableHead>
-                                                    <TableHead className="w-32">
+                                                    <TableHead className="w-32 text-center align-middle">
                                                         {t('Rank')}
                                                     </TableHead>
-                                                    <TableHead className="min-w-40">
+                                                    <TableHead className="min-w-40 text-center align-middle">
                                                         {t('Player Name')}
                                                     </TableHead>
-                                                    <TableHead className="w-36">
+                                                    <TableHead className="w-36 text-center align-middle">
                                                         {t('Playable Event')}
                                                     </TableHead>
-                                                    <TableHead className="w-12 text-right">
+                                                    <TableHead className="w-12 text-center align-middle">
                                                         {t('Gold')}
                                                     </TableHead>
-                                                    <TableHead className="w-12 text-right">
+                                                    <TableHead className="w-12 text-center align-middle">
                                                         {t('Silver')}
                                                     </TableHead>
-                                                    <TableHead className="w-12 text-right">
+                                                    <TableHead className="w-12 text-center align-middle">
                                                         {t('Bronze')}
                                                     </TableHead>
-                                                    <TableHead className="w-12 text-right">
+                                                    <TableHead className="w-12 text-center align-middle">
                                                         {t('Merit')}
                                                     </TableHead>
-                                                    <TableHead className="w-14 text-right">
+                                                    <TableHead className="w-14 text-center align-middle">
                                                         {t('Total')}
                                                     </TableHead>
                                                 </TableRow>
@@ -2870,14 +2870,14 @@ export default function TournamentsShow({
                                                                                             return (
                                                                                                 <TableRow
                                                                                                     key={`event-${ev.id}-player-${player.id}-${playerIndex}`}
-                                                                                                    className="align-top"
+                                                                                                    className="align-middle"
                                                                                                 >
                                                                                                     {isFirstPlayerRow ? (
                                                                                                         <TableCell
                                                                                                             rowSpan={
                                                                                                                 playerRows.length
                                                                                                             }
-                                                                                                            className="w-14 px-2 py-1.5 align-top text-[11px] text-muted-foreground tabular-nums"
+                                                                                                            className="w-14 px-2 py-1.5 text-center align-middle text-[11px] text-muted-foreground tabular-nums"
                                                                                                         >
                                                                                                             {
                                                                                                                 eventSerialNumber
@@ -2889,9 +2889,9 @@ export default function TournamentsShow({
                                                                                                             rowSpan={
                                                                                                                 playerRows.length
                                                                                                             }
-                                                                                                            className="min-w-56 px-2 py-1.5 align-top"
+                                                                                                            className="px-2 py-1.5 text-center align-middle"
                                                                                                         >
-                                                                                                            <div className="space-y-1">
+                                                                                                            <div className="space-y-1 text-center">
                                                                                                                 <Link
                                                                                                                     href={showEvent.url(
                                                                                                                         {
@@ -2903,7 +2903,7 @@ export default function TournamentsShow({
                                                                                                                             query: buildEventFilterQuery(),
                                                                                                                         },
                                                                                                                     )}
-                                                                                                                    className="leading-snug font-medium hover:underline"
+                                                                                                                    className="inline-block leading-snug font-medium hover:underline"
                                                                                                                 >
                                                                                                                     {
                                                                                                                         label.title
@@ -2919,11 +2919,11 @@ export default function TournamentsShow({
                                                                                                             </div>
                                                                                                         </TableCell>
                                                                                                     ) : null}
-                                                                                                    <TableCell className="w-20 px-2 py-1.5 text-[11px] whitespace-nowrap text-muted-foreground tabular-nums">
+                                                                                                    <TableCell className="w-20 px-2 py-1.5 text-center align-middle text-[11px] whitespace-nowrap text-muted-foreground tabular-nums">
                                                                                                         {player.pno ??
                                                                                                             '—'}
                                                                                                     </TableCell>
-                                                                                                    <TableCell className="w-32 px-2 py-1.5">
+                                                                                                    <TableCell className="w-32 px-2 py-1.5 text-center align-middle">
                                                                                                         <span
                                                                                                             className={
                                                                                                                 playerRankLabel
@@ -2935,7 +2935,7 @@ export default function TournamentsShow({
                                                                                                                 '—'}
                                                                                                         </span>
                                                                                                     </TableCell>
-                                                                                                    <TableCell className="min-w-40 px-2 py-1.5">
+                                                                                                    <TableCell className="min-w-40 px-2 py-1.5 text-center align-middle">
                                                                                                         <span
                                                                                                             className={
                                                                                                                 allPlayers.length >
@@ -2949,7 +2949,7 @@ export default function TournamentsShow({
                                                                                                             }
                                                                                                         </span>
                                                                                                     </TableCell>
-                                                                                                    <TableCell className="w-36 px-2 py-1.5 text-muted-foreground">
+                                                                                                    <TableCell className="w-36 px-2 py-1.5 text-center align-middle text-muted-foreground">
                                                                                                         {playableEvent ??
                                                                                                             '—'}
                                                                                                     </TableCell>
@@ -2958,7 +2958,7 @@ export default function TournamentsShow({
                                                                                                             rowSpan={
                                                                                                                 playerRows.length
                                                                                                             }
-                                                                                                            className="w-20 px-2 py-1.5 align-top"
+                                                                                                            className="w-20 px-2 py-1.5 text-center align-middle"
                                                                                                         >
                                                                                                             <span
                                                                                                                 className={eventBadgeClass(
@@ -2977,7 +2977,7 @@ export default function TournamentsShow({
                                                                                                             rowSpan={
                                                                                                                 playerRows.length
                                                                                                             }
-                                                                                                            className="w-20 px-2 py-1.5 align-top"
+                                                                                                            className="w-20 px-2 py-1.5 text-center align-middle"
                                                                                                         >
                                                                                                             <span
                                                                                                                 className={eventBadgeClass(
@@ -3000,7 +3000,7 @@ export default function TournamentsShow({
                                                                                                             rowSpan={
                                                                                                                 playerRows.length
                                                                                                             }
-                                                                                                            className="w-20 px-2 py-1.5 text-right align-top"
+                                                                                                            className="w-20 px-2 py-1.5 text-center align-middle"
                                                                                                         >
                                                                                                             <span
                                                                                                                 className={eventBadgeClass(
@@ -3021,7 +3021,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-12 px-2 py-1.5 text-right align-top tabular-nums"
+                                                                                                                    className="w-12 px-2 py-1.5 text-center align-middle tabular-nums"
                                                                                                                 >
                                                                                                                     <span className="text-amber-600">
                                                                                                                         {
@@ -3033,7 +3033,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-12 px-2 py-1.5 text-right align-top tabular-nums"
+                                                                                                                    className="w-12 px-2 py-1.5 text-center align-middle tabular-nums"
                                                                                                                 >
                                                                                                                     {
                                                                                                                         rowMedals.silver
@@ -3043,7 +3043,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-12 px-2 py-1.5 text-right align-top tabular-nums"
+                                                                                                                    className="w-12 px-2 py-1.5 text-center align-middle tabular-nums"
                                                                                                                 >
                                                                                                                     {
                                                                                                                         rowMedals.bronze
@@ -3053,7 +3053,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-12 px-2 py-1.5 text-right align-top tabular-nums"
+                                                                                                                    className="w-12 px-2 py-1.5 text-center align-middle tabular-nums"
                                                                                                                 >
                                                                                                                     <span className="text-emerald-700 dark:text-emerald-300">
                                                                                                                         {
@@ -3065,7 +3065,7 @@ export default function TournamentsShow({
                                                                                                                     rowSpan={
                                                                                                                         playerRows.length
                                                                                                                     }
-                                                                                                                    className="w-14 px-2 py-1.5 text-right align-top tabular-nums"
+                                                                                                                    className="w-14 px-2 py-1.5 text-center align-middle tabular-nums"
                                                                                                                 >
                                                                                                                     <span className="font-semibold">
                                                                                                                         {
@@ -3077,31 +3077,31 @@ export default function TournamentsShow({
                                                                                                         ) : null
                                                                                                     ) : (
                                                                                                         <>
-                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-right tabular-nums">
+                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-center align-middle tabular-nums">
                                                                                                                 <span className="text-amber-600">
                                                                                                                     {
                                                                                                                         rowMedals.gold
                                                                                                                     }
                                                                                                                 </span>
                                                                                                             </TableCell>
-                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-right tabular-nums">
+                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-center align-middle tabular-nums">
                                                                                                                 {
                                                                                                                     rowMedals.silver
                                                                                                                 }
                                                                                                             </TableCell>
-                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-right tabular-nums">
+                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-center align-middle tabular-nums">
                                                                                                                 {
                                                                                                                     rowMedals.bronze
                                                                                                                 }
                                                                                                             </TableCell>
-                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-right tabular-nums">
+                                                                                                            <TableCell className="w-12 px-2 py-1.5 text-center align-middle tabular-nums">
                                                                                                                 <span className="text-emerald-700 dark:text-emerald-300">
                                                                                                                     {
                                                                                                                         rowMedals.merit
                                                                                                                     }
                                                                                                                 </span>
                                                                                                             </TableCell>
-                                                                                                            <TableCell className="w-14 px-2 py-1.5 text-right tabular-nums">
+                                                                                                            <TableCell className="w-14 px-2 py-1.5 text-center align-middle tabular-nums">
                                                                                                                 <span className="font-semibold">
                                                                                                                     {
                                                                                                                         rowTotalMedals
@@ -3115,9 +3115,9 @@ export default function TournamentsShow({
                                                                                                             rowSpan={
                                                                                                                 playerRows.length
                                                                                                             }
-                                                                                                            className="sticky right-0 z-10 w-0 bg-card px-1.5 py-1 align-top"
+                                                                                                            className="sticky right-0 z-10 w-0 bg-card px-1.5 py-1 text-center align-middle"
                                                                                                         >
-                                                                                                            <div className="flex items-center justify-end gap-1">
+                                                                                                            <div className="flex items-center justify-center gap-1">
                                                                                                                 <Button
                                                                                                                     variant="ghost"
                                                                                                                     size="icon"

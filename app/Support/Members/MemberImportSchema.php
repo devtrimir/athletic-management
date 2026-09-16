@@ -27,10 +27,16 @@ class MemberImportSchema
 
     public const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
+    /** Prefix for the per-unit-type named ranges backing the cascading Unit dropdown. */
+    public const UNIT_TYPE_RANGE_PREFIX = 'Units_';
+
     /**
      * `date` marks date columns (Excel date format in the template); `ref`
      * marks columns backed by a DB reference list (`districts`, `units`,
-     * `sports`, `tiers`, `ranks`) which becomes a named-range dropdown in the template.
+     * `unit_types`, `sports`, `tiers`, `ranks`) which becomes a named-range
+     * dropdown in the template. The `unit_type` column is filter-only — it
+     * narrows the Unit column's dropdown in the template but is never read
+     * on import (see MembersImport::validateRow).
      *
      * @return list<array{key: string, label: string, required: bool, example: string|null, list: list<string>|null, date: bool, ref: string|null}>
      */
@@ -55,6 +61,7 @@ class MemberImportSchema
 
         return array_merge($columns, [
             ['key' => 'posting_district', 'label' => 'Posting District / तैनाती जनपद', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'districts'],
+            ['key' => 'unit_type', 'label' => 'Unit Type / इकाई प्रकार', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'unit_types'],
             ['key' => 'unit', 'label' => 'Unit / इकाई', 'required' => false, 'example' => null, 'list' => null, 'date' => false, 'ref' => 'units'],
             ['key' => 'joining_date', 'label' => 'Joining Date / भर्ती तिथि', 'required' => false, 'example' => '15.12.2021', 'list' => null, 'date' => true, 'ref' => null],
             ['key' => 'blood_group', 'label' => 'Blood Group / रक्त समूह', 'required' => false, 'example' => 'B+', 'list' => self::BLOOD_GROUPS, 'date' => false, 'ref' => null],
@@ -75,11 +82,21 @@ class MemberImportSchema
         return match ($ref) {
             'districts' => 'DistrictList',
             'units' => 'UnitList',
+            'unit_types' => 'UnitTypeList',
             'sports' => 'SportList',
             'tiers' => 'TierList',
             'ranks' => 'RankList',
             default => throw new \InvalidArgumentException("Unknown member import reference: {$ref}"),
         };
+    }
+
+    /**
+     * Named range for one unit type's slice of the Unit dropdown, used by the
+     * template's cascading Unit Type → Unit selection.
+     */
+    public static function unitTypeRangeName(string $code): string
+    {
+        return self::UNIT_TYPE_RANGE_PREFIX.$code;
     }
 
     /**

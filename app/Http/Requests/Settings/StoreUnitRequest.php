@@ -21,7 +21,7 @@ class StoreUnitRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:100'],
-            'unit_type' => ['required', 'string', Rule::in(['PAC', 'GRP', 'DISTRICT', 'HQ', 'OTHER'])],
+            'unit_type_id' => ['required', 'integer', Rule::exists('unit_types', 'id')],
             'commandant' => ['nullable', 'string', 'max:100'],
             'district_id' => ['nullable', 'integer', 'exists:districts,id'],
         ];
