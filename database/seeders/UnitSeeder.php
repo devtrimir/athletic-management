@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Models\District;
 use App\Models\Organization;
 use App\Models\Unit;
+use App\Models\UnitType;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -55,6 +56,11 @@ class UnitSeeder extends Seeder
             ->pluck('id', 'name')
             ->all();
 
+        /** @var array<string, int> $unitTypeMap code → id */
+        $unitTypeMap = UnitType::query()
+            ->pluck('id', 'code')
+            ->all();
+
         $csvPath = database_path('data/pac_units.csv');
 
         $handle = fopen($csvPath, 'r');
@@ -84,12 +90,19 @@ class UnitSeeder extends Seeder
             }
 
             $districtId = $this->resolveDistrict($name, $districtMap);
+            $unitTypeId = $unitTypeMap[$unitType] ?? $unitTypeMap['OTHER'] ?? null;
+
+            if ($unitTypeId === null) {
+                $this->command->warn("UnitSeeder: unknown unit_type '{$unitType}' for '{$name}', skipping.");
+
+                continue;
+            }
 
             $rows[] = [
                 'organization_id' => $org->id,
                 'name' => $name,
                 'name_en' => $name,
-                'unit_type' => $unitType,
+                'unit_type_id' => $unitTypeId,
                 'commandant' => null,
                 'district_id' => $districtId,
                 'created_at' => now(),

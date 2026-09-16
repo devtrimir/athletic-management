@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Coaches;
 
+use App\Models\Member;
 use App\Rules\UniquePnoAcrossPeople;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,10 +23,12 @@ class StoreCoachRequest extends FormRequest
     public function rules(): array
     {
         $orgId = (int) $this->user()->organization_id;
+        $memberId = $this->filled('member_id') ? (int) $this->input('member_id') : null;
 
         return [
+            'member_id' => ['nullable', 'integer', Rule::exists('members', 'id')->where('organization_id', $orgId)],
             'full_name' => ['required', 'string', 'max:255'],
-            'pno' => ['nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId)],
+            'pno' => ['nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, ignoreMemberId: $memberId)],
             'mobile' => ['nullable', 'string', 'max:20'],
             'blood_group' => ['nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'])],
             'district_id' => ['nullable', 'integer', Rule::exists('districts', 'id'), 'prohibits:unit_id'],
@@ -71,5 +75,17 @@ class StoreCoachRequest extends FormRequest
             'district_id.prohibits' => __('Please select either a unit or a district, not both.'),
             'unit_id.prohibits' => __('Please select either a unit or a district, not both.'),
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($this->filled('member_id') && $this->filled('pno')) {
+                $member = Member::find($this->input('member_id'));
+                if ($member && $member->pno && $member->pno !== $this->input('pno')) {
+                    $validator->errors()->add('pno', __('The PNO does not match the linked member.'));
+                }
+            }
+        });
     }
 }

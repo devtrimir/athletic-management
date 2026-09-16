@@ -1,4 +1,4 @@
-import { Head, Link, router, setLayoutProps, usePage } from '@inertiajs/react';
+import { Head, Link, router, setLayoutProps } from '@inertiajs/react';
 import {
     Download,
     Eye,
@@ -46,6 +46,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate, formatDateRange } from '@/lib/dates';
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
@@ -122,7 +123,6 @@ export default function TournamentsIndex({
     sports: Sport[];
     tiers: Tier[];
 }) {
-    const { locale = 'en' } = usePage().props as { locale?: string };
     const { t } = useTranslation();
 
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -152,32 +152,8 @@ export default function TournamentsIndex({
         return Number.isNaN(date.getTime()) ? null : date;
     }
 
-    function formatDisplayDate(value: string | null): string {
-        if (!value) {
-            return '—';
-        }
-
-        const date = parseDateValue(value);
-
-        if (!date) {
-            return value;
-        }
-
-        return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-            dateStyle: 'medium',
-        }).format(date);
-    }
-
     function dateRange(tournament: Tournament): string {
-        if (
-            tournament.date_from &&
-            tournament.date_to &&
-            tournament.date_from !== tournament.date_to
-        ) {
-            return `${formatDisplayDate(tournament.date_from)} - ${formatDisplayDate(tournament.date_to)}`;
-        }
-
-        return formatDisplayDate(tournament.date_from ?? tournament.date_to);
+        return formatDateRange(tournament.date_from, tournament.date_to);
     }
 
     function tournamentStatus(tournament: Tournament): string {
@@ -929,7 +905,7 @@ export default function TournamentsIndex({
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {formatDisplayDate(t_.created_at)}
+                                            {formatDate(t_.created_at)}
                                         </TableCell>
                                         <TableCell className="sticky right-0 z-10 w-[136px] bg-card">
                                             <div className="flex justify-end gap-0.5">
@@ -1018,7 +994,6 @@ export default function TournamentsIndex({
                 onOpenChange={(open) =>
                     !open && setQuickOverviewTournament(null)
                 }
-                formatDisplayDate={formatDisplayDate}
                 t={t}
             />
         </>
@@ -1029,13 +1004,11 @@ function QuickOverviewDialog({
     open,
     tournament,
     onOpenChange,
-    formatDisplayDate,
     t,
 }: {
     open: boolean;
     tournament: Tournament | null;
     onOpenChange: (open: boolean) => void;
-    formatDisplayDate: (value: string | null) => string;
     t: (key: string) => string;
 }) {
     if (!tournament) {
@@ -1091,7 +1064,7 @@ function QuickOverviewDialog({
                             {t('Date from')}
                         </span>
                         <span className="font-medium">
-                            {formatDisplayDate(tournament.date_from)}
+                            {formatDate(tournament.date_from)}
                         </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
@@ -1099,7 +1072,7 @@ function QuickOverviewDialog({
                             {t('Date to')}
                         </span>
                         <span className="font-medium">
-                            {formatDisplayDate(tournament.date_to)}
+                            {formatDate(tournament.date_to)}
                         </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
@@ -1179,7 +1152,7 @@ function QuickOverviewDialog({
                             {t('Created')}
                         </span>
                         <span className="font-medium">
-                            {formatDisplayDate(tournament.created_at)}
+                            {formatDate(tournament.created_at)}
                         </span>
                     </div>
                 </div>

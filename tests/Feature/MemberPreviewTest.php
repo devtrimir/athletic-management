@@ -2,15 +2,22 @@
 
 declare(strict_types=1);
 
+use App\Models\Event;
 use App\Models\Member;
+use App\Models\MemberPromotion;
 use App\Models\Organization;
+use App\Models\Participation;
 use App\Models\Permission;
+use App\Models\PromotionEvidence;
 use App\Models\Role;
 use App\Models\Sport;
+use App\Models\SportSession;
+use App\Models\Tournament;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia;
 
 uses(RefreshDatabase::class);
 
@@ -98,4 +105,42 @@ test('user cannot preview member from another organization', function () {
     $this->actingAs($user)
         ->getJson(route('v1.members.preview', $member))
         ->assertNotFound();
+});
+
+test('member web print preview includes event_type on promotion evidences', function () {
+    $user = memberPreviewUser();
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+    ]);
+    $event = Event::factory()->forTournament($tournament)->create([
+        'event_type' => 'team',
+    ]);
+    $participation = Participation::factory()->forEvent($event)->create([
+        'member_id' => $member->id,
+    ]);
+    $promotion = MemberPromotion::create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+        'source' => 'native',
+        'promotion_date' => '2024-01-01',
+        'to_rank' => 'HEAD_CONSTABLE',
+        'created_by' => $user->id,
+    ]);
+    PromotionEvidence::create([
+        'organization_id' => $user->organization_id,
+        'member_promotion_id' => $promotion->id,
+        'evidencable_type' => 'participation',
+        'evidencable_id' => $participation->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('members.preview', $member))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('members/print-preview')
+            ->where('promotions.0.evidences.0.event.event_type', 'team')
+        );
 });

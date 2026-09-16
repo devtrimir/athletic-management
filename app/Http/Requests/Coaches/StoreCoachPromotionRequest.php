@@ -25,17 +25,19 @@ class StoreCoachPromotionRequest extends FormRequest
             'promotion_date' => ['nullable', 'date'],
             'from_rank' => ['nullable', 'string', 'max:100'],
             'to_rank' => ['nullable', 'string', 'max:100'],
-            'cash_reward_amount' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'cash_reward_amount' => ['nullable', 'numeric', 'min:0.01', 'max:9999999999.99'],
             'cash_reward_date' => ['nullable', 'date'],
             'cash_reward_reference' => ['nullable', 'string', 'max:100'],
             'cash_reward_remarks' => ['nullable', 'string'],
             'reason' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string'],
+            'document' => ['nullable', 'file', 'mimes:pdf,jpeg,jpg,png,webp', 'max:5120'],
             'evidences' => ['nullable', 'array'],
             'evidences.*.session_id' => ['required', 'integer', 'min:1'],
             'evidences.*.tournament_id' => ['required', 'integer', 'min:1'],
-            'evidences.*.event_id' => ['prohibited'],
-            'evidences.*.team_id' => ['required', 'integer', 'min:1'],
+            'evidences.*.event_id' => ['nullable', 'integer', 'min:1'],
+            'evidences.*.team_id' => ['nullable', 'integer', 'min:1'],
+            'evidences.*.achievement_id' => ['nullable', 'integer', 'min:1'],
         ];
     }
 
@@ -69,11 +71,27 @@ class StoreCoachPromotionRequest extends FormRequest
                 }
             }
 
-            if ($hasRewardFields && ! $this->filled('cash_reward_amount')) {
-                $validator->errors()->add(
-                    'cash_reward_amount',
-                    __('The cash reward amount is required.'),
-                );
+            if ($hasRewardFields) {
+                if (! $this->filled('cash_reward_amount') || (float) $this->input('cash_reward_amount') <= 0) {
+                    $validator->errors()->add(
+                        'cash_reward_amount',
+                        __('The cash reward amount is required.'),
+                    );
+                }
+
+                if (! $this->filled('cash_reward_date')) {
+                    $validator->errors()->add(
+                        'cash_reward_date',
+                        __('The cash reward date is required.'),
+                    );
+                }
+
+                if (! $this->filled('cash_reward_reference')) {
+                    $validator->errors()->add(
+                        'cash_reward_reference',
+                        __('The cash reward reference is required.'),
+                    );
+                }
             }
 
             if (! $this->filled('to_rank') && ! $this->filled('cash_reward_amount')) {

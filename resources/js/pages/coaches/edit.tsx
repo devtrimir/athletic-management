@@ -9,6 +9,7 @@ import {
     destroy as destroyCoachPhoto,
     store as storeCoachPhoto,
 } from '@/actions/App/Http/Controllers/CoachPhotoController';
+import { CoachPnoConflictNotice } from '@/components/coaches/coach-pno-conflict-notice';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
@@ -57,6 +58,7 @@ type Coach = {
     id: number;
     full_name: string;
     pno: string | null;
+    member_id: number | null;
     mobile: string | null;
     email: string | null;
     gender: string | null;
@@ -342,10 +344,28 @@ export default function CoachesEdit({
                                             setData('pno', e.target.value)
                                         }
                                         maxLength={20}
+                                        readOnly={coach.member_id !== null}
                                         className="font-mono"
                                     />
+                                    {coach.member_id !== null && (
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                'PNO is locked to the linked player profile.',
+                                            )}
+                                        </p>
+                                    )}
                                     <InputError message={errors.pno} />
                                 </div>
+
+                                {coach.member_id === null && (
+                                    <CoachPnoConflictNotice
+                                        pno={data.pno}
+                                        ignoreCoachId={coach.id}
+                                        onRestoreSuccess={(id) => {
+                                            router.visit(showCoach.url(id));
+                                        }}
+                                    />
+                                )}
                             </div>
 
                             <div className="grid gap-5 sm:grid-cols-2">

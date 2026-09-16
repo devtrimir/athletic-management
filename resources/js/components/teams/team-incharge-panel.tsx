@@ -32,6 +32,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 type CurrentAssignment = {
     id: number;
@@ -167,31 +168,6 @@ function fieldMessage(
 
 function detailValue(value: string | null | undefined): string {
     return value && value.length > 0 ? value : '';
-}
-
-function displayDate(value: string | null | undefined): string {
-    if (!value) {
-        return '';
-    }
-
-    const [datePart] = value.split(' ');
-    const [year, month, day] = datePart.split('-').map(Number);
-
-    if (!year || !month || !day) {
-        return value;
-    }
-
-    const date = new Date(year, month - 1, day);
-
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(date);
 }
 
 function inchargeLabel(incharge: InchargeOption): string {
@@ -598,7 +574,7 @@ export function TeamInchargePanel({
                                         {t('Assigned on')}
                                     </dt>
                                     <dd className="font-medium">
-                                        {displayDate(
+                                        {formatDate(
                                             currentAssignment.assigned_at,
                                         )}
                                     </dd>
@@ -766,10 +742,10 @@ export function TeamInchargePanel({
                                             )}
                                         </TableCell>
                                         <TableCell className="text-xs">
-                                            {displayDate(row.assigned_at)}
+                                            {formatDate(row.assigned_at)}
                                         </TableCell>
                                         <TableCell className="text-xs">
-                                            {displayDate(row.removed_at)}
+                                            {formatDate(row.removed_at)}
                                         </TableCell>
                                         <TableCell className="text-xs">
                                             {row.assigned_by?.name ?? ''}

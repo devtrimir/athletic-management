@@ -124,7 +124,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('members/{member}/export', [MemberExportController::class, 'show'])->withTrashed()->name('members.export.show');
     Route::get('coaches/export', [CoachExportController::class, 'index'])->name('coaches.export');
     Route::get('coaches/print', [CoachController::class, 'print'])->name('coaches.print');
+    Route::get('coaches/check-pno', [CoachController::class, 'checkPno'])->name('coaches.check-pno');
+    Route::post('coaches/{coach}/restore', [CoachController::class, 'restore'])->withTrashed()->name('coaches.restore');
     Route::resource('coaches', CoachController::class);
+    Route::post('coaches/{coach}/generate-athlete-profile', [CoachController::class, 'generateAthleteProfile'])->name('coaches.generate-athlete-profile');
     Route::get('coaches/{coach}/assignments', [CoachProfileTabController::class, 'assignments'])->name('coaches.assignments');
     Route::get('coaches/{coach}/sports', [CoachProfileTabController::class, 'sports'])->name('coaches.sports');
     Route::get('coaches/{coach}/certifications', [CoachProfileTabController::class, 'certifications'])->name('coaches.certifications');
@@ -155,6 +158,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('coaches/{coach}/promotions', [CoachPromotionController::class, 'store'])->name('coaches.promotions.store');
     Route::patch('coaches/{coach}/promotions/{promotion}', [CoachPromotionController::class, 'update'])->name('coaches.promotions.update');
     Route::delete('coaches/{coach}/promotions/{promotion}', [CoachPromotionController::class, 'destroy'])->name('coaches.promotions.destroy');
+    Route::get('coaches/{coach}/promotions/{promotion}/document', [CoachPromotionController::class, 'document'])->name('coaches.promotions.document');
+    Route::get('coaches/{coach}/promotions/{promotion}/document/preview', [CoachPromotionController::class, 'previewDocument'])->name('coaches.promotions.document.preview');
     Route::post('coaches/{coach}/aliases', [CoachAliasController::class, 'store'])->name('coaches.aliases.store');
     Route::delete('coaches/{coach}/aliases/{alias}', [CoachAliasController::class, 'destroy'])->name('coaches.aliases.destroy');
     Route::post('coaches/{coach}/photo', [CoachPhotoController::class, 'store'])->name('coaches.photo.store');
@@ -247,6 +252,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('members/{member}/promotions', [MemberPromotionController::class, 'store'])->name('members.promotions.store');
     Route::patch('members/{member}/promotions/{promotion}', [MemberPromotionController::class, 'update'])->name('members.promotions.update');
     Route::delete('members/{member}/promotions/{promotion}', [MemberPromotionController::class, 'destroy'])->name('members.promotions.destroy');
+    Route::get('members/{member}/promotions/{promotion}/document', [MemberPromotionController::class, 'document'])->name('members.promotions.document');
+    Route::get('members/{member}/promotions/{promotion}/document/preview', [MemberPromotionController::class, 'previewDocument'])->name('members.promotions.document.preview');
     Route::get('members/{member}/audit-log', MemberAuditLogController::class)->name('members.audit-log.index');
     Route::post('achievement-benefits', [AchievementBenefitController::class, 'store'])->name('achievement-benefits.store');
     Route::patch('achievement-benefits/{benefit}', [AchievementBenefitController::class, 'update'])->name('achievement-benefits.update');
@@ -254,9 +261,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('participations/{participation}/media', [MediaFileController::class, 'index'])->name('participations.media.index');
     Route::post('participations/{participation}/media', [MediaFileController::class, 'store'])->name('participations.media.store');
     Route::delete('participations/{participation}/media/{mediaFile}', [MediaFileController::class, 'destroy'])->name('participations.media.destroy');
-    Route::get('members/{member}/promotions/{promotion}/media', [MediaFileController::class, 'indexPromotion'])->name('members.promotions.media.index');
-    Route::post('members/{member}/promotions/{promotion}/media', [MediaFileController::class, 'storePromotion'])->name('members.promotions.media.store');
-    Route::delete('members/{member}/promotions/{promotion}/media/{mediaFile}', [MediaFileController::class, 'destroyPromotion'])->name('members.promotions.media.destroy');
 });
 
 require __DIR__.'/settings.php';

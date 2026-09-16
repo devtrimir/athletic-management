@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 const SPECIAL_ACHIEVEMENT_TYPES = [
     'COMMENDATION_DISC',
@@ -106,24 +107,6 @@ function defaults(row?: SpecialAchievementRow): SpecialAchievementFormData {
         place: row?.place ?? '',
         remarks: row?.remarks ?? '',
     };
-}
-
-function formatDate(value: string | null): string {
-    if (!value) {
-        return '—';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(date);
 }
 
 function typeLabel(value: string, t: (key: string) => string): string {
@@ -694,7 +677,7 @@ export function CoachSpecialAchievementsTab({
                                                     {t('Award date')}
                                                 </div>
                                                 <div>
-                                                    {formatDate(row.awarded_on)}
+                                                    {formatDate(row.awarded_on, '—')}
                                                 </div>
                                             </div>
                                         </div>

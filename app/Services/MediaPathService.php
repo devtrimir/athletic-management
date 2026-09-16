@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Achievement;
-use App\Models\MemberPromotion;
 use App\Models\Participation;
 use Illuminate\Http\UploadedFile;
 
@@ -15,7 +14,6 @@ use Illuminate\Http\UploadedFile;
  * Path structure per mediable type:
  *  - Participation → org_{org_id}/tournaments/{tid}/events/{eid}/members/{mid}/
  *  - Achievement   → same path as its participation (1-to-1 relationship)
- *  - MemberPromotion → org_{org_id}/promotions/{member_id}/{promotion_id}/
  *
  * The filename within the directory is always a UUID + extension, so two uploads
  * for the same participation never collide.
@@ -25,7 +23,7 @@ class MediaPathService
     /**
      * Generate the full storage path for an uploaded file given its polymorphic owner.
      */
-    public function buildPath(Participation|Achievement|MemberPromotion $mediable, UploadedFile $file): string
+    public function buildPath(Participation|Achievement $mediable, UploadedFile $file): string
     {
         $dir = $this->buildDirectory($mediable);
         $uuid = (string) str()->uuid();
@@ -37,16 +35,10 @@ class MediaPathService
     /**
      * Resolve the directory segment for a mediable instance.
      */
-    public function buildDirectory(Participation|Achievement|MemberPromotion $mediable): string
+    public function buildDirectory(Participation|Achievement $mediable): string
     {
         if ($mediable instanceof Achievement) {
             $mediable = $mediable->participation()->with('event.tournament', 'member')->firstOrFail();
-        } elseif ($mediable instanceof MemberPromotion) {
-            $mediable->loadMissing('member');
-
-            $orgId = $mediable->member->organization_id;
-
-            return "org_{$orgId}/promotions/{$mediable->member_id}/{$mediable->id}";
         } else {
             $mediable->loadMissing('event.tournament', 'member');
         }

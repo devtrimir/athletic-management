@@ -56,7 +56,7 @@ class AuditLogBuilder
         $teamMemberIds = TeamMember::where('member_id', $member->id)->pluck('id');
         $playableSportIds = $member->playableSports()->pluck('sports.id');
 
-        $participations = Participation::where('member_id', $member->id)
+        $participations = Participation::forMember($member)
             ->with(['event:id,name,tournament_id', 'event.tournament:id,name'])
             ->get();
         $participationIds = $participations->pluck('id');

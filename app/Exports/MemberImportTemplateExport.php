@@ -9,6 +9,7 @@ use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
 use App\Models\Unit;
+use App\Models\UnitType;
 use App\Support\Members\MemberImportSchema;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -44,17 +45,41 @@ class MemberImportTemplateExport implements WithMultipleSheets
     }
 
     /**
-     * @return array{districts: list<string>, units: list<string>, sports: list<string>, tiers: list<string>, ranks: list<string>}
+     * @return array{districts: list<string>, units: list<string>, unit_types: list<string>, units_by_type: array<string, list<string>>, sports: list<string>, tiers: list<string>, ranks: list<string>}
      */
     private function referenceLists(): array
     {
+        $unitTypes = UnitType::query()->ordered()->get(['id', 'code', 'is_active']);
+        $codeOrder = $unitTypes->pluck('code')->flip();
+
+        $units = Unit::withoutGlobalScopes()
+            ->where('organization_id', $this->organizationId)
+            ->with('unitType:id,code')
+            ->get(['id', 'name', 'unit_type_id'])
+            ->sort(function (Unit $a, Unit $b) use ($codeOrder): int {
+                $orderA = $codeOrder[$a->unitType->code] ?? PHP_INT_MAX;
+                $orderB = $codeOrder[$b->unitType->code] ?? PHP_INT_MAX;
+
+                return $orderA <=> $orderB ?: $a->name <=> $b->name;
+            })
+            ->values();
+
+        $unitsGroupedByType = $units->groupBy(fn (Unit $unit): string => $unit->unitType->code);
+
+        $unitsByType = [];
+        foreach ($unitTypes as $unitType) {
+            $names = $unitsGroupedByType->get($unitType->code)?->pluck('name')->all() ?? [];
+
+            if ($names !== []) {
+                $unitsByType[$unitType->code] = $names;
+            }
+        }
+
         return [
             'districts' => District::orderBy('name')->pluck('name')->all(),
-            'units' => Unit::withoutGlobalScopes()
-                ->where('organization_id', $this->organizationId)
-                ->orderBy('name')
-                ->pluck('name')
-                ->all(),
+            'units' => $units->pluck('name')->all(),
+            'unit_types' => $unitTypes->where('is_active', true)->pluck('code')->values()->all(),
+            'units_by_type' => $unitsByType,
             'sports' => Sport::withoutGlobalScopes()
                 ->where('organization_id', $this->organizationId)
                 ->orderBy('name')
@@ -72,7 +97,7 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
     private const VALIDATION_ROWS = 500;
 
     /**
-     * @param  array{districts: list<string>, units: list<string>, sports: list<string>, tiers: list<string>, ranks: list<string>}  $references
+     * @param  array{districts: list<string>, units: list<string>, unit_types: list<string>, units_by_type: array<string, list<string>>, sports: list<string>, tiers: list<string>, ranks: list<string>}  $references
      */
     public function __construct(
         private readonly array $references,
@@ -124,6 +149,9 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
             AfterSheet::class => function (AfterSheet $event): void {
                 $worksheet = $event->sheet->getDelegate();
                 $lastRow = self::VALIDATION_ROWS + 1;
+                $unitTypeColumn = Coordinate::stringFromColumnIndex(
+                    MemberImportSchema::indexOf('unit_type', $this->templateType) + 1,
+                );
 
                 foreach (MemberImportSchema::columns($this->templateType) as $index => $column) {
                     $letter = Coordinate::stringFromColumnIndex($index + 1);
@@ -133,6 +161,26 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
                             ->getStyle("{$letter}2:{$letter}{$lastRow}")
                             ->getNumberFormat()
                             ->setFormatCode('DD.MM.YYYY');
+                    }
+
+                    // The Unit dropdown cascades off this row's own Unit Type
+                    // cell instead of one shared list — each row gets its own
+                    // INDIRECT formula into a per-type named range (built in
+                    // MemberImportTemplateReferenceSheet).
+                    if ($column['key'] === 'unit') {
+                        for ($row = 2; $row <= $lastRow; $row++) {
+                            $validation = $worksheet->getCell("{$letter}{$row}")->getDataValidation();
+                            $validation->setType(DataValidation::TYPE_LIST);
+                            $validation->setErrorStyle(DataValidation::STYLE_INFORMATION);
+                            $validation->setAllowBlank(true);
+                            $validation->setShowInputMessage(true);
+                            $validation->setShowDropdown(true);
+                            $validation->setFormula1(
+                                'INDIRECT("'.MemberImportSchema::UNIT_TYPE_RANGE_PREFIX.'"&$'.$unitTypeColumn.$row.')',
+                            );
+                        }
+
+                        continue;
                     }
 
                     $formula = match (true) {
@@ -165,12 +213,12 @@ class MemberImportTemplateDataSheet implements FromArray, ShouldAutoSize, WithEv
 class MemberImportTemplateReferenceSheet implements FromArray, ShouldAutoSize, WithEvents, WithStyles, WithTitle
 {
     /** List columns on this sheet (data starts at row 3, below instructions + headings). */
-    private const LIST_COLUMNS = ['districts' => 'A', 'units' => 'B', 'sports' => 'C', 'tiers' => 'D', 'ranks' => 'E'];
+    private const LIST_COLUMNS = ['districts' => 'A', 'units' => 'B', 'sports' => 'C', 'tiers' => 'D', 'ranks' => 'E', 'unit_types' => 'F'];
 
     private const LIST_START_ROW = 3;
 
     /**
-     * @param  array{districts: list<string>, units: list<string>, sports: list<string>, tiers: list<string>, ranks: list<string>}  $references
+     * @param  array{districts: list<string>, units: list<string>, unit_types: list<string>, units_by_type: array<string, list<string>>, sports: list<string>, tiers: list<string>, ranks: list<string>}  $references
      */
     public function __construct(
         private readonly array $references,
@@ -189,19 +237,21 @@ class MemberImportTemplateReferenceSheet implements FromArray, ShouldAutoSize, W
         $sports = $this->references['sports'];
         $tiers = $this->references['tiers'];
         $ranks = $this->references['ranks'];
+        $unitTypes = $this->references['unit_types'];
 
         $rows = [
             [
-                'Instructions / निर्देश — fill the Members sheet only; do not rename, reorder, or delete its columns. Required columns are marked *. Row 2 is an example — replace or delete it before uploading (it is skipped automatically if left unchanged). Date columns accept real Excel dates (shown as DD.MM.YYYY). District, unit, sport, level, and rank cells have dropdowns filled from the lists below — pick from the dropdown or copy the exact spelling.',
+                'Instructions / निर्देश — fill the Members sheet only; do not rename, reorder, or delete its columns. Required columns are marked *. Row 2 is an example — replace or delete it before uploading (it is skipped automatically if left unchanged). Date columns accept real Excel dates (shown as DD.MM.YYYY). District, unit, sport, level, and rank cells have dropdowns filled from the lists below — pick from the dropdown or copy the exact spelling. Pick a Unit Type first — the Unit dropdown then only lists units of that type.',
+                null,
                 null,
                 null,
                 null,
                 null,
             ],
-            ['Home/Posting District / जनपद', 'Unit / इकाई', 'Sport / खेल', 'Level / स्तर', 'Rank / पद'],
+            ['Home/Posting District / जनपद', 'Unit / इकाई', 'Sport / खेल', 'Level / स्तर', 'Rank / पद', 'Unit Type / इकाई प्रकार'],
         ];
 
-        $max = max(count($districts), count($units), count($sports), count($tiers), count($ranks));
+        $max = max(count($districts), count($units), count($sports), count($tiers), count($ranks), count($unitTypes));
 
         for ($i = 0; $i < $max; $i++) {
             $rows[] = [
@@ -210,6 +260,7 @@ class MemberImportTemplateReferenceSheet implements FromArray, ShouldAutoSize, W
                 $sports[$i] ?? null,
                 $tiers[$i] ?? null,
                 $ranks[$i] ?? null,
+                $unitTypes[$i] ?? null,
             ];
         }
 
@@ -251,6 +302,25 @@ class MemberImportTemplateReferenceSheet implements FromArray, ShouldAutoSize, W
                         $worksheet,
                         '=$'.$column.'$'.self::LIST_START_ROW.':$'.$column.'$'.$endRow,
                     ));
+                }
+
+                // Cascading Unit-by-Type named ranges: the "units" column
+                // above is already grouped by type then name, so each type's
+                // units form one contiguous block — walk it once to find and
+                // name each type's row span for the Unit column's INDIRECT.
+                $unitsColumn = self::LIST_COLUMNS['units'];
+                $cursor = self::LIST_START_ROW;
+
+                foreach ($this->references['units_by_type'] as $code => $names) {
+                    $endRow = $cursor + count($names) - 1;
+
+                    $worksheet->getParent()->addNamedRange(new NamedRange(
+                        MemberImportSchema::unitTypeRangeName($code),
+                        $worksheet,
+                        '=$'.$unitsColumn.'$'.$cursor.':$'.$unitsColumn.'$'.$endRow,
+                    ));
+
+                    $cursor = $endRow + 1;
                 }
             },
         ];

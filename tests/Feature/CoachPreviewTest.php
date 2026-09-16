@@ -6,6 +6,8 @@ use App\Models\Achievement;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\CoachPlayingAchievement;
+use App\Models\CoachPromotion;
+use App\Models\CoachPromotionEvidence;
 use App\Models\CoachSpecialAchievement;
 use App\Models\Event;
 use App\Models\Member;
@@ -16,9 +18,11 @@ use App\Models\Role;
 use App\Models\SportSession;
 use App\Models\Team;
 use App\Models\Tournament;
+use App\Models\TournamentTier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
 
@@ -174,4 +178,90 @@ test('coach preview derives playing achievements from the linked member', functi
         ->assertJsonPath('playing_achievements.0.event_name', '100m Sprint')
         ->assertJsonPath('playing_achievements.0.achieved_on', '2019-02-10')
         ->assertJsonMissingPath('playing_achievements.0.title');
+});
+
+test('coach web print preview loads inertia page with tournament tier labels and ranks', function () {
+    $user = coachPreviewUser();
+    $tier = TournamentTier::factory()->create([
+        'code' => 'NATIONAL',
+        'label_en' => 'National Championship',
+        'label_hi' => 'राष्ट्रीय चैंपियनशिप',
+    ]);
+    $member = Member::factory()->create(['organization_id' => $user->organization_id]);
+    $coach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $member->id,
+    ]);
+
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => SportSession::factory()->create(['organization_id' => $user->organization_id])->id,
+        'name' => 'All India Police Games',
+        'tier_id' => $tier->id,
+        'date_from' => '2023-01-15',
+    ]);
+    $event = Event::factory()->forTournament($tournament)->create([
+        'name' => 'Boxing 75kg',
+        'event_type' => 'individual',
+    ]);
+    $participation = Participation::factory()->forEvent($event)->create([
+        'member_id' => $member->id,
+        'team_id' => null,
+    ]);
+    Achievement::factory()->forParticipation($participation)->create([
+        'medal_type' => 'GOLD',
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.preview', $coach))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('coaches/print-preview')
+            ->has('coach')
+            ->has('coachTeams')
+            ->has('coachAchievements')
+            ->has('specialAchievements')
+            ->has('playingAchievements')
+            ->has('ranks')
+            ->where('playingAchievements.records.0.tournament.tier_code', 'NATIONAL')
+            ->where('playingAchievements.records.0.tournament.tier_label_en', 'National Championship')
+            ->where('playingAchievements.records.0.tournament.tier_label_hi', 'राष्ट्रीय चैंपियनशिप')
+        );
+});
+
+test('coach web print preview includes event_type on promotion evidences', function () {
+    $user = coachPreviewUser();
+    $coach = Coach::factory()->create(['organization_id' => $user->organization_id]);
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id]);
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+    ]);
+    $event = Event::factory()->forTournament($tournament)->create([
+        'event_type' => 'team',
+    ]);
+    $promotion = CoachPromotion::create([
+        'organization_id' => $user->organization_id,
+        'coach_id' => $coach->id,
+        'source' => 'native',
+        'promotion_date' => '2024-01-01',
+        'to_rank' => 'HEAD_CONSTABLE',
+        'created_by' => $user->id,
+    ]);
+    CoachPromotionEvidence::factory()->create([
+        'organization_id' => $user->organization_id,
+        'coach_promotion_id' => $promotion->id,
+        'session_id' => $session->id,
+        'tournament_id' => $tournament->id,
+        'event_id' => $event->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('coaches.preview', $coach))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('coaches/print-preview')
+            ->where('coach.promotions.0.evidences.0.event.event_type', 'team')
+        );
 });

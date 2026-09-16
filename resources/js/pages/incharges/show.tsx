@@ -67,6 +67,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 type RankOption = {
@@ -347,28 +348,6 @@ function displayValue(value: string | number | null | undefined): string {
     return value === null || value === undefined || value === ''
         ? '—'
         : String(value);
-}
-
-function formatDateOnly(value: string | null | undefined): string {
-    if (!value || typeof value !== 'string') {
-        return '';
-    }
-
-    const trimmed = value.trim();
-
-    if (!trimmed) {
-        return '';
-    }
-
-    if (trimmed.includes('T')) {
-        return trimmed.split('T')[0] ?? '';
-    }
-
-    if (trimmed.includes(' ')) {
-        return trimmed.split(' ')[0] ?? '';
-    }
-
-    return trimmed;
 }
 
 function detail(label: string, value: ReactNode) {
@@ -2576,7 +2555,7 @@ export default function InchargesShow({
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {formatDateOnly(
+                                                        {formatDate(
                                                             assignment.assigned_at,
                                                         )}
                                                     </TableCell>

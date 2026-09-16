@@ -12,6 +12,8 @@ import {
     ChevronDown,
     ChevronRight,
     Download,
+    ExternalLink,
+    GraduationCap,
     Medal,
     Pencil,
     Plus,
@@ -19,6 +21,7 @@ import {
     Search,
     Trash2,
     Upload,
+    UserRound,
     Users,
 } from 'lucide-react';
 import { Fragment, useMemo, useRef, useState } from 'react';
@@ -30,6 +33,7 @@ import {
 import {
     destroy,
     edit as editCoach,
+    generateAthleteProfile,
     index as coachesIndex,
     show as coachOverview,
 } from '@/actions/App/Http/Controllers/CoachController';
@@ -50,31 +54,32 @@ import {
     status as coachStatus,
 } from '@/actions/App/Http/Controllers/CoachProfileTabController';
 import {
-    destroy as destroyCoachPromotion,
-    store as storeCoachPromotion,
-    update as updateCoachPromotion,
-} from '@/actions/App/Http/Controllers/CoachPromotionController';
-import {
     destroy as destroyCoachSport,
     store as storeCoachSport,
 } from '@/actions/App/Http/Controllers/CoachSportController';
 import { store as storeCoachStatus } from '@/actions/App/Http/Controllers/CoachStatusController';
+import { show as memberShow } from '@/actions/App/Http/Controllers/MemberController';
 import { events as memberEvents } from '@/actions/App/Http/Controllers/MemberProfileTabController';
 import { CoachPlayingAchievementsSection } from '@/components/coaches/playing-achievements-section';
 import type { PlayingAchievementsData } from '@/components/coaches/playing-achievements-section';
+import { CoachPromotionsTab } from '@/components/coaches/promotions-tab';
+import type {
+    CoachPromotion,
+    CoachedSessionOption,
+} from '@/components/coaches/promotions-tab';
 import { CoachSpecialAchievementsTab } from '@/components/coaches/special-achievements-tab';
 import type { SpecialAchievementsData } from '@/components/coaches/special-achievements-tab';
 import { Combobox } from '@/components/combobox';
+import { ConfirmationDialog } from '@/components/confirmation-dialog';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
-import {
-    RemoveMemberSportDialog
-    
-} from '@/components/members/remove-member-sport-dialog';
-import type {ConnectedTeamInfo} from '@/components/members/remove-member-sport-dialog';
+import { RemoveMemberSportDialog } from '@/components/members/remove-member-sport-dialog';
+import type { ConnectedTeamInfo } from '@/components/members/remove-member-sport-dialog';
+import PlayerCoachBadge from '@/components/player-coach-badge';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
 import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
+import { ProfilePhotoLightbox } from '@/components/shared/profile-photo-lightbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -105,9 +110,10 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate, formatDateRange } from '@/lib/dates';
 import { coachRoleLabel } from '@/lib/coach';
+import { resolveRankLabel } from '@/lib/ranks';
 
 type CoachCertification = {
     id: number;
@@ -138,67 +144,6 @@ type CoachSport = {
     notes: string | null;
 };
 
-type CoachPromotion = {
-    id: number;
-    promotion_date: string | null;
-    from_rank: string | null;
-    to_rank: string | null;
-    cash_reward_amount: string | null;
-    cash_reward_date: string | null;
-    cash_reward_reference: string | null;
-    cash_reward_remarks: string | null;
-    reason: string | null;
-    remarks: string | null;
-    recorded_by_name: string | null;
-    evidences: RewardEvidence[];
-};
-
-type RewardEvidence = {
-    id: number;
-    session_id: number;
-    tournament_id: number;
-    event_id: number | null;
-    team_id: number | null;
-    achievement_id: number | null;
-    summary: string | null;
-    session: { id: number; name: string } | null;
-    tournament: {
-        id: number;
-        name: string;
-        tier_code: string | null;
-        date_from: string | null;
-        date_to: string | null;
-        venue: string | null;
-    } | null;
-    event: {
-        id: number;
-        name: string;
-        gender_class: string | null;
-        discipline: string | null;
-        weight_category: string | null;
-    } | null;
-    team: { id: number; name: string } | null;
-};
-
-type RewardEvidenceInput = {
-    session_id: number;
-    tournament_id: number;
-    team_id: number;
-};
-
-type RewardEvidenceTournamentOption = RewardEvidenceInput & {
-    id: string;
-    tournament: CoachAchievementGroup['tournament'];
-    team: CoachAchievementGroup['team'];
-    event_count: number;
-    player_count: number;
-};
-
-type RewardEvidenceSessionOption = {
-    session: CoachAchievementGroup['session'];
-    tournaments: RewardEvidenceTournamentOption[];
-};
-
 type AchievementBenefit = {
     id: number;
     benefit_type: string;
@@ -217,6 +162,8 @@ type CoachAchievementPlayer = {
         id: number;
         full_name: string;
         pno: string | null;
+        is_coach?: boolean;
+        coach_id?: number | null;
     };
     medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT';
     position: number | null;
@@ -230,6 +177,12 @@ type CoachAchievementReward = {
     cash_reward_amount: string | null;
     cash_reward_date: string | null;
     cash_reward_reference: string | null;
+};
+
+type CoachAchievementPromotion = {
+    id: number;
+    to_rank: string | null;
+    promotion_date: string | null;
 };
 
 type CoachAchievementGroup = {
@@ -252,10 +205,12 @@ type CoachAchievementGroup = {
         gender_class: string | null;
         discipline: string | null;
         weight_category: string | null;
+        event_type?: string | null;
         sport: { id: number; name: string } | null;
     };
     medal_counts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
     rewards: CoachAchievementReward[];
+    promotions: CoachAchievementPromotion[];
     players: CoachAchievementPlayer[];
 };
 
@@ -271,6 +226,9 @@ type CoachAchievementTournamentGroup = {
     rewardCount: number;
     rewardDates: string[];
     rewardReferences: string[];
+    promotionCount: number;
+    promotionToRanks: string[];
+    promotionDates: string[];
 };
 
 type CoachAchievementsData = {
@@ -336,6 +294,14 @@ type Coach = {
     pno: string | null;
     mobile: string | null;
     photo_path: string | null;
+    member_id?: number | null;
+    linked_member?: {
+        id: number;
+        member_code?: string;
+        full_name: string;
+        pno?: string | null;
+        current_status?: string | null;
+    } | null;
     nis_master?: {
         id: number;
         code: string | null;
@@ -428,33 +394,14 @@ function genderLabel(
     }
 }
 
-function formatDate(value: string | null | undefined): string {
-    if (!value) {
-        return '—';
-    }
-
-    const trimmed = value.trim();
-
-    if (!trimmed) {
-        return '—';
-    }
-
-    const datePart = trimmed.split('T')[0].split(' ')[0];
-    const parts = datePart.split('-');
-
-    if (parts.length === 3 && parts[0].length === 4) {
-        const [year, month, day] = parts;
-
-        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-    }
-
-    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(datePart)) {
-        const [day, month, year] = datePart.split('/');
-
-        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-    }
-
-    return value;
+function formatTournamentDateRange(tournament: {
+    date_from?: string | null;
+    date_to?: string | null;
+}): string | null {
+    return (
+        formatDateRange(tournament.date_from, tournament.date_to, ' - ', '') ||
+        null
+    );
 }
 
 export default function CoachesShow({
@@ -482,7 +429,7 @@ export default function CoachesShow({
     tiers?: TierOption[];
     ranks?: RankOption[];
     coachAchievements?: CoachAchievementsData;
-    rewardEvidenceOptions?: RewardEvidenceSessionOption[];
+    rewardEvidenceOptions?: CoachedSessionOption[];
     specialAchievements?: SpecialAchievementsData;
     playingAchievements?: PlayingAchievementsData;
 }) {
@@ -490,14 +437,24 @@ export default function CoachesShow({
 
     const [exportOpen, setExportOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [isDeletingCoach, setIsDeletingCoach] = useState(false);
+    const [generateAthleteProfileOpen, setGenerateAthleteProfileOpen] =
+        useState(false);
+    const [generatingAthleteProfile, setGeneratingAthleteProfile] =
+        useState(false);
+    const [removePhotoOpen, setRemovePhotoOpen] = useState(false);
+    const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
+    const [removingCertification, setRemovingCertification] = useState<
+        number | null
+    >(null);
     const [statusOpen, setStatusOpen] = useState(false);
+    const [removingSport, setRemovingSport] = useState<CoachSport | null>(null);
+    const [sportDialogOpen, setSportDialogOpen] = useState(false);
+    const [editingSport, setEditingSport] = useState<CoachSport | null>(null);
     const [certificationDialogOpen, setCertificationDialogOpen] =
         useState(false);
     const [editingCertification, setEditingCertification] =
         useState<CoachCertification | null>(null);
-    const [sportDialogOpen, setSportDialogOpen] = useState(false);
-    const [editingSport, setEditingSport] = useState<CoachSport | null>(null);
-    const [removingSport, setRemovingSport] = useState<CoachSport | null>(null);
 
     const removingConnectedTeams = useMemo(() => {
         if (!removingSport) {
@@ -508,20 +465,6 @@ export default function CoachesShow({
             (team) => String(team.sport_id) === String(removingSport.id),
         );
     }, [removingSport, active_team_sports]);
-    const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
-    const [editingPromotion, setEditingPromotion] =
-        useState<CoachPromotion | null>(null);
-    const [promotionDialogMode, setPromotionDialogMode] = useState<
-        'promotion' | 'reward'
-    >('promotion');
-    const [activePromotionTab, setActivePromotionTab] = useState<
-        'promotions' | 'rewards'
-    >('promotions');
-    const [selectedRewardSessionId, setSelectedRewardSessionId] =
-        useState<string>('all');
-    const [rewardEvidenceSelection, setRewardEvidenceSelection] = useState<
-        RewardEvidenceInput[]
-    >([]);
     const [achievementSearch, setAchievementSearch] = useState('');
     const [achievementSessionFilter, setAchievementSessionFilter] =
         useState('all');
@@ -556,18 +499,6 @@ export default function CoachesShow({
         issuer: '',
         issued_at: '',
         attachment: null as File | null,
-    });
-    const promotionForm = useForm({
-        promotion_date: '',
-        from_rank: '',
-        to_rank: '',
-        cash_reward_amount: '',
-        cash_reward_date: '',
-        cash_reward_reference: '',
-        cash_reward_remarks: '',
-        reason: '',
-        remarks: '',
-        evidences: [] as RewardEvidenceInput[],
     });
     const activeTab = COACH_SHOW_TABS.includes(activeTabProp)
         ? activeTabProp
@@ -620,8 +551,11 @@ export default function CoachesShow({
     }
 
     function handleDelete() {
-        router.delete(destroy.url(coach));
-        setDeleteOpen(false);
+        setIsDeletingCoach(true);
+        router.delete(destroy.url(coach), {
+            onFinish: () => setIsDeletingCoach(false),
+            onSuccess: () => setDeleteOpen(false),
+        });
     }
 
     function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
@@ -645,7 +579,10 @@ export default function CoachesShow({
     }
 
     function handleRemovePhoto() {
-        router.delete(destroyCoachPhoto.url(coach), { preserveScroll: true });
+        router.delete(destroyCoachPhoto.url(coach), {
+            preserveScroll: true,
+            onSuccess: () => setRemovePhotoOpen(false),
+        });
     }
 
     const detail = (label: string, value: string) => (
@@ -672,277 +609,6 @@ export default function CoachesShow({
         value: String(tier.id),
         label: tier.label_hi || tier.label_en || tier.code,
     }));
-    const rankItems = ranks.map((rank) => ({
-        value: rank.code,
-        label: [rank.code, rank.name, rank.short_name]
-            .filter(Boolean)
-            .join(' · '),
-    }));
-
-    function rankLabel(value: string | null | undefined): string {
-        if (!value) {
-            return '';
-        }
-
-        return rankItems.find((rank) => rank.value === value)?.label ?? value;
-    }
-
-    function hasPromotionFields(promotion: CoachPromotion): boolean {
-        return Boolean(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.to_rank ||
-            promotion.reason ||
-            promotion.remarks,
-        );
-    }
-
-    function hasRewardFields(promotion: CoachPromotion): boolean {
-        return Boolean(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks,
-        );
-    }
-
-    function isPromotionFormValid(): boolean {
-        if (promotionDialogMode === 'reward') {
-            return promotionForm.data.cash_reward_amount.trim() !== '';
-        }
-
-        return (
-            promotionForm.data.promotion_date.trim() !== '' &&
-            promotionForm.data.to_rank.trim() !== ''
-        );
-    }
-
-    function promotionCategory(promotion: CoachPromotion): string {
-        const hasPromotion = hasPromotionFields(promotion);
-        const hasReward = hasRewardFields(promotion);
-
-        if (hasPromotion && hasReward) {
-            return t('Promotion + Reward');
-        }
-
-        if (hasReward) {
-            return t('Reward');
-        }
-
-        return t('Promotion');
-    }
-
-    function promotionCategoryClass(promotion: CoachPromotion): string {
-        const hasPromotion = hasPromotionFields(promotion);
-        const hasReward = hasRewardFields(promotion);
-
-        if (hasPromotion && hasReward) {
-            return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200';
-        }
-
-        if (hasReward) {
-            return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200';
-        }
-
-        return 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200';
-    }
-
-    const promotionRows = (coach.promotions ?? []).filter(hasPromotionFields);
-    const rewardRows = (coach.promotions ?? []).filter(hasRewardFields);
-    const activePromotionRows =
-        activePromotionTab === 'promotions' ? promotionRows : rewardRows;
-    const rewardSessionOptions = rewardEvidenceOptions.map(
-        (option) => option.session,
-    );
-    const visibleRewardEvidenceOptions = rewardEvidenceOptions.filter(
-        (option) =>
-            selectedRewardSessionId === 'all' ||
-            String(option.session.id) === selectedRewardSessionId,
-    );
-    const rewardEvidenceLookup = useMemo(() => {
-        const lookup = new Map<string, RewardEvidenceTournamentOption>();
-
-        for (const session of rewardEvidenceOptions) {
-            for (const tournament of session.tournaments) {
-                lookup.set(tournament.id, tournament);
-            }
-        }
-
-        return lookup;
-    }, [rewardEvidenceOptions]);
-
-    function rewardEvidenceKey(evidence: RewardEvidenceInput): string {
-        return [
-            evidence.session_id,
-            evidence.tournament_id,
-            evidence.team_id,
-        ].join(':');
-    }
-
-    function collectText(
-        values: Array<string | number | null | undefined>,
-    ): string {
-        return values.filter(Boolean).join(' · ');
-    }
-
-    function rewardEvidenceSelected(evidence: RewardEvidenceInput): boolean {
-        const key = rewardEvidenceKey(evidence);
-
-        return rewardEvidenceSelection.some(
-            (selected) => rewardEvidenceKey(selected) === key,
-        );
-    }
-
-    function toggleRewardEvidence(evidence: RewardEvidenceInput): void {
-        const key = rewardEvidenceKey(evidence);
-
-        setRewardEvidenceSelection((current) =>
-            current.some((selected) => rewardEvidenceKey(selected) === key)
-                ? current.filter(
-                      (selected) => rewardEvidenceKey(selected) !== key,
-                  )
-                : [...current, evidence],
-        );
-    }
-
-    function selectedRewardEvidenceLabel(
-        evidence: RewardEvidenceInput,
-    ): string {
-        const option = rewardEvidenceLookup.get(rewardEvidenceKey(evidence));
-
-        return collectText([
-            option?.tournament.name,
-            option?.team.name,
-            option ? `${option.player_count} ${t('players')}` : null,
-        ]);
-    }
-
-    function renderPromotionEvidenceSummary(promotion: CoachPromotion) {
-        if (promotion.evidences.length === 0) {
-            return <span className="text-muted-foreground">—</span>;
-        }
-
-        return (
-            <div className="space-y-1">
-                {promotion.evidences.slice(0, 2).map((evidence) => (
-                    <div key={evidence.id} className="truncate text-xs">
-                        {evidence.summary ?? '—'}
-                    </div>
-                ))}
-                {promotion.evidences.length > 2 ? (
-                    <div className="text-xs text-muted-foreground">
-                        +{promotion.evidences.length - 2} {t('more')}
-                    </div>
-                ) : null}
-            </div>
-        );
-    }
-
-    function renderEvidencePicker(context: 'promotion' | 'reward') {
-        return (
-            <div className="grid gap-3 rounded-lg border p-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <Label>{t('Tournament events')}</Label>
-                        <p className="text-xs text-muted-foreground">
-                            {context === 'reward'
-                                ? t(
-                                      'Select unrewarded events connected to this coach reward.',
-                                  )
-                                : t(
-                                      'Select unrewarded events connected to this coach promotion.',
-                                  )}
-                        </p>
-                    </div>
-                    <Select
-                        value={selectedRewardSessionId}
-                        onValueChange={setSelectedRewardSessionId}
-                    >
-                        <SelectTrigger className="sm:w-56">
-                            <SelectValue placeholder={t('Session')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">
-                                {t('All sessions')}
-                            </SelectItem>
-                            {rewardSessionOptions.map((session) => (
-                                <SelectItem
-                                    key={session.id}
-                                    value={String(session.id)}
-                                >
-                                    {session.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                {visibleRewardEvidenceOptions.length === 0 ? (
-                    <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                        {t(
-                            'No unrewarded tournament achievements available for this session.',
-                        )}
-                    </div>
-                ) : (
-                    <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
-                        {visibleRewardEvidenceOptions.map((session) =>
-                            session.tournaments.map((tournament) => (
-                                <label
-                                    key={`${session.session.id}-${tournament.id}`}
-                                    className="flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
-                                >
-                                    <Checkbox
-                                        checked={rewardEvidenceSelected(
-                                            tournament,
-                                        )}
-                                        onCheckedChange={() =>
-                                            toggleRewardEvidence(tournament)
-                                        }
-                                    />
-                                    <span className="min-w-0 flex-1">
-                                        <span className="flex flex-wrap items-center gap-2">
-                                            <Badge variant="outline">
-                                                {tournament.tournament
-                                                    .tier_code ?? t('Unknown')}
-                                            </Badge>
-                                            <span className="font-medium">
-                                                {tournament.tournament.name}
-                                            </span>
-                                        </span>
-                                        <span className="mt-1 block text-xs text-muted-foreground">
-                                            {session.session.name} ·{' '}
-                                            {tournament.team.name} ·{' '}
-                                            {tournament.event_count}{' '}
-                                            {t('events')} ·{' '}
-                                            {tournament.player_count}{' '}
-                                            {t('players')}
-                                        </span>
-                                    </span>
-                                </label>
-                            )),
-                        )}
-                    </div>
-                )}
-
-                {rewardEvidenceSelection.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                        {rewardEvidenceSelection.map((evidence) => (
-                            <Badge
-                                key={rewardEvidenceKey(evidence)}
-                                variant="secondary"
-                            >
-                                {selectedRewardEvidenceLabel(evidence) ||
-                                    t('Selected')}
-                            </Badge>
-                        ))}
-                    </div>
-                ) : null}
-                <InputError message={promotionForm.errors.evidences} />
-            </div>
-        );
-    }
     const achievementGroups = useMemo(
         () => coachAchievements?.groups ?? [],
         [coachAchievements],
@@ -1059,6 +725,9 @@ export default function CoachesShow({
                 rewardCount: 0,
                 rewardDates: [],
                 rewardReferences: [],
+                promotionCount: 0,
+                promotionToRanks: [],
+                promotionDates: [],
             };
 
             existing.rows.push(group);
@@ -1106,6 +775,17 @@ export default function CoachesShow({
                     .filter((reference): reference is string =>
                         Boolean(reference),
                     ),
+            );
+            existing.promotionCount += group.promotions.length;
+            existing.promotionToRanks.push(
+                ...group.promotions
+                    .map((promotion) => promotion.to_rank)
+                    .filter((toRank): toRank is string => Boolean(toRank)),
+            );
+            existing.promotionDates.push(
+                ...group.promotions
+                    .map((promotion) => promotion.promotion_date)
+                    .filter((date): date is string => Boolean(date)),
             );
 
             groups.set(key, existing);
@@ -1243,130 +923,6 @@ export default function CoachesShow({
         );
     }
 
-    function resetPromotionForm() {
-        setEditingPromotion(null);
-        promotionForm.setData({
-            promotion_date: '',
-            from_rank: coach.rank_master?.code ?? '',
-            to_rank: '',
-            cash_reward_amount: '',
-            cash_reward_date: '',
-            cash_reward_reference: '',
-            cash_reward_remarks: '',
-            reason: '',
-            remarks: '',
-            evidences: [],
-        });
-        setRewardEvidenceSelection([]);
-        setSelectedRewardSessionId('all');
-        promotionForm.clearErrors();
-    }
-
-    function openAddPromotionDialog(
-        mode: 'promotion' | 'reward' = 'promotion',
-    ) {
-        resetPromotionForm();
-        setPromotionDialogMode(mode);
-        setSelectedRewardSessionId(
-            mode === 'reward' && rewardSessionOptions[0]
-                ? String(rewardSessionOptions[0].id)
-                : 'all',
-        );
-        setPromotionDialogOpen(true);
-    }
-
-    function openEditPromotionDialog(
-        promotion: CoachPromotion,
-        mode: 'promotion' | 'reward' = hasPromotionFields(promotion)
-            ? 'promotion'
-            : 'reward',
-    ) {
-        setEditingPromotion(promotion);
-        setPromotionDialogMode(mode);
-        promotionForm.setData({
-            promotion_date: promotion.promotion_date ?? '',
-            from_rank: promotion.from_rank ?? coach.rank_master?.code ?? '',
-            to_rank: promotion.to_rank ?? '',
-            cash_reward_amount: promotion.cash_reward_amount ?? '',
-            cash_reward_date: promotion.cash_reward_date ?? '',
-            cash_reward_reference: promotion.cash_reward_reference ?? '',
-            cash_reward_remarks: promotion.cash_reward_remarks ?? '',
-            reason: promotion.reason ?? '',
-            remarks: promotion.remarks ?? '',
-            evidences: [],
-        });
-        setRewardEvidenceSelection(
-            promotion.evidences
-                .filter((evidence) => evidence.team_id !== null)
-                .map((evidence) => ({
-                    session_id: evidence.session_id,
-                    tournament_id: evidence.tournament_id,
-                    team_id: evidence.team_id as number,
-                })),
-        );
-        setSelectedRewardSessionId(
-            mode === 'reward' && promotion.evidences[0]
-                ? String(promotion.evidences[0].session_id)
-                : 'all',
-        );
-        promotionForm.clearErrors();
-        setPromotionDialogOpen(true);
-    }
-
-    function submitPromotion(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault();
-        const isRewardMode = promotionDialogMode === 'reward';
-
-        promotionForm.transform((data) => ({
-            ...data,
-            promotion_date: isRewardMode ? null : data.promotion_date || null,
-            from_rank: isRewardMode ? null : data.from_rank || null,
-            to_rank: isRewardMode ? null : data.to_rank || null,
-            cash_reward_amount: data.cash_reward_amount || null,
-            cash_reward_date: data.cash_reward_date || null,
-            cash_reward_reference: data.cash_reward_reference || null,
-            cash_reward_remarks: data.cash_reward_remarks || null,
-            reason: isRewardMode ? null : data.reason || null,
-            remarks: isRewardMode ? null : data.remarks || null,
-            evidences: rewardEvidenceSelection,
-        }));
-
-        const options = {
-            preserveScroll: true,
-            onSuccess: () => {
-                setPromotionDialogOpen(false);
-                resetPromotionForm();
-            },
-            onError: () => {
-                // Keep the modal open so the user can see and fix errors.
-            },
-        };
-
-        if (editingPromotion) {
-            promotionForm.patch(
-                updateCoachPromotion.url({
-                    coach,
-                    promotion: editingPromotion.id,
-                }),
-                options,
-            );
-
-            return;
-        }
-
-        promotionForm.post(storeCoachPromotion.url(coach), options);
-    }
-
-    function removePromotion(promotionId: number) {
-        router.delete(
-            destroyCoachPromotion.url({
-                coach,
-                promotion: promotionId,
-            }),
-            { preserveScroll: true },
-        );
-    }
-
     function resetSportForm() {
         setEditingSport(null);
         sportForm.setData({
@@ -1459,7 +1015,7 @@ export default function CoachesShow({
                         ) : null}
                     </div>
 
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
                         <Button variant="outline" size="sm" asChild>
                             <Link href={coachesIndex.url()}>
                                 <ArrowLeft className="mr-1.5 h-4 w-4" />
@@ -1486,6 +1042,25 @@ export default function CoachesShow({
                             <Download className="mr-1.5 h-4 w-4" />
                             {t('Export')}
                         </Button>
+                        {coach.member_id ? (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={memberShow.url(coach.member_id)}>
+                                    <UserRound className="mr-1.5 h-4 w-4" />
+                                    {t('Athlete Profile')}
+                                </Link>
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                    setGenerateAthleteProfileOpen(true)
+                                }
+                            >
+                                <UserRound className="mr-1.5 h-4 w-4" />
+                                {t('Generate Athlete Profile')}
+                            </Button>
+                        )}
                         <Button variant="outline" size="sm" asChild>
                             <Link href={editCoach.url(coach)}>{t('Edit')}</Link>
                         </Button>
@@ -1504,11 +1079,20 @@ export default function CoachesShow({
                         <div className="flex items-center gap-4">
                             <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
                                 {coach.photo_path ? (
-                                    <img
-                                        src={`/storage/${coach.photo_path}`}
-                                        alt={coach.full_name}
-                                        className="h-full w-full object-cover"
-                                    />
+                                    <button
+                                        type="button"
+                                        className="h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        onClick={() =>
+                                            setPhotoLightboxOpen(true)
+                                        }
+                                        aria-label={`View photo of ${coach.full_name}`}
+                                    >
+                                        <img
+                                            src={`/storage/${coach.photo_path}`}
+                                            alt={coach.full_name}
+                                            className="h-full w-full object-cover transition-opacity hover:opacity-90"
+                                        />
+                                    </button>
                                 ) : (
                                     <Camera className="h-7 w-7 text-muted-foreground" />
                                 )}
@@ -1532,6 +1116,16 @@ export default function CoachesShow({
                                             {t(coach.coach_status)}
                                         </Badge>
                                     ) : null}
+                                    {coach.linked_member && (
+                                        <PlayerCoachBadge
+                                            memberId={coach.linked_member.id}
+                                            memberName={
+                                                coach.linked_member.full_name
+                                            }
+                                            pno={coach.linked_member.pno}
+                                            variant="chip"
+                                        />
+                                    )}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                     {coach.pno
@@ -1562,7 +1156,7 @@ export default function CoachesShow({
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={handleRemovePhoto}
+                                    onClick={() => setRemovePhotoOpen(true)}
                                 >
                                     <Trash2 className="mr-1.5 h-4 w-4" />
                                     {t('Remove photo')}
@@ -1652,7 +1246,7 @@ export default function CoachesShow({
                                     )}
                                     {detail(
                                         t('Date of birth'),
-                                        coach.date_of_birth ?? '',
+                                        formatDate(coach.date_of_birth, '—'),
                                     )}
                                     {detail(t('Address'), coach.address ?? '')}
                                     {detail(
@@ -1669,6 +1263,90 @@ export default function CoachesShow({
                                     {detail(t('Mobile'), coach.mobile ?? '')}
                                 </dl>
                             </div>
+
+                            {coach.linked_member && (
+                                <div className="rounded-xl border bg-card p-6">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                                                <UserRound className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h3 className="text-base font-semibold text-foreground">
+                                                        {t(
+                                                            'Linked Athlete Identity',
+                                                        )}
+                                                    </h3>
+                                                    <PlayerCoachBadge
+                                                        memberId={
+                                                            coach.linked_member
+                                                                .id
+                                                        }
+                                                        memberName={
+                                                            coach.linked_member
+                                                                .full_name
+                                                        }
+                                                        pno={
+                                                            coach.linked_member
+                                                                .pno
+                                                        }
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {t(
+                                                        'This coach also participates as an active player/athlete in sports tournaments.',
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            asChild
+                                            variant="outline"
+                                            size="sm"
+                                        >
+                                            <Link
+                                                href={memberShow.url(
+                                                    coach.linked_member.id,
+                                                )}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                                                {t('View Athlete Profile')}
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                    <div className="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-3">
+                                        <div>
+                                            <dt className="text-xs font-medium text-muted-foreground">
+                                                {t('Athlete Name')}
+                                            </dt>
+                                            <dd className="mt-1 text-sm font-medium">
+                                                {coach.linked_member.full_name}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs font-medium text-muted-foreground">
+                                                {t('PNO')}
+                                            </dt>
+                                            <dd className="mt-1 text-sm font-medium">
+                                                {coach.linked_member.pno || '—'}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs font-medium text-muted-foreground">
+                                                {t('Current Status')}
+                                            </dt>
+                                            <dd className="mt-1 text-sm font-medium">
+                                                {coach.linked_member
+                                                    .current_status ||
+                                                    t('Active')}
+                                            </dd>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </TabsContent>
 
@@ -1744,6 +1422,7 @@ export default function CoachesShow({
                                                         <TableCell>
                                                             {formatDate(
                                                                 certification.issued_at,
+                                                                '—',
                                                             )}
                                                         </TableCell>
                                                         <TableCell>
@@ -1782,7 +1461,7 @@ export default function CoachesShow({
                                                                     variant="ghost"
                                                                     size="sm"
                                                                     onClick={() =>
-                                                                        removeCertification(
+                                                                        setRemovingCertification(
                                                                             certification.id,
                                                                         )
                                                                     }
@@ -1911,12 +1590,16 @@ export default function CoachesShow({
                                                                     ''}
                                                             </TableCell>
                                                             <TableCell>
-                                                                {sport.effective_from ??
-                                                                    ''}
+                                                                {formatDate(
+                                                                    sport.effective_from,
+                                                                    '—',
+                                                                )}
                                                             </TableCell>
                                                             <TableCell>
-                                                                {sport.effective_to ??
-                                                                    ''}
+                                                                {formatDate(
+                                                                    sport.effective_to,
+                                                                    '—',
+                                                                )}
                                                             </TableCell>
                                                             <TableCell>
                                                                 {sport.notes ??
@@ -2034,12 +1717,16 @@ export default function CoachesShow({
                                                             : t('Historical')}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {assignment.assigned_at ??
-                                                            ''}
+                                                        {formatDate(
+                                                            assignment.assigned_at,
+                                                            '—',
+                                                        )}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {assignment.removed_at ??
-                                                            ''}
+                                                        {formatDate(
+                                                            assignment.removed_at,
+                                                            '—',
+                                                        )}
                                                     </TableCell>
                                                     <TableCell>
                                                         {assignment.notes ?? ''}
@@ -2252,6 +1939,15 @@ export default function CoachesShow({
                                                 <TableHead>
                                                     {t('Prize date')}
                                                 </TableHead>
+                                                <TableHead>
+                                                    {t('Promoted')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('New rank')}
+                                                </TableHead>
+                                                <TableHead>
+                                                    {t('Promotion date')}
+                                                </TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -2302,9 +1998,9 @@ export default function CoachesShow({
                                                                                 tournamentGroup
                                                                                     .tournament
                                                                                     .venue,
-                                                                                tournamentGroup
-                                                                                    .tournament
-                                                                                    .date_from,
+                                                                                formatTournamentDateRange(
+                                                                                    tournamentGroup.tournament,
+                                                                                ),
                                                                             ]
                                                                                 .filter(
                                                                                     Boolean,
@@ -2386,16 +2082,77 @@ export default function CoachesShow({
                                                                         new Set(
                                                                             tournamentGroup.rewardDates,
                                                                         ),
-                                                                    ).join(
-                                                                        ', ',
-                                                                    ) || '—'}
+                                                                    )
+                                                                        .map(
+                                                                            (
+                                                                                d,
+                                                                            ) =>
+                                                                                formatDate(
+                                                                                    d,
+                                                                                ),
+                                                                        )
+                                                                        .join(
+                                                                            ', ',
+                                                                        ) ||
+                                                                        '—'}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {tournamentGroup.promotionCount >
+                                                                    0
+                                                                        ? t(
+                                                                              'Yes',
+                                                                          )
+                                                                        : t(
+                                                                              'No',
+                                                                          )}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {Array.from(
+                                                                        new Set(
+                                                                            tournamentGroup.promotionToRanks,
+                                                                        ),
+                                                                    )
+                                                                        .map(
+                                                                            (
+                                                                                rank,
+                                                                            ) =>
+                                                                                resolveRankLabel(
+                                                                                    rank,
+                                                                                    ranks,
+                                                                                    '',
+                                                                                ) ||
+                                                                                rank,
+                                                                        )
+                                                                        .join(
+                                                                            ', ',
+                                                                        ) ||
+                                                                        '—'}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {Array.from(
+                                                                        new Set(
+                                                                            tournamentGroup.promotionDates,
+                                                                        ),
+                                                                    )
+                                                                        .map(
+                                                                            (
+                                                                                d,
+                                                                            ) =>
+                                                                                formatDate(
+                                                                                    d,
+                                                                                ),
+                                                                        )
+                                                                        .join(
+                                                                            ', ',
+                                                                        ) ||
+                                                                        '—'}
                                                                 </TableCell>
                                                             </TableRow>
                                                             {expanded ? (
                                                                 <TableRow>
                                                                     <TableCell
                                                                         colSpan={
-                                                                            12
+                                                                            15
                                                                         }
                                                                         className="bg-muted/20 p-0"
                                                                     >
@@ -2419,7 +2176,12 @@ export default function CoachesShow({
                                                                                     </TableHead>
                                                                                     <TableHead>
                                                                                         {t(
-                                                                                            'Class',
+                                                                                            'Gender',
+                                                                                        )}
+                                                                                    </TableHead>
+                                                                                    <TableHead>
+                                                                                        {t(
+                                                                                            'Event type',
                                                                                         )}
                                                                                     </TableHead>
                                                                                     <TableHead>
@@ -2505,9 +2267,9 @@ export default function CoachesShow({
                                                                                                         </div>
                                                                                                     </TableCell>
                                                                                                     <TableCell>
-                                                                                                        {group
-                                                                                                            .tournament
-                                                                                                            .date_from ??
+                                                                                                        {formatTournamentDateRange(
+                                                                                                            group.tournament,
+                                                                                                        ) ??
                                                                                                             t(
                                                                                                                 'No date',
                                                                                                             )}
@@ -2522,6 +2284,20 @@ export default function CoachesShow({
                                                                                                                       .gender_class,
                                                                                                               )
                                                                                                             : '—'}
+                                                                                                    </TableCell>
+                                                                                                    <TableCell>
+                                                                                                        <Badge variant="secondary">
+                                                                                                            {group
+                                                                                                                .event
+                                                                                                                .event_type ===
+                                                                                                            'team'
+                                                                                                                ? t(
+                                                                                                                      'Team',
+                                                                                                                  )
+                                                                                                                : t(
+                                                                                                                      'Individual',
+                                                                                                                  )}
+                                                                                                        </Badge>
                                                                                                     </TableCell>
                                                                                                     <TableCell>
                                                                                                         <div className="flex flex-wrap gap-1.5">
@@ -2575,7 +2351,7 @@ export default function CoachesShow({
                                                                                                     <TableRow>
                                                                                                         <TableCell
                                                                                                             colSpan={
-                                                                                                                6
+                                                                                                                7
                                                                                                             }
                                                                                                             className="bg-muted/20 p-0"
                                                                                                         >
@@ -2636,23 +2412,65 @@ export default function CoachesShow({
                                                                                                                                             1}
                                                                                                                                     </TableCell>
                                                                                                                                     <TableCell>
-                                                                                                                                        <a
-                                                                                                                                            href={
-                                                                                                                                                playerAchievementUrl
-                                                                                                                                            }
-                                                                                                                                            target="_blank"
-                                                                                                                                            rel="noreferrer"
-                                                                                                                                            className="font-medium text-primary underline-offset-4 hover:underline"
-                                                                                                                                            title={t(
-                                                                                                                                                'Open member achievement in a new tab',
-                                                                                                                                            )}
-                                                                                                                                        >
-                                                                                                                                            {
-                                                                                                                                                player
+                                                                                                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                                                                                                            <a
+                                                                                                                                                href={
+                                                                                                                                                    playerAchievementUrl
+                                                                                                                                                }
+                                                                                                                                                target="_blank"
+                                                                                                                                                rel="noreferrer"
+                                                                                                                                                className="font-medium text-primary underline-offset-4 hover:underline"
+                                                                                                                                                title={t(
+                                                                                                                                                    'Open member achievement in a new tab',
+                                                                                                                                                )}
+                                                                                                                                            >
+                                                                                                                                                {
+                                                                                                                                                    player
+                                                                                                                                                        .member
+                                                                                                                                                        .full_name
+                                                                                                                                                }
+                                                                                                                                            </a>
+                                                                                                                                            {player
+                                                                                                                                                .member
+                                                                                                                                                .is_coach &&
+                                                                                                                                                (player
                                                                                                                                                     .member
-                                                                                                                                                    .full_name
-                                                                                                                                            }
-                                                                                                                                        </a>
+                                                                                                                                                    .coach_id ? (
+                                                                                                                                                    <a
+                                                                                                                                                        href={coachOverview.url(
+                                                                                                                                                            player
+                                                                                                                                                                .member
+                                                                                                                                                                .coach_id,
+                                                                                                                                                        )}
+                                                                                                                                                        target="_blank"
+                                                                                                                                                        rel="noreferrer"
+                                                                                                                                                        title={t(
+                                                                                                                                                            'Open coach profile in a new tab',
+                                                                                                                                                        )}
+                                                                                                                                                        className="inline-flex focus:outline-none"
+                                                                                                                                                    >
+                                                                                                                                                        <Badge
+                                                                                                                                                            variant="outline"
+                                                                                                                                                            className="cursor-pointer border-amber-300 bg-amber-50 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-900/50"
+                                                                                                                                                        >
+                                                                                                                                                            <GraduationCap className="mr-1 inline h-3 w-3" />
+                                                                                                                                                            {t(
+                                                                                                                                                                'Coach',
+                                                                                                                                                            )}
+                                                                                                                                                        </Badge>
+                                                                                                                                                    </a>
+                                                                                                                                                ) : (
+                                                                                                                                                    <Badge
+                                                                                                                                                        variant="outline"
+                                                                                                                                                        className="border-amber-300 bg-amber-50 text-[10px] font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+                                                                                                                                                    >
+                                                                                                                                                        <GraduationCap className="mr-1 inline h-3 w-3" />
+                                                                                                                                                        {t(
+                                                                                                                                                            'Coach',
+                                                                                                                                                        )}
+                                                                                                                                                    </Badge>
+                                                                                                                                                ))}
+                                                                                                                                        </div>
                                                                                                                                     </TableCell>
                                                                                                                                     <TableCell>
                                                                                                                                         {player
@@ -2758,309 +2576,12 @@ export default function CoachesShow({
                     </TabsContent>
 
                     <TabsContent value="promotions">
-                        <div className="rounded-xl border bg-card">
-                            <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <h3 className="text-sm font-semibold">
-                                        {t('Promotions & Rewards')}
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground">
-                                        {t(
-                                            'Manage promotion and cash reward records without editing the full coach profile.',
-                                        )}
-                                    </p>
-                                </div>
-                                {activePromotionTab === 'promotions' ? (
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={() =>
-                                            openAddPromotionDialog('promotion')
-                                        }
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                        {t('Add promotion')}
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={() =>
-                                            openAddPromotionDialog('reward')
-                                        }
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                        {t('Add cash reward')}
-                                    </Button>
-                                )}
-                            </div>
-
-                            <div className="border-b px-4 py-3">
-                                <Tabs
-                                    value={activePromotionTab}
-                                    onValueChange={(value) =>
-                                        setActivePromotionTab(
-                                            value as 'promotions' | 'rewards',
-                                        )
-                                    }
-                                >
-                                    <TabsList>
-                                        <TabsTrigger value="promotions">
-                                            {t('Promotions')}
-                                        </TabsTrigger>
-                                        <TabsTrigger value="rewards">
-                                            {t('Rewards')}
-                                        </TabsTrigger>
-                                    </TabsList>
-                                </Tabs>
-                            </div>
-
-                            {activePromotionRows.length === 0 ? (
-                                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                                    {activePromotionTab === 'promotions'
-                                        ? t('No promotions yet.')
-                                        : t('No rewards yet.')}
-                                </div>
-                            ) : activePromotionTab === 'promotions' ? (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>{t('Type')}</TableHead>
-                                            <TableHead>
-                                                {t('From rank')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('To rank')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Decision date')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Reason / Remarks')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Tournament events')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Recorded by')}
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                {t('Actions')}
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {activePromotionRows.map(
-                                            (promotion) => (
-                                                <TableRow key={promotion.id}>
-                                                    <TableCell>
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={promotionCategoryClass(
-                                                                promotion,
-                                                            )}
-                                                        >
-                                                            {promotionCategory(
-                                                                promotion,
-                                                            )}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {promotion.from_rank ? (
-                                                            rankLabel(
-                                                                promotion.from_rank,
-                                                            )
-                                                        ) : (
-                                                            <span className="text-muted-foreground">
-                                                                —
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {promotion.to_rank ? (
-                                                            rankLabel(
-                                                                promotion.to_rank,
-                                                            )
-                                                        ) : (
-                                                            <span className="text-muted-foreground">
-                                                                —
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {promotion.promotion_date ??
-                                                            '—'}
-                                                    </TableCell>
-                                                    <TableCell className="max-w-[18rem]">
-                                                        <span className="line-clamp-2">
-                                                            {promotion.reason ??
-                                                                promotion.remarks ??
-                                                                '—'}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="max-w-[18rem]">
-                                                        {renderPromotionEvidenceSummary(
-                                                            promotion,
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {promotion.recorded_by_name ??
-                                                            '—'}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    openEditPromotionDialog(
-                                                                        promotion,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Pencil className="h-4 w-4" />
-                                                                {t('Edit')}
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    removePromotion(
-                                                                        promotion.id,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                {t('Remove')}
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ),
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>{t('Type')}</TableHead>
-                                            <TableHead>
-                                                {t('Reward date')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Reward amount')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Tournament events')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Reference')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Remarks')}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t('Recorded by')}
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                {t('Actions')}
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {activePromotionRows.map(
-                                            (promotion) => (
-                                                <TableRow key={promotion.id}>
-                                                    <TableCell>
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={promotionCategoryClass(
-                                                                promotion,
-                                                            )}
-                                                        >
-                                                            {promotionCategory(
-                                                                promotion,
-                                                            )}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {promotion.cash_reward_date ??
-                                                            promotion.promotion_date ??
-                                                            '—'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {promotion.cash_reward_amount ? (
-                                                            `₹${promotion.cash_reward_amount}`
-                                                        ) : (
-                                                            <span className="text-muted-foreground">
-                                                                —
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="max-w-[18rem]">
-                                                        {renderPromotionEvidenceSummary(
-                                                            promotion,
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {promotion.cash_reward_reference ??
-                                                            '—'}
-                                                    </TableCell>
-                                                    <TableCell className="max-w-[18rem]">
-                                                        <span className="line-clamp-2">
-                                                            {promotion.cash_reward_remarks ??
-                                                                '—'}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {promotion.recorded_by_name ??
-                                                            '—'}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    openEditPromotionDialog(
-                                                                        promotion,
-                                                                        hasPromotionFields(
-                                                                            promotion,
-                                                                        )
-                                                                            ? 'promotion'
-                                                                            : 'reward',
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Pencil className="h-4 w-4" />
-                                                                {t('Edit')}
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    removePromotion(
-                                                                        promotion.id,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                {t('Remove')}
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ),
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </div>
+                        <CoachPromotionsTab
+                            coach={coach}
+                            ranks={ranks ?? []}
+                            promotions={coach.promotions ?? []}
+                            rewardEvidenceOptions={rewardEvidenceOptions ?? []}
+                        />
                     </TabsContent>
 
                     <TabsContent value="media">
@@ -3147,7 +2668,12 @@ export default function CoachesShow({
                                                     ) : null}
                                                 </div>
                                                 <div className="text-right text-xs text-muted-foreground">
-                                                    <p>{row.effective_on}</p>
+                                                    <p>
+                                                        {formatDate(
+                                                            row.effective_on,
+                                                            '—',
+                                                        )}
+                                                    </p>
                                                     {row.recorded_by_name ? (
                                                         <p>
                                                             {
@@ -3165,310 +2691,6 @@ export default function CoachesShow({
                     </TabsContent>
                 </Tabs>
             </div>
-
-            <Dialog
-                open={promotionDialogOpen}
-                onOpenChange={(open) => {
-                    setPromotionDialogOpen(open);
-
-                    if (!open) {
-                        resetPromotionForm();
-                    }
-                }}
-            >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-                    <form onSubmit={submitPromotion}>
-                        <DialogHeader>
-                            <DialogTitle>
-                                {promotionDialogMode === 'reward'
-                                    ? editingPromotion
-                                        ? t('Edit reward')
-                                        : t('Add cash reward')
-                                    : editingPromotion
-                                      ? t('Edit promotion')
-                                      : t('Add promotion')}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {promotionDialogMode === 'reward'
-                                    ? t(
-                                          'Save a cash reward without changing the full coach profile.',
-                                      )
-                                    : t(
-                                          'Save a promotion without changing the full coach profile.',
-                                      )}
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <div className="grid gap-4 py-4">
-                            {promotionDialogMode === 'promotion' ? (
-                                <>
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="promotion_date">
-                                                {t('Promotion date')}
-                                            </Label>
-                                            <DatePicker
-                                                id="promotion_date"
-                                                value={
-                                                    promotionForm.data
-                                                        .promotion_date
-                                                }
-                                                onChange={(value) =>
-                                                    promotionForm.setData(
-                                                        'promotion_date',
-                                                        value,
-                                                    )
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    promotionForm.errors
-                                                        .promotion_date
-                                                }
-                                            />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="from_rank">
-                                                {t('From rank')}
-                                            </Label>
-                                            <Combobox
-                                                id="from_rank"
-                                                value={
-                                                    promotionForm.data.from_rank
-                                                }
-                                                onValueChange={(value) =>
-                                                    promotionForm.setData(
-                                                        'from_rank',
-                                                        value,
-                                                    )
-                                                }
-                                                items={rankItems}
-                                                placeholder={t('Select rank')}
-                                                searchPlaceholder={t(
-                                                    'Search ranks…',
-                                                )}
-                                            />
-                                            <InputError
-                                                message={
-                                                    promotionForm.errors
-                                                        .from_rank
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="to_rank">
-                                            {t('To rank')}{' '}
-                                            <span className="text-destructive">
-                                                *
-                                            </span>
-                                        </Label>
-                                        <Combobox
-                                            id="to_rank"
-                                            value={promotionForm.data.to_rank}
-                                            onValueChange={(value) =>
-                                                promotionForm.setData(
-                                                    'to_rank',
-                                                    value,
-                                                )
-                                            }
-                                            items={rankItems}
-                                            placeholder={t('Select rank')}
-                                            searchPlaceholder={t(
-                                                'Search ranks…',
-                                            )}
-                                        />
-                                        <InputError
-                                            message={
-                                                promotionForm.errors.to_rank
-                                            }
-                                        />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="reason">
-                                            {t('Reason')}
-                                        </Label>
-                                        <Textarea
-                                            id="reason"
-                                            value={promotionForm.data.reason}
-                                            onChange={(event) =>
-                                                promotionForm.setData(
-                                                    'reason',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            rows={3}
-                                        />
-                                        <InputError
-                                            message={
-                                                promotionForm.errors.reason
-                                            }
-                                        />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="promotion_remarks">
-                                            {t('Remarks')}
-                                        </Label>
-                                        <Textarea
-                                            id="promotion_remarks"
-                                            value={promotionForm.data.remarks}
-                                            onChange={(event) =>
-                                                promotionForm.setData(
-                                                    'remarks',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            rows={3}
-                                        />
-                                        <InputError
-                                            message={
-                                                promotionForm.errors.remarks
-                                            }
-                                        />
-                                    </div>
-
-                                    {renderEvidencePicker('promotion')}
-                                </>
-                            ) : (
-                                <>
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="cash_reward_amount">
-                                                {t('Cash reward amount')}{' '}
-                                                <span className="text-destructive">
-                                                    *
-                                                </span>
-                                            </Label>
-                                            <Input
-                                                id="cash_reward_amount"
-                                                value={
-                                                    promotionForm.data
-                                                        .cash_reward_amount
-                                                }
-                                                onChange={(event) =>
-                                                    promotionForm.setData(
-                                                        'cash_reward_amount',
-                                                        event.target.value,
-                                                    )
-                                                }
-                                                inputMode="decimal"
-                                            />
-                                            <InputError
-                                                message={
-                                                    promotionForm.errors
-                                                        .cash_reward_amount
-                                                }
-                                            />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="cash_reward_date">
-                                                {t('Cash reward date')}
-                                            </Label>
-                                            <DatePicker
-                                                id="cash_reward_date"
-                                                value={
-                                                    promotionForm.data
-                                                        .cash_reward_date
-                                                }
-                                                onChange={(value) =>
-                                                    promotionForm.setData(
-                                                        'cash_reward_date',
-                                                        value,
-                                                    )
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    promotionForm.errors
-                                                        .cash_reward_date
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="cash_reward_reference">
-                                            {t('Cash reward reference')}
-                                        </Label>
-                                        <Input
-                                            id="cash_reward_reference"
-                                            value={
-                                                promotionForm.data
-                                                    .cash_reward_reference
-                                            }
-                                            onChange={(event) =>
-                                                promotionForm.setData(
-                                                    'cash_reward_reference',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            maxLength={100}
-                                        />
-                                        <InputError
-                                            message={
-                                                promotionForm.errors
-                                                    .cash_reward_reference
-                                            }
-                                        />
-                                    </div>
-
-                                    {renderEvidencePicker('reward')}
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="cash_reward_remarks">
-                                            {t('Cash reward remarks')}
-                                        </Label>
-                                        <Textarea
-                                            id="cash_reward_remarks"
-                                            value={
-                                                promotionForm.data
-                                                    .cash_reward_remarks
-                                            }
-                                            onChange={(event) =>
-                                                promotionForm.setData(
-                                                    'cash_reward_remarks',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            rows={3}
-                                        />
-                                        <InputError
-                                            message={
-                                                promotionForm.errors
-                                                    .cash_reward_remarks
-                                            }
-                                        />
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setPromotionDialogOpen(false)}
-                            >
-                                {t('Cancel')}
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={
-                                    promotionForm.processing ||
-                                    !isPromotionFormValid()
-                                }
-                            >
-                                {promotionDialogMode === 'reward'
-                                    ? t('Save reward')
-                                    : t('Save promotion')}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
 
             <Dialog
                 open={certificationDialogOpen}
@@ -3841,29 +3063,89 @@ export default function CoachesShow({
                 t={t}
             />
 
-            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>{t('Delete coach')}</DialogTitle>
-                        <DialogDescription>
-                            {t(
-                                'Are you sure you want to delete this coach? This action cannot be undone.',
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setDeleteOpen(false)}
-                        >
-                            {t('Cancel')}
-                        </Button>
-                        <Button variant="destructive" onClick={handleDelete}>
-                            {t('Delete')}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <ConfirmationDialog
+                open={generateAthleteProfileOpen}
+                onOpenChange={setGenerateAthleteProfileOpen}
+                variant="info"
+                icon={
+                    <UserRound className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                }
+                title={t('Generate Athlete Profile')}
+                description={t(
+                    'Generate an athlete (player) profile for this coach? This will create a linked athlete profile with matching personal details and PNO, enabling them to compete in tournaments.',
+                )}
+                confirmLabel={t('Generate Profile')}
+                processing={generatingAthleteProfile}
+                onConfirm={() => {
+                    setGeneratingAthleteProfile(true);
+                    router.post(
+                        generateAthleteProfile.url(coach),
+                        {},
+                        {
+                            preserveScroll: true,
+                            onFinish: () => {
+                                setGeneratingAthleteProfile(false);
+                                setGenerateAthleteProfileOpen(false);
+                            },
+                        },
+                    );
+                }}
+            />
+
+            <ConfirmationDialog
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+                variant="destructive"
+                title={t('Delete coach')}
+                description={t(
+                    'Are you sure you want to delete this coach? This action cannot be undone.',
+                )}
+                confirmLabel={t('Delete')}
+                processing={isDeletingCoach}
+                onConfirm={handleDelete}
+            />
+
+            <ConfirmationDialog
+                open={removePhotoOpen}
+                onOpenChange={setRemovePhotoOpen}
+                variant="destructive"
+                title={t('Remove photo')}
+                description={t(
+                    "Are you sure you want to remove this coach's photo?",
+                )}
+                confirmLabel={t('Remove')}
+                onConfirm={handleRemovePhoto}
+            />
+
+            {coach.photo_path && (
+                <ProfilePhotoLightbox
+                    src={`/storage/${coach.photo_path}`}
+                    alt={coach.full_name}
+                    open={photoLightboxOpen}
+                    onClose={() => setPhotoLightboxOpen(false)}
+                />
+            )}
+
+            <ConfirmationDialog
+                open={removingCertification !== null}
+                onOpenChange={(o) => {
+                    if (!o) {
+                        setRemovingCertification(null);
+                    }
+                }}
+                variant="destructive"
+                title={t('Remove certification')}
+                description={t(
+                    'Are you sure you want to remove this certification? This action cannot be undone.',
+                )}
+                confirmLabel={t('Remove')}
+                onConfirm={() => {
+                    if (removingCertification !== null) {
+                        removeCertification(removingCertification);
+                        setRemovingCertification(null);
+                    }
+                }}
+            />
 
             <CoachStatusDialog
                 coach={coach}

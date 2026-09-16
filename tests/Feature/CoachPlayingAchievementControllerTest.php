@@ -515,7 +515,7 @@ test('linked coach derives playing achievements from the member record', functio
         );
 });
 
-test('legacy free-form records are hidden for a linked coach', function (): void {
+test('prior pre-recruitment records are exposed alongside tournament medals for a linked coach', function (): void {
     $user = coachPlayingAchievementUser('coaches.view');
     $member = Member::factory()->create(['organization_id' => $user->organization_id]);
     $coach = Coach::factory()->create([
@@ -536,7 +536,9 @@ test('legacy free-form records are hidden for a linked coach', function (): void
             ->where('playingAchievements.source', 'member')
             ->has('playingAchievements.records', 1)
             ->where('playingAchievements.records.0.medal_type', 'BRONZE')
-            ->where('playingAchievements.summary.total', 1)
+            ->has('playingAchievements.pre_recruitment_records', 1)
+            ->where('playingAchievements.summary.tournament_medals', 1)
+            ->where('playingAchievements.summary.total', 2)
         );
 
     expect(CoachPlayingAchievement::where('coach_id', $coach->id)->count())->toBe(1);

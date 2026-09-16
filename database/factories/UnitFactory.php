@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Organization;
 use App\Models\Unit;
+use App\Models\UnitType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,12 +19,10 @@ class UnitFactory extends Factory
      */
     public function definition(): array
     {
-        $types = ['PAC', 'GRP', 'DISTRICT', 'HQ', 'OTHER'];
-
         return [
             'organization_id' => Organization::factory(),
             'name' => fake()->words(2, true),
-            'unit_type' => fake()->randomElement($types),
+            'unit_type_id' => UnitType::query()->inRandomOrder()->value('id') ?? UnitType::factory(),
             'commandant' => null,
             'district_id' => null,
         ];

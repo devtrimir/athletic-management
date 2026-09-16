@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\StoreUnitRequest;
 use App\Http\Requests\Settings\UpdateUnitRequest;
 use App\Models\District;
 use App\Models\Unit;
+use App\Models\UnitType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -21,7 +22,7 @@ class UnitController extends Controller
     {
         Gate::authorize('viewAny', Unit::class);
 
-        $units = Unit::with('district')
+        $units = Unit::with(['district', 'unitType'])
             ->where('organization_id', $request->user()->organization_id)
             ->orderBy('name')
             ->get();
@@ -36,9 +37,11 @@ class UnitController extends Controller
         Gate::authorize('create', Unit::class);
 
         $districts = District::orderBy('name')->get(['id', 'name']);
+        $unitTypes = UnitType::active()->ordered()->get(['id', 'name', 'name_en']);
 
         return Inertia::render('settings/units/create', [
             'districts' => $districts,
+            'unitTypes' => $unitTypes,
         ]);
     }
 
@@ -61,10 +64,16 @@ class UnitController extends Controller
         Gate::authorize('update', $unit);
 
         $districts = District::orderBy('name')->get(['id', 'name']);
+        $unitTypes = UnitType::query()
+            ->where('is_active', true)
+            ->orWhere('id', $unit->unit_type_id)
+            ->ordered()
+            ->get(['id', 'name', 'name_en']);
 
         return Inertia::render('settings/units/edit', [
             'unit' => $unit,
             'districts' => $districts,
+            'unitTypes' => $unitTypes,
         ]);
     }
 

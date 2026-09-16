@@ -1,10 +1,11 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { List, Pencil } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 type ExternalCoach = {
     id: number;
@@ -25,27 +26,6 @@ type ExternalCoach = {
     }>;
 };
 
-function parseDate(value: string | null): Date | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = new Date(value);
-
-    return Number.isFinite(date.getTime()) ? date : null;
-}
-
-function formatDate(value: string | null, locale: string): string {
-    const date = parseDate(value);
-
-    if (date === null) {
-        return '-';
-    }
-
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        dateStyle: 'medium',
-    }).format(date);
-}
 
 type Props = {
     externalCoach: ExternalCoach;
@@ -53,8 +33,6 @@ type Props = {
 
 export default function ExternalCoachesShow({ externalCoach }: Props) {
     const { t } = useTranslation();
-    const { locale: appLocale } = usePage().props as { locale?: string };
-    const locale = appLocale ?? 'en';
 
     return (
         <>
@@ -140,7 +118,7 @@ export default function ExternalCoachesShow({ externalCoach }: Props) {
                                                 <div key={entry.id} className="rounded-md border p-2">
                                                     <div className="font-medium">{t(entry.status)}</div>
                                                     <div className="text-muted-foreground">
-                                                        {formatDate(entry.recorded_at, locale)} •{' '}
+                                                        {formatDate(entry.recorded_at, '-')} •{' '}
                                                         {entry.recorded_by?.name ?? t('System')}
                                                     </div>
                                                     <div>{entry.reason ?? '-'}</div>

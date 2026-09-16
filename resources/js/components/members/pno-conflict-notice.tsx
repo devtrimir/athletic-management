@@ -1,7 +1,6 @@
 import { router } from '@inertiajs/react';
 import {
     AlertCircle,
-    CheckCircle2,
     Loader2,
     RotateCcw,
     Trash2,
@@ -22,7 +21,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
 import { ArchivedMemberActionDialog } from './archived-member-action-dialog';
@@ -69,18 +67,22 @@ export function PnoConflictNotice({
 
     useEffect(() => {
         const trimmed = pno.trim();
-        if (trimmed.length < 3) {
-            setConflict(null);
-            setIsChecking(false);
-            return;
-        }
 
         if (debounceRef.current) {
             clearTimeout(debounceRef.current);
         }
 
-        setIsChecking(true);
+        if (trimmed.length < 3) {
+            debounceRef.current = setTimeout(() => {
+                setConflict(null);
+                setIsChecking(false);
+            }, 0);
+
+            return;
+        }
+
         debounceRef.current = setTimeout(() => {
+            setIsChecking(true);
             fetch(checkPno.url({ query: { pno: trimmed } }), {
                 headers: {
                     Accept: 'application/json',
@@ -91,6 +93,7 @@ export function PnoConflictNotice({
                     if (!res.ok) {
                         return null;
                     }
+
                     return res.json();
                 })
                 .then((data: ConflictData | null) => {
@@ -163,6 +166,7 @@ export function PnoConflictNotice({
         conflict.member.id !== dismissedId
     ) {
         const m = conflict.member;
+
         return (
             <div className="col-span-full rounded-lg border border-amber-300 bg-amber-50/90 p-4 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/40">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -175,12 +179,6 @@ export function PnoConflictNotice({
                                 <h4 className="font-semibold text-amber-950 dark:text-amber-100 text-sm">
                                     {t('Archived Member Found with this PNO')}
                                 </h4>
-                                <Badge
-                                    variant="outline"
-                                    className="border-amber-400 bg-amber-100/60 text-amber-900 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
-                                >
-                                    {m.member_code}
-                                </Badge>
                             </div>
                             <p className="mt-1 text-xs text-amber-900/90 dark:text-amber-200/90">
                                 <span className="font-medium">{m.full_name}</span>

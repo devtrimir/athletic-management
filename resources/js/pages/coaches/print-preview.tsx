@@ -1,452 +1,26 @@
-import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { Head, usePage } from '@inertiajs/react';
 import { useMemo, useRef, useState } from 'react';
-import CoachController from '@/actions/App/Http/Controllers/CoachController';
-import { LocaleSwitcher } from '@/components/locale-switcher';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+    CoachAchievementsSection,
+    CoachAssignmentsSection,
+    CoachCertificationsSection,
+    CoachPlayingAchievementsSection,
+    CoachPrintHeader,
+    CoachPrintToolbar,
+    CoachProfileSection,
+    CoachPromotionsSection,
+    CoachServiceSection,
+    CoachSpecialAchievementsSection,
+    CoachSportsSection,
+    CoachStatusSection,
+    DEFAULT_SECTIONS,
+    LETTERHEAD_LOGO_SRC,
+} from '@/components/coaches/print';
+import type {
+    CoachPrintPreviewProps,
+    SectionKey,
+} from '@/components/coaches/print';
 import { useTranslation } from '@/hooks/use-translation';
-import { coachRoleLabel } from '@/lib/coach';
-
-type Coach = {
-    id: number;
-    full_name: string;
-    display_name: string | null;
-    blood_group: string | null;
-    email: string | null;
-    gender: string | null;
-    date_of_birth: string | null;
-    coach_status: string | null;
-    bio: string | null;
-    address: string | null;
-    photo_path: string | null;
-    pno: string | null;
-    mobile: string | null;
-    district?: { id: number; name: string } | null;
-    unit?: { id: number; name: string } | null;
-    rank_master?: {
-        id: number;
-        code: string | null;
-        name: string | null;
-        short_name: string | null;
-    } | null;
-    sports?: CoachSport[];
-    certifications?: CoachCertification[];
-    promotions?: CoachPromotion[];
-};
-
-type CoachSport = {
-    id: number;
-    name: string;
-    is_primary: boolean;
-    sport_event: string | null;
-    level: string | null;
-    effective_from: string | null;
-    effective_to: string | null;
-    notes: string | null;
-};
-
-type CoachCertification = {
-    id: number;
-    name: string;
-    certificate_type: string | null;
-    issuer: string | null;
-    issued_at: string | null;
-    expired_at: string | null;
-};
-
-type CoachAssignment = {
-    id: number;
-    role: string | null;
-    is_current: boolean;
-    assigned_at: string | null;
-    removed_at: string | null;
-    notes: string | null;
-    team: { id: number; name: string } | null;
-    sport: { id: number; name: string } | null;
-    session: { id: number; name: string } | null;
-};
-
-type CoachStatusHistory = {
-    id: number;
-    status: string;
-    effective_on: string;
-    reason: string | null;
-    recorded_by_name: string | null;
-};
-
-type AchievementBenefit = {
-    id: number;
-    benefit_type: string;
-    promoted_from_rank: string | null;
-    promoted_to_rank: string | null;
-    cash_amount: string | null;
-    benefit_date: string | null;
-    order_reference: string | null;
-    remarks: string | null;
-};
-
-type CoachAchievementPlayer = {
-    achievement_id: number;
-    member: {
-        id: number;
-        full_name: string;
-        pno: string | null;
-    };
-    medal_type: 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT';
-    position: number | null;
-    participation_position: number | null;
-    remarks: string | null;
-    benefits: AchievementBenefit[];
-};
-
-type CoachAchievementGroup = {
-    id: string;
-    session: { id: number; name: string; is_current: boolean };
-    team: { id: number; name: string };
-    tournament: {
-        id: number;
-        name: string;
-        tier_code: string | null;
-        date_from: string | null;
-        date_to: string | null;
-        venue: string | null;
-        sport: { id: number; name: string } | null;
-    };
-    event: {
-        id: number;
-        name: string;
-        gender_class: string | null;
-        discipline: string | null;
-        weight_category: string | null;
-        sport: { id: number; name: string } | null;
-    };
-    medal_counts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>;
-    players: CoachAchievementPlayer[];
-};
-
-type CoachAchievementsData = {
-    summary: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number> & {
-        total_events: number;
-        medal_winning_players: number;
-    };
-    groups: CoachAchievementGroup[];
-};
-
-type SpecialAchievementRecord = {
-    id: number;
-    achievement_type: string;
-    title: string;
-    awarded_on: string | null;
-    issuing_authority: string | null;
-    order_reference: string | null;
-    place: string | null;
-    remarks: string | null;
-};
-
-type SpecialAchievementsData = {
-    records: SpecialAchievementRecord[];
-    summary: {
-        total: number;
-        commendation_discs: number;
-    };
-};
-
-type PlayingAchievementRecord = {
-    id: number;
-    title: string;
-    period: string | null;
-    level: string | null;
-    competition_details: string | null;
-    event_date: string | null;
-    venue: string | null;
-    sport_id: number;
-    sport: { id: number; name: string } | null;
-    event: string | null;
-    medal_type: string | null;
-    event_type: 'team' | 'individual' | null;
-    position: number | null;
-    achieved_on: string | null;
-    remarks: string | null;
-};
-
-type MemberPlayingAchievementRecord = {
-    id: number;
-    medal_type: string | null;
-    position: number | null;
-    remarks: string | null;
-    session: { id: number; name: string };
-    tournament: {
-        id: number;
-        name: string;
-        tier_code: string | null;
-        tier_label: string | null;
-        date_from: string | null;
-        date_to: string | null;
-        venue: string | null;
-    };
-    event: { id: number; name: string };
-    event_kind: 'team' | 'individual';
-    achieved_on: string | null;
-};
-
-type PlayingAchievementsData = {
-    source: 'member' | 'legacy';
-    linked_member: {
-        id: number;
-        member_code: string;
-        full_name: string;
-    } | null;
-    records: (PlayingAchievementRecord | MemberPlayingAchievementRecord)[];
-    summary: {
-        total: number;
-        medals: number;
-    };
-};
-
-type CoachPromotion = {
-    id: number;
-    promotion_date: string | null;
-    from_rank: string | null;
-    to_rank: string | null;
-    cash_reward_amount: string | null;
-    cash_reward_date: string | null;
-    cash_reward_reference: string | null;
-    cash_reward_remarks: string | null;
-    reason: string | null;
-    remarks: string | null;
-    recorded_by_name: string | null;
-    evidences: {
-        id: number;
-        summary: string | null;
-        session: { id: number; name: string } | null;
-        tournament: {
-            id: number;
-            name: string;
-            tier_code: string | null;
-        } | null;
-        event: {
-            id: number;
-            name: string;
-            weight_category: string | null;
-        } | null;
-        team: { id: number; name: string } | null;
-    }[];
-};
-
-type SectionKey =
-    | 'profile'
-    | 'service'
-    | 'sports'
-    | 'assignments'
-    | 'achievements'
-    | 'specialAchievements'
-    | 'playingAchievements'
-    | 'certifications'
-    | 'promotions'
-    | 'status';
-
-type Props = {
-    coach: Coach;
-    coachTeams?: CoachAssignment[];
-    statusHistory?: CoachStatusHistory[];
-    coachAchievements?: CoachAchievementsData;
-    specialAchievements?: SpecialAchievementsData;
-    playingAchievements?: PlayingAchievementsData;
-};
-
-const LETTERHEAD_LOGO_SRC = '/logo.jpg';
-
-const SECTION_LABELS: Record<SectionKey, string> = {
-    profile: 'Profile details',
-    service: 'Service and contact',
-    sports: 'Playable sports',
-    assignments: 'Team assignments',
-    achievements: 'Achievements',
-    specialAchievements: 'Special achievements',
-    playingAchievements: 'Playing career achievements',
-    certifications: 'Certifications',
-    promotions: 'Promotions / rewards',
-    status: 'Status history',
-};
-
-const DEFAULT_SECTIONS: SectionKey[] = [
-    'profile',
-    'service',
-    'sports',
-    'assignments',
-    'achievements',
-    'specialAchievements',
-    'playingAchievements',
-    'certifications',
-    'promotions',
-    'status',
-];
-
-function hasValue(value: unknown): boolean {
-    return value !== null && value !== undefined && value !== '';
-}
-
-function humanize(value: string | null | undefined): string {
-    if (!value) {
-        return '';
-    }
-
-    return value
-        .replace(/[_-]+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase()
-        .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function formatDate(value: string | null | undefined): string {
-    if (!value) {
-        return '';
-    }
-
-    const datePart = value.trim().split('T')[0].split(' ')[0];
-    const [year, month, day] = datePart.split('-');
-
-    if (!year || !month || !day) {
-        return value;
-    }
-
-    return `${day}/${month}/${year}`;
-}
-
-function genderLabel(value: string | null | undefined): string {
-    if (value === 'M') {
-        return 'Male';
-    }
-
-    if (value === 'F') {
-        return 'Female';
-    }
-
-    if (value === 'O') {
-        return 'Other';
-    }
-
-    return value ?? '';
-}
-
-function medalSummary(
-    counts: Record<'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT', number>,
-): string {
-    return (['GOLD', 'SILVER', 'BRONZE', 'MERIT'] as const)
-        .filter((medal) => counts[medal] > 0)
-        .map((medal) => `${humanize(medal)}: ${counts[medal]}`)
-        .join(', ');
-}
-
-function rankLabel(coach: Coach): string {
-    return (
-        coach.rank_master?.name ??
-        coach.rank_master?.short_name ??
-        coach.rank_master?.code ??
-        ''
-    );
-}
-
-function Section({
-    title,
-    children,
-}: {
-    title: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <section className="break-inside-avoid rounded-lg border bg-white p-3 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
-            <h2 className="mb-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase print:mb-1 print:text-[10px] print:text-black">
-                {title}
-            </h2>
-            {children}
-        </section>
-    );
-}
-
-function DetailsTable({
-    rows,
-}: {
-    rows: { label: string; value: React.ReactNode }[];
-}) {
-    const visibleRows = rows.filter((row) => hasValue(row.value));
-
-    if (visibleRows.length === 0) {
-        return null;
-    }
-
-    return (
-        <div className="overflow-hidden rounded-md border print:rounded-sm">
-            <table className="w-full text-sm">
-                <tbody className="print:text-[10px]">
-                    {visibleRows.map((row) => (
-                        <tr
-                            key={row.label}
-                            className="border-t first:border-t-0"
-                        >
-                            <th className="w-1/3 bg-muted/30 p-2 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase print:py-1 print:text-[9px]">
-                                {row.label}
-                            </th>
-                            <td className="p-2 text-foreground print:py-1">
-                                {row.value}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-}
-
-function DataTable({
-    columns,
-    rows,
-    serialLabel,
-}: {
-    columns: string[];
-    rows: React.ReactNode[][];
-    serialLabel: string;
-}) {
-    if (rows.length === 0) {
-        return null;
-    }
-
-    return (
-        <div className="overflow-hidden rounded-md border print:rounded-sm">
-            <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
-                    <tr>
-                        <th className="w-10 p-2 text-center">{serialLabel}</th>
-                        {columns.map((column) => (
-                            <th key={column} className="p-2 font-semibold">
-                                {column}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody className="print:text-[10px]">
-                    {rows.map((row, index) => (
-                        <tr key={index} className="border-t print:align-top">
-                            <td className="p-2 text-center text-muted-foreground print:py-1">
-                                {index + 1}
-                            </td>
-                            {row.map((cell, cellIndex) => (
-                                <td
-                                    key={cellIndex}
-                                    className="p-2 align-top print:py-1"
-                                >
-                                    {cell}
-                                </td>
-                            ))}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-}
 
 export default function CoachPrintPreview({
     coach,
@@ -455,12 +29,15 @@ export default function CoachPrintPreview({
     coachAchievements,
     specialAchievements,
     playingAchievements,
-}: Props) {
+    ranks = [],
+}: CoachPrintPreviewProps) {
     const { t } = useTranslation();
+    const { locale = 'en' } = usePage().props as { locale?: string };
     const printTargetRef = useRef<HTMLDivElement | null>(null);
     const [selectedSections, setSelectedSections] =
         useState<SectionKey[]>(DEFAULT_SECTIONS);
     const enabled = (section: SectionKey) => selectedSections.includes(section);
+    const [showPromotionPlayers, setShowPromotionPlayers] = useState(true);
 
     const filename = useMemo(() => {
         const safeName = coach.full_name
@@ -517,9 +94,6 @@ export default function CoachPrintPreview({
     const sports = coach.sports ?? [];
     const certifications = coach.certifications ?? [];
     const promotions = coach.promotions ?? [];
-    const achievements = coachAchievements?.groups ?? [];
-    const specialAchievementRecords = specialAchievements?.records ?? [];
-    const playingAchievementRecords = playingAchievements?.records ?? [];
 
     return (
         <>
@@ -541,540 +115,88 @@ export default function CoachPrintPreview({
                     className="pointer-events-none absolute top-1/2 left-1/2 z-0 hidden size-[520px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.045] print:block"
                 />
 
-                <div className="flex items-start justify-between gap-4 print:hidden">
-                    <div className="flex items-start gap-4">
-                        <div className="space-y-1">
-                            <div className="text-xs text-muted-foreground">
-                                {[t('Coaches'), coach.full_name].join(' / ')}
-                            </div>
-                            <h1 className="text-2xl font-bold">
-                                {t('Print preview')}
-                            </h1>
-                            <div className="pt-1">
-                                <LocaleSwitcher />
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" asChild>
-                            <Link href={CoachController.show.url(coach)}>
-                                <ArrowLeft className="mr-1.5 size-4" />
-                                {t('Back')}
-                            </Link>
-                        </Button>
-                        <Button type="button" onClick={handlePrint}>
-                            <Printer className="mr-1.5 size-4" />
-                            {t('Print')}
-                        </Button>
-                    </div>
-                </div>
+                <CoachPrintToolbar
+                    coach={coach}
+                    selectedSections={selectedSections}
+                    onToggleSection={toggleSection}
+                    onPrint={handlePrint}
+                    t={t}
+                    showPromotionPlayers={showPromotionPlayers}
+                    onToggleShowPromotionPlayers={() =>
+                        setShowPromotionPlayers((current) => !current)
+                    }
+                />
 
-                <div className="relative z-10 flex items-center gap-4 border-b-2 border-neutral-900 pb-3 print:gap-3 print:pb-2">
-                    <img
-                        src={LETTERHEAD_LOGO_SRC}
-                        alt={t('UP Police Sports Control Board')}
-                        className="size-20 shrink-0 object-contain print:size-16"
-                    />
-                    <div className="min-w-0 flex-1 text-center">
-                        <div className="text-lg font-bold tracking-wide uppercase print:text-[16px]">
-                            {t('UP Police Sports Control Board')}
-                        </div>
-                        <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase print:text-[11px] print:text-black">
-                            {t('Coach profile record')}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground print:text-[9px] print:text-neutral-700">
-                            {t('Official print preview')}
-                        </div>
-                    </div>
-                    <div
-                        className="hidden w-20 print:block"
-                        aria-hidden="true"
-                    />
-                </div>
-
-                <div className="grid gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 print:hidden">
-                    <div className="text-sm font-semibold text-foreground">
-                        {t('Print options')}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {DEFAULT_SECTIONS.map((section) => (
-                            <label
-                                key={section}
-                                className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-sm"
-                            >
-                                <Checkbox
-                                    checked={selectedSections.includes(section)}
-                                    onCheckedChange={() =>
-                                        toggleSection(section)
-                                    }
-                                />
-                                <span>{t(SECTION_LABELS[section])}</span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
+                <CoachPrintHeader t={t} />
 
                 <div className="relative z-10 grid gap-3 print:gap-2">
                     {enabled('profile') && (
-                        <Section title={t('Profile details')}>
-                            <div className="flex items-start gap-4 print:gap-3">
-                                <div className="min-w-0 flex-1 space-y-3 print:space-y-2">
-                                    <div>
-                                        <div className="text-2xl leading-tight font-bold text-foreground print:text-[16px]">
-                                            {coach.full_name}
-                                        </div>
-                                        <div className="mt-2 border-b border-neutral-200 print:mt-1.5" />
-                                    </div>
-                                    <DetailsTable
-                                        rows={[
-                                            {
-                                                label: t('PNO'),
-                                                value: coach.pno ? (
-                                                    <span className="font-mono">
-                                                        {coach.pno}
-                                                    </span>
-                                                ) : null,
-                                            },
-                                            {
-                                                label: t('Rank'),
-                                                value: rankLabel(coach),
-                                            },
-                                            {
-                                                label: t('Gender'),
-                                                value: genderLabel(
-                                                    coach.gender,
-                                                ),
-                                            },
-                                            {
-                                                label: t('Date of birth'),
-                                                value: formatDate(
-                                                    coach.date_of_birth,
-                                                ),
-                                            },
-                                            {
-                                                label: t('Blood group'),
-                                                value: coach.blood_group,
-                                            },
-                                            {
-                                                label: t('Status'),
-                                                value: humanize(
-                                                    coach.coach_status,
-                                                ),
-                                            },
-                                        ]}
-                                    />
-                                </div>
-                                <div className="size-28 shrink-0 overflow-hidden rounded-md border bg-muted print:size-24">
-                                    {coach.photo_path ? (
-                                        <img
-                                            src={`/storage/${coach.photo_path}`}
-                                            alt={coach.full_name}
-                                            className="size-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="flex size-full items-center justify-center px-2 text-center text-xs text-muted-foreground print:text-[9px]">
-                                            {t('No photo')}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </Section>
+                        <CoachProfileSection coach={coach} t={t} />
                     )}
 
                     {enabled('service') && (
-                        <Section title={t('Service and contact')}>
-                            <DetailsTable
-                                rows={[
-                                    {
-                                        label: t('Mobile'),
-                                        value: coach.mobile,
-                                    },
-                                    {
-                                        label: t('Email'),
-                                        value: coach.email,
-                                    },
-                                    {
-                                        label: t('Unit'),
-                                        value: coach.unit?.name,
-                                    },
-                                    {
-                                        label: t('District'),
-                                        value: coach.district?.name,
-                                    },
-                                    {
-                                        label: t('Address'),
-                                        value: coach.address,
-                                    },
-                                    {
-                                        label: t('Bio'),
-                                        value: coach.bio,
-                                    },
-                                ]}
-                            />
-                        </Section>
+                        <CoachServiceSection coach={coach} t={t} />
                     )}
 
                     {enabled('sports') && sports.length > 0 && (
-                        <Section title={t('Playable sports')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[t('Sport'), t('Event / Weight')]}
-                                rows={sports.map((sport) => [
-                                    sport.name,
-                                    sport.sport_event,
-                                ])}
-                            />
-                        </Section>
+                        <CoachSportsSection sports={sports} t={t} />
                     )}
 
                     {enabled('assignments') && coachTeams.length > 0 && (
-                        <Section title={t('Team assignments')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[
-                                    t('Team'),
-                                    t('Sport'),
-                                    t('Session'),
-                                    t('Role'),
-                                    t('Assigned at'),
-                                    t('Removed at'),
-                                    t('Status'),
-                                ]}
-                                rows={coachTeams.map((assignment) => [
-                                    assignment.team?.name,
-                                    assignment.sport?.name,
-                                    assignment.session?.name,
-                                    coachRoleLabel(assignment.role, t),
-                                    formatDate(assignment.assigned_at),
-                                    formatDate(assignment.removed_at),
-                                    assignment.is_current
-                                        ? t('Current')
-                                        : t('Removed'),
-                                ])}
-                            />
-                        </Section>
+                        <CoachAssignmentsSection
+                            coachTeams={coachTeams}
+                            t={t}
+                        />
                     )}
 
-                    {enabled('achievements') && achievements.length > 0 && (
-                        <Section title={t('Achievements')}>
-                            <div className="mb-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-6 print:grid-cols-6 print:text-[9px]">
-                                {(
-                                    [
-                                        'GOLD',
-                                        'SILVER',
-                                        'BRONZE',
-                                        'MERIT',
-                                    ] as const
-                                ).map((medal) => (
-                                    <div
-                                        key={medal}
-                                        className="rounded-md border px-2 py-1.5 text-center print:py-1"
-                                    >
-                                        <div className="font-semibold">
-                                            {humanize(medal)}
-                                        </div>
-                                        <div>
-                                            {coachAchievements?.summary[medal]}
-                                        </div>
-                                    </div>
-                                ))}
-                                <div className="rounded-md border px-2 py-1.5 text-center print:py-1">
-                                    <div className="font-semibold">
-                                        {t('Events')}
-                                    </div>
-                                    <div>
-                                        {
-                                            coachAchievements?.summary
-                                                .total_events
-                                        }
-                                    </div>
-                                </div>
-                                <div className="rounded-md border px-2 py-1.5 text-center print:py-1">
-                                    <div className="font-semibold">
-                                        {t('Players')}
-                                    </div>
-                                    <div>
-                                        {
-                                            coachAchievements?.summary
-                                                .medal_winning_players
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[
-                                    t('Session'),
-                                    t('Team'),
-                                    t('Tournament'),
-                                    t('Event / Weight'),
-                                    t('Medals'),
-                                    t('Players'),
-                                ]}
-                                rows={achievements.map((group) => [
-                                    group.session.name,
-                                    group.team.name,
-                                    [
-                                        group.tournament.name,
-                                        group.tournament.tier_code,
-                                        formatDate(group.tournament.date_from),
-                                    ]
-                                        .filter(Boolean)
-                                        .join(' · '),
-                                    [
-                                        group.event.name,
-                                        group.event.weight_category,
-                                    ]
-                                        .filter(Boolean)
-                                        .join(' / '),
-                                    medalSummary(group.medal_counts),
-                                    group.players
-                                        .map((player) =>
-                                            [
-                                                player.member.full_name,
-                                                player.member.pno,
-                                                humanize(player.medal_type),
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' - '),
-                                        )
-                                        .join('; '),
-                                ])}
+                    {enabled('achievements') &&
+                        (coachAchievements?.groups?.length ?? 0) > 0 && (
+                            <CoachAchievementsSection
+                                coachAchievements={coachAchievements}
+                                locale={locale}
+                                t={t}
                             />
-                        </Section>
-                    )}
+                        )}
 
                     {enabled('specialAchievements') &&
-                        specialAchievementRecords.length > 0 && (
-                            <Section title={t('Special achievements')}>
-                                <DataTable
-                                    serialLabel={t('S. No.')}
-                                    columns={[
-                                        t('Type'),
-                                        t('Title'),
-                                        t('Award date'),
-                                        t('Issuing authority'),
-                                        t('Order reference'),
-                                        t('Place'),
-                                    ]}
-                                    rows={specialAchievementRecords.map(
-                                        (record) => [
-                                            humanize(record.achievement_type),
-                                            record.title,
-                                            formatDate(record.awarded_on),
-                                            record.issuing_authority,
-                                            record.order_reference,
-                                            record.place,
-                                        ],
-                                    )}
-                                />
-                            </Section>
+                        (specialAchievements?.records?.length ?? 0) > 0 && (
+                            <CoachSpecialAchievementsSection
+                                specialAchievements={specialAchievements}
+                                t={t}
+                            />
                         )}
 
                     {enabled('playingAchievements') &&
-                        playingAchievementRecords.length > 0 && (
-                            <Section
-                                title={`${t('Playing career achievements')}${
-                                    playingAchievements?.source === 'member'
-                                        ? ` (${t('Derived from member record')})`
-                                        : ` (${t('Legacy')})`
-                                }`}
-                            >
-                                {playingAchievements?.source === 'member' ? (
-                                    <DataTable
-                                        serialLabel={t('S. No.')}
-                                        columns={[
-                                            t('Medal'),
-                                            t('Tournament'),
-                                            t('Event'),
-                                            t('Kind'),
-                                            t('Date'),
-                                            t('Venue'),
-                                        ]}
-                                        rows={(
-                                            playingAchievementRecords as MemberPlayingAchievementRecord[]
-                                        ).map((record) => [
-                                            record.medal_type
-                                                ? humanize(record.medal_type)
-                                                : '—',
-                                            [
-                                                record.tournament.name,
-                                                record.tournament.tier_code,
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' · '),
-                                            record.event.name,
-                                            record.event_kind === 'team'
-                                                ? t('Team')
-                                                : t('Individual'),
-                                            formatDate(record.achieved_on),
-                                            record.tournament.venue,
-                                        ])}
-                                    />
-                                ) : (
-                                    (() => {
-                                        const legacyRecords =
-                                            playingAchievementRecords as PlayingAchievementRecord[];
-                                        const groups = [
-                                            {
-                                                key: 'POST_RECRUITMENT',
-                                                label: t('Post-recruitment'),
-                                                rows: legacyRecords.filter(
-                                                    (r) =>
-                                                        r.period ===
-                                                        'POST_RECRUITMENT',
-                                                ),
-                                            },
-                                            {
-                                                key: 'PRE_RECRUITMENT',
-                                                label: t('Pre-recruitment'),
-                                                rows: legacyRecords.filter(
-                                                    (r) =>
-                                                        r.period ===
-                                                        'PRE_RECRUITMENT',
-                                                ),
-                                            },
-                                            {
-                                                key: 'OTHER',
-                                                label: t('Other'),
-                                                rows: legacyRecords.filter(
-                                                    (r) =>
-                                                        r.period !==
-                                                            'POST_RECRUITMENT' &&
-                                                        r.period !==
-                                                            'PRE_RECRUITMENT',
-                                                ),
-                                            },
-                                        ].filter((g) => g.rows.length > 0);
-
-                                        return (
-                                            <div className="space-y-4">
-                                                {groups.map((group) => (
-                                                    <div key={group.key}>
-                                                        <div className="mb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                                                            {group.label}
-                                                        </div>
-                                                        <DataTable
-                                                            serialLabel={t(
-                                                                'S. No.',
-                                                            )}
-                                                            columns={[
-                                                                t('Medal'),
-                                                                t('Title'),
-                                                                t('Level'),
-                                                                t('Kind'),
-                                                                t(
-                                                                    'Competition',
-                                                                ),
-                                                                t('Event date'),
-                                                                t('Venue'),
-                                                            ]}
-                                                            rows={group.rows.map(
-                                                                (record) => [
-                                                                    record.medal_type
-                                                                        ? humanize(
-                                                                              record.medal_type,
-                                                                          )
-                                                                        : '—',
-                                                                    record.title,
-                                                                    record.level,
-                                                                    record.event_type
-                                                                        ? record.event_type ===
-                                                                          'team'
-                                                                            ? t(
-                                                                                  'Team',
-                                                                              )
-                                                                            : t(
-                                                                                  'Individual',
-                                                                              )
-                                                                        : '—',
-                                                                    [
-                                                                        record.competition_details,
-                                                                        record.event,
-                                                                    ]
-                                                                        .filter(
-                                                                            Boolean,
-                                                                        )
-                                                                        .join(
-                                                                            ' · ',
-                                                                        ),
-                                                                    formatDate(
-                                                                        record.event_date,
-                                                                    ),
-                                                                    record.venue,
-                                                                ],
-                                                            )}
-                                                        />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        );
-                                    })()
-                                )}
-                            </Section>
+                        (playingAchievements?.records?.length ?? 0) > 0 && (
+                            <CoachPlayingAchievementsSection
+                                playingAchievements={playingAchievements}
+                                locale={locale}
+                                t={t}
+                            />
                         )}
 
                     {enabled('certifications') && certifications.length > 0 && (
-                        <Section title={t('Certifications')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[t('Name'), t('Type'), t('Issuer')]}
-                                rows={certifications.map((certification) => [
-                                    certification.name,
-                                    certification.certificate_type,
-                                    certification.issuer,
-                                ])}
-                            />
-                        </Section>
+                        <CoachCertificationsSection
+                            certifications={certifications}
+                            t={t}
+                        />
                     )}
 
-                    {enabled('promotions') && promotions.length > 0 && (
-                        <Section title={t('Promotions / rewards')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[
-                                    t('Promotion date'),
-                                    t('From rank'),
-                                    t('To rank'),
-                                    t('Cash reward amount'),
-                                    t('Cash reward date'),
-                                    t('Reference'),
-                                    t('Evidence'),
-                                ]}
-                                rows={promotions.map((promotion) => [
-                                    formatDate(promotion.promotion_date),
-                                    promotion.from_rank,
-                                    promotion.to_rank,
-                                    promotion.cash_reward_amount,
-                                    formatDate(promotion.cash_reward_date),
-                                    promotion.cash_reward_reference,
-                                    promotion.evidences
-                                        .map((evidence) => evidence.summary)
-                                        .filter(Boolean)
-                                        .join('; '),
-                                ])}
-                            />
-                        </Section>
+                    {enabled('promotions') && (
+                        <CoachPromotionsSection
+                            promotions={promotions}
+                            ranks={ranks}
+                            locale={locale}
+                            t={t}
+                            showPlayers={showPromotionPlayers}
+                        />
                     )}
 
                     {enabled('status') && statusHistory.length > 0 && (
-                        <Section title={t('Status history')}>
-                            <DataTable
-                                serialLabel={t('S. No.')}
-                                columns={[
-                                    t('Status'),
-                                    t('Effective on'),
-                                    t('Reason'),
-                                    t('Recorded by'),
-                                ]}
-                                rows={statusHistory.map((row) => [
-                                    humanize(row.status),
-                                    formatDate(row.effective_on),
-                                    row.reason,
-                                    row.recorded_by_name,
-                                ])}
-                            />
-                        </Section>
+                        <CoachStatusSection
+                            statusHistory={statusHistory}
+                            t={t}
+                        />
                     )}
                 </div>
             </div>

@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use App\Models\Coach;
 use App\Models\CoachCertification;
+use App\Models\CoachPromotion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -37,6 +38,8 @@ class CoachResource extends JsonResource
                 'id' => $this->member->id,
                 'member_code' => $this->member->member_code,
                 'full_name' => $this->member->full_name,
+                'pno' => $this->member->pno,
+                'current_status' => $this->member->current_status,
             ] : null),
             'district_id' => $this->district_id,
             'unit_id' => $this->unit_id,
@@ -109,6 +112,7 @@ class CoachResource extends JsonResource
             'promotions' => $this->whenLoaded('promotions', fn () => $this->promotions
                 ->map(fn ($promotion) => [
                     'id' => $promotion->id,
+                    'record_type' => $promotion->record_type,
                     'promotion_date' => $promotion->promotion_date?->toDateString(),
                     'from_rank' => $promotion->from_rank,
                     'to_rank' => $promotion->to_rank,
@@ -119,6 +123,7 @@ class CoachResource extends JsonResource
                     'reason' => $promotion->reason,
                     'remarks' => $promotion->remarks,
                     'recorded_by_name' => $promotion->recorder?->name,
+                    'document' => $this->promotionDocument($promotion),
                     'evidences' => $promotion->relationLoaded('evidences')
                         ? $promotion->evidences->map(fn ($evidence) => [
                             'id' => $evidence->id,
@@ -141,6 +146,9 @@ class CoachResource extends JsonResource
                                 'id' => $evidence->tournament->id,
                                 'name' => $evidence->tournament->name,
                                 'tier_code' => $evidence->tournament->tier?->code,
+                                'tier_label' => $evidence->tournament->tier?->label,
+                                'tier_label_en' => $evidence->tournament->tier?->label_en,
+                                'tier_label_hi' => $evidence->tournament->tier?->label_hi,
                                 'date_from' => $evidence->tournament->date_from?->toDateString(),
                                 'date_to' => $evidence->tournament->date_to?->toDateString(),
                                 'venue' => $evidence->tournament->venue,
@@ -151,10 +159,16 @@ class CoachResource extends JsonResource
                                 'gender_class' => $evidence->event->gender_class,
                                 'discipline' => $evidence->event->discipline,
                                 'weight_category' => $evidence->event->weight_category,
+                                'event_type' => $evidence->event->event_type,
                             ] : null,
                             'team' => $evidence->team ? [
                                 'id' => $evidence->team->id,
                                 'name' => $evidence->team->name,
+                            ] : null,
+                            'achievement' => $evidence->achievement ? [
+                                'id' => $evidence->achievement->id,
+                                'medal_type' => $evidence->achievement->medal_type,
+                                'position' => $evidence->achievement->position,
                             ] : null,
                         ])->values()
                         : [],
@@ -182,6 +196,30 @@ class CoachResource extends JsonResource
                     ] : null,
                 ])
                 ->values()),
+        ];
+    }
+
+    /**
+     * @return array{preview_url: string, download_url: string, original_name: string|null, mime_type: string|null, size_bytes: int|null}|null
+     */
+    private function promotionDocument(CoachPromotion $promotion): ?array
+    {
+        if ($promotion->document_path === null) {
+            return null;
+        }
+
+        return [
+            'preview_url' => route('coaches.promotions.document.preview', [
+                'coach' => $this->id,
+                'promotion' => $promotion->id,
+            ]),
+            'download_url' => route('coaches.promotions.document', [
+                'coach' => $this->id,
+                'promotion' => $promotion->id,
+            ]),
+            'original_name' => $promotion->document_original_name,
+            'mime_type' => $promotion->document_mime_type,
+            'size_bytes' => $promotion->document_size_bytes,
         ];
     }
 

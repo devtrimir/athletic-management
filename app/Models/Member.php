@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -213,6 +214,12 @@ class Member extends Model
     public function teamMemberships(): HasMany
     {
         return $this->hasMany(TeamMember::class);
+    }
+
+    /** @return HasOne<Coach, $this> */
+    public function coach(): HasOne
+    {
+        return $this->hasOne(Coach::class);
     }
 
     /** @return HasMany<ExternalCoachingAssignment, $this> */

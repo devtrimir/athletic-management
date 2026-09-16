@@ -9,6 +9,7 @@ import {
 import {
     ArrowLeft,
     Award,
+    Camera,
     Download,
     ExternalLink,
     Medal,
@@ -17,10 +18,15 @@ import {
     RotateCcw,
     Trash2,
     Trophy,
+    UserRound,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, ReactElement } from 'react';
 import type { ComponentProps } from 'react';
+import {
+    create as createCoach,
+    show as coachShow,
+} from '@/actions/App/Http/Controllers/CoachController';
 import { show as showEvent } from '@/actions/App/Http/Controllers/EventController';
 import { store as storeAchievementContext } from '@/actions/App/Http/Controllers/MemberAchievementContextController';
 import {
@@ -49,6 +55,7 @@ import {
 import { show as showTournament } from '@/actions/App/Http/Controllers/TournamentController';
 import AlertError from '@/components/alert-error';
 import { Combobox } from '@/components/combobox';
+import { ConfirmationDialog } from '@/components/confirmation-dialog';
 import { DatePicker } from '@/components/date-picker';
 import { AliasInlineForm } from '@/components/members/alias-inline-form';
 import { ArchivedMemberActionDialog } from '@/components/members/archived-member-action-dialog';
@@ -65,6 +72,8 @@ import type { SpecialAchievementsData } from '@/components/members/special-achie
 import { StatusChangeModal } from '@/components/members/status-change-modal';
 import { ChangeLog } from '@/components/shared/change-log';
 import type { AuditEntry } from '@/components/shared/change-log';
+import type { ConfidentialDocument } from '@/components/shared/confidential-document-preview';
+import { ProfilePhotoLightbox } from '@/components/shared/profile-photo-lightbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -95,6 +104,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate, formatDateRange } from '@/lib/dates';
 import { playerCategoryLabel } from '@/lib/player-category';
 import { resolveRankLabel } from '@/lib/ranks';
 
@@ -272,22 +282,6 @@ function parseDateValue(value: string): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatDisplayDate(value: string | null | undefined): string | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        dateStyle: 'medium',
-    }).format(date);
-}
-
 type ParticipationEntry = {
     id: number;
     position: number | null;
@@ -340,6 +334,7 @@ type AchievementBenefitRow = {
 
 type PromotionRow = {
     id: number;
+    record_type: 'promotion' | 'reward' | 'promotion_reward';
     promotion_date: string | null;
     from_rank: string | null;
     to_rank: string;
@@ -350,6 +345,7 @@ type PromotionRow = {
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
+    document: ConfidentialDocument | null;
     evidences: {
         id: number;
         type: 'achievement' | 'participation';
@@ -517,6 +513,7 @@ type MemberShowTab = (typeof MEMBER_SHOW_TABS)[number];
 
 export default function MembersShow({
     member,
+    linkedCoach,
     activeTab: activeTabProp = 'overview',
     statusHistory,
     aliases,
@@ -538,6 +535,11 @@ export default function MembersShow({
     ranks,
 }: {
     member: Member;
+    linkedCoach?: {
+        id: number;
+        full_name: string;
+        status: string | null;
+    } | null;
     activeTab?: MemberShowTab;
     statusHistory?: StatusEntry[];
     aliases?: Alias[];
@@ -695,6 +697,8 @@ export default function MembersShow({
     });
 
     const [statusOpen, setStatusOpen] = useState(false);
+    const [removePhotoOpen, setRemovePhotoOpen] = useState(false);
+    const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
     const [exportOpen, setExportOpen] = useState(false);
     const [achievementPreview, setAchievementPreview] =
         useState<AchievementPreviewTarget | null>(null);
@@ -741,6 +745,34 @@ export default function MembersShow({
         provisional_reason: 'Match not found in system, create new context.',
         allow_inactive_member: '',
     });
+
+    const setQuickAddField = (
+        field: keyof QuickAddAchievementForm,
+        value: string,
+    ): void => {
+        setQuickAddErrors((current) => {
+            if (!(field in current)) {
+                return current;
+            }
+
+            const next = { ...current };
+
+            delete next[field];
+
+            return next;
+        });
+        setQuickAddForm((current) => ({
+            ...current,
+            [field]: value,
+        }));
+    };
+
+    const getQuickAddError = (field: keyof QuickAddAchievementForm): string => {
+        const error = quickAddErrors[field];
+
+        return error ?? '';
+    };
+
     const [medalFilter, setMedalFilter] = useState<
         'all' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'none'
     >('all');
@@ -792,12 +824,9 @@ export default function MembersShow({
         [t],
     );
 
-    const formatReadableDate = useCallback(
-        (value: string | null): string | null => {
-            return formatDisplayDate(value);
-        },
-        [],
-    );
+    const formatReadableDate = useCallback((value: string | null): string => {
+        return formatDate(value);
+    }, []);
 
     const achievementPrizeMoney = useCallback(
         (
@@ -851,7 +880,10 @@ export default function MembersShow({
             }
 
             for (const promotion of promotionsForRow) {
-                if (promotion.to_rank) {
+                if (
+                    promotion.to_rank &&
+                    promotion.to_rank !== promotion.from_rank
+                ) {
                     types.push('PROMOTION');
                 }
 
@@ -970,7 +1002,7 @@ export default function MembersShow({
                 label: tournament.name,
                 description: [
                     tournament.venue,
-                    tournament.date_from,
+                    formatDateRange(tournament.date_from, tournament.date_to),
                     tournament.sports.map((sport) => sport.name).join(', '),
                 ]
                     .filter(Boolean)
@@ -1288,33 +1320,6 @@ export default function MembersShow({
                 router.reload();
             },
         });
-    };
-
-    const setQuickAddField = (
-        field: keyof QuickAddAchievementForm,
-        value: string,
-    ): void => {
-        setQuickAddErrors((current) => {
-            if (!(field in current)) {
-                return current;
-            }
-
-            const next = { ...current };
-
-            delete next[field];
-
-            return next;
-        });
-        setQuickAddForm((current) => ({
-            ...current,
-            [field]: value,
-        }));
-    };
-
-    const getQuickAddError = (field: keyof QuickAddAchievementForm): string => {
-        const error = quickAddErrors[field];
-
-        return error ?? '';
     };
 
     const achievementSummary = useMemo(() => {
@@ -1652,7 +1657,7 @@ export default function MembersShow({
         }
 
         if (classFilter !== 'all') {
-            chips.push(`${t('Class')}: ${eventClassLabel(classFilter, t)}`);
+            chips.push(`${t('Gender')}: ${eventClassLabel(classFilter, t)}`);
         }
 
         if (benefitFilter !== 'all') {
@@ -1697,6 +1702,33 @@ export default function MembersShow({
         },
         [promotionLookup],
     );
+
+    // A single reward/promotion can cite several achievements as evidence. Attribute its
+    // cash amount to only the first row (in display order) so it is never double-counted.
+    const dedupedRowPromotions = useMemo(() => {
+        const seenPromotionIds = new Set<number>();
+        const map = new Map<number, PromotionRow[]>();
+
+        for (const { rows } of achievementTierGroups) {
+            for (const { participation } of rows) {
+                const deduped = eventPromotionRows(participation).filter(
+                    (promotion) => {
+                        if (seenPromotionIds.has(promotion.id)) {
+                            return false;
+                        }
+
+                        seenPromotionIds.add(promotion.id);
+
+                        return true;
+                    },
+                );
+
+                map.set(participation.id, deduped);
+            }
+        }
+
+        return map;
+    }, [achievementTierGroups, eventPromotionRows]);
 
     function eventBadgeClass(
         kind:
@@ -1783,6 +1815,35 @@ export default function MembersShow({
                 })
               : null;
 
+    const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+    function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        router.post(
+            storeMemberPhoto.url(member),
+            { photo: file },
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onFinish: () => {
+                    event.target.value = '';
+                },
+            },
+        );
+    }
+
+    function handleRemovePhoto() {
+        router.delete(destroyMemberPhoto.url(member), {
+            preserveScroll: true,
+            onSuccess: () => setRemovePhotoOpen(false),
+        });
+    }
+
     function handlePrint(): void {
         const cols = ALL_COLUMNS.filter((c) => selectedColumns.includes(c.key));
         const getValue = (key: string): string => {
@@ -1800,7 +1861,7 @@ export default function MembersShow({
                           ? t('Female')
                           : t('Other gender');
                 case 'dob':
-                    return formatDisplayDate(member.dob) ?? '';
+                    return formatDate(member.dob);
                 case 'rank':
                     return member.rank
                         ? resolveRankLabel(member.rank, ranks ?? [], pageLocale)
@@ -1818,7 +1879,7 @@ export default function MembersShow({
                 case 'home_district':
                     return member.home_district?.name ?? '';
                 case 'joining_date':
-                    return formatDisplayDate(member.joining_date) ?? '';
+                    return formatDate(member.joining_date);
                 case 'blood_group':
                     return member.blood_group ?? '';
                 case 'caste':
@@ -1845,9 +1906,9 @@ export default function MembersShow({
                         )
                         .join(' | ');
                 case 'promotion_date':
-                    return formatDisplayDate(member.promotion_date) ?? '';
+                    return formatDate(member.promotion_date);
                 case 'team_since':
-                    return formatDisplayDate(member.team_since) ?? '';
+                    return formatDate(member.team_since);
                 default:
                     return '';
             }
@@ -1905,149 +1966,200 @@ export default function MembersShow({
             <Head title={member.full_name} />
 
             <div className="space-y-6">
-                <div className="flex flex-wrap items-start gap-4">
-                    <div className="flex min-w-0 flex-1 items-start gap-4">
-                        {/* Photo */}
-                        <div className="shrink-0">
-                            {member.photo_path ? (
-                                <div className="group relative size-20 overflow-hidden rounded-xl border bg-muted">
-                                    <img
-                                        src={`/storage/${member.photo_path}`}
-                                        alt={member.full_name}
-                                        className="size-full object-cover"
-                                    />
-                                    <button
-                                        className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                {/* Page heading */}
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            {member.full_name}
+                        </h1>
+                        {member.pno ? (
+                            <p className="text-sm text-muted-foreground">
+                                {t('PNO')}: {member.pno}
+                            </p>
+                        ) : null}
+                    </div>
+
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={backUrl}>
+                                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                                {t('Back')}
+                            </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={previewMember.url(member)}>
+                                <Printer className="mr-1.5 h-4 w-4" />
+                                {t('Print preview')}
+                            </Link>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExportOpen(true)}
+                        >
+                            <Download className="mr-1.5 h-4 w-4" />
+                            {t('Export')}
+                        </Button>
+                        {linkedCoach ? (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={coachShow.url(linkedCoach.id)}>
+                                    <UserRound className="mr-1.5 h-4 w-4" />
+                                    {t('Athlete Coach')}
+                                </Link>
+                            </Button>
+                        ) : (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link
+                                    href={createCoach.url({
+                                        query: { member_id: member.id },
+                                    })}
+                                >
+                                    <UserRound className="mr-1.5 h-4 w-4" />
+                                    {t('Register as Coach')}
+                                </Link>
+                            </Button>
+                        )}
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={editMember.url(member)}>
+                                {t('Edit')}
+                            </Link>
+                        </Button>
+                        {member.deleted_at ? (
+                            <>
+                                {canRestoreMember && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
                                         onClick={() =>
-                                            router.delete(
-                                                destroyMemberPhoto.url(member),
+                                            router.post(
+                                                restoreMember.url(member.id),
                                             )
                                         }
                                     >
-                                        {t('Remove photo')}
-                                    </button>
-                                </div>
-                            ) : (
-                                <label className="flex size-20 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-muted transition-colors hover:bg-muted/80">
-                                    <span className="px-1 text-center text-xs leading-tight text-muted-foreground">
-                                        {t('Upload photo')}
-                                    </span>
-                                    <input
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        className="sr-only"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-
-                                            if (!file) {
-                                                return;
-                                            }
-
-                                            const fd = new FormData();
-                                            fd.append('photo', file);
-                                            router.post(
-                                                storeMemberPhoto.url(member),
-                                                fd,
-                                            );
-                                        }}
-                                    />
-                                </label>
-                            )}
-                        </div>
-
-                        <div className="min-w-0">
-                            <h1 className="text-2xl font-bold">
-                                {member.full_name}
-                            </h1>
-                            {member.full_name && (
-                                <p className="text-muted-foreground">
-                                    {member.full_name}
-                                </p>
-                            )}
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                                {member.pno && (
-                                    <span className="font-mono text-sm text-muted-foreground">
-                                        {member.pno}
-                                    </span>
+                                        <RotateCcw className="mr-1.5 h-4 w-4" />
+                                        {t('Restore member')}
+                                    </Button>
                                 )}
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={backUrl}>
-                                        <ArrowLeft className="mr-1.5 h-4 w-4" />
-                                        {t('Back')}
-                                    </Link>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setExportOpen(true)}
-                                >
-                                    <Download className="mr-1.5 h-4 w-4" />
-                                    {t('Export')}
-                                </Button>
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={editMember.url(member)}>
-                                        {t('Edit')}
-                                    </Link>
-                                </Button>
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={previewMember.url(member)}>
-                                        <Printer className="mr-1.5 h-4 w-4" />
-                                        {t('Print preview')}
-                                    </Link>
-                                </Button>
-                                {member.deleted_at ? (
-                                    <>
-                                        {canRestoreMember && (
+                                {canDeleteMember && (
+                                    <ArchivedMemberActionDialog
+                                        member={member}
+                                        trigger={
                                             <Button
-                                                variant="outline"
+                                                variant="destructive"
                                                 size="sm"
-                                                className="border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
-                                                onClick={() =>
-                                                    router.post(
-                                                        restoreMember.url(
-                                                            member.id,
-                                                        ),
-                                                    )
-                                                }
                                             >
-                                                <RotateCcw className="mr-1.5 h-4 w-4" />
-                                                {t('Restore member')}
+                                                <Trash2 className="mr-1.5 h-4 w-4" />
+                                                {t('Delete / Restore')}
                                             </Button>
-                                        )}
-                                        {canDeleteMember && (
-                                            <ArchivedMemberActionDialog
-                                                member={member}
-                                                trigger={
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                    >
-                                                        <Trash2 className="mr-1.5 h-4 w-4" />
-                                                        {t('Delete / Restore')}
-                                                    </Button>
-                                                }
-                                            />
-                                        )}
-                                    </>
-                                ) : (
-                                    canDeleteMember && (
-                                        <DeleteMemberDialog
-                                            member={member}
-                                            trigger={
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                >
-                                                    <Trash2 className="mr-1.5 h-4 w-4" />
-                                                    {t('Delete')}
-                                                </Button>
-                                            }
+                                        }
+                                    />
+                                )}
+                            </>
+                        ) : (
+                            canDeleteMember && (
+                                <DeleteMemberDialog
+                                    member={member}
+                                    trigger={
+                                        <Button variant="destructive" size="sm">
+                                            <Trash2 className="mr-1.5 h-4 w-4" />
+                                            {t('Delete')}
+                                        </Button>
+                                    }
+                                />
+                            )
+                        )}
+                    </div>
+                </div>
+
+                {/* Identity + photo management card */}
+                <div className="rounded-xl border bg-card p-6">
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                                {member.photo_path ? (
+                                    <button
+                                        type="button"
+                                        className="h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        onClick={() =>
+                                            setPhotoLightboxOpen(true)
+                                        }
+                                        aria-label={`View photo of ${member.full_name}`}
+                                    >
+                                        <img
+                                            src={`/storage/${member.photo_path}`}
+                                            alt={member.full_name}
+                                            className="h-full w-full object-cover transition-opacity hover:opacity-90"
                                         />
-                                    )
+                                    </button>
+                                ) : (
+                                    <Camera className="h-7 w-7 text-muted-foreground" />
                                 )}
                             </div>
+                            <div className="space-y-2">
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge
+                                        variant={
+                                            member.current_status === 'active'
+                                                ? 'default'
+                                                : 'outline'
+                                        }
+                                    >
+                                        {statusLabel(member.current_status, t)}
+                                    </Badge>
+                                    {linkedCoach && (
+                                        <Badge
+                                            variant="secondary"
+                                            className="gap-1 border-primary/20 bg-primary/5 text-primary"
+                                        >
+                                            <UserRound className="h-3 w-3" />
+                                            <Link
+                                                href={coachShow.url(
+                                                    linkedCoach.id,
+                                                )}
+                                                className="hover:underline"
+                                            >
+                                                {t('Coach')}:{' '}
+                                                {linkedCoach.full_name}
+                                            </Link>
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                    {member.pno
+                                        ? `${t('PNO')}: ${member.pno}`
+                                        : t('Member profile')}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <input
+                                ref={photoInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="hidden"
+                                onChange={handlePhotoChange}
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => photoInputRef.current?.click()}
+                            >
+                                <Camera className="mr-1.5 h-4 w-4" />
+                                {t('Upload photo')}
+                            </Button>
+                            {member.photo_path ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setRemovePhotoOpen(true)}
+                                >
+                                    <Trash2 className="mr-1.5 h-4 w-4" />
+                                    {t('Remove photo')}
+                                </Button>
+                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -2056,8 +2168,14 @@ export default function MembersShow({
                     <div className="flex items-center gap-2.5 rounded-lg border border-amber-300 bg-amber-50/90 p-3.5 text-sm text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
                         <RotateCcw className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
                         <div>
-                            <span className="font-semibold">{t('Archived Member Record')}:</span>{' '}
-                            <span>{t('This member is archived (deleted) and has been decoupled from active rosters.')}</span>
+                            <span className="font-semibold">
+                                {t('Archived Member Record')}:
+                            </span>{' '}
+                            <span>
+                                {t(
+                                    'This member is archived (deleted) and has been decoupled from active rosters.',
+                                )}
+                            </span>
                         </div>
                     </div>
                 )}
@@ -2145,7 +2263,7 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Date of birth'),
-                                            formatDisplayDate(member.dob),
+                                            formatDate(member.dob),
                                         )}
                                         {detail(t('Mobile'), member.mobile)}
                                         {member.blood_group &&
@@ -2190,7 +2308,7 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Joining date'),
-                                            formatDisplayDate(
+                                            formatDate(
                                                 member.joining_date,
                                             ),
                                         )}
@@ -2243,14 +2361,14 @@ export default function MembersShow({
                                         {member.promotion_date &&
                                             detail(
                                                 t('Promotion date'),
-                                                formatDisplayDate(
+                                                formatDate(
                                                     member.promotion_date,
                                                 ),
                                             )}
                                         {member.team_since &&
                                             detail(
                                                 t('Team since'),
-                                                formatDisplayDate(
+                                                formatDate(
                                                     member.team_since,
                                                 ),
                                             )}
@@ -2670,11 +2788,6 @@ export default function MembersShow({
                                                                         </TableHead>
                                                                         <TableHead>
                                                                             {t(
-                                                                                'Tier / Level',
-                                                                            )}
-                                                                        </TableHead>
-                                                                        <TableHead>
-                                                                            {t(
                                                                                 'Tournament',
                                                                             )}
                                                                         </TableHead>
@@ -2700,7 +2813,7 @@ export default function MembersShow({
                                                                         </TableHead>
                                                                         <TableHead>
                                                                             {t(
-                                                                                'Class',
+                                                                                'Gender',
                                                                             )}
                                                                         </TableHead>
                                                                         <TableHead>
@@ -2710,17 +2823,7 @@ export default function MembersShow({
                                                                         </TableHead>
                                                                         <TableHead>
                                                                             {t(
-                                                                                'Position',
-                                                                            )}
-                                                                        </TableHead>
-                                                                        <TableHead>
-                                                                            {t(
-                                                                                'Benefits',
-                                                                            )}
-                                                                        </TableHead>
-                                                                        <TableHead>
-                                                                            {t(
-                                                                                'Prize money',
+                                                                                'Reward',
                                                                             )}
                                                                         </TableHead>
                                                                     </TableRow>
@@ -2731,16 +2834,23 @@ export default function MembersShow({
                                                                             group,
                                                                             participation,
                                                                         }) => {
-                                                                            const promotionsForRow =
+                                                                            // Every achievement used as reward evidence keeps its badge, but only
+                                                                            // the first (highest-tier) row shows the amount, so it's never repeated.
+                                                                            const allPromotionsForRow =
                                                                                 eventPromotionRows(
                                                                                     participation,
                                                                                 );
+                                                                            const dedupedPromotionsForRow =
+                                                                                dedupedRowPromotions.get(
+                                                                                    participation.id,
+                                                                                ) ??
+                                                                                [];
                                                                             const achievementBenefits =
                                                                                 achievementBenefitTypes(
                                                                                     participation
                                                                                         .achievement
                                                                                         ?.benefits,
-                                                                                    promotionsForRow,
+                                                                                    allPromotionsForRow,
                                                                                 );
                                                                             const isHighlightedAchievement =
                                                                                 (highlightedAchievement.achievementId !==
@@ -2782,18 +2892,6 @@ export default function MembersShow({
                                                                                         {
                                                                                             ++tierAchievementSerial
                                                                                         }
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <span
-                                                                                            className={eventBadgeClass(
-                                                                                                'tier',
-                                                                                            )}
-                                                                                        >
-                                                                                            {participation
-                                                                                                .tournament
-                                                                                                .tier_code ??
-                                                                                                tier}
-                                                                                        </span>
                                                                                     </TableCell>
                                                                                     <TableCell>
                                                                                         <div className="space-y-1">
@@ -2912,12 +3010,18 @@ export default function MembersShow({
                                                                                         </div>
                                                                                     </TableCell>
                                                                                     <TableCell>
-                                                                                        {participation
-                                                                                            .tournament
-                                                                                            .date_from ??
+                                                                                        {formatDateRange(
+                                                                                            participation
+                                                                                                .tournament
+                                                                                                .date_from,
+                                                                                            participation
+                                                                                                .tournament
+                                                                                                .date_to,
+                                                                                            ' - ',
                                                                                             t(
                                                                                                 'No date',
-                                                                                            )}
+                                                                                            ),
+                                                                                        )}
                                                                                     </TableCell>
                                                                                     <TableCell>
                                                                                         {eventClassLabel(
@@ -2952,6 +3056,21 @@ export default function MembersShow({
                                                                                                     </span>
                                                                                                 );
                                                                                             })()
+                                                                                        ) : (participation
+                                                                                              .achievement
+                                                                                              ?.position ??
+                                                                                          participation.position) ? (
+                                                                                            <span
+                                                                                                className={eventBadgeClass(
+                                                                                                    'medal',
+                                                                                                )}
+                                                                                            >
+                                                                                                #
+                                                                                                {participation
+                                                                                                    .achievement
+                                                                                                    ?.position ??
+                                                                                                    participation.position}
+                                                                                            </span>
                                                                                         ) : (
                                                                                             <span
                                                                                                 className={eventBadgeClass(
@@ -2965,55 +3084,32 @@ export default function MembersShow({
                                                                                         )}
                                                                                     </TableCell>
                                                                                     <TableCell>
-                                                                                        #
-                                                                                        {participation
-                                                                                            .achievement
-                                                                                            ?.position ??
-                                                                                            participation.position ??
-                                                                                            '—'}
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                                            {achievementBenefits.length ? (
-                                                                                                achievementBenefits.map(
-                                                                                                    (
-                                                                                                        benefitType,
-                                                                                                        index,
-                                                                                                    ) => (
-                                                                                                        <span
-                                                                                                            key={`${participation.id}-benefit-${index}`}
-                                                                                                            className={eventBadgeClass(
-                                                                                                                'benefit',
-                                                                                                            )}
-                                                                                                        >
-                                                                                                            {t(
-                                                                                                                benefitType,
-                                                                                                            )}
-                                                                                                        </span>
-                                                                                                    ),
-                                                                                                )
-                                                                                            ) : (
-                                                                                                <span className="text-xs text-muted-foreground">
-                                                                                                    —
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </TableCell>
-                                                                                    <TableCell>
-                                                                                        <div className="space-y-1.5">
-                                                                                            {achievementPrizeMoney(
-                                                                                                participation
-                                                                                                    .achievement
-                                                                                                    ?.benefits,
-                                                                                                promotionsForRow,
-                                                                                            )
-                                                                                                .length >
-                                                                                            0 ? (
-                                                                                                achievementPrizeMoney(
+                                                                                        {achievementBenefits.length ? (
+                                                                                            <div className="space-y-1">
+                                                                                                <div className="flex flex-wrap gap-1.5">
+                                                                                                    {achievementBenefits.map(
+                                                                                                        (
+                                                                                                            benefitType,
+                                                                                                            index,
+                                                                                                        ) => (
+                                                                                                            <span
+                                                                                                                key={`${participation.id}-benefit-${index}`}
+                                                                                                                className={eventBadgeClass(
+                                                                                                                    'benefit',
+                                                                                                                )}
+                                                                                                            >
+                                                                                                                {t(
+                                                                                                                    benefitType,
+                                                                                                                )}
+                                                                                                            </span>
+                                                                                                        ),
+                                                                                                    )}
+                                                                                                </div>
+                                                                                                {achievementPrizeMoney(
                                                                                                     participation
                                                                                                         .achievement
                                                                                                         ?.benefits,
-                                                                                                    promotionsForRow,
+                                                                                                    dedupedPromotionsForRow,
                                                                                                 ).map(
                                                                                                     (
                                                                                                         amount,
@@ -3028,13 +3124,13 @@ export default function MembersShow({
                                                                                                             }
                                                                                                         </div>
                                                                                                     ),
-                                                                                                )
-                                                                                            ) : (
-                                                                                                <span className="text-xs text-muted-foreground">
-                                                                                                    —
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <span className="text-xs text-muted-foreground">
+                                                                                                —
+                                                                                            </span>
+                                                                                        )}
                                                                                     </TableCell>
                                                                                 </TableRow>
                                                                             );
@@ -3436,7 +3532,7 @@ export default function MembersShow({
                                                 </div>
                                                 <div className="text-right text-xs text-muted-foreground">
                                                     <p>
-                                                        {formatDisplayDate(
+                                                        {formatDate(
                                                             row.effective_on,
                                                         )}
                                                     </p>
@@ -4310,18 +4406,14 @@ export default function MembersShow({
                                         {t('Date')}
                                     </p>
                                     <p>
-                                        {[
-                                            formatDisplayDate(
-                                                achievementPreview.tournament
-                                                    .date_from,
-                                            ),
-                                            formatDisplayDate(
-                                                achievementPreview.tournament
-                                                    .date_to,
-                                            ),
-                                        ]
-                                            .filter(Boolean)
-                                            .join(' - ') || t('No date')}
+                                        {formatDateRange(
+                                            achievementPreview.tournament
+                                                .date_from,
+                                            achievementPreview.tournament
+                                                .date_to,
+                                            ' - ',
+                                            t('No date'),
+                                        )}
                                     </p>
                                 </div>
                                 {achievementPreview.kind === 'event' ? (
@@ -4345,7 +4437,7 @@ export default function MembersShow({
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-xs font-medium text-muted-foreground">
-                                                {t('Class')}
+                                                {t('Gender')}
                                             </p>
                                             <p>
                                                 {eventClassLabel(
@@ -4658,7 +4750,7 @@ export default function MembersShow({
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-xs font-medium text-muted-foreground">
-                                        {t('Class')}
+                                        {t('Gender')}
                                     </Label>
                                     <Select
                                         value={
@@ -4782,6 +4874,27 @@ export default function MembersShow({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmationDialog
+                open={removePhotoOpen}
+                onOpenChange={setRemovePhotoOpen}
+                variant="destructive"
+                title={t('Remove photo')}
+                description={t(
+                    "Are you sure you want to remove this member's photo?",
+                )}
+                confirmLabel={t('Remove')}
+                onConfirm={handleRemovePhoto}
+            />
+
+            {member.photo_path && (
+                <ProfilePhotoLightbox
+                    src={`/storage/${member.photo_path}`}
+                    alt={member.full_name}
+                    open={photoLightboxOpen}
+                    onClose={() => setPhotoLightboxOpen(false)}
+                />
+            )}
         </>
     );
 }

@@ -53,6 +53,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate, formatDateRange } from '@/lib/dates';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
 
@@ -270,20 +271,6 @@ const BENEFIT_TYPE_OPTIONS = [
 ] as const;
 const isTierPivotRow = (row: PivotRow): row is PivotRow => 'tier' in row;
 
-function parseDateValue(value: string | null | undefined): Date | null {
-    if (!value) {
-        return null;
-    }
-
-    const [year, month, day] = value.slice(0, 10).split('-').map(Number);
-
-    if (!year || !month || !day) {
-        return null;
-    }
-
-    return new Date(year, month - 1, day);
-}
-
 function translateTemplate(
     t: (key: string) => string,
     key: string,
@@ -305,36 +292,6 @@ function translatedLabel(
         label: t(label),
         value,
     });
-}
-
-function formatDisplayDate(value: string | null | undefined): string | null {
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return null;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(date);
-}
-
-function formatDateRange(
-    from: string | null | undefined,
-    to: string | null | undefined,
-): string | null {
-    const formattedFrom = formatDisplayDate(from);
-    const formattedTo = formatDisplayDate(to);
-
-    if (formattedFrom && formattedTo) {
-        return formattedFrom === formattedTo
-            ? formattedFrom
-            : `${formattedFrom} – ${formattedTo}`;
-    }
-
-    return formattedFrom ?? formattedTo;
 }
 
 function emptyFilters(): Filters {
@@ -793,7 +750,7 @@ function TournamentSearchFilter({
                                                 {option.name}
                                             </div>
                                             <div className="text-xs text-muted-foreground">
-                                                {formatDisplayDate(
+                                                {formatDate(
                                                     option.date_from,
                                                 )}
                                             </div>
@@ -1051,7 +1008,7 @@ function exportRelatedCsv(
                 r.event.name,
                 r.tournament.name,
                 r.session_name ?? '',
-                formatDisplayDate(r.tournament.date_from) ?? '',
+                formatDate(r.tournament.date_from),
                 r.position ?? '',
                 r.remarks ?? '',
             ]
@@ -1109,7 +1066,7 @@ function printRelated(
             <td>${r.event?.name ?? ''}</td>
             <td>${r.tournament?.name ?? ''}</td>
             <td>${r.session_name ?? ''}</td>
-            <td>${formatDisplayDate(r.tournament?.date_from) ?? ''}</td>
+            <td>${formatDate(r.tournament?.date_from)}</td>
             <td>${r.position ?? ''}</td>
             <td>${r.remarks ?? ''}</td>
         </tr>`,
@@ -1131,7 +1088,7 @@ function printRelated(
         </style>
     </head><body>
         <h2>${title}</h2>
-        <p class="sub">${translateTemplate(t, 'Printed: :date', { date: formatDisplayDate(new Date().toISOString()) ?? '' })}</p>
+        <p class="sub">${translateTemplate(t, 'Printed: :date', { date: formatDate(new Date()) })}</p>
         <table>
             <thead><tr>
                 <th>${t('Medal')}</th><th>${t('Name')}</th><th>${t('PNO')}</th><th>${t('Rank')}</th><th>${t('Posting')}</th>
@@ -1354,7 +1311,7 @@ function RelatedMedalsModal({
                                                         {r.tournament?.name ?? '—'}
                                                     </div>
                                                     <div className="text-xs text-muted-foreground">
-                                                        {formatDisplayDate(
+                                                        {formatDate(
                                                             r.tournament?.date_from,
                                                         )}
                                                     </div>
@@ -1500,6 +1457,8 @@ function MedalDetailModal({
     const dateRange = formatDateRange(
         row.tournament.date_from,
         row.tournament.date_to,
+        ' - ',
+        '',
     );
     const genderLabel = GENDER_OPTIONS.find(
         (g) => g.value === row.member.gender,
@@ -1795,7 +1754,7 @@ function MedalDetailModal({
                                 />
                                 <DetailRow
                                     label={t('Benefit date')}
-                                    value={formatDisplayDate(
+                                    value={formatDate(
                                         row.benefit.benefit_date,
                                     )}
                                 />
@@ -3572,7 +3531,7 @@ export default function ReportsMedals({
                                                                         .tournament
                                                                         .date_from && (
                                                                         <div className="text-xs text-muted-foreground">
-                                                                            {formatDisplayDate(
+                                                                            {formatDate(
                                                                                 row
                                                                                     .tournament
                                                                                     .date_from,

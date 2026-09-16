@@ -10,6 +10,7 @@ use App\Observers\AuditObserver;
 use Database\Factories\ParticipationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -93,5 +94,19 @@ class Participation extends Model
     public function participationAwards(): HasMany
     {
         return $this->hasMany(ParticipationAward::class);
+    }
+
+    /**
+     * Scope a query to include participations for a given member.
+     *
+     * @param  Builder<Participation>  $query
+     * @return Builder<Participation>
+     */
+    public function scopeForMember(Builder $query, Member|int $member): Builder
+    {
+        $memberId = $member instanceof Member ? (int) $member->id : (int) $member;
+        $table = $query->getModel()->getTable();
+
+        return $query->where("{$table}.member_id", $memberId);
     }
 }

@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     Download,
     Eye,
@@ -45,6 +45,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 type Attendance = {
     id: number;
@@ -141,7 +142,6 @@ const exportColumnGroups: { label: string; columns: ExportColumn[] }[] = [
         columns: [
             { key: 'member', label: 'Member' },
             { key: 'pno', label: 'PNO' },
-            { key: 'member_code', label: 'Member Code' },
             { key: 'external_coach', label: 'External Coach' },
             { key: 'coach_phone', label: 'Coach Phone' },
             { key: 'coach_email', label: 'Coach Email' },
@@ -343,7 +343,6 @@ export default function ExternalTrainingAttendanceIndex({
     trainingVenues = [],
 }: Props) {
     const { t } = useTranslation();
-    const { locale = 'en' } = usePage().props as { locale?: string };
     const [query, setQuery] = useState<string>(filters.q ?? '');
     const [memberQuery, setMemberQuery] = useState<string>(
         filters.member_query ?? '',
@@ -1582,9 +1581,8 @@ export default function ExternalTrainingAttendanceIndex({
                                                         }
                                                         className="px-2 py-1.5 align-middle font-medium whitespace-nowrap"
                                                     >
-                                                        {formatDisplayDate(
+                                                        {formatDate(
                                                             attendance.attendance_date,
-                                                            locale,
                                                         )}
                                                     </TableCell>
                                                 ) : null}
@@ -1825,9 +1823,8 @@ export default function ExternalTrainingAttendanceIndex({
                                                     index}
                                             </span>
                                             <span className="text-sm font-medium">
-                                                {formatDisplayDate(
+                                                {formatDate(
                                                     attendance.attendance_date,
-                                                    locale,
                                                 )}
                                             </span>
                                         </div>
@@ -2017,35 +2014,6 @@ function formatDateInput(date: Date): string {
     const day = String(date.getDate()).padStart(2, '0');
 
     return `${year}-${month}-${day}`;
-}
-
-function parseDateValue(value: string): Date | null {
-    const dateOnly = value.match(/^(\d{4}-\d{2}-\d{2})/);
-
-    if (dateOnly) {
-        const [year, month, day] = dateOnly[1].split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDisplayDate(value: string, locale: string): string {
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(date);
 }
 
 function allOutputColumns(): string[] {

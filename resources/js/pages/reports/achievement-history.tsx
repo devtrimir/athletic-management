@@ -480,13 +480,11 @@ export default function AchievementHistory({
                                     {selectedRow.member.full_name}
                                 </p>
                                 <p className="text-muted-foreground">
-                                    {t('Code')}:{' '}
-                                    {selectedRow.member.member_code}
                                     {selectedRow.member.pno
-                                        ? ` · ${t('PNO')}: ${selectedRow.member.pno}`
+                                        ? `${t('PNO')}: ${selectedRow.member.pno}`
                                         : ''}
                                     {selectedRow.member.rank
-                                        ? ` · ${t('Rank')}: ${resolveRankLabel(
+                                        ? `${selectedRow.member.pno ? ' · ' : ''}${t('Rank')}: ${resolveRankLabel(
                                               selectedRow.member.rank,
                                               rankOptions,
                                               locale,

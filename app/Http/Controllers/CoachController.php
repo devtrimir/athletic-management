@@ -11,13 +11,17 @@ use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\CoachCertification;
 use App\Models\District;
+use App\Models\Member;
 use App\Models\NisMaster;
 use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
 use App\Models\Unit;
+use App\Services\Coaches\CoachDeletionService;
+use App\Services\PromotionSyncService;
 use App\Support\Coaches\CoachProfileData;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -106,6 +110,43 @@ class CoachController extends Controller
         }
 
         return $payload;
+    }
+
+    /**
+     * Carry a member's playable sports over onto their new coach profile so
+     * "register as coach" doesn't silently drop sport data the member
+     * already has recorded. Only runs when the create form didn't submit its
+     * own `sports` selection.
+     */
+    private function syncSportsFromMember(Coach $coach, Member $member): void
+    {
+        $playableSports = $member->playableSports()->get();
+
+        if ($playableSports->isEmpty()) {
+            return;
+        }
+
+        $rows = [];
+
+        foreach ($playableSports as $sport) {
+            $rows[$sport->id] = [
+                'is_primary' => false,
+                'level_master_id' => null,
+                'level' => null,
+                'sport_event' => $sport->pivot?->sport_event,
+                'effective_from' => null,
+                'effective_to' => null,
+                'notes' => null,
+            ];
+        }
+
+        $primaryId = $member->sport_id !== null && isset($rows[$member->sport_id])
+            ? $member->sport_id
+            : array_key_first($rows);
+
+        $rows[$primaryId]['is_primary'] = true;
+
+        $coach->sports()->sync($rows);
     }
 
     /**
@@ -280,6 +321,7 @@ class CoachController extends Controller
             ],
             'activeCoachCount' => $this->coachStatusScopeQuery('active')->count(),
             'inactiveCoachCount' => $this->coachStatusScopeQuery('inactive')->count(),
+            'playerCoachCount' => $this->coachStatusScopeQuery('player_coaches')->count(),
             'sports' => Sport::select(['id', 'name', 'name_en'])
                 ->where('organization_id', $request->user()->organization_id)
                 ->orderBy('name')
@@ -321,7 +363,7 @@ class CoachController extends Controller
 
         $coaches = $this->listingQuery($statusScope)
             ->with([
-                'member:id,member_code',
+                'member:id,full_name,pno',
                 'certifications:id,coach_id,name,certificate_type',
                 'currentAssignments:id,coach_id,team_id,session_id,role,assigned_at',
                 'currentAssignments.team:id,name,sport_id,session_id',
@@ -409,6 +451,7 @@ class CoachController extends Controller
             ->allowedSorts(['full_name', 'pno', 'coach_status', 'created_at'])
             ->defaultSort('full_name')
             ->with([
+                'member:id,full_name,pno',
                 'district:id,name',
                 'unit:id,name',
                 'rankMaster:id,code,name,short_name',
@@ -645,7 +688,7 @@ class CoachController extends Controller
                 })
                 ->filter()
                 ->join('; '),
-            'linked_member' => (string) ($coach->member?->member_code ?? ''),
+            'linked_member' => (string) ($coach->member ? ($coach->member->pno ? $coach->member->full_name.' ('.__('PNO').': '.$coach->member->pno.')' : $coach->member->full_name) : ''),
             'certifications' => $coach->certifications
                 ->map(fn (CoachCertification $certification): string => trim(($certification->name ?? '').($certification->certificate_type ? ' ('.$certification->certificate_type.')' : '')))
                 ->filter()
@@ -716,12 +759,19 @@ class CoachController extends Controller
             ->map(fn (mixed $value, string $key): string => str($key)->replace('_', ' ')->title()->toString().': '.(is_scalar($value) ? (string) $value : (json_encode($value) ?: '')))
             ->values();
 
-        return $activeFilters->prepend($statusScope === 'inactive' ? __('Inactive coaches') : __('Active coaches'))->join(', ');
+        $scopeLabel = match ($statusScope) {
+            'player_coaches' => __('Player-Coaches'),
+            'inactive' => __('Inactive coaches'),
+            default => __('Active coaches'),
+        };
+
+        return $activeFilters->prepend($scopeLabel)->join(', ');
     }
 
     private function filterByStatusScope(Builder $query, string $value): Builder
     {
         return match ($value) {
+            'player_coaches' => $query->playerCoaches(),
             'inactive' => $query->whereDoesntHave('currentAssignments'),
             default => $query->whereHas('currentAssignments'),
         };
@@ -739,6 +789,10 @@ class CoachController extends Controller
      */
     private function statusScopeFromFilters(array $filters): string
     {
+        if (($filters['status_scope'] ?? null) === 'player_coaches') {
+            return 'player_coaches';
+        }
+
         $assignmentScope = $filters['has_active_assignment'] ?? null;
 
         if ($assignmentScope === false || $assignmentScope === 'false' || $assignmentScope === '0' || $assignmentScope === 0) {
@@ -756,7 +810,29 @@ class CoachController extends Controller
     {
         Gate::authorize('create', Coach::class);
 
+        $member = null;
+        if ($request->filled('member_id')) {
+            $member = Member::where('organization_id', (int) $request->user()->organization_id)
+                ->find((int) $request->query('member_id'));
+        }
+
+        $prefill = $member ? [
+            'member_id' => $member->id,
+            'member_code' => $member->member_code,
+            'full_name' => $member->full_name,
+            'pno' => $member->pno,
+            'rank_master_id' => $member->rank ? (Rank::where('code', $member->rank)->orWhere('name', $member->rank)->orWhere('short_name', $member->rank)->value('id')) : null,
+            'district_id' => $member->home_district_id ?? $member->posting_district_id,
+            'unit_id' => $member->current_unit_id,
+            'gender' => $member->gender,
+            'date_of_birth' => $member->dob?->toDateString(),
+            'mobile' => $member->mobile,
+            'blood_group' => $member->blood_group,
+            'photo_path' => $member->photo_path,
+        ] : null;
+
         return Inertia::render('coaches/create', [
+            'prefill' => $prefill,
             'districts' => District::select(['id', 'name'])->orderBy('name')->get(),
             'units' => Unit::select(['id', 'name', 'district_id'])->orderBy('name')->get(),
             'ranks' => Rank::active()->ordered()->get(['id', 'code', 'name', 'short_name']),
@@ -778,6 +854,31 @@ class CoachController extends Controller
             $payload['display_name'] = $payload['full_name'];
             $payload['coach_status'] = $payload['coach_status'] ?? 'ACTIVE';
 
+            if (! empty($payload['member_id']) && ! empty($payload['pno'])) {
+                $member = Member::where('organization_id', $payload['organization_id'])
+                    ->where('id', $payload['member_id'])
+                    ->where('pno', $payload['pno'])
+                    ->first();
+
+                if ($member) {
+                    $payload['pno'] = $member->pno;
+                } else {
+                    $payload['member_id'] = null;
+                }
+            } else {
+                $payload['member_id'] = null;
+            }
+
+            if (! empty($payload['member_id'])) {
+                // A member can have at most one linked coach. If an older
+                // coach (e.g. one left archived via "Proceed as New Coach")
+                // still points at this member, clear that stale link first
+                // so it can't collide with the one we're about to create.
+                Coach::withTrashed()
+                    ->where('member_id', $payload['member_id'])
+                    ->update(['member_id' => null]);
+            }
+
             /** @var Coach $coach */
             $coach = Coach::create(Arr::except($payload, ['certifications', 'sports']));
 
@@ -787,14 +888,38 @@ class CoachController extends Controller
 
             if (array_key_exists('sports', $payload)) {
                 $coach->sports()->sync($this->buildSyncPayload((array) $payload['sports']));
+            } elseif (isset($member)) {
+                $this->syncSportsFromMember($coach, $member);
             }
 
             return $coach;
         });
 
+        if ($coach->member_id && $coach->member) {
+            app(PromotionSyncService::class)->syncLinkedProfiles($coach->member, $coach);
+        }
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach created.')]);
 
         return to_route('coaches.show', $coach);
+    }
+
+    public function generateAthleteProfile(Request $request, Coach $coach): RedirectResponse
+    {
+        Gate::authorize('update', $coach);
+
+        if ($coach->member_id !== null) {
+            Inertia::flash('toast', ['type' => 'warning', 'message' => __('Coach already has a linked athlete profile.')]);
+
+            return back();
+        }
+
+        $member = DB::transaction(fn (): Member => $coach->ensureLinkedMember());
+        app(PromotionSyncService::class)->syncLinkedProfiles($member, $coach);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Athlete profile created and linked successfully.')]);
+
+        return back();
     }
 
     public function show(Coach $coach, CoachProfileData $profileData): Response
@@ -837,6 +962,13 @@ class CoachController extends Controller
             $this->ensureProtectedSportsRemainUnchanged($coach, (array) $payload['sports']);
         }
 
+        if ($coach->member_id) {
+            $coach->loadMissing('member');
+            if ($coach->member) {
+                $payload['pno'] = $coach->member->pno;
+            }
+        }
+
         DB::transaction(function () use ($coach, $payload): void {
             $coach->update(Arr::except($payload, ['certifications', 'sports']));
 
@@ -848,6 +980,13 @@ class CoachController extends Controller
                 $coach->sports()->sync($this->buildSyncPayload((array) $payload['sports']));
             }
         });
+
+        if ($coach->member_id) {
+            $coach->load('member');
+            if ($coach->member) {
+                app(PromotionSyncService::class)->syncLinkedProfiles($coach->member, $coach);
+            }
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach updated.')]);
 
@@ -863,5 +1002,46 @@ class CoachController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach deleted.')]);
 
         return to_route('coaches.index');
+    }
+
+    public function checkPno(Request $request, CoachDeletionService $deletionService): JsonResponse
+    {
+        if (! $request->user()->can('coaches.view') && ! $request->user()->can('coaches.create')) {
+            abort(403);
+        }
+
+        $result = $deletionService->checkPno(
+            (string) $request->query('pno', ''),
+            (int) $request->user()->organization_id,
+            $request->filled('ignore_coach_id') ? (int) $request->query('ignore_coach_id') : null,
+            $request->filled('ignore_member_id') ? (int) $request->query('ignore_member_id') : null,
+        );
+
+        return response()->json($result);
+    }
+
+    public function restore(Request $request, Coach $coach, CoachDeletionService $deletionService): RedirectResponse
+    {
+        Gate::authorize('restore', $coach);
+
+        if (! $coach->trashed()) {
+            Inertia::flash('toast', [
+                'type' => 'info',
+                'message' => __('Coach is already active.'),
+            ]);
+
+            return redirect()->back(302, [], route('coaches.show', $coach));
+        }
+
+        $deletionService->restore($coach, $request->user());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Coach :name has been successfully restored.', [
+                'name' => $coach->full_name,
+            ]),
+        ]);
+
+        return redirect()->back(302, [], route('coaches.index'));
     }
 }

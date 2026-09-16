@@ -8,9 +8,11 @@ use App\Models\Achievement;
 use App\Models\Coach;
 use App\Models\Member;
 use App\Models\MemberPromotion;
+use App\Models\Participation;
 use App\Models\TeamMember;
 use App\Models\TeamMemberMovement;
 use App\Models\User;
+use App\Services\PromotionSyncService;
 use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -61,10 +63,9 @@ class MemberDeletionService
 
         $linkedCoach = Coach::where('member_id', $member->id)->first(['id', 'full_name', 'pno']);
 
-        $participationsCount = $member->participations()->count();
+        $participationsCount = Participation::forMember($member)->count();
 
-        $medalsStats = Achievement::query()
-            ->whereIn('participation_id', $member->participations()->select('id'))
+        $medalsStats = Achievement::forMember($member)
             ->selectRaw("
                 COUNT(*) as total,
                 SUM(CASE WHEN medal_type = 'GOLD' THEN 1 ELSE 0 END) as gold,
@@ -319,6 +320,23 @@ class MemberDeletionService
                 'reason' => 'Member restored from archive.',
                 'recorded_by' => $actor?->id,
             ]);
+
+            // Archiving this member (see delete() above) nulled out any
+            // linked coach's member_id. Re-link it here so the coach's
+            // member-derived data (playing achievements, sports, promotions)
+            // is visible again instead of silently staying disconnected.
+            if (! empty($member->pno)) {
+                $coach = Coach::withoutGlobalScopes()
+                    ->where('organization_id', $member->organization_id)
+                    ->where('pno', $member->pno)
+                    ->whereNull('member_id')
+                    ->first();
+
+                if ($coach !== null) {
+                    $coach->update(['member_id' => $member->id]);
+                    app(PromotionSyncService::class)->syncLinkedProfiles($member, $coach);
+                }
+            }
         });
     }
 

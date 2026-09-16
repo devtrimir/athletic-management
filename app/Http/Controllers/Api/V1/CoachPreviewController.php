@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Achievement;
 use App\Models\Coach;
-use App\Models\TeamMember;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -83,21 +82,7 @@ class CoachPreviewController extends Controller
         $member = $coach->member()->select(['id', 'member_code', 'full_name'])->first();
 
         if ($member !== null) {
-            $memberTeamIds = TeamMember::query()
-                ->where('member_id', $member->id)
-                ->pluck('team_id')
-                ->filter()
-                ->map(static fn (int $teamId): int => $teamId)
-                ->values()
-                ->all();
-
-            $playingAchievements = Achievement::whereHas('participation', function ($query) use ($member, $memberTeamIds): void {
-                $query->where('member_id', $member->id);
-
-                if ($memberTeamIds !== []) {
-                    $query->orWhereIn('team_id', $memberTeamIds);
-                }
-            })
+            $playingAchievements = Achievement::forMember($member)
                 ->with([
                     'participation.session:id,name',
                     'participation.event:id,tournament_id,name,event_type',

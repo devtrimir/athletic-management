@@ -15,6 +15,7 @@ import {
     Trash2,
     Upload,
     UserCheck,
+    UserRound,
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -30,17 +31,6 @@ import { DeleteMemberDialog } from '@/components/members/delete-member-dialog';
 import { MemberImportDialog } from '@/components/members/member-import-dialog';
 import { MemberQuickView } from '@/components/members/member-quick-view';
 import { OptionMultiSelect } from '@/components/option-multi-select';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from '@/components/ui/command';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -52,6 +42,17 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
 import {
     Dialog,
     DialogContent,
@@ -93,6 +94,7 @@ type Member = {
     id: number;
     member_code: string;
     pno: string | null;
+    photo_path?: string | null;
     full_name: string;
     rank: string | null;
     gender?: string | null;
@@ -1368,6 +1370,9 @@ export default function MembersIndex({
                                     />
                                 </TableHead>
                                 <TableHead>{t('Sr no')}</TableHead>
+                                <TableHead className="w-12 px-2 text-center">
+                                    {t('Photo')}
+                                </TableHead>
                                 <TableHead>{t('Name')}</TableHead>
                                 <TableHead className="hidden md:table-cell">
                                     {t('PNO')}
@@ -1391,7 +1396,7 @@ export default function MembersIndex({
                             {members.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={11}
+                                        colSpan={12}
                                         className="py-12 text-center text-muted-foreground"
                                     >
                                         {hasAnyFilter
@@ -1435,6 +1440,20 @@ export default function MembersIndex({
                                         </TableCell>
                                         <TableCell className="font-mono text-xs text-muted-foreground">
                                             {(members.from ?? 1) + index}
+                                        </TableCell>
+                                        <TableCell className="w-12 px-2 py-2 text-center">
+                                            <div className="mx-auto flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted shadow-xs">
+                                                {member.photo_path ? (
+                                                    <img
+                                                        src={`/storage/${member.photo_path}`}
+                                                        alt={member.full_name}
+                                                        className="size-full object-cover"
+                                                        loading="lazy"
+                                                    />
+                                                ) : (
+                                                    <UserRound className="size-4 text-muted-foreground/60" />
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex min-w-56 items-center gap-2 overflow-hidden whitespace-nowrap">

@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Exports\ReportExport;
 use App\Models\Achievement;
 use App\Models\Participation;
+use App\Models\Rank;
 use App\Models\SportSession;
 use App\Models\Tournament;
 use App\Support\Tournaments\TournamentProfileData;
@@ -27,6 +28,9 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TournamentExportController extends Controller
 {
+    /** @var Collection<string, Rank>|null */
+    private ?Collection $rankLookup = null;
+
     private const EVENT_REPORT_TYPE_DETAIL = 'detail';
 
     private const EVENT_REPORT_TYPE_MEDAL_LOG = 'medal_log';
@@ -506,6 +510,7 @@ class TournamentExportController extends Controller
                 __('Event S No'),
                 __('Event'),
                 __('PNO'),
+                __('Rank'),
                 __('Player Name'),
                 __('Gender'),
                 __('Type'),
@@ -574,16 +579,17 @@ class TournamentExportController extends Controller
         return [
             'A' => 9,
             'B' => 19,
-            'C' => 9,
+            'C' => 10,
             'D' => 14,
-            'E' => 8,
-            'F' => 6,
-            'G' => 10,
-            'H' => 6,
+            'E' => 18,
+            'F' => 8,
+            'G' => 6,
+            'H' => 10,
             'I' => 6,
             'J' => 6,
             'K' => 6,
-            'L' => 8,
+            'L' => 6,
+            'M' => 8,
         ];
     }
 
@@ -1011,6 +1017,7 @@ class TournamentExportController extends Controller
                     $rows[] = [
                         'name' => $playerName,
                         'pno' => (string) ($playerPno ?? ''),
+                        'rank' => '',
                     ];
                 }
             }
@@ -1082,7 +1089,7 @@ class TournamentExportController extends Controller
             ),
             'name' => $name,
             'pno' => $pno,
-            'rank' => trim((string) ($player['rank'] ?? '')),
+            'rank' => (string) ($this->resolveRankLabel(trim((string) ($player['rank'] ?? ''))) ?? ''),
             'posting_location' => trim((string) (
                 $player['posting_location']
                 ?? data_get($player, 'current_unit.name')
@@ -1090,6 +1097,35 @@ class TournamentExportController extends Controller
                 ?? ''
             )),
         ];
+    }
+
+    /**
+     * Resolve a free-text rank value against the ranks master. Always returns
+     * the stored rank name; falls back to the raw value when no master row matches.
+     */
+    private function resolveRankLabel(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return $value;
+        }
+
+        $this->rankLookup ??= Rank::active()
+            ->get(['code', 'name', 'short_name'])
+            ->reduce(function (Collection $carry, Rank $rank): Collection {
+                foreach (array_filter([$rank->code, $rank->name, $rank->short_name]) as $key) {
+                    $carry->put(mb_strtolower(trim((string) $key)), $rank);
+                }
+
+                return $carry;
+            }, new Collection);
+
+        $rank = $this->rankLookup->get(mb_strtolower(trim($value)));
+
+        if (! $rank instanceof Rank) {
+            return $value;
+        }
+
+        return $rank->name ?? $value;
     }
 
     /**
@@ -1262,13 +1298,13 @@ class TournamentExportController extends Controller
                     if (! is_array($event)) {
                         return [
                             'event' => [],
-                            'players' => [['name' => '', 'pno' => '']],
+                            'players' => [['name' => '', 'pno' => '', 'rank' => '']],
                         ];
                     }
 
                     $players = $this->eventPlayerRows($event);
                     if ($players === []) {
-                        $players = [['name' => '', 'pno' => '']];
+                        $players = [['name' => '', 'pno' => '', 'rank' => '']];
                     }
 
                     return [
@@ -1910,9 +1946,10 @@ class TournamentExportController extends Controller
                 '',
                 '',
                 '',
+                '',
             ];
             $mergeRanges[] = "B{$sportRow}:G{$sportRow}";
-            $mergeRanges[] = "H{$sportRow}:L{$sportRow}";
+            $mergeRanges[] = "H{$sportRow}:M{$sportRow}";
             $rowStyles[$sportRow] = $this->eventReportSportRowStyle();
 
             foreach ($events as $eventIndex => $event) {
@@ -1922,7 +1959,7 @@ class TournamentExportController extends Controller
 
                 $players = $this->eventPlayerRows($event);
                 if ($players === []) {
-                    $players = [['name' => '', 'pno' => '']];
+                    $players = [['name' => '', 'pno' => '', 'rank' => '']];
                 }
 
                 $isTeamEvent = (string) ($event['event_type'] ?? '') === 'team';
@@ -1940,6 +1977,7 @@ class TournamentExportController extends Controller
                             $isFirstPlayerInEvent ? $eventIndex + 1 : '',
                             $isFirstPlayerInEvent ? (string) ($event['title'] ?? '') : '',
                             (string) ($player['pno'] ?? ''),
+                            (string) ($player['rank'] ?? ''),
                             (string) ($player['name'] ?? ''),
                             $isFirstPlayerInEvent ? (string) ($event['gender'] ?? '') : '',
                             $isFirstPlayerInEvent ? (string) ($event['type'] ?? '') : '',
@@ -1974,6 +2012,7 @@ class TournamentExportController extends Controller
                         $isFirstPlayerInEvent ? $eventIndex + 1 : '',
                         $isFirstPlayerInEvent ? (string) ($event['title'] ?? '') : '',
                         (string) ($player['pno'] ?? ''),
+                        (string) ($player['rank'] ?? ''),
                         (string) ($player['name'] ?? ''),
                         $isFirstPlayerInEvent ? (string) ($event['gender'] ?? '') : '',
                         $isFirstPlayerInEvent ? (string) ($event['type'] ?? '') : '',
@@ -2002,6 +2041,7 @@ class TournamentExportController extends Controller
             '',
             '',
             '',
+            '',
             (int) ($summary['total_participants'] ?? 0),
             $goldTotal,
             $silverTotal,
@@ -2009,7 +2049,7 @@ class TournamentExportController extends Controller
             $meritTotal,
             $goldTotal + $silverTotal + $bronzeTotal + $meritTotal,
         ];
-        $mergeRanges[] = "A{$totalRow}:F{$totalRow}";
+        $mergeRanges[] = "A{$totalRow}:G{$totalRow}";
         $rowStyles[$totalRow] = $this->eventReportTotalRowStyle();
 
         return [

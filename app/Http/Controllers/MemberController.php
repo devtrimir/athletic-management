@@ -337,6 +337,11 @@ class MemberController extends Controller
             $this->syncPlayableSports($member, $beforePlayableSports, $playableSports);
         }
 
+        if (array_key_exists('pno', $data)) {
+            $member->loadMissing('coach');
+            $member->coach?->update(['pno' => $member->pno]);
+        }
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member updated.')]);
 
         return to_route('members.show', $member);
@@ -593,12 +598,7 @@ class MemberController extends Controller
                         'is_current' => (bool) $team->session->is_current,
                     ] : null,
                 ])),
-            'achievements' => Achievement::query()
-                ->whereHas('participation', function ($query) use ($member, $teamIds): void {
-                    $query
-                        ->where('member_id', $member->id)
-                        ->orWhereIn('team_id', $teamIds);
-                })
+            'achievements' => Achievement::forMember($member)
                 ->with([
                     'participation.session:id,name',
                     'participation.event:id,tournament_id,name',

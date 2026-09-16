@@ -2,8 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Exports\ReportExport;
+use App\Models\Event;
+use App\Models\Member;
 use App\Models\Organization;
+use App\Models\Participation;
 use App\Models\Permission;
+use App\Models\Rank;
 use App\Models\Role;
 use App\Models\Sport;
 use App\Models\SportSession;
@@ -148,4 +153,87 @@ test('tournaments.export with tier_id filter scopes correctly', function () {
         ->assertOk();
 
     Excel::assertDownloaded('tournaments-'.now()->format('Y-m-d').'.xlsx');
+});
+
+test('tournaments.events.report resolves rank in detail print html', function () {
+    $user = tournamentExportUser('tournaments.view');
+    Rank::firstOrCreate(
+        ['code' => 'CONSTABLE'],
+        ['name' => 'आरक्षी', 'name_en' => 'Constable', 'short_name' => 'Const.', 'rank_order' => 1, 'is_active' => true],
+    );
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
+    $tier = TournamentTier::factory()->create();
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+    ]);
+    $event = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'event_type' => 'individual',
+    ]);
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank' => 'CONSTABLE',
+    ]);
+    Participation::factory()->create([
+        'event_id' => $event->id,
+        'member_id' => $member->id,
+        'session_id' => $tournament->session_id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('tournaments.events.report', ['tournament' => $tournament, 'filter' => ['report_type' => 'detail']]))
+        ->assertOk();
+
+    $html = $response->getContent();
+    expect($html)->toContain('<td>आरक्षी</td>');
+    expect($html)->not->toContain('<td>CONSTABLE</td>');
+});
+
+test('tournaments.events.export downloads excel with rank column and resolved value', function () {
+    Excel::fake();
+
+    $user = tournamentExportUser('tournaments.view');
+    Rank::firstOrCreate(
+        ['code' => 'CONSTABLE'],
+        ['name' => 'आरक्षी', 'name_en' => 'Constable', 'short_name' => 'Const.', 'rank_order' => 1, 'is_active' => true],
+    );
+    $session = SportSession::factory()->create(['organization_id' => $user->organization_id, 'is_current' => true]);
+    $tier = TournamentTier::factory()->create();
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $tournament = Tournament::factory()->create([
+        'organization_id' => $user->organization_id,
+        'session_id' => $session->id,
+        'tier_id' => $tier->id,
+        'sport_id' => $sport->id,
+    ]);
+    $event = Event::factory()->create([
+        'tournament_id' => $tournament->id,
+        'sport_id' => $sport->id,
+        'event_type' => 'individual',
+    ]);
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'rank' => 'CONSTABLE',
+    ]);
+    Participation::factory()->create([
+        'event_id' => $event->id,
+        'member_id' => $member->id,
+        'session_id' => $tournament->session_id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('tournaments.events.export', ['tournament' => $tournament, 'filter' => ['report_type' => 'detail']]))
+        ->assertOk();
+
+    Excel::assertDownloaded('tournament-events-'.now()->format('Y-m-d').'.xlsx', function (ReportExport $export): bool {
+        expect(collect($export->headings())->flatten()->toArray())->toContain(__('Rank'));
+        expect($export->collection()->flatten()->toArray())->toContain('आरक्षी');
+
+        return true;
+    });
 });

@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate, formatDateRange } from '@/lib/dates';
 
 const PLAYING_PERIODS = ['PRE_RECRUITMENT', 'POST_RECRUITMENT'] as const;
 
@@ -114,10 +115,13 @@ export type PlayingAchievementsData = {
         full_name: string;
     } | null;
     records: PlayingAchievementRow[] | MemberPlayingAchievementRow[];
+    pre_recruitment_records?: PlayingAchievementRow[];
     sports?: PlayingAchievementSportOption[];
     summary: {
         total: number;
         medals: number;
+        tournament_medals?: number;
+        pre_recruitment_medals?: number;
     };
 };
 
@@ -162,22 +166,11 @@ function defaults(row?: PlayingAchievementRow): PlayingAchievementFormData {
     };
 }
 
-function formatDate(value: string | null): string {
-    if (!value) {
-        return '—';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(date);
+function formatTournamentDateRange(tournament: {
+    date_from?: string | null;
+    date_to?: string | null;
+}): string {
+    return formatDateRange(tournament.date_from, tournament.date_to, ' - ', '—');
 }
 
 function periodLabel(value: string | null, t: (key: string) => string): string {
@@ -745,9 +738,15 @@ export function CoachPlayingAchievementsSection({
     const memberRecords = isLegacy
         ? []
         : ((data?.records ?? []) as MemberPlayingAchievementRow[]);
+    const preRecruitmentRecords = (data?.pre_recruitment_records ??
+        []) as PlayingAchievementRow[];
     const sports = data?.sports ?? [];
     const total = data?.summary.total ?? 0;
     const medals = data?.summary.medals ?? 0;
+    const tournamentMedals =
+        data?.summary.tournament_medals ?? (isLegacy ? 0 : medals);
+    const preRecruitmentMedals =
+        data?.summary.pre_recruitment_medals ?? (isLegacy ? medals : 0);
 
     return (
         <div className="space-y-5 border-t pt-5">
@@ -766,7 +765,14 @@ export function CoachPlayingAchievementsSection({
                                     <Badge variant="secondary">
                                         {t('Legacy')}
                                     </Badge>
-                                ) : null}
+                                ) : (
+                                    <Badge
+                                        variant="outline"
+                                        className="border-primary/30 text-primary"
+                                    >
+                                        {t('Linked Athlete')}
+                                    </Badge>
+                                )}
                             </div>
                             <p className="text-xs text-muted-foreground">
                                 {isLegacy
@@ -774,7 +780,7 @@ export function CoachPlayingAchievementsSection({
                                           'Manually recorded playing-career entries (no linked member record).',
                                       )
                                     : t(
-                                          "Derived from the member's recorded tournament achievements.",
+                                          'Derived from personal tournament achievements and recorded pre-recruitment accomplishments.',
                                       )}
                             </p>
                         </div>
@@ -789,12 +795,22 @@ export function CoachPlayingAchievementsSection({
                             {total}
                         </div>
                     </div>
+                    {!isLegacy && (
+                        <div className="text-right">
+                            <div className="text-xs font-medium text-muted-foreground">
+                                {t('Tournaments')}
+                            </div>
+                            <div className="text-2xl font-semibold tabular-nums">
+                                {tournamentMedals}
+                            </div>
+                        </div>
+                    )}
                     <div className="text-right">
                         <div className="text-xs font-medium text-muted-foreground">
-                            {t('Medals')}
+                            {isLegacy ? t('Medals') : t('Prior / Direct')}
                         </div>
                         <div className="text-2xl font-semibold tabular-nums">
-                            {medals}
+                            {isLegacy ? medals : preRecruitmentMedals}
                         </div>
                     </div>
                     {isLegacy ? (
@@ -806,17 +822,71 @@ export function CoachPlayingAchievementsSection({
                 </div>
             </div>
 
-            <div className="rounded-xl border bg-card">
-                {isLegacy ? (
+            {isLegacy ? (
+                <div className="rounded-xl border bg-card">
                     <LegacyPlayingAchievementsList
                         coach={coach}
                         records={legacyRecords}
                         sports={sports}
                     />
-                ) : (
-                    <MemberPlayingAchievementsList records={memberRecords} />
-                )}
-            </div>
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    <div className="rounded-xl border bg-card">
+                        <div className="flex items-center justify-between border-b px-6 py-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Departmental Tournament Medals')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Official medals won in police games and departmental tournaments as an athlete.',
+                                    )}
+                                </p>
+                            </div>
+                            <Badge variant="secondary">
+                                {memberRecords.length} {t('Medals')}
+                            </Badge>
+                        </div>
+                        <MemberPlayingAchievementsList
+                            records={memberRecords}
+                        />
+                    </div>
+
+                    <div className="rounded-xl border bg-card">
+                        <div className="flex items-center justify-between border-b px-6 py-4">
+                            <div>
+                                <h4 className="text-sm font-semibold">
+                                    {t('Prior / Pre-Recruitment Achievements')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Achievements, national/state medals, or certificates prior to recruitment or off-duty.',
+                                    )}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Badge variant="outline">
+                                    {preRecruitmentRecords.length}{' '}
+                                    {t('records')}
+                                </Badge>
+                                <PlayingAchievementDialog
+                                    coach={coach}
+                                    sports={sports}
+                                />
+                            </div>
+                        </div>
+                        <LegacyPlayingAchievementsList
+                            coach={coach}
+                            records={preRecruitmentRecords}
+                            sports={sports}
+                            emptyMessage={t(
+                                'No prior or pre-recruitment achievements recorded yet. Click "Add achievement" to record one.',
+                            )}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -917,9 +987,9 @@ function MemberPlayingAchievementsList({
                             </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                            {formatDate(
-                                row.achieved_on ?? row.tournament.date_from,
-                            )}
+                            {row.achieved_on
+                                ? formatDate(row.achieved_on)
+                                : formatTournamentDateRange(row.tournament)}
                         </TableCell>
                         <TableCell className="max-w-[12rem]">
                             <span
@@ -952,10 +1022,12 @@ function LegacyPlayingAchievementsList({
     coach,
     records,
     sports,
+    emptyMessage,
 }: {
     coach: { id: number };
     records: PlayingAchievementRow[];
     sports: PlayingAchievementSportOption[];
+    emptyMessage?: string;
 }) {
     const { t } = useTranslation();
 
@@ -969,9 +1041,10 @@ function LegacyPlayingAchievementsList({
                     {t('No playing career achievements recorded')}
                 </h4>
                 <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                    {t(
-                        'Add medals, positions, or certificates the coach earned as a player here.',
-                    )}
+                    {emptyMessage ??
+                        t(
+                            'Add medals, positions, or certificates the coach earned as a player here.',
+                        )}
                 </p>
                 <div className="mt-5">
                     <PlayingAchievementDialog coach={coach} sports={sports} />

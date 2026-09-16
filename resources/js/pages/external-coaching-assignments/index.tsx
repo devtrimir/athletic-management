@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/table';
 import { useAuthorization } from '@/hooks/use-authorization';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 type Assignment = {
     id: number;
@@ -89,7 +90,6 @@ export default function ExternalCoachingAssignmentsIndex({
     const canCreateAssignment = can('external-coaching-assignments.create');
     const canUpdateAssignment = can('external-coaching-assignments.update');
     const page = usePage();
-    const { locale } = page.props as { locale: string };
     const { url } = page;
 
     const [memberQuery, setMemberQuery] = useState<string>(
@@ -503,16 +503,10 @@ export default function ExternalCoachingAssignmentsIndex({
                                     </TableCell>
                                     <TableCell>
                                         <div className="text-sm">
-                                            {formatDisplayDate(
-                                                assignment.start_date,
-                                                locale,
-                                            ) ?? assignment.start_date}
+                                            {formatDate(assignment.start_date)}
                                         </div>
                                         <div className="text-xs text-muted-foreground">
-                                            {formatDisplayDate(
-                                                assignment.end_date,
-                                                locale,
-                                            ) ?? assignment.end_date}
+                                            {formatDate(assignment.end_date)}
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -586,34 +580,3 @@ export default function ExternalCoachingAssignmentsIndex({
     );
 }
 
-function parseDateValue(value: string): Date | null {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const [year, month, day] = value.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDisplayDate(
-    value: string | null | undefined,
-    locale: string,
-): string | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        dateStyle: 'medium',
-    }).format(date);
-}

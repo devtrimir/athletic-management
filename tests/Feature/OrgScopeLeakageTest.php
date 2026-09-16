@@ -150,7 +150,7 @@ test('Org B user cannot update Org A unit — 404', function (): void {
     $this->actingAs($this->adminB)
         ->patch(route('units.update', $this->unitA), [
             'name' => $this->unitA->name,
-            'unit_type' => $this->unitA->unit_type,
+            'unit_type_id' => $this->unitA->unit_type_id,
         ])
         ->assertNotFound();
 });

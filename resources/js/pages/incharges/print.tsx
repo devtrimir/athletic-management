@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 import { specialAchievementTypeLabel } from '@/pages/incharges/show';
 
 type RankOption = {
@@ -134,38 +135,6 @@ function uiText(label: string, locale: string): string {
     return locale === 'en' ? entry.en : entry.hi;
 }
 
-function parseDateValue(value: string): Date | null {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const [year, month, day] = value.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDateValue(
-    value: string | null | undefined,
-    locale: string,
-    dateStyle: Intl.DateTimeFormatOptions['dateStyle'] = 'long',
-): string | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        dateStyle,
-    }).format(date);
-}
 
 function hasPrintableValue(value: unknown): boolean {
     return value !== null && value !== undefined && value !== '';
@@ -646,17 +615,15 @@ export default function InchargePrintPreview({
                                                         )}
                                                         {showAssignedAt && (
                                                             <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
-                                                                {formatDateValue(
+                                                                {formatDate(
                                                                     row.assigned_at,
-                                                                    locale,
                                                                 )}
                                                             </td>
                                                         )}
                                                         {showRemovedAt && (
                                                             <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
-                                                                {formatDateValue(
+                                                                {formatDate(
                                                                     row.removed_at,
-                                                                    locale,
                                                                 )}
                                                             </td>
                                                         )}
@@ -810,10 +777,9 @@ export default function InchargePrintPreview({
                                                             )}
                                                             {showAchievementDate && (
                                                                 <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
-                                                                    {formatDateValue(
+                                                                    {formatDate(
                                                                         row.event_date ??
                                                                             row.achieved_on,
-                                                                        locale,
                                                                     )}
                                                                 </td>
                                                             )}
@@ -930,9 +896,8 @@ export default function InchargePrintPreview({
                                                         </td>
                                                         {showSpecialAwardedOn && (
                                                             <td className="p-3 align-top text-xs leading-4 text-foreground print:p-2 print:text-[9px]">
-                                                                {formatDateValue(
+                                                                {formatDate(
                                                                     row.awarded_on,
-                                                                    locale,
                                                                 )}
                                                             </td>
                                                         )}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support\Participations;
 
+use App\Models\CoachAssignment;
 use App\Models\Scopes\BelongsToOrganization;
 use App\Models\TeamMember;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -39,7 +40,15 @@ class ParticipationTeamResolver
             ->get(['id', 'team_id', 'joined_on']);
 
         if ($memberships->isEmpty()) {
-            return null;
+            $coachAssignment = CoachAssignment::query()
+                ->where('session_id', $sessionId)
+                ->where('is_current', true)
+                ->whereNull('removed_at')
+                ->whereHas('coach', fn ($q) => $q->where('member_id', $memberId))
+                ->when($eventSportId > 0, fn ($q) => $q->whereHas('team', fn ($tq) => $tq->withoutGlobalScope(BelongsToOrganization::class)->where('sport_id', $eventSportId)))
+                ->first();
+
+            return $coachAssignment !== null ? (int) $coachAssignment->team_id : null;
         }
 
         $eventSportId = (int) ($eventSportId ?? 0);

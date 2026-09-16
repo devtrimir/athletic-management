@@ -16,6 +16,7 @@ import CoachController, {
 import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachExportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
+import PlayerCoachBadge from '@/components/player-coach-badge';
 import { Button } from '@/components/ui/button';
 import {
     Command,
@@ -74,6 +75,12 @@ type Coach = {
     mobile: string | null;
     email: string | null;
     coach_status: string | null;
+    member_id?: number | null;
+    member?: {
+        id: number;
+        full_name: string;
+        pno: string | null;
+    } | null;
     rank_master?: {
         id: number;
         code: string | null;
@@ -144,6 +151,12 @@ type TeamCoach = {
     role: string;
     team: string;
     nis_master_name: string | null;
+    member_id?: number | null;
+    member?: {
+        id: number;
+        full_name: string;
+        pno: string | null;
+    } | null;
 };
 
 type SportTeamGroupRow = {
@@ -168,7 +181,7 @@ type SportOption = {
 };
 
 type Filters = {
-    status_scope?: 'active' | 'inactive';
+    status_scope?: 'active' | 'inactive' | 'player_coaches';
     q?: string;
     blood_group?: string;
     coach_status?: string;
@@ -185,6 +198,7 @@ type Filters = {
 const STATUS_TABS = [
     { value: 'active', label: 'Active coaches' },
     { value: 'inactive', label: 'Inactive coaches' },
+    { value: 'player_coaches', label: 'Player-Coaches' },
 ] as const;
 
 type ReportAction = 'print' | 'export';
@@ -390,6 +404,8 @@ function buildCoachTeamSportRows(
                         team: '-',
                         role: t('Inactive'),
                         nis_master_name: coach.nis_master?.name ?? null,
+                        member_id: coach.member_id,
+                        member: coach.member,
                     },
                 ],
             });
@@ -433,6 +449,8 @@ function buildCoachTeamSportRows(
                     role:
                         coachRoleLabel(assignment.role, t) || t('Coach'),
                     nis_master_name: coach.nis_master?.name ?? null,
+                    member_id: coach.member_id,
+                    member: coach.member,
                 });
             }
 
@@ -472,6 +490,7 @@ export default function CoachesIndex({
     sports,
     activeCoachCount,
     inactiveCoachCount,
+    playerCoachCount,
     certificateTypes,
     genders,
 }: {
@@ -480,6 +499,7 @@ export default function CoachesIndex({
     sports: SportOption[];
     activeCoachCount: number;
     inactiveCoachCount: number;
+    playerCoachCount: number;
     certificateTypes: string[];
     genders: string[];
 }) {
@@ -497,10 +517,16 @@ export default function CoachesIndex({
         [coaches.data, sports, t],
     );
     const activeStatusScope = filters.status_scope ?? 'active';
-    const isInactiveTab = activeStatusScope === 'inactive';
+    const isInactiveTab =
+        activeStatusScope === 'inactive' ||
+        activeStatusScope === 'player_coaches';
     function assignmentFilterFromStatus(
         statusScope: Filters['status_scope'],
-    ): string {
+    ): string | undefined {
+        if (statusScope === 'player_coaches') {
+            return undefined;
+        }
+
         return statusScope === 'inactive' ? 'false' : 'true';
     }
 
@@ -509,6 +535,7 @@ export default function CoachesIndex({
             const nextStatusScope =
                 (patch.status_scope as Filters['status_scope']) ??
                 activeStatusScope;
+            const assignmentScope = assignmentFilterFromStatus(nextStatusScope);
             const current: Filters = {
                 status_scope: nextStatusScope,
                 q: query || undefined,
@@ -519,13 +546,18 @@ export default function CoachesIndex({
                 certification_name: filters.certification_name,
                 certification_type: filters.certification_type,
                 sport_id: filters.sport_id,
-                has_active_assignment:
-                    assignmentFilterFromStatus(nextStatusScope),
+                has_active_assignment: assignmentScope,
             };
             const merged: Filters = { ...current, ...patch };
-            merged.has_active_assignment = assignmentFilterFromStatus(
+            const mergedAssignmentScope = assignmentFilterFromStatus(
                 merged.status_scope ?? nextStatusScope,
             );
+
+            if (mergedAssignmentScope !== undefined) {
+                merged.has_active_assignment = mergedAssignmentScope;
+            } else {
+                delete merged.has_active_assignment;
+            }
 
             const clean: Record<string, string> = {};
 
@@ -585,7 +617,6 @@ export default function CoachesIndex({
             filters.certification_name,
             filters.certification_type,
             filters.sport_id,
-            filters.has_active_assignment,
         ],
     );
 
@@ -658,10 +689,15 @@ export default function CoachesIndex({
             }
 
             if (activeStatusScope) {
-                params.append(
-                    'filter[has_active_assignment]',
-                    assignmentFilterFromStatus(activeStatusScope),
-                );
+                const assignmentFilter =
+                    assignmentFilterFromStatus(activeStatusScope);
+
+                if (assignmentFilter) {
+                    params.append(
+                        'filter[has_active_assignment]',
+                        assignmentFilter,
+                    );
+                }
             }
         }
 
@@ -670,12 +706,15 @@ export default function CoachesIndex({
 
     function buildPrintUrl(): string {
         const params = new URLSearchParams();
+        const assignmentFilter = assignmentFilterFromStatus(activeStatusScope);
         const printFilters: Filters = {
             q: query || filters.q,
             status_scope: activeStatusScope,
-            has_active_assignment:
-                assignmentFilterFromStatus(activeStatusScope),
         };
+
+        if (assignmentFilter) {
+            printFilters.has_active_assignment = assignmentFilter;
+        }
 
         if (filters.blood_group) {
             printFilters.blood_group = filters.blood_group;
@@ -723,9 +762,16 @@ export default function CoachesIndex({
             q: query || undefined,
             ...patch,
         };
-        merged.has_active_assignment = assignmentFilterFromStatus(
+        const assignmentFilter = assignmentFilterFromStatus(
             merged.status_scope ?? activeStatusScope,
         );
+
+        if (assignmentFilter) {
+            merged.has_active_assignment = assignmentFilter;
+        } else {
+            delete merged.has_active_assignment;
+        }
+
         const params = new URLSearchParams();
 
         for (const [key, value] of Object.entries(merged)) {
@@ -872,7 +918,9 @@ export default function CoachesIndex({
                                 const count =
                                     tab.value === 'active'
                                         ? activeCoachCount
-                                        : inactiveCoachCount;
+                                        : tab.value === 'inactive'
+                                          ? inactiveCoachCount
+                                          : playerCoachCount;
 
                                 return (
                                     <TabsTrigger
@@ -1225,16 +1273,26 @@ export default function CoachesIndex({
                                                             '-'}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
-                                                        <Link
-                                                            href={CoachController.show.url(
-                                                                coach.id,
+                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                            <Link
+                                                                href={CoachController.show.url(
+                                                                    coach.id,
+                                                                )}
+                                                                className="text-primary hover:underline font-medium"
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                            >
+                                                                {coach.full_name}
+                                                            </Link>
+                                                            {coach.member_id && (
+                                                                <PlayerCoachBadge
+                                                                    memberId={coach.member_id}
+                                                                    memberName={coach.member?.full_name}
+                                                                    pno={coach.member?.pno}
+                                                                    variant="compact"
+                                                                />
                                                             )}
-                                                            className="text-primary hover:underline"
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                        >
-                                                            {coach.full_name}
-                                                        </Link>
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell className="text-sm">
                                                         {coach.pno ? (
@@ -1329,18 +1387,28 @@ export default function CoachesIndex({
                                                                                     '-'}
                                                                             </TableCell>
                                                                             <TableCell className="w-[22%] py-2 text-sm">
-                                                                                <Link
-                                                                                    href={CoachController.show.url(
-                                                                                        coachInTeam.id,
+                                                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                                                    <Link
+                                                                                        href={CoachController.show.url(
+                                                                                            coachInTeam.id,
+                                                                                        )}
+                                                                                        className="text-primary hover:underline"
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                    >
+                                                                                        {
+                                                                                            coachInTeam.full_name
+                                                                                        }
+                                                                                    </Link>
+                                                                                    {coachInTeam.member_id && (
+                                                                                        <PlayerCoachBadge
+                                                                                            memberId={coachInTeam.member_id}
+                                                                                            memberName={coachInTeam.member?.full_name}
+                                                                                            pno={coachInTeam.member?.pno}
+                                                                                            variant="compact"
+                                                                                        />
                                                                                     )}
-                                                                                    className="text-primary hover:underline"
-                                                                                    target="_blank"
-                                                                                    rel="noopener noreferrer"
-                                                                                >
-                                                                                    {
-                                                                                        coachInTeam.full_name
-                                                                                    }
-                                                                                </Link>
+                                                                                </div>
                                                                             </TableCell>
                                                                             <TableCell className="w-[13%] py-2 text-sm">
                                                                                 {coachInTeam.pno ? (

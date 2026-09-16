@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Concerns\Auditable;
+use App\Concerns\HasPromotionRecordType;
 use App\Concerns\Tenanted;
 use App\Observers\AuditObserver;
 use Database\Factories\CoachPromotionFactory;
@@ -24,22 +25,31 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $promotion_date
  * @property string|null $from_rank
  * @property string|null $to_rank
+ * @property string $record_type
  * @property string|null $cash_reward_amount
  * @property Carbon|null $cash_reward_date
  * @property string|null $cash_reward_reference
  * @property string|null $cash_reward_remarks
  * @property string|null $reason
  * @property string|null $remarks
+ * @property string|null $document_path
+ * @property string|null $document_original_name
+ * @property string|null $document_mime_type
+ * @property int|null $document_size_bytes
  * @property int|null $recorded_by
+ * @property int|null $member_promotion_id
+ * @property string $source
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Coach $coach
+ * @property-read MemberPromotion|null $memberPromotion
  * @property-read User|null $recorder
  * @property-read Collection<int, CoachPromotionEvidence> $evidences
  */
 #[Fillable([
     'organization_id',
     'coach_id',
+    'member_promotion_id',
     'promotion_date',
     'from_rank',
     'to_rank',
@@ -49,13 +59,18 @@ use Illuminate\Support\Carbon;
     'cash_reward_remarks',
     'reason',
     'remarks',
+    'document_path',
+    'document_original_name',
+    'document_mime_type',
+    'document_size_bytes',
     'recorded_by',
+    'source',
 ])]
 #[ObservedBy([AuditObserver::class])]
 class CoachPromotion extends Model
 {
     /** @use HasFactory<CoachPromotionFactory> */
-    use Auditable, HasFactory, Tenanted;
+    use Auditable, HasFactory, HasPromotionRecordType, Tenanted;
 
     protected function casts(): array
     {
@@ -70,6 +85,12 @@ class CoachPromotion extends Model
     public function coach(): BelongsTo
     {
         return $this->belongsTo(Coach::class);
+    }
+
+    /** @return BelongsTo<MemberPromotion, $this> */
+    public function memberPromotion(): BelongsTo
+    {
+        return $this->belongsTo(MemberPromotion::class, 'member_promotion_id');
     }
 
     /** @return BelongsTo<User, $this> */

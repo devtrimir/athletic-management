@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { useEffect } from 'react';
 import { useTranslation } from '@/hooks/use-translation';
 import { coachRoleLabel } from '@/lib/coach';
+import { formatDate } from '@/lib/dates';
 
 type Team = {
     id: number;
@@ -228,7 +229,7 @@ export default function TeamsPrint({
             return '';
         }
 
-        return leftOn;
+        return formatDate(leftOn);
     };
 
     const normalizeTag = (value: string | null | undefined): string => {
@@ -306,7 +307,7 @@ export default function TeamsPrint({
                         <td class="name-col">${escapeHtml(name)}</td>
                         <td class="compact-col">${escapeHtml(member.role ? t(member.role) : '')}</td>
                         <td class="posting-col">${escapeHtml(posting || '')}</td>
-                        <td class="compact-col">${escapeHtml(normalizeDate(member.joined_on))}</td>
+                        <td class="compact-col">${escapeHtml(formatDate(member.joined_on))}</td>
                         ${showLeftOnColumn ? `<td class="compact-col">${escapeHtml(formatLeftDate(member))}</td>` : ''}
                         <td class="compact-col">${escapeHtml(player?.mobile)}</td>
                         <td class="compact-col">${escapeHtml(normalizeTag(player?.player_category))}</td>

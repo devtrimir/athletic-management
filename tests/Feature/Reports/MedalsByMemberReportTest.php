@@ -100,19 +100,21 @@ function teamMemberAchievement(
         'sport_id' => $sport->id,
         'event_type' => 'team',
     ]);
-    $participation = Participation::factory()->create([
-        'member_id' => null,
-        'team_id' => $team->id,
-        'event_id' => $event->id,
-        'session_id' => $session->id,
-        'lineup_member_ids' => $members->pluck('id')->all(),
-    ]);
-    $achievement = Achievement::factory()->create([
-        'participation_id' => $participation->id,
-        'medal_type' => $medalType,
-    ]);
+    $achievements = [];
+    foreach ($members as $m) {
+        $participation = Participation::factory()->create([
+            'member_id' => $m->id,
+            'team_id' => $team->id,
+            'event_id' => $event->id,
+            'session_id' => $session->id,
+        ]);
+        $achievements[] = Achievement::factory()->create([
+            'participation_id' => $participation->id,
+            'medal_type' => $medalType,
+        ]);
+    }
 
-    return compact('session', 'sport', 'team', 'members', 'achievement');
+    return compact('session', 'sport', 'team', 'members', 'achievements');
 }
 
 function memberNoFilters(): array

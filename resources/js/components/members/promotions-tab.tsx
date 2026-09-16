@@ -1,11 +1,19 @@
 import { router, useForm } from '@inertiajs/react';
 import {
+    ArrowRight,
+    Award,
+    CheckCircle2,
     ChevronDown,
     ChevronRight,
+    Coins,
     Loader2,
     Pencil,
     Plus,
+    Search,
     Trash2,
+    Trophy,
+    Upload,
+    X,
 } from 'lucide-react';
 import { Fragment } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -13,12 +21,15 @@ import { Combobox } from '@/components/combobox';
 import type { ComboboxItem } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
+import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
+import type { ConfidentialDocument } from '@/components/shared/confidential-document-preview';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -34,8 +45,15 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate, formatDateRange } from '@/lib/dates';
+import { resolveRankLabel as resolveRankLabelShared } from '@/lib/ranks';
 
 type LiveAchievement = {
     id: number;
@@ -43,8 +61,21 @@ type LiveAchievement = {
     position: number | null;
     remarks: string | null;
     session: { id: number; name: string };
-    tournament: { id: number; name: string; tier_code: string | null };
-    event: { id: number; name: string };
+    tournament: {
+        id: number;
+        name: string;
+        tier_code: string | null;
+        date_from?: string | null;
+        date_to?: string | null;
+        venue?: string | null;
+    };
+    event: {
+        id: number;
+        name: string;
+        gender_class?: string;
+        discipline?: string | null;
+        event_type?: string | null;
+    };
     benefits: {
         id: number;
         benefit_type: string;
@@ -62,9 +93,17 @@ type ParticipationItem = {
         id: number;
         name: string;
         tier_code: string | null;
-        date_from: string | null;
+        date_from?: string | null;
+        date_to?: string | null;
+        venue?: string | null;
     };
-    event: { id: number; name: string; gender_class: string };
+    event: {
+        id: number;
+        name: string;
+        gender_class?: string;
+        discipline?: string | null;
+        event_type?: string | null;
+    };
     achievement: {
         id: number;
         medal_type: string;
@@ -83,6 +122,37 @@ type ParticipationItem = {
 type ParticipationGroup = {
     session: { id: number; name: string; is_current?: boolean };
     participations: ParticipationItem[];
+};
+
+type EvidenceOption = {
+    key: string;
+    label: string;
+    evidences: PromotionEvidenceRef[];
+    priority: number;
+    tournamentId: number;
+    tournamentName: string;
+    tierCode: string | null;
+    venue?: string | null;
+    dateFrom?: string | null;
+    sessionName?: string | null;
+    eventId: number;
+    eventName: string;
+    genderClass?: string | null;
+    discipline?: string | null;
+    eventType?: string | null;
+    medalType?: string | null;
+    position?: number | null;
+    benefitsSummary?: string | null;
+};
+
+type TournamentEvidenceGroup = {
+    tournamentId: number;
+    tournamentName: string;
+    tierCode: string | null;
+    venue?: string | null;
+    dateFrom?: string | null;
+    sessionName?: string | null;
+    events: EvidenceOption[];
 };
 type PromotionEvidence = {
     id: number;
@@ -105,6 +175,7 @@ type PromotionEvidence = {
         id: number;
         name: string;
         gender_class?: string;
+        event_type?: string | null;
     };
     period?: string | null;
     level?: string | null;
@@ -142,6 +213,7 @@ type PromotionEvidenceRef = { type: PromotionEvidence['type']; id: number };
 
 type PromotionRow = {
     id: number;
+    record_type: 'promotion' | 'reward' | 'promotion_reward';
     promotion_date: string | null;
     from_rank: string | null;
     to_rank: string;
@@ -152,17 +224,8 @@ type PromotionRow = {
     reason: string | null;
     remarks: string | null;
     recorded_by_name: string | null;
+    document: ConfidentialDocument | null;
     evidences: PromotionEvidence[];
-};
-type PromotionMediaFile = {
-    id: number;
-    url: string;
-    original_name: string;
-    mime_type: string;
-    size_bytes: number;
-    caption: string | null;
-    uploaded_by: { id: number; name: string };
-    created_at: string;
 };
 type RankOption = {
     code: string;
@@ -189,6 +252,15 @@ type Props = {
     showActions?: boolean;
 };
 
+function humanize(value: string): string {
+    return value
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function evidenceKey(type: string, id: number): string {
     return `${type}:${id}`;
 }
@@ -199,6 +271,75 @@ function evidenceSelectionKey(evidence: PromotionEvidence): string {
     }
 
     return evidenceKey(evidence.type, evidence.evidence_id);
+}
+
+function medalEmoji(medalType?: string | null): string {
+    if (!medalType) {
+        return '🏅';
+    }
+
+    const upper = medalType.toUpperCase();
+
+    if (upper === 'GOLD') {
+        return '🥇';
+    }
+
+    if (upper === 'SILVER') {
+        return '🥈';
+    }
+
+    if (upper === 'BRONZE') {
+        return '🥉';
+    }
+
+    return '🏅';
+}
+
+function renderMedalBadge(
+    medalType: string | null | undefined,
+    position: number | null | undefined,
+    t: (k: string) => string,
+) {
+    if (!medalType && !position) {
+        return (
+            <Badge
+                variant="outline"
+                className="text-[11px] font-normal text-muted-foreground"
+            >
+                {t('Participation')}
+            </Badge>
+        );
+    }
+
+    if (medalType === 'GOLD' || position === 1) {
+        return (
+            <Badge className="gap-1 border-amber-300 bg-amber-100 text-[11px] font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-200">
+                🥇 {medalType ? t(medalType) : '#1'}
+            </Badge>
+        );
+    }
+
+    if (medalType === 'SILVER' || position === 2) {
+        return (
+            <Badge className="gap-1 border-slate-300 bg-slate-100 text-[11px] font-semibold text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                🥈 {medalType ? t(medalType) : '#2'}
+            </Badge>
+        );
+    }
+
+    if (medalType === 'BRONZE' || position === 3) {
+        return (
+            <Badge className="gap-1 border-orange-300 bg-orange-100 text-[11px] font-semibold text-orange-900 dark:border-orange-800 dark:bg-orange-950/60 dark:text-orange-200">
+                🥉 {medalType ? t(medalType) : '#3'}
+            </Badge>
+        );
+    }
+
+    return (
+        <Badge variant="secondary" className="gap-1 text-[11px] font-medium">
+            {medalType ? t(medalType) : `#${position}`}
+        </Badge>
+    );
 }
 
 function groupedEvidenceRefs(
@@ -215,14 +356,6 @@ function groupedEvidenceRefs(
     }
 
     return grouped;
-}
-
-function visibleEvidenceGroupCount(
-    evidences: PromotionEvidence[] = [],
-    participations: ParticipationGroup[],
-    achievements: LiveAchievement[],
-): number {
-    return visibleEvidenceRows(evidences, participations, achievements).length;
 }
 
 function visibleEvidenceRows(
@@ -247,11 +380,92 @@ function visibleEvidenceRows(
     return Array.from(visible.values());
 }
 
-function currentSessionId(participations: ParticipationGroup[]): string {
-    return String(
-        participations.find((group) => group.session.is_current)?.session.id ??
-            participations[0]?.session.id ??
-            '',
+function EvidenceSummaryCell({
+    evidences,
+    participations,
+    achievements,
+    t,
+}: {
+    evidences: PromotionEvidence[];
+    participations: ParticipationGroup[];
+    achievements: LiveAchievement[];
+    t: (k: string) => string;
+}) {
+    const rows = visibleEvidenceRows(evidences, participations, achievements);
+
+    if (rows.length === 0) {
+        return <span className="text-xs text-muted-foreground">—</span>;
+    }
+
+    const firstTwo = rows.slice(0, 2);
+    const remaining = rows.slice(2);
+
+    return (
+        <TooltipProvider>
+            <div className="flex flex-wrap items-center gap-1.5">
+                {firstTwo.map((row, idx) => {
+                    const medal = row.achievement?.medal_type ?? row.medal_type;
+                    const eventName = row.event?.name ?? t('Event');
+                    const tournamentName = row.tournament?.name;
+
+                    return (
+                        <span
+                            key={idx}
+                            title={
+                                tournamentName
+                                    ? `${tournamentName} · ${eventName}`
+                                    : eventName
+                            }
+                            className="inline-flex max-w-[170px] items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-700 shadow-2xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        >
+                            <span className="shrink-0">
+                                {medalEmoji(medal)}
+                            </span>
+                            <span className="truncate">{eventName}</span>
+                        </span>
+                    );
+                })}
+
+                {remaining.length > 0 && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="inline-flex cursor-pointer items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300">
+                                +{remaining.length} {t('more')}
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs space-y-1.5 p-2 text-xs">
+                            <p className="border-b border-border/50 pb-1 font-semibold text-muted-foreground">
+                                {t('Additional events')}
+                            </p>
+                            {remaining.map((row, idx) => {
+                                const medal =
+                                    row.achievement?.medal_type ??
+                                    row.medal_type;
+                                const eventName = row.event?.name ?? t('Event');
+                                const tournamentName = row.tournament?.name;
+
+                                return (
+                                    <div
+                                        key={idx}
+                                        className="flex items-center gap-1.5 text-left"
+                                    >
+                                        <span>{medalEmoji(medal)}</span>
+                                        <span className="font-medium text-foreground">
+                                            {eventName}
+                                        </span>
+                                        {tournamentName && (
+                                            <span className="text-muted-foreground">
+                                                ({tournamentName})
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
+        </TooltipProvider>
     );
 }
 
@@ -259,8 +473,8 @@ function participationGroupsForSession(
     participations: ParticipationGroup[],
     sessionId: string,
 ): ParticipationGroup[] {
-    if (!sessionId) {
-        return [];
+    if (!sessionId || sessionId === 'all') {
+        return participations;
     }
 
     return participations.filter(
@@ -268,16 +482,9 @@ function participationGroupsForSession(
     );
 }
 
-function sessionById(
+function sessionLabelById(
     participations: ParticipationGroup[],
-    sessionId: string,
-): ParticipationGroup['session'] | undefined {
-    return participations.find(
-        (group) => String(group.session.id) === sessionId,
-    )?.session;
-}
-
-function sessionLabelById(participations: ParticipationGroup[]): Map<number, string> {
+): Map<number, string> {
     const sessionNames = new Map<number, string>();
 
     for (const group of participations) {
@@ -287,58 +494,6 @@ function sessionLabelById(participations: ParticipationGroup[]): Map<number, str
     return sessionNames;
 }
 
-function allSessions(participations: ParticipationGroup[]) {
-    const values = new Set<string>(
-        participations.map((group) => String(group.session.id)),
-    );
-
-    return Array.from(values);
-}
-
-function sessionStartDate(
-    session?: ParticipationGroup['session'],
-): string | undefined {
-    if (!session?.is_current) {
-        return undefined;
-    }
-
-    const match = session.name.match(/(\d{4})/);
-
-    return match ? `${match[1]}-01-01` : undefined;
-}
-
-function parseDateValue(value: string): Date | null {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const [year, month, day] = value.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const match = /^\d{4}-\d{2}-\d{2}/.exec(value);
-    const datePart = match ? match[0] : value;
-    const date = new Date(datePart);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDisplayDate(
-    value: string | null | undefined,
-): string | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        dateStyle: 'medium',
-    }).format(date);
-}
 
 function isOtherTierEvent(tierCode?: string | null): boolean {
     return tierCode?.trim().toUpperCase() === 'OTHER';
@@ -386,8 +541,12 @@ function promotedEventKeys(
         }
 
         const shouldTrackEvent = rewardMode
-            ? item.cash_reward_amount !== null && item.cash_reward_amount !== ''
-            : true;
+            ? Boolean(
+                  item.cash_reward_amount !== null &&
+                  item.cash_reward_amount !== '' &&
+                  item.cash_reward_amount !== undefined,
+              )
+            : isActualPromotionRow(item);
 
         for (const evidence of item.evidences) {
             if (!shouldTrackEvent) {
@@ -432,12 +591,27 @@ function promotedEventKeys(
 
     return { eventKeys };
 }
-function hasPromotionOrCashAward(
+
+function isActualPromotionRow(item: PromotionRow): boolean {
+    const hasPromotionDate = Boolean(
+        item.promotion_date !== null &&
+        item.promotion_date !== '' &&
+        item.promotion_date !== undefined,
+    );
+    const hasRankChange = Boolean(
+        item.from_rank && item.to_rank && item.from_rank !== item.to_rank,
+    );
+    const hasReason = Boolean(item.reason && item.reason.trim() !== '');
+
+    return hasPromotionDate || hasRankChange || hasReason;
+}
+
+function hasPromotionBenefit(
     benefits: { benefit_type: string }[] | undefined,
 ): boolean {
     return (
         benefits?.some((benefit) =>
-            ['PROMOTION', 'OUT_OF_TURN_PROMOTION', 'CASH_AWARD'].includes(
+            ['PROMOTION', 'OUT_OF_TURN_PROMOTION'].includes(
                 benefit.benefit_type,
             ),
         ) ?? false
@@ -525,14 +699,9 @@ function evidenceSessionId(
 
             continue;
         }
-
     }
 
     return '';
-}
-
-function isBeforeDate(value: string, minDate?: string): boolean {
-    return Boolean(value && minDate && value < minDate);
 }
 
 function rankDisplay(rank: RankOption): string {
@@ -558,33 +727,15 @@ function resolveRankInputValue(
     return exactMatch?.code ?? normalized;
 }
 
-function rankDisplaySimple(rank: RankOption): string {
-    return rank.name;
-}
-
-function resolveRankLabelSimple(
-    value: string | null,
-    ranks: RankOption[],
-): string {
-    if (!value) {
-        return '';
-    }
-
-    const rank = ranks.find(
-        (item) =>
-            item.code === value ||
-            item.name === value ||
-            item.short_name === value,
-    );
-
-    return rank ? rankDisplaySimple(rank) : value;
-}
-
 function resolveRankOrder(
     ranks: RankOption[],
     rankCode: string,
 ): number | null {
-    return ranks.find((rank) => rank.code === rankCode)?.rank_order ?? null;
+    if (!rankCode) {
+        return null;
+    }
+
+    return rankOrderByCode(ranks).get(rankCode) ?? null;
 }
 
 function rankItemsWithMemberFallback(
@@ -647,152 +798,20 @@ function summarizeBenefits(
 }
 
 function resolveRankLabel(value: string | null, ranks: RankOption[]): string {
-    if (!value) {
-        return '';
-    }
+    // Delegates to the shared rank resolver (@/lib/ranks) so rank matching stays in one
+    // place; locale is accepted but currently unused by the shared implementation.
+    const normalizedRanks = ranks.map((rank) => ({
+        code: rank.code,
+        name: rank.name,
+        short_name: rank.short_name ?? null,
+    }));
 
-    const rank = ranks.find(
-        (item) =>
-            item.code === value ||
-            item.name === value ||
-            item.short_name === value,
-    );
-
-    return rank ? rankDisplaySimple(rank) : value;
+    return resolveRankLabelShared(value, normalizedRanks, '');
 }
 function getCsrfToken(): string {
     return (
         (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)
             ?.content ?? ''
-    );
-}
-
-function PromotionDocuments({
-    memberId,
-    promotionId,
-}: {
-    memberId: number;
-    promotionId: number;
-}) {
-    const { t } = useTranslation();
-    const [files, setFiles] = useState<PromotionMediaFile[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [uploading, setUploading] = useState(false);
-    useEffect(() => {
-        let active = true;
-        (async () => {
-            try {
-                const response = await fetch(
-                    `/members/${memberId}/promotions/${promotionId}/media`,
-                    {
-                        headers: { Accept: 'application/json' },
-                    },
-                );
-
-                if (!active) {
-                    return;
-                }
-
-                if (response.ok) {
-                    const json = (await response.json()) as
-                        | PromotionMediaFile[]
-                        | { data: PromotionMediaFile[] };
-                    setFiles(Array.isArray(json) ? json : json.data);
-                }
-            } finally {
-                if (active) {
-                    setLoading(false);
-                }
-            }
-        })();
-
-        return () => {
-            active = false;
-        };
-    }, [memberId, promotionId]);
-
-    async function handleUpload(file: File) {
-        setUploading(true);
-
-        try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const response = await fetch(
-                `/members/${memberId}/promotions/${promotionId}/media`,
-                {
-                    method: 'POST',
-                    headers: {
-                        Accept: 'application/json',
-                        'X-CSRF-TOKEN': getCsrfToken(),
-                    },
-                    body: formData,
-                },
-            );
-
-            if (response.ok) {
-                const json = (await (
-                    await fetch(
-                        `/members/${memberId}/promotions/${promotionId}/media`,
-                        {
-                            headers: { Accept: 'application/json' },
-                        },
-                    )
-                ).json()) as
-                    | PromotionMediaFile[]
-                    | { data: PromotionMediaFile[] };
-                setFiles(Array.isArray(json) ? json : json.data);
-            }
-        } finally {
-            setUploading(false);
-        }
-    }
-
-    return (
-        <div className="space-y-2 rounded-lg border border-dashed p-3">
-            <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-medium">
-                    {t('Promotion documents')}
-                </p>
-                <label className="cursor-pointer text-xs text-primary">
-                    {uploading ? t('Uploading…') : t('Upload file')}
-                    <input
-                        type="file"
-                        accept=".pdf,image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                            const file = e.target.files?.[0];
-
-                            if (file) {
-                                void handleUpload(file);
-                            }
-
-                            e.currentTarget.value = '';
-                        }}
-                    />
-                </label>
-            </div>
-            {loading ? (
-                <p className="text-xs text-muted-foreground">{t('Loading…')}</p>
-            ) : files.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                    {t('No documents uploaded.')}
-                </p>
-            ) : (
-                <div className="space-y-1">
-                    {files.map((file) => (
-                        <a
-                            key={file.id}
-                            href={file.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block truncate text-xs text-primary hover:underline"
-                        >
-                            {file.original_name}
-                        </a>
-                    ))}
-                </div>
-            )}
-        </div>
     );
 }
 
@@ -894,10 +913,10 @@ function InlineRankDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="px-0 text-xs"
+                    className="h-5 px-1.5 text-[11px] font-normal text-muted-foreground hover:text-primary"
                 >
-                    <Plus className="mr-1.5 size-3.5" />
-                    {t('Create new rank')}
+                    <Plus className="mr-1 size-3" />
+                    {t('New rank')}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-xl" aria-describedby={undefined}>
@@ -1053,23 +1072,12 @@ export function PromotionDialog({
 }) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
-    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [availableRanks, setAvailableRanks] = useState(ranks);
+    const [documentFile, setDocumentFile] = useState<File | null>(null);
+    const [documentError, setDocumentError] = useState<string | null>(null);
     const isRewardAction = mode === 'reward';
     const rewardActionLabel = t('Add cash reward');
-    const [pendingPayload, setPendingPayload] = useState<{
-        promotion_date: string | null;
-        cash_reward_only: boolean;
-        from_rank: string | null;
-        to_rank: string | null;
-        cash_reward_amount: string | null;
-        cash_reward_date: string | null;
-        cash_reward_reference: string | null;
-        cash_reward_remarks: string | null;
-        reason: string | null;
-        remarks: string | null;
-        evidences: PromotionEvidenceRef[];
-    } | null>(null);
     const selectedDefaultEvidenceKeys = useMemo(
         () =>
             promotion?.evidences.map((evidence) =>
@@ -1124,7 +1132,7 @@ export function PromotionDialog({
                 promotion?.evidences ?? [],
                 participations,
                 achievements,
-            ) || currentSessionId(participations),
+            ) || 'all',
         [achievements, participations, promotion],
     );
     const [selected, setSelected] = useState<string[]>(selectedDefaults);
@@ -1134,8 +1142,6 @@ export function PromotionDialog({
         () => participationGroupsForSession(participations, selectedSessionId),
         [participations, selectedSessionId],
     );
-    const selectedSession = sessionById(participations, selectedSessionId);
-    const currentSessionMinDate = sessionStartDate(selectedSession);
     const excludedPromotionId = promotion?.id;
     const disabledEvidenceKeys = useMemo(
         () =>
@@ -1193,11 +1199,30 @@ export function PromotionDialog({
         rankOrderLookup,
     ]);
 
+    const [evidenceSearch, setEvidenceSearch] = useState('');
+
     function resetFormState() {
+        setEvidenceSearch('');
+        setDocumentFile(null);
+        setDocumentError(null);
         form.setData({
             promotion_date: promotion?.promotion_date ?? '',
-            from_rank: promotion?.from_rank ?? memberRank ?? '',
-            to_rank: promotion?.to_rank ?? '',
+            from_rank: resolveRankInputValue(
+                promotion?.from_rank || memberRank || '',
+                availableRanks,
+            ),
+            to_rank: isRewardAction
+                ? resolveRankInputValue(
+                      promotion?.to_rank ||
+                          promotion?.from_rank ||
+                          memberRank ||
+                          '',
+                      availableRanks,
+                  )
+                : resolveRankInputValue(
+                      promotion?.to_rank ?? '',
+                      availableRanks,
+                  ),
             cash_reward_amount: promotion?.cash_reward_amount ?? '',
             cash_reward_date: promotion?.cash_reward_date ?? '',
             cash_reward_reference: promotion?.cash_reward_reference ?? '',
@@ -1216,26 +1241,39 @@ export function PromotionDialog({
                 promotion?.evidences ?? [],
                 participations,
                 achievements,
-            ) || currentSessionId(participations),
+            ) || 'all',
         );
         form.clearErrors();
-        setPendingPayload(null);
-        setConfirmOpen(false);
+        setIsSubmitting(false);
     }
 
-    const sessionOptions = useMemo(
-        () =>
-            allSessions(participations).map(
-                (sessionId) => ({
-                    id: sessionId,
-                    name: sessionLabelById(participations).get(
-                        Number(sessionId),
-                    ),
-                    isCurrent: false,
-                }),
-            ),
-        [participations],
-    );
+    const sessionOptions = useMemo(() => {
+        const uniqueSessionIds = new Set<string>();
+
+        for (const group of participations) {
+            uniqueSessionIds.add(String(group.session.id));
+        }
+
+        for (const item of achievements) {
+            uniqueSessionIds.add(String(item.session.id));
+        }
+
+        const labelMap = sessionLabelById(participations);
+
+        for (const item of achievements) {
+            if (!labelMap.has(item.session.id)) {
+                labelMap.set(item.session.id, item.session.name);
+            }
+        }
+
+        return [
+            { id: 'all', name: t('All sessions') },
+            ...Array.from(uniqueSessionIds).map((sessionId) => ({
+                id: sessionId,
+                name: labelMap.get(Number(sessionId)) ?? `#${sessionId}`,
+            })),
+        ];
+    }, [achievements, participations, t]);
 
     function handleRankCreated(rank: RankOption) {
         setAvailableRanks((prev) => {
@@ -1267,16 +1305,8 @@ export function PromotionDialog({
         }
     }, [form, form.data.to_rank, toRankItems]);
 
-    const options = useMemo(() => {
-        const deduped = new Map<
-            string,
-            {
-                key: string;
-                label: string;
-                evidences: PromotionEvidenceRef[];
-                priority: number;
-            }
-        >();
+    const options: EvidenceOption[] = useMemo(() => {
+        const deduped = new Map<string, EvidenceOption>();
 
         for (const group of selectedParticipationGroups) {
             for (const item of group.participations) {
@@ -1287,7 +1317,7 @@ export function PromotionDialog({
                 );
                 const participationBenefitBlocked = isRewardAction
                     ? hasCashAward(item.achievement?.benefits)
-                    : hasPromotionOrCashAward(item.achievement?.benefits);
+                    : hasPromotionBenefit(item.achievement?.benefits);
 
                 if (
                     participationBenefitBlocked &&
@@ -1318,11 +1348,39 @@ export function PromotionDialog({
                     });
                 }
 
-                const label = `${group.session.name} · ${item.tournament.name} · ${item.event.name}${item.achievement?.medal_type ? ` · ${t(item.achievement.medal_type)}` : ''}${item.position ? ` · #${item.position}` : ''}${item.achievement?.benefits && item.achievement.benefits.length > 0 ? ` · ${summarizeBenefits(item.achievement.benefits, t)}` : ''}`;
+                const medalType = item.achievement?.medal_type ?? null;
+                const position =
+                    item.position ?? item.achievement?.position ?? null;
+                const benefitsSummary =
+                    item.achievement?.benefits &&
+                    item.achievement.benefits.length > 0
+                        ? summarizeBenefits(item.achievement.benefits, t)
+                        : null;
+
+                const label = `${group.session.name} · ${item.tournament.name} · ${item.event.name}${medalType ? ` · ${t(medalType)}` : ''}${position ? ` · #${position}` : ''}${benefitsSummary ? ` · ${benefitsSummary}` : ''}`;
                 const existing = deduped.get(key);
 
                 if (!existing || existing.priority < 2) {
-                    deduped.set(key, { key, label, evidences, priority: 2 });
+                    deduped.set(key, {
+                        key,
+                        label,
+                        evidences,
+                        priority: 2,
+                        tournamentId: item.tournament.id,
+                        tournamentName: item.tournament.name,
+                        tierCode: item.tournament.tier_code,
+                        venue: item.tournament.venue,
+                        dateFrom: item.tournament.date_from,
+                        sessionName: group.session.name,
+                        eventId: item.event.id,
+                        eventName: item.event.name,
+                        genderClass: item.event.gender_class,
+                        discipline: item.event.discipline,
+                        eventType: item.event.event_type,
+                        medalType,
+                        position,
+                        benefitsSummary,
+                    });
                 }
             }
         }
@@ -1332,7 +1390,7 @@ export function PromotionDialog({
             const evidenceKeyValue = evidenceKey('achievement', item.id);
             const achievementBlocked = isRewardAction
                 ? hasCashAward(item.benefits)
-                : hasPromotionOrCashAward(item.benefits);
+                : hasPromotionBenefit(item.benefits);
 
             if (
                 achievementBlocked &&
@@ -1348,7 +1406,10 @@ export function PromotionDialog({
                 continue;
             }
 
-            if (String(item.session.id) !== selectedSessionId) {
+            if (
+                selectedSessionId !== 'all' &&
+                String(item.session.id) !== selectedSessionId
+            ) {
                 continue;
             }
 
@@ -1356,19 +1417,57 @@ export function PromotionDialog({
                 continue;
             }
 
-            if (!deduped.has(key)) {
+            const medalType = item.medal_type ?? null;
+            const position = item.position ?? null;
+            const benefitsSummary =
+                item.benefits && item.benefits.length > 0
+                    ? t('Benefit recorded')
+                    : null;
+
+            const existing = deduped.get(key);
+
+            if (existing) {
+                if (!existing.medalType && medalType) {
+                    existing.medalType = medalType;
+                    existing.position = position ?? existing.position;
+                    existing.label = `${existing.sessionName} · ${existing.tournamentName} · ${existing.eventName} · ${t(medalType)}${existing.position ? ` · #${existing.position}` : ''}`;
+                }
+
+                if (
+                    !existing.evidences.some(
+                        (e) => e.type === 'achievement' && e.id === item.id,
+                    )
+                ) {
+                    existing.evidences.push({
+                        type: 'achievement',
+                        id: item.id,
+                    });
+                }
+            } else {
                 deduped.set(key, {
                     key,
-                    label: `${t(item.medal_type)} · ${item.tournament.name} · ${item.event.name}${item.benefits.length > 0 ? ` · ${t('Benefit recorded')}` : ''}`,
+                    label: `${t(item.medal_type)} · ${item.tournament.name} · ${item.event.name}${benefitsSummary ? ` · ${benefitsSummary}` : ''}`,
                     evidences: [{ type: 'achievement', id: item.id }],
                     priority: 1,
+                    tournamentId: item.tournament.id,
+                    tournamentName: item.tournament.name,
+                    tierCode: item.tournament.tier_code,
+                    venue: item.tournament.venue,
+                    dateFrom: item.tournament.date_from,
+                    sessionName: item.session.name,
+                    eventId: item.event.id,
+                    eventName: item.event.name,
+                    genderClass: item.event.gender_class,
+                    discipline: item.event.discipline,
+                    eventType: item.event.event_type,
+                    medalType,
+                    position,
+                    benefitsSummary,
                 });
             }
         }
 
-        return Array.from(deduped.values()).map(
-            ({ key, label, evidences }) => ({ key, label, evidences }),
-        );
+        return Array.from(deduped.values());
     }, [
         achievements,
         disabledEvidenceKeys.eventKeys,
@@ -1379,343 +1478,244 @@ export function PromotionDialog({
         t,
     ]);
 
-    const selectedEvidenceLabels = useMemo(() => {
-        const optionMap = new Map(options.map((opt) => [opt.key, opt.label]));
-        const optionByKey = new Map(options.map((opt) => [opt.key, opt]));
-        const evidencesByKey = new Map<string, PromotionEvidenceRef[]>(
-            selectedDefaultRefsByKey,
-        );
+    const tournamentGroups = useMemo(() => {
+        const groups = new Map<number, TournamentEvidenceGroup>();
 
-        for (const [key, option] of optionByKey) {
-            evidencesByKey.set(key, option.evidences);
-        }
+        for (const opt of options) {
+            let group = groups.get(opt.tournamentId);
 
-        return selected.map((key) => ({
-            key,
-            label: optionMap.get(key) || key,
-            evidences: evidencesByKey.get(key) ?? [],
-        }));
-    }, [options, selected, selectedDefaultRefsByKey]);
-
-    const promotionEvidenceByRef = useMemo(() => {
-        const evidenceMap = new Map<string, PromotionEvidence>();
-
-        for (const evidence of promotion?.evidences ?? []) {
-            evidenceMap.set(
-                evidenceKey(evidence.type, evidence.evidence_id),
-                evidence,
-            );
-        }
-
-        return evidenceMap;
-    }, [promotion?.evidences]);
-    function getEvidenceByRef(
-        evidence: PromotionEvidenceRef,
-    ): PromotionEvidence | null {
-        return (
-            promotionEvidenceByRef.get(
-                evidenceKey(evidence.type, evidence.id),
-            ) ?? null
-        );
-    }
-
-    function evidenceContextFromRefs(
-        evidenceRefs: PromotionEvidenceRef[] = [],
-    ): { session: string; tournament: string; event: string; tier: string } {
-        const primaryEvidence = primaryEvidenceRefFromRefs(evidenceRefs);
-
-        if (!primaryEvidence) {
-            return {
-                session: t('No session'),
-                tournament: t('—'),
-                event: t('—'),
-                tier: t('—'),
-            };
-        }
-
-        if (primaryEvidence.type === 'participation') {
-            const payload = getEvidenceByRef(primaryEvidence);
-
-            if (payload?.session?.name) {
-                return {
-                    session: payload.session.name,
-                    tournament: payload.tournament?.name ?? t('—'),
-                    event: payload.event?.name ?? t('—'),
-                    tier: payload.tournament?.tier_code ?? t('—'),
+            if (!group) {
+                group = {
+                    tournamentId: opt.tournamentId,
+                    tournamentName: opt.tournamentName,
+                    tierCode: opt.tierCode,
+                    venue: opt.venue,
+                    dateFrom: opt.dateFrom,
+                    sessionName: opt.sessionName,
+                    events: [],
                 };
+                groups.set(opt.tournamentId, group);
             }
 
-            for (const group of participations) {
-                const participation = group.participations.find(
-                    (record) => record.id === primaryEvidence.id,
-                );
+            group.events.push(opt);
+        }
 
-                if (participation) {
-                    return {
-                        session: group.session.name,
-                        tournament: participation.tournament.name,
-                        event: participation.event.name,
-                        tier: participation.tournament.tier_code ?? t('—'),
-                    };
+        return Array.from(groups.values());
+    }, [options]);
+
+    const filteredTournamentGroups = useMemo(() => {
+        const query = evidenceSearch.trim().toLowerCase();
+
+        if (!query) {
+            return tournamentGroups;
+        }
+
+        return tournamentGroups
+            .map((group) => {
+                const tournamentMatches =
+                    group.tournamentName.toLowerCase().includes(query) ||
+                    (group.tierCode?.toLowerCase().includes(query) ?? false) ||
+                    (group.venue?.toLowerCase().includes(query) ?? false);
+
+                if (tournamentMatches) {
+                    return group;
                 }
-            }
 
-            return {
-                session: t('No session'),
-                tournament: t('—'),
-                event: t('—'),
-                tier: t('—'),
-            };
+                const matchingEvents = group.events.filter((event) => {
+                    return (
+                        event.eventName.toLowerCase().includes(query) ||
+                        (event.medalType?.toLowerCase().includes(query) ??
+                            false) ||
+                        (event.discipline?.toLowerCase().includes(query) ??
+                            false) ||
+                        (event.genderClass?.toLowerCase().includes(query) ??
+                            false)
+                    );
+                });
+
+                if (matchingEvents.length === 0) {
+                    return null;
+                }
+
+                return {
+                    ...group,
+                    events: matchingEvents,
+                };
+            })
+            .filter(
+                (group): group is TournamentEvidenceGroup => group !== null,
+            );
+    }, [tournamentGroups, evidenceSearch]);
+
+    function toggleTournamentSelection(group: TournamentEvidenceGroup) {
+        const keys = group.events.map((e) => e.key);
+        const allSelected = keys.every((k) => selected.includes(k));
+
+        if (allSelected) {
+            setSelected((prev) => prev.filter((k) => !keys.includes(k)));
+        } else {
+            setSelected((prev) => Array.from(new Set([...prev, ...keys])));
+        }
+    }
+
+    const selectedEvidenceDetails = useMemo(() => {
+        const optionByKey = new Map<string, EvidenceOption>();
+
+        for (const opt of options) {
+            optionByKey.set(opt.key, opt);
         }
 
-        if (primaryEvidence.type === 'achievement') {
-            const payload = getEvidenceByRef(primaryEvidence);
+        return selected.map((key) => {
+            const opt = optionByKey.get(key);
 
-            if (payload?.session?.name && payload.tournament && payload.event) {
+            if (opt) {
                 return {
-                    session: payload.session.name,
-                    tournament: payload.tournament.name,
-                    event: payload.event.name,
-                    tier: payload.tournament.tier_code ?? t('—'),
+                    key,
+                    label: opt.label,
+                    tournamentName: opt.tournamentName,
+                    eventName: opt.eventName,
+                    medalType: opt.medalType,
+                    position: opt.position,
+                    tierCode: opt.tierCode,
+                    evidences: opt.evidences,
                 };
             }
 
-            const item = achievements.find((a) => a.id === primaryEvidence.id);
-
-            if (item) {
-                return {
-                    session:
-                        sessionLabelById(participations).get(
-                            item.session.id,
-                        ) ?? String(item.session.id),
-                    tournament: item.tournament.name,
-                    event: item.event.name,
-                    tier: item.tournament.tier_code ?? t('—'),
-                };
-            }
+            const refs = selectedDefaultRefsByKey.get(key) ?? [];
 
             return {
-                session: t('No session'),
-                tournament: t('—'),
-                event: t('—'),
-                tier: t('—'),
+                key,
+                label: key,
+                tournamentName: t('Recorded tournament'),
+                eventName: key,
+                medalType: null,
+                position: null,
+                tierCode: null,
+                evidences: refs,
             };
-        }
+        });
+    }, [options, selected, selectedDefaultRefsByKey, t]);
 
-        return {
-            session: t('No session'),
-            tournament: t('—'),
-            event: t('—'),
-            tier: t('—'),
-        };
-    }
-    function evidenceValueFromRefs(
-        evidences: PromotionEvidenceRef[] = [],
-    ): string {
-        const primary = primaryEvidenceRefFromRefs(evidences);
-
-        if (!primary) {
-            return '—';
-        }
-
-        if (primary.type === 'participation') {
-            const payload = getEvidenceByRef(primary);
-            const payloadPosition =
-                payload?.position ?? payload?.achievement?.position ?? null;
-
-            if (payloadPosition) {
-                return `#${payloadPosition}`;
-            }
-
-            const participation = participations
-                .flatMap((group) => group.participations)
-                .find((item) => item.id === primary.id);
-
-            if (participation?.position) {
-                return `#${participation.position}`;
-            }
-
-            return `#${primary.id}`;
-        }
-
-        if (primary.type === 'achievement') {
-            const payload = getEvidenceByRef(primary);
-
-            if (payload?.position) {
-                return `#${payload.position}`;
-            }
-
-            if (payload?.achievement?.position) {
-                return `#${payload.achievement.position}`;
-            }
-
-            return `#${primary.id}`;
-        }
-
-        return `#${primary.id}`;
-    }
-    function evidenceLabelFromRefs(
-        evidences: PromotionEvidenceRef[] = [],
-    ): string {
-        const hasParticipation = evidences.some(
-            (item) => item.type === 'participation',
-        );
-        const hasAchievement = evidences.some(
-            (item) => item.type === 'achievement',
-        );
-
-        if (hasParticipation && hasAchievement) {
-            return t('Participation + Achievement');
-        }
-
-        if (hasParticipation) {
-            return t('Participation');
-        }
-
-        if (hasAchievement) {
-            return t('Achievement');
-        }
-
-        return t('Evidence');
-    }
-    function primaryEvidenceRefFromRefs(
-        evidences: PromotionEvidenceRef[] = [],
-    ): PromotionEvidenceRef | null {
-        return (
-            evidences.find((item) => item.type === 'participation') ??
-            evidences.find((item) => item.type === 'achievement') ??
-            null
-        );
-    }
-    function evidenceMedalFromRefs(
-        evidences: PromotionEvidenceRef[] = [],
-    ): string {
-        const primary = primaryEvidenceRefFromRefs(evidences);
-
-        if (!primary) {
-            return '—';
-        }
-
-        if (primary.type === 'participation') {
-            const payload = getEvidenceByRef(primary);
-
-            if (payload?.achievement?.medal_type) {
-                return t(payload.achievement.medal_type);
-            }
-
-            const participation = participations
-                .flatMap((group) => group.participations)
-                .find((record) => record.id === primary.id);
-
-            if (!participation?.achievement?.medal_type) {
-                return '—';
-            }
-
-            return t(participation.achievement.medal_type);
-        }
-
-        if (primary.type === 'achievement') {
-            const payload = getEvidenceByRef(primary);
-
-            if (payload?.achievement?.medal_type) {
-                return t(payload.achievement.medal_type);
-            }
-
-            const item = achievements.find((a) => a.id === primary.id);
-
-            if (!item?.medal_type) {
-                return '—';
-            }
-
-            return t(item.medal_type);
-        }
-
-        return '—';
-    }
-    function evidenceDetailsFromRefs(
-        evidences: PromotionEvidenceRef[] = [],
-    ): string {
-        const primary = primaryEvidenceRefFromRefs(evidences);
-
-        if (!primary) {
-            return '';
-        }
-
-        if (primary.type === 'participation') {
-            const payload = getEvidenceByRef(primary);
-
-            if (payload?.remarks) {
-                return payload.remarks;
-            }
-
-            if (payload?.achievement?.remarks) {
-                return payload.achievement.remarks ?? '';
-            }
-
-            const participation = participations
-                .flatMap((group) => group.participations)
-                .find((record) => record.id === primary.id);
-
-            if (participation) {
-                return participation.achievement?.remarks
-                    ? participation.achievement.remarks
-                    : (participation.remarks ?? '');
-            }
-        }
-
-        if (primary.type === 'achievement') {
-            const payload = getEvidenceByRef(primary);
-
-            if (payload?.remarks) {
-                return payload.remarks;
-            }
-
-            if (payload?.achievement?.remarks) {
-                return payload.achievement.remarks ?? '';
-            }
-
-            const item = achievements.find((a) => a.id === primary.id);
-
-            if (item) {
-                return item.remarks ?? '';
-            }
-        }
-
-        return '';
-    }
     function buildPayload() {
         const rewardRank = form.data.from_rank || memberRank || null;
 
         return {
-            promotion_date: isRewardAction ? null : form.data.promotion_date,
+            promotion_date: isRewardAction
+                ? null
+                : form.data.promotion_date || null,
             cash_reward_only: isRewardAction,
-            from_rank: isRewardAction ? rewardRank : form.data.from_rank,
-            to_rank: isRewardAction ? rewardRank : form.data.to_rank,
-            cash_reward_amount: form.data.cash_reward_amount || null,
-            cash_reward_date: form.data.cash_reward_date || null,
-            cash_reward_reference: form.data.cash_reward_reference || null,
-            cash_reward_remarks: form.data.cash_reward_remarks || null,
-            reason: isRewardAction ? null : form.data.reason,
-            remarks: isRewardAction ? null : form.data.remarks,
+            from_rank: isRewardAction
+                ? rewardRank
+                : form.data.from_rank || null,
+            to_rank: isRewardAction ? rewardRank : form.data.to_rank || null,
+            cash_reward_amount: isRewardAction
+                ? form.data.cash_reward_amount || null
+                : null,
+            cash_reward_date: isRewardAction
+                ? form.data.cash_reward_date || null
+                : null,
+            cash_reward_reference: isRewardAction
+                ? form.data.cash_reward_reference || null
+                : null,
+            cash_reward_remarks: isRewardAction
+                ? form.data.cash_reward_remarks || null
+                : null,
+            reason: isRewardAction ? null : form.data.reason || null,
+            remarks: isRewardAction ? null : form.data.remarks || null,
             evidences: selected.flatMap(
                 (key) =>
                     options.find((item) => item.key === key)?.evidences ??
                     selectedDefaultRefsByKey.get(key) ??
                     [],
             ),
+            document: documentFile,
         };
     }
-    function submitPromotion(payload: ReturnType<typeof buildPayload>) {
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        form.clearErrors();
+
+        let hasError = false;
+
+        if (!isRewardAction) {
+            if (
+                !form.data.promotion_date ||
+                form.data.promotion_date.trim() === ''
+            ) {
+                form.setError(
+                    'promotion_date',
+                    t('The promotion date is required.'),
+                );
+                hasError = true;
+            }
+
+            if (!form.data.to_rank || form.data.to_rank.trim() === '') {
+                form.setError('to_rank', t('The target rank is required.'));
+                hasError = true;
+            }
+        } else {
+            if (
+                !form.data.cash_reward_amount ||
+                Number(form.data.cash_reward_amount) <= 0
+            ) {
+                form.setError(
+                    'cash_reward_amount',
+                    t('The cash reward amount is required.'),
+                );
+                hasError = true;
+            }
+
+            if (
+                !form.data.cash_reward_date ||
+                form.data.cash_reward_date.trim() === ''
+            ) {
+                form.setError(
+                    'cash_reward_date',
+                    t('The cash reward date is required.'),
+                );
+                hasError = true;
+            }
+
+            if (
+                !form.data.cash_reward_reference ||
+                form.data.cash_reward_reference.trim() === ''
+            ) {
+                form.setError(
+                    'cash_reward_reference',
+                    t('The cash reward reference is required.'),
+                );
+                hasError = true;
+            }
+        }
+
+        if (selected.length === 0) {
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        setIsSubmitting(true);
+        const payload = buildPayload();
+
         if (promotion) {
             router.patch(
                 `/members/${memberId}/promotions/${promotion.id}`,
                 payload,
                 {
                     onSuccess: () => {
+                        setIsSubmitting(false);
                         setOpen(false);
-                        setConfirmOpen(false);
-                        setPendingPayload(null);
                         onSaved();
+                    },
+                    onError: (errors) => {
+                        setIsSubmitting(false);
+
+                        if (errors.document) {
+                            setDocumentError(errors.document);
+                        }
                     },
                 },
             );
@@ -1725,39 +1725,21 @@ export function PromotionDialog({
 
         router.post(`/members/${memberId}/promotions`, payload, {
             onSuccess: () => {
+                setIsSubmitting(false);
                 setOpen(false);
-                setConfirmOpen(false);
-                setPendingPayload(null);
                 form.reset();
                 setSelected([]);
+                setDocumentFile(null);
                 onSaved();
             },
+            onError: (errors) => {
+                setIsSubmitting(false);
+
+                if (errors.document) {
+                    setDocumentError(errors.document);
+                }
+            },
         });
-    }
-    function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-
-        if (
-            !isRewardAction &&
-            isBeforeDate(form.data.promotion_date, currentSessionMinDate)
-        ) {
-            form.setError(
-                'promotion_date',
-                t(
-                    'Current session dates cannot be older than the selected session year. Choose an older session to back fill older entries.',
-                ),
-            );
-
-            return;
-        }
-
-        setPendingPayload(buildPayload());
-        setConfirmOpen(true);
-    }
-
-    function handleConfirmSave() {
-        const payload = pendingPayload ?? buildPayload();
-        submitPromotion(payload);
     }
 
     return (
@@ -1769,8 +1751,7 @@ export function PromotionDialog({
                 if (nextOpen) {
                     resetFormState();
                 } else {
-                    setConfirmOpen(false);
-                    setPendingPayload(null);
+                    setIsSubmitting(false);
                 }
             }}
         >
@@ -1790,131 +1771,118 @@ export function PromotionDialog({
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="max-w-2xl" aria-describedby={undefined}>
-                <DialogHeader>
-                    <DialogTitle>
-                        {subjectName
-                            ? `${promotion ? (isRewardAction ? t('Edit cash reward') : t('Edit promotion')) : isRewardAction ? rewardActionLabel : t('Add promotion')} - ${subjectName}`
-                            : promotion
-                              ? isRewardAction
-                                  ? t('Edit cash reward')
-                                  : t('Edit promotion')
-                              : isRewardAction
-                                ? rewardActionLabel
-                                : t('Add promotion')}
-                    </DialogTitle>
+            <DialogContent
+                className="flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 shadow-2xl sm:max-w-4xl"
+                aria-describedby="promotion-dialog-description"
+            >
+                <DialogHeader className="shrink-0 border-b bg-muted/20 px-6 py-4">
+                    <div className="flex items-center gap-3">
+                        <div
+                            className={`flex size-10 items-center justify-center rounded-lg ${
+                                isRewardAction
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                                    : 'bg-primary/10 text-primary'
+                            }`}
+                        >
+                            {isRewardAction ? (
+                                <Coins className="size-5" />
+                            ) : (
+                                <Award className="size-5" />
+                            )}
+                        </div>
+                        <div>
+                            <DialogTitle className="text-base font-bold sm:text-lg">
+                                {subjectName
+                                    ? `${promotion ? (isRewardAction ? t('Edit cash reward') : t('Edit promotion')) : isRewardAction ? t('Record cash reward') : t('Record promotion')} - ${subjectName}`
+                                    : promotion
+                                      ? isRewardAction
+                                          ? t('Edit cash reward')
+                                          : t('Edit promotion')
+                                      : isRewardAction
+                                        ? t('Record cash reward')
+                                        : t('Record promotion')}
+                            </DialogTitle>
+                            <DialogDescription
+                                id="promotion-dialog-description"
+                                className="mt-0.5 text-xs text-muted-foreground"
+                            >
+                                {isRewardAction
+                                    ? t(
+                                          'Record sanctioned cash reward for meritorious tournament performance.',
+                                      )
+                                    : t(
+                                          'Promote member to a higher rank based on verified tournament achievements.',
+                                      )}
+                            </DialogDescription>
+                        </div>
+                    </div>
                 </DialogHeader>
-                <form className="space-y-4" onSubmit={handleSubmit}>
-                    {isRewardAction ? null : (
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label>{t('Promotion date')}</Label>
-                                <DatePicker
-                                    value={form.data.promotion_date}
-                                    minDate={currentSessionMinDate}
-                                    onChange={(v) =>
-                                        form.setData('promotion_date', v)
-                                    }
-                                />
-                                <InputError
-                                    message={form.errors.promotion_date}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>{t('From rank')}</Label>
-                                <Combobox
-                                    value={form.data.from_rank}
-                                    onValueChange={(v) =>
-                                        form.setData('from_rank', v)
-                                    }
-                                    items={rankItems}
-                                    placeholder={t('Search and select rank')}
-                                    searchPlaceholder={t(
-                                        'Search ranks by code or name…',
-                                    )}
-                                    emptyMessage={t('No ranks found.')}
-                                />
-                                <InputError message={form.errors.from_rank} />
-                            </div>
-                        </div>
-                    )}
-                    {isRewardAction ? null : (
-                        <div className="grid gap-2">
-                            <Label>
-                                {t('To rank')}{' '}
-                                <span className="text-destructive">*</span>
-                            </Label>
-                            <Combobox
-                                value={form.data.to_rank}
-                                onValueChange={(v) =>
-                                    form.setData('to_rank', v)
-                                }
-                                items={toRankItems}
-                                placeholder={t('Search and select rank')}
-                                searchPlaceholder={t(
-                                    'Search ranks by code or name…',
-                                )}
-                                emptyMessage={t('No ranks found.')}
-                            />
-                            <InlineRankDialog onCreated={handleRankCreated} />
-                            <InputError message={form.errors.to_rank} />
-                        </div>
-                    )}
-                    {isRewardAction ? null : (
-                        <div className="grid gap-2">
-                            <Label>{t('Reason')}</Label>
-                            <Textarea
-                                value={form.data.reason}
-                                onChange={(e) =>
-                                    form.setData('reason', e.target.value)
-                                }
-                                rows={3}
-                            />
-                            <InputError message={form.errors.reason} />
-                        </div>
-                    )}
-                    {isRewardAction ? null : (
-                        <div className="grid gap-2">
-                            <Label>{t('Remarks')}</Label>
-                            <Textarea
-                                value={form.data.remarks}
-                                onChange={(e) =>
-                                    form.setData('remarks', e.target.value)
-                                }
-                                rows={3}
-                            />
-                            <InputError message={form.errors.remarks} />
-                        </div>
-                    )}
+
+                <form
+                    id="promotion-dialog-form"
+                    onSubmit={handleSubmit}
+                    className="flex-1 space-y-5 overflow-y-auto p-6"
+                >
                     {isRewardAction ? (
-                        <div className="space-y-4 rounded-md border border-dashed border-slate-200 p-3">
-                            <p className="text-sm font-medium">
-                                {t('Cash reward entry')}
-                            </p>
-                            <div className="grid gap-2 sm:grid-cols-2">
-                                <div className="grid gap-2">
-                                    <Label>{t('Cash reward amount')}</Label>
-                                    <Input
-                                        value={form.data.cash_reward_amount}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'cash_reward_amount',
-                                                e.target.value,
-                                            )
-                                        }
-                                        placeholder={t('e.g. 5000')}
-                                    />
+                        <div className="space-y-4 rounded-lg border bg-card p-4 shadow-2xs">
+                            <div className="flex items-center justify-between border-b pb-2.5">
+                                <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                    {t('Reward details')}
+                                </span>
+                                <Badge
+                                    variant="outline"
+                                    className="border-emerald-300 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
+                                >
+                                    {t('Sanctioned Amount')}
+                                </Badge>
+                            </div>
+
+                            <div className="grid items-start gap-4 sm:grid-cols-2">
+                                <div className="grid gap-1.5">
+                                    <div className="flex h-5 items-center justify-between">
+                                        <Label className="text-xs font-semibold">
+                                            {t('Cash reward amount')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute top-2.5 left-3 text-xs font-bold text-muted-foreground">
+                                            ₹
+                                        </span>
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            value={form.data.cash_reward_amount}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'cash_reward_amount',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="50000"
+                                            className="h-9 pl-7 text-xs font-medium"
+                                        />
+                                    </div>
                                     <InputError
                                         message={form.errors.cash_reward_amount}
                                     />
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label>{t('Cash reward date')}</Label>
+                                <div className="grid gap-1.5">
+                                    <div className="flex h-5 items-center justify-between">
+                                        <Label className="text-xs font-semibold">
+                                            {t('Cash reward date')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                    </div>
                                     <DatePicker
                                         value={form.data.cash_reward_date}
-                                        minDate={currentSessionMinDate}
-                                        onChange={(e) =>
-                                            form.setData('cash_reward_date', e)
+                                        onChange={(v) =>
+                                            form.setData('cash_reward_date', v)
                                         }
                                     />
                                     <InputError
@@ -1922,124 +1890,669 @@ export function PromotionDialog({
                                     />
                                 </div>
                             </div>
-                            <div className="grid gap-2">
-                                <Label>{t('Cash reward reference')}</Label>
-                                <Input
-                                    value={form.data.cash_reward_reference}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'cash_reward_reference',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={form.errors.cash_reward_reference}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>{t('Cash reward remarks')}</Label>
-                                <Textarea
-                                    value={form.data.cash_reward_remarks}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'cash_reward_remarks',
-                                            e.target.value,
-                                        )
-                                    }
-                                    rows={3}
-                                />
-                                <InputError
-                                    message={form.errors.cash_reward_remarks}
-                                />
-                            </div>
-                        </div>
-                    ) : null}
 
-                    <div className="grid gap-2">
-                        <Label>{t('Session')}</Label>
-                        <Select
-                            value={selectedSessionId}
-                            onValueChange={(value) => {
-                                setSelectedSessionId(value);
-                                setSelected([]);
-                                form.setData('evidences', []);
-                            }}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue
-                                    placeholder={t('Select session')}
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {sessionOptions.map((session) => (
-                                    <SelectItem
-                                        key={session.id}
-                                        value={session.id}
-                                    >
-                                        {session.name ?? `#${session.id}`}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                            {t(
-                                'Only current session participations are shown by default. To back fill an older entry, choose that session and load its events here.',
-                            )}
-                        </p>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label>
-                            {t('Supporting evidence')}{' '}
-                            <span className="text-destructive">*</span>
-                        </Label>
-                        {isRewardAction ? (
-                            <p className="text-xs text-muted-foreground">
-                                {t(
-                                    'Reward mode only excludes events with existing cash reward records. Events with previous promotions but no cash reward remain selectable.',
-                                )}
-                            </p>
-                        ) : null}
-                        <div className="max-h-56 overflow-y-auto rounded-md border p-3">
-                            <div className="space-y-2">
-                                {options.map((opt) => (
-                                    <label
-                                        key={opt.key}
-                                        className="flex items-start gap-2 text-sm"
-                                    >
-                                        <Checkbox
-                                            checked={selected.includes(opt.key)}
-                                            onCheckedChange={(checked) => {
-                                                setSelected((prev) =>
-                                                    checked
-                                                        ? [...prev, opt.key]
-                                                        : prev.filter(
-                                                              (k) =>
-                                                                  k !== opt.key,
-                                                          ),
-                                                );
-                                            }}
-                                        />
-                                        <span>{opt.label}</span>
-                                    </label>
-                                ))}
+                            <div className="grid items-start gap-4 sm:grid-cols-2">
+                                <div className="grid gap-1.5">
+                                    <div className="flex h-5 items-center justify-between">
+                                        <Label className="text-xs font-semibold">
+                                            {t('Sanction / Order reference')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                    </div>
+                                    <Input
+                                        value={form.data.cash_reward_reference}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'cash_reward_reference',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder={t(
+                                            'e.g. GO No. 128/Sports/2026',
+                                        )}
+                                        className="h-9 text-xs"
+                                    />
+                                    <InputError
+                                        message={
+                                            form.errors.cash_reward_reference
+                                        }
+                                    />
+                                </div>
+                                <div className="grid gap-1.5">
+                                    <div className="flex h-5 items-center justify-between">
+                                        <Label className="text-xs font-semibold">
+                                            {t('Remarks / Notes')}
+                                        </Label>
+                                    </div>
+                                    <Input
+                                        value={form.data.cash_reward_remarks}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'cash_reward_remarks',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder={t(
+                                            'Disbursement notes or remarks',
+                                        )}
+                                        className="h-9 text-xs"
+                                    />
+                                    <InputError
+                                        message={
+                                            form.errors.cash_reward_remarks
+                                        }
+                                    />
+                                </div>
                             </div>
                         </div>
-                        {selected.length === 0 && (
-                            <p className="text-xs text-destructive">
-                                {t('Select at least one evidence item.')}
-                            </p>
+                    ) : (
+                        <div className="space-y-4 rounded-lg border bg-card p-4 shadow-2xs">
+                            <div className="flex items-center justify-between border-b pb-2.5">
+                                <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                    {t('Rank & Order Details')}
+                                </span>
+                                <Badge
+                                    variant="outline"
+                                    className="border-primary/30 text-[11px] font-medium text-primary"
+                                >
+                                    {t('Rank Progression')}
+                                </Badge>
+                            </div>
+
+                            {/* Visual Rank Ladder Preview */}
+                            <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+                                <div className="min-w-0 flex-1">
+                                    <span className="block text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                                        {t('Current rank')}
+                                    </span>
+                                    <span className="mt-0.5 block truncate text-sm font-semibold text-foreground">
+                                        {resolveRankLabel(
+                                            form.data.from_rank,
+                                            ranks,
+                                        ) || t('Unknown')}
+                                    </span>
+                                </div>
+                                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                    <ArrowRight className="size-4" />
+                                </div>
+                                <div className="min-w-0 flex-1 text-right">
+                                    <span className="block text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                                        {t('Promoted to rank')}
+                                    </span>
+                                    <span
+                                        className={`mt-0.5 block truncate text-sm font-semibold ${
+                                            form.data.to_rank
+                                                ? 'text-primary'
+                                                : 'text-muted-foreground italic'
+                                        }`}
+                                    >
+                                        {resolveRankLabel(
+                                            form.data.to_rank,
+                                            ranks,
+                                        ) || t('Select target rank')}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Fields Grid */}
+                            <div className="grid items-start gap-4 sm:grid-cols-2">
+                                <div className="grid gap-1.5">
+                                    <div className="flex h-5 items-center justify-between">
+                                        <Label className="text-xs font-semibold">
+                                            {t('Promotion date')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                    </div>
+                                    <DatePicker
+                                        value={form.data.promotion_date}
+                                        onChange={(v) =>
+                                            form.setData('promotion_date', v)
+                                        }
+                                    />
+                                    <InputError
+                                        message={form.errors.promotion_date}
+                                    />
+                                </div>
+                                <div className="grid gap-1.5">
+                                    <div className="flex h-5 items-center justify-between">
+                                        <Label className="text-xs font-semibold">
+                                            {t('Promoted to rank')}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                        <InlineRankDialog
+                                            onCreated={handleRankCreated}
+                                        />
+                                    </div>
+                                    <Combobox
+                                        value={form.data.to_rank}
+                                        onValueChange={(v) =>
+                                            form.setData('to_rank', v)
+                                        }
+                                        items={toRankItems}
+                                        placeholder={t(
+                                            'Search and select rank',
+                                        )}
+                                        searchPlaceholder={t(
+                                            'Search ranks by code or name…',
+                                        )}
+                                        emptyMessage={t('No ranks found.')}
+                                    />
+                                    <InputError message={form.errors.to_rank} />
+                                </div>
+                            </div>
+
+                            <div className="grid items-start gap-4 sm:grid-cols-2">
+                                <div className="grid gap-1.5">
+                                    <div className="flex h-5 items-center justify-between">
+                                        <Label className="text-xs font-semibold">
+                                            {t('Order number / Reason')}
+                                        </Label>
+                                    </div>
+                                    <Input
+                                        value={form.data.reason}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'reason',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder={t(
+                                            'e.g. PHQ Order No. 45/Sports/2026 - Out of turn promotion',
+                                        )}
+                                        className="h-9 text-xs"
+                                    />
+                                    <InputError message={form.errors.reason} />
+                                </div>
+                                <div className="grid gap-1.5">
+                                    <div className="flex h-5 items-center justify-between">
+                                        <Label className="text-xs font-semibold">
+                                            {t('Remarks / Notes')}
+                                        </Label>
+                                    </div>
+                                    <Input
+                                        value={form.data.remarks}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'remarks',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder={t(
+                                            'Additional committee remarks or remarks',
+                                        )}
+                                        className="h-9 text-xs"
+                                    />
+                                    <InputError message={form.errors.remarks} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Section 2: Supporting Tournament Evidence */}
+                    <div className="space-y-3.5 rounded-lg border bg-card p-4 shadow-2xs">
+                        <div className="flex flex-col gap-2 border-b pb-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <Trophy className="size-4 shrink-0 text-amber-500" />
+                                    <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                        {t('Supporting tournament evidence')}
+                                    </span>
+                                    <span className="font-bold text-destructive">
+                                        *
+                                    </span>
+                                    {selected.length > 0 && (
+                                        <Badge
+                                            variant="default"
+                                            className="h-5 px-1.5 text-[11px] font-semibold"
+                                        >
+                                            {selected.length} {t('selected')}
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    {isRewardAction
+                                        ? t(
+                                              'Select verified tournament achievements that justify this cash reward.',
+                                          )
+                                        : t(
+                                              'Select verified tournament achievements that justify this rank promotion.',
+                                          )}
+                                </p>
+                            </div>
+
+                            {/* Session Filter & Search */}
+                            <div className="flex items-center gap-2">
+                                <Select
+                                    value={selectedSessionId}
+                                    onValueChange={(val) =>
+                                        setSelectedSessionId(val)
+                                    }
+                                >
+                                    <SelectTrigger className="h-8 w-36 text-xs">
+                                        <SelectValue
+                                            placeholder={t('Session')}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {sessionOptions.map((s) => (
+                                            <SelectItem
+                                                key={s.id}
+                                                value={s.id}
+                                                className="text-xs"
+                                            >
+                                                {s.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                <div className="relative w-44 sm:w-56">
+                                    <Search className="absolute top-2.5 left-2.5 size-3 text-muted-foreground" />
+                                    <Input
+                                        type="text"
+                                        placeholder={t(
+                                            'Search events, medals…',
+                                        )}
+                                        value={evidenceSearch}
+                                        onChange={(e) =>
+                                            setEvidenceSearch(e.target.value)
+                                        }
+                                        className="h-8 pr-7 pl-7 text-xs"
+                                    />
+                                    {evidenceSearch && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setEvidenceSearch('')
+                                            }
+                                            className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <X className="size-3.5" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Tournament and Events List */}
+                        <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                            {filteredTournamentGroups.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center rounded-md border border-dashed bg-muted/10 p-8 text-center">
+                                    <Trophy className="mb-2 size-8 text-muted-foreground/40" />
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        {options.length === 0
+                                            ? t(
+                                                  'No eligible tournament events or achievements found in this session.',
+                                              )
+                                            : t('No events matching search.')}
+                                    </p>
+                                    {options.length === 0 && (
+                                        <p className="mt-1 text-[11px] text-muted-foreground/80">
+                                            {t(
+                                                "Try selecting All sessions to view the member's complete career history.",
+                                            )}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                filteredTournamentGroups.map((group) => {
+                                    const groupKeys = group.events.map(
+                                        (e) => e.key,
+                                    );
+                                    const allSelected =
+                                        groupKeys.length > 0 &&
+                                        groupKeys.every((k) =>
+                                            selected.includes(k),
+                                        );
+
+                                    return (
+                                        <div
+                                            key={group.tournamentId}
+                                            className="overflow-hidden rounded-md border bg-card text-card-foreground shadow-2xs"
+                                        >
+                                            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-semibold text-foreground">
+                                                        {group.tournamentName}
+                                                    </span>
+                                                    {group.sessionName && (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="h-4 px-1.5 py-0 text-[10px] text-muted-foreground"
+                                                        >
+                                                            {group.sessionName}
+                                                        </Badge>
+                                                    )}
+                                                    {group.tierCode && (
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className="h-4 px-1.5 py-0 text-[10px]"
+                                                        >
+                                                            {group.tierCode}
+                                                        </Badge>
+                                                    )}
+                                                    {group.venue && (
+                                                        <span className="hidden text-[11px] text-muted-foreground sm:inline">
+                                                            📍 {group.venue}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <Button
+                                                    type="button"
+                                                    variant={
+                                                        allSelected
+                                                            ? 'secondary'
+                                                            : 'ghost'
+                                                    }
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        toggleTournamentSelection(
+                                                            group,
+                                                        )
+                                                    }
+                                                    className="h-6 px-2 text-[11px] font-normal"
+                                                >
+                                                    {allSelected
+                                                        ? t(
+                                                              'Deselect tournament',
+                                                          )
+                                                        : `${t('Select all')} (${group.events.length})`}
+                                                </Button>
+                                            </div>
+
+                                            <div className="divide-y divide-border/50">
+                                                {group.events.map((item) => {
+                                                    const isChecked =
+                                                        selected.includes(
+                                                            item.key,
+                                                        );
+
+                                                    return (
+                                                        <label
+                                                            key={item.key}
+                                                            className={`flex cursor-pointer items-center justify-between gap-3 px-3 py-2 transition-colors hover:bg-muted/30 ${
+                                                                isChecked
+                                                                    ? 'border-l-2 border-l-primary bg-primary/5'
+                                                                    : ''
+                                                            }`}
+                                                        >
+                                                            <div className="flex min-w-0 items-center gap-2.5">
+                                                                <Checkbox
+                                                                    checked={
+                                                                        isChecked
+                                                                    }
+                                                                    onCheckedChange={(
+                                                                        checked,
+                                                                    ) => {
+                                                                        setSelected(
+                                                                            (
+                                                                                prev,
+                                                                            ) =>
+                                                                                checked
+                                                                                    ? [
+                                                                                          ...prev,
+                                                                                          item.key,
+                                                                                      ]
+                                                                                    : prev.filter(
+                                                                                          (
+                                                                                              k,
+                                                                                          ) =>
+                                                                                              k !==
+                                                                                              item.key,
+                                                                                      ),
+                                                                        );
+                                                                    }}
+                                                                />
+                                                                <div className="flex min-w-0 items-center gap-2">
+                                                                    {renderMedalBadge(
+                                                                        item.medalType,
+                                                                        item.position,
+                                                                        t,
+                                                                    )}
+                                                                    <span className="truncate text-xs font-medium text-foreground">
+                                                                        {
+                                                                            item.eventName
+                                                                        }
+                                                                    </span>
+                                                                    {item.genderClass && (
+                                                                        <span className="hidden text-[11px] text-muted-foreground md:inline">
+                                                                            (
+                                                                            {
+                                                                                item.genderClass
+                                                                            }
+                                                                            )
+                                                                        </span>
+                                                                    )}
+                                                                    {item.discipline && (
+                                                                        <span className="hidden text-[11px] text-muted-foreground sm:inline">
+                                                                            ·{' '}
+                                                                            {
+                                                                                item.discipline
+                                                                            }
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex shrink-0 items-center gap-1.5">
+                                                                {item.eventType && (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className={
+                                                                            item.eventType ===
+                                                                            'team'
+                                                                                ? 'border-indigo-200 bg-indigo-50 text-[10px] text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200'
+                                                                                : 'border-teal-200 bg-teal-50 text-[10px] text-teal-700 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-200'
+                                                                        }
+                                                                    >
+                                                                        {item.eventType ===
+                                                                        'team'
+                                                                            ? t(
+                                                                                  'Team',
+                                                                              )
+                                                                            : t(
+                                                                                  'Individual',
+                                                                              )}
+                                                                    </Badge>
+                                                                )}
+                                                                {item.benefitsSummary && (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="border-amber-200 bg-amber-50 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                                                    >
+                                                                        {
+                                                                            item.benefitsSummary
+                                                                        }
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        {/* Selected Evidence Chips */}
+                        {selected.length > 0 ? (
+                            <div className="rounded-md border border-primary/20 bg-primary/5 p-2.5">
+                                <div className="mb-1.5 flex items-center justify-between">
+                                    <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                        <CheckCircle2 className="size-3.5 text-primary" />
+                                        <span>{t('Selected evidence')}</span>
+                                        <Badge
+                                            variant="default"
+                                            className="h-4 px-1.5 text-[10px]"
+                                        >
+                                            {selected.length}
+                                        </Badge>
+                                    </span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setSelected([])}
+                                        className="h-5 px-1.5 text-[11px] text-muted-foreground hover:text-destructive"
+                                    >
+                                        {t('Clear all')}
+                                    </Button>
+                                </div>
+                                <div className="flex max-h-20 flex-wrap gap-1.5 overflow-y-auto pr-1">
+                                    {selectedEvidenceDetails.map((item) => (
+                                        <span
+                                            key={item.key}
+                                            className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-0.5 text-xs font-medium shadow-2xs"
+                                        >
+                                            <span>
+                                                {medalEmoji(item.medalType)}
+                                            </span>
+                                            <span className="max-w-[160px] truncate text-foreground">
+                                                {item.eventName}
+                                            </span>
+                                            <span className="max-w-[120px] truncate text-[10px] text-muted-foreground">
+                                                ({item.tournamentName})
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelected((prev) =>
+                                                        prev.filter(
+                                                            (k) =>
+                                                                k !== item.key,
+                                                        ),
+                                                    );
+                                                }}
+                                                className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                aria-label={t('Remove')}
+                                            >
+                                                <X className="size-3" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                                ⚠{' '}
+                                {t(
+                                    'At least one tournament achievement must be selected as justification.',
+                                )}
+                            </div>
                         )}
                     </div>
-                    <DialogFooter>
+
+                    {/* Section 3: Supporting Document */}
+                    <div className="space-y-2 rounded-lg border bg-card p-4 shadow-2xs">
+                        <div className="flex items-center justify-between border-b pb-2.5">
+                            <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                {t('Supporting document')}
+                            </span>
+                        </div>
+                        <label className="relative flex min-w-0 cursor-pointer items-start gap-3 overflow-hidden rounded-lg border border-dashed bg-muted/30 p-3 transition-colors hover:bg-muted/50">
+                            <span className="mt-0.5 rounded-md bg-background p-2 text-muted-foreground shadow-sm">
+                                <Upload className="size-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-medium break-words">
+                                    {documentFile?.name ??
+                                        promotion?.document?.original_name ??
+                                        t('Upload supporting document')}
+                                </span>
+                                <span className="mt-1 block text-xs break-words text-muted-foreground">
+                                    {t(
+                                        'PDF, JPG, PNG, or WEBP. Stored privately and available only to authorized users.',
+                                    )}
+                                </span>
+                            </span>
+                            <input
+                                className="sr-only"
+                                type="file"
+                                accept="application/pdf,image/jpeg,image/png,image/webp"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0] ?? null;
+
+                                    if (file) {
+                                        const allowedTypes = [
+                                            'application/pdf',
+                                            'image/jpeg',
+                                            'image/png',
+                                            'image/webp',
+                                        ];
+
+                                        if (!allowedTypes.includes(file.type)) {
+                                            setDocumentError(
+                                                t(
+                                                    'Only PDF, JPG, PNG, or WEBP files are allowed.',
+                                                ),
+                                            );
+                                            e.target.value = '';
+
+                                            return;
+                                        }
+
+                                        if (file.size > 5 * 1024 * 1024) {
+                                            setDocumentError(
+                                                t(
+                                                    'The document must not be larger than 5 MB.',
+                                                ),
+                                            );
+                                            e.target.value = '';
+
+                                            return;
+                                        }
+                                    }
+
+                                    setDocumentError(null);
+                                    setDocumentFile(file);
+                                }}
+                            />
+                        </label>
+                        <InputError message={documentError ?? undefined} />
+                    </div>
+                </form>
+
+                <DialogFooter className="flex shrink-0 items-center justify-between gap-3 border-t bg-muted/20 px-6 py-3.5 sm:justify-between">
+                    <div className="text-xs text-muted-foreground">
+                        {selected.length > 0 ? (
+                            <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle2 className="size-3.5" />
+                                {selected.length}{' '}
+                                {t('achievement(s) attached as evidence')}
+                            </span>
+                        ) : (
+                            <span className="text-muted-foreground">
+                                {t('Select evidence to continue')}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => setOpen(false)}
+                            disabled={isSubmitting}
                         >
                             {t('Cancel')}
                         </Button>
-                        <Button type="submit" disabled={selected.length === 0}>
+                        <Button
+                            type="submit"
+                            form="promotion-dialog-form"
+                            disabled={selected.length === 0 || isSubmitting}
+                        >
+                            {isSubmitting && (
+                                <Loader2 className="mr-1.5 size-4 animate-spin" />
+                            )}
                             {isRewardAction
                                 ? promotion
                                     ? t('Save cash reward')
@@ -2048,253 +2561,9 @@ export function PromotionDialog({
                                   ? t('Save changes')
                                   : t('Save promotion')}
                         </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-                <DialogContent
-                    className="max-w-lg"
-                    aria-describedby={undefined}
-                >
-                    <DialogHeader>
-                        <DialogTitle>
-                            {isRewardAction
-                                ? t('Confirm reward')
-                                : t('Confirm promotion')}
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-3 text-sm">
-                        {isRewardAction ? (
-                            <p className="text-muted-foreground">
-                                {t(
-                                    'Please review the reward details before saving.',
-                                )}
-                            </p>
-                        ) : (
-                            <p className="text-muted-foreground">
-                                {t(
-                                    'Please review the promotion details before saving.',
-                                )}
-                            </p>
-                        )}
-                        <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-                            {isRewardAction ? null : (
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Badge variant="outline">
-                                        {resolveRankLabelSimple(
-                                            form.data.from_rank,
-                                            ranks,
-                                        ) || t('Unknown')}
-                                    </Badge>
-                                    <span className="text-muted-foreground">
-                                        →
-                                    </span>
-                                    <Badge>
-                                        {resolveRankLabelSimple(
-                                            form.data.to_rank,
-                                            ranks,
-                                        ) || t('Unknown')}
-                                    </Badge>
-                                </div>
-                            )}
-                            {isRewardAction ? null : (
-                                <p>
-                                    <span className="font-medium">
-                                        {t('Promotion date')}:
-                                    </span>{' '}
-                                    {formatDisplayDate(
-                                        form.data.promotion_date,
-                                    ) || '—'}
-                                </p>
-                            )}
-                            {(form.data.cash_reward_amount ||
-                                form.data.cash_reward_date ||
-                                form.data.cash_reward_reference ||
-                                form.data.cash_reward_remarks) && (
-                                <div>
-                                    <p className="font-medium">
-                                        {t('Reward details')}:
-                                    </p>
-                                    <ul className="mt-1 space-y-1 text-xs">
-                                        {form.data.cash_reward_amount ? (
-                                            <li className="rounded border px-2 py-1">
-                                                {t('Amount')}:{' '}
-                                                {`₹${form.data.cash_reward_amount}`}
-                                            </li>
-                                        ) : null}
-                                        {form.data.cash_reward_date ? (
-                                            <li className="rounded border px-2 py-1">
-                                                {t('Date')}:{' '}
-                                                {formatDisplayDate(
-                                                    form.data
-                                                        .cash_reward_date,
-                                                )}
-                                            </li>
-                                        ) : null}
-                                        {form.data.cash_reward_reference ? (
-                                            <li className="rounded border px-2 py-1">
-                                                {t('Reference')}:{' '}
-                                                {
-                                                    form.data
-                                                        .cash_reward_reference
-                                                }
-                                            </li>
-                                        ) : null}
-                                        {form.data.cash_reward_remarks ? (
-                                            <li className="rounded border px-2 py-1">
-                                                {t('Remarks')}:{' '}
-                                                {form.data.cash_reward_remarks}
-                                            </li>
-                                        ) : null}
-                                    </ul>
-                                </div>
-                            )}
-                            <div>
-                                <p className="font-medium">
-                                    {t('Supporting evidence')}:
-                                </p>
-                                <div className="mt-1 space-y-2">
-                                    {selectedEvidenceLabels.length === 0 ? (
-                                        <p className="rounded border border-dashed p-2 text-xs text-muted-foreground">
-                                            {t('No evidence selected')}
-                                        </p>
-                                    ) : (
-                                        selectedEvidenceLabels.map(
-                                            (evidence, index) => {
-                                                const typeLabel =
-                                                    evidenceLabelFromRefs(
-                                                        evidence.evidences,
-                                                    );
-                                                const eventContext =
-                                                    evidenceContextFromRefs(
-                                                        evidence.evidences,
-                                                    );
-
-                                                return (
-                                                    <div
-                                                        key={evidence.key}
-                                                        className="overflow-hidden rounded-md border text-xs"
-                                                    >
-                                                        <div className="flex items-center justify-between border-b bg-slate-50 px-2 py-1.5">
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="px-2 py-0.5"
-                                                            >
-                                                                {typeLabel}
-                                                            </Badge>
-                                                            <span className="text-muted-foreground">
-                                                                {index + 1}.
-                                                            </span>
-                                                        </div>
-                                                        <div className="divide-y">
-                                                            <div className="grid gap-px bg-slate-200 sm:grid-cols-[130px_1fr] dark:bg-slate-700">
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {t(
-                                                                        'Session',
-                                                                    )}
-                                                                </div>
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {
-                                                                        eventContext.session
-                                                                    }
-                                                                </div>
-                                                            </div>
-                                                            <div className="grid gap-px bg-slate-200 sm:grid-cols-[130px_1fr] dark:bg-slate-700">
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {t(
-                                                                        'Tournament',
-                                                                    )}
-                                                                </div>
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {
-                                                                        eventContext.tournament
-                                                                    }
-                                                                </div>
-                                                            </div>
-                                                            <div className="grid gap-px bg-slate-200 sm:grid-cols-[130px_1fr] dark:bg-slate-700">
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {t('Event')}
-                                                                </div>
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {
-                                                                        eventContext.event
-                                                                    }
-                                                                </div>
-                                                            </div>
-                                                            <div className="grid gap-px bg-slate-200 sm:grid-cols-[130px_1fr] dark:bg-slate-700">
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {t('Tier')}
-                                                                </div>
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {
-                                                                        eventContext.tier
-                                                                    }
-                                                                </div>
-                                                            </div>
-                                                            <div className="grid gap-px bg-slate-200 sm:grid-cols-[130px_1fr] dark:bg-slate-700">
-                                                                <div className="bg-white px-2 py-1.5 font-medium text-foreground dark:bg-slate-900">
-                                                                    {t(
-                                                                        'Evidence',
-                                                                    )}
-                                                                </div>
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {evidenceValueFromRefs(
-                                                                        evidence.evidences,
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <div className="grid gap-px bg-slate-200 sm:grid-cols-[130px_1fr] dark:bg-slate-700">
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {t('Medal')}
-                                                                </div>
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {evidenceMedalFromRefs(
-                                                                        evidence.evidences,
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <div className="grid gap-px bg-slate-200 sm:grid-cols-[130px_1fr] dark:bg-slate-700">
-                                                                <div className="bg-white px-2 py-1.5 dark:bg-slate-900">
-                                                                    {t(
-                                                                        'Details',
-                                                                    )}
-                                                                </div>
-                                                                <div className="bg-white px-2 py-1.5 text-muted-foreground dark:bg-slate-900">
-                                                                    {evidenceDetailsFromRefs(
-                                                                        evidence.evidences,
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            },
-                                        )
-                                    )}
-                                </div>
-                            </div>
-                        </div>
                     </div>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setConfirmOpen(false)}
-                        >
-                            {t('Back')}
-                        </Button>
-                        <Button type="button" onClick={handleConfirmSave}>
-                            {isRewardAction
-                                ? promotion
-                                    ? t('Confirm reward update')
-                                    : t('Confirm reward')
-                                : promotion
-                                  ? t('Confirm update')
-                                  : t('Confirm save')}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                </DialogFooter>
+            </DialogContent>
         </Dialog>
     );
 }
@@ -2328,52 +2597,22 @@ export function PromotionsTab({
     }
 
     function promotionCategory(promotion: PromotionRow): string {
-        const hasRewardFields = !!(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks
-        );
-        const hasPromotionFields = !!(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.reason ||
-            promotion.remarks
-        );
-
-        if (hasRewardFields && hasPromotionFields) {
+        if (promotion.record_type === 'promotion_reward') {
             return t('Promotion + Reward');
         }
 
-        if (hasRewardFields && !hasPromotionFields) {
+        if (promotion.record_type === 'reward') {
             return t('Reward');
         }
 
         return t('Promotion');
     }
     function promotionCategoryClass(promotion: PromotionRow): string {
-        const hasRewardFields = !!(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks
-        );
-        const hasPromotionFields = !!(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.reason ||
-            promotion.remarks
-        );
-
-        if (hasRewardFields && hasPromotionFields) {
+        if (promotion.record_type === 'promotion_reward') {
             return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200';
         }
 
-        if (hasRewardFields && !hasPromotionFields) {
+        if (promotion.record_type === 'reward') {
             return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200';
         }
 
@@ -2484,9 +2723,59 @@ export function PromotionsTab({
 
         return t('—');
     }
+    function evidenceEventTypeLabel(evidence: PromotionEvidence): string {
+        let eventType = evidence.event?.event_type;
+
+        if (!eventType && evidence.type === 'participation') {
+            const item = participations
+                .flatMap((group) => group.participations)
+                .find((record) => record.id === evidence.evidence_id);
+
+            eventType = item?.event.event_type;
+        }
+
+        if (!eventType && evidence.type === 'achievement') {
+            const item = achievements.find(
+                (a) => a.id === evidence.evidence_id,
+            );
+
+            eventType = item?.event.event_type;
+        }
+
+        if (eventType === 'team') {
+            return t('Team');
+        }
+
+        if (eventType === 'individual') {
+            return t('Individual');
+        }
+
+        return t('—');
+    }
     function evidenceTierLabel(evidence: PromotionEvidence): string {
-        if (evidence.tournament?.tier_code) {
-            return evidence.tournament.tier_code;
+        const tierCode =
+            evidence.tournament?.tier_code ??
+            (evidence.type === 'participation'
+                ? (participations
+                      .flatMap((group) => group.participations)
+                      .find((record) => record.id === evidence.evidence_id)
+                      ?.tournament.tier_code ?? null)
+                : evidence.type === 'achievement'
+                  ? (achievements.find((a) => a.id === evidence.evidence_id)
+                        ?.tournament.tier_code ?? null)
+                  : null);
+
+        if (!tierCode) {
+            return '—';
+        }
+
+        const translated = t(tierCode);
+
+        return translated === tierCode ? humanize(tierCode) : translated;
+    }
+    function evidenceVenueLabel(evidence: PromotionEvidence): string {
+        if (evidence.venue) {
+            return evidence.venue;
         }
 
         if (evidence.type === 'participation') {
@@ -2494,7 +2783,7 @@ export function PromotionsTab({
                 .flatMap((group) => group.participations)
                 .find((record) => record.id === evidence.evidence_id);
 
-            return item?.tournament.tier_code ?? t('—');
+            return item?.tournament.venue ?? '—';
         }
 
         if (evidence.type === 'achievement') {
@@ -2502,10 +2791,47 @@ export function PromotionsTab({
                 (a) => a.id === evidence.evidence_id,
             );
 
-            return item?.tournament.tier_code ?? t('—');
+            return item?.tournament.venue ?? '—';
         }
 
-        return t('—');
+        return '—';
+    }
+    function evidenceDateLabel(evidence: PromotionEvidence): string {
+        if (evidence.date_from) {
+            return formatDate(evidence.date_from);
+        }
+
+        if (evidence.event_date) {
+            return formatDate(evidence.event_date);
+        }
+
+        if (evidence.type === 'participation') {
+            const item = participations
+                .flatMap((group) => group.participations)
+                .find((record) => record.id === evidence.evidence_id);
+
+            if (item?.tournament.date_from) {
+                return formatDateRange(
+                    item.tournament.date_from,
+                    item.tournament.date_to,
+                );
+            }
+        }
+
+        if (evidence.type === 'achievement') {
+            const item = achievements.find(
+                (a) => a.id === evidence.evidence_id,
+            );
+
+            if (item?.tournament.date_from) {
+                return formatDateRange(
+                    item.tournament.date_from,
+                    item.tournament.date_to,
+                );
+            }
+        }
+
+        return '—';
     }
     function evidenceDetailLabel(evidence: PromotionEvidence): string {
         const details = new Array<string>();
@@ -2528,9 +2854,7 @@ export function PromotionsTab({
                     }
 
                     if (benefit.benefit_date) {
-                        parts.push(
-                            formatDisplayDate(benefit.benefit_date) ?? '',
-                        );
+                        parts.push(formatDate(benefit.benefit_date));
                     }
 
                     if (benefit.order_reference) {
@@ -2645,22 +2969,10 @@ export function PromotionsTab({
         });
     }
     function hasPromotionFields(promotion: PromotionRow): boolean {
-        return !!(
-            promotion.promotion_date ||
-            (promotion.from_rank &&
-                promotion.to_rank &&
-                promotion.from_rank !== promotion.to_rank) ||
-            promotion.reason ||
-            promotion.remarks
-        );
+        return promotion.record_type !== 'reward';
     }
     function hasRewardFields(promotion: PromotionRow): boolean {
-        return !!(
-            promotion.cash_reward_amount ||
-            promotion.cash_reward_date ||
-            promotion.cash_reward_reference ||
-            promotion.cash_reward_remarks
-        );
+        return promotion.record_type !== 'promotion';
     }
     const promotionRows = useMemo(
         () =>
@@ -2815,7 +3127,7 @@ export function PromotionsTab({
                                                     ) || t('Unknown')}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    {formatDisplayDate(
+                                                    {formatDate(
                                                         promotion.promotion_date,
                                                     ) || '—'}
                                                 </td>
@@ -2839,19 +3151,18 @@ export function PromotionsTab({
                                                     </div>
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className="px-2 py-1 text-xs"
-                                                        >
-                                                            {visibleEvidenceGroupCount(
-                                                                promotion.evidences,
-                                                                participations,
-                                                                achievements,
-                                                            )}{' '}
-                                                            {t('items')}
-                                                        </Badge>
-                                                    </div>
+                                                    <EvidenceSummaryCell
+                                                        evidences={
+                                                            promotion.evidences
+                                                        }
+                                                        participations={
+                                                            participations
+                                                        }
+                                                        achievements={
+                                                            achievements
+                                                        }
+                                                        t={t}
+                                                    />
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
                                                     {promotion.recorded_by_name ? (
@@ -2886,6 +3197,16 @@ export function PromotionsTab({
                                                                       'Show details',
                                                                   )}
                                                         </Button>
+                                                        {promotion.document && (
+                                                            <ConfidentialDocumentPreview
+                                                                document={
+                                                                    promotion.document
+                                                                }
+                                                                triggerLabel={t(
+                                                                    'View document',
+                                                                )}
+                                                            />
+                                                        )}
                                                         <PromotionDialog
                                                             memberId={memberId}
                                                             memberRank={
@@ -2957,12 +3278,27 @@ export function PromotionsTab({
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
-                                                                                            'Session',
+                                                                                            'Tournament',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
-                                                                                            'Tournament',
+                                                                                            'Venue',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Date',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Tier',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Session',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
@@ -2970,9 +3306,9 @@ export function PromotionsTab({
                                                                                             'Event',
                                                                                         )}
                                                                                     </th>
-                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
                                                                                         {t(
-                                                                                            'Tier',
+                                                                                            'Event type',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
@@ -2998,7 +3334,7 @@ export function PromotionsTab({
                                                                                     <tr>
                                                                                         <td
                                                                                             colSpan={
-                                                                                                9
+                                                                                                12
                                                                                             }
                                                                                             className="px-2 py-2 text-muted-foreground"
                                                                                         >
@@ -3035,12 +3371,27 @@ export function PromotionsTab({
                                                                                                     </Badge>
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceSessionLabel(
+                                                                                                    {evidenceTournamentLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceTournamentLabel(
+                                                                                                    {evidenceVenueLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceDateLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceTierLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceSessionLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
@@ -3049,8 +3400,8 @@ export function PromotionsTab({
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
-                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceTierLabel(
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceEventTypeLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
@@ -3078,16 +3429,6 @@ export function PromotionsTab({
                                                                     </div>
                                                                 );
                                                             })()}
-                                                            <div className="mt-2 pt-2">
-                                                                <PromotionDocuments
-                                                                    memberId={
-                                                                        memberId
-                                                                    }
-                                                                    promotionId={
-                                                                        promotion.id
-                                                                    }
-                                                                />
-                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -3152,11 +3493,9 @@ export function PromotionsTab({
                                                     </Badge>
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    {formatDisplayDate(
-                                                        promotion
-                                                            .cash_reward_date ??
-                                                            promotion
-                                                                .promotion_date,
+                                                    {formatDate(
+                                                        promotion.cash_reward_date ??
+                                                            promotion.promotion_date,
                                                     ) || '—'}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
@@ -3178,19 +3517,18 @@ export function PromotionsTab({
                                                     )}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className="px-2 py-1 text-xs"
-                                                        >
-                                                            {visibleEvidenceGroupCount(
-                                                                promotion.evidences,
-                                                                participations,
-                                                                achievements,
-                                                            )}{' '}
-                                                            {t('items')}
-                                                        </Badge>
-                                                    </div>
+                                                    <EvidenceSummaryCell
+                                                        evidences={
+                                                            promotion.evidences
+                                                        }
+                                                        participations={
+                                                            participations
+                                                        }
+                                                        achievements={
+                                                            achievements
+                                                        }
+                                                        t={t}
+                                                    />
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5 text-xs">
                                                     {promotion.recorded_by_name ? (
@@ -3225,6 +3563,16 @@ export function PromotionsTab({
                                                                       'Show details',
                                                                   )}
                                                         </Button>
+                                                        {promotion.document && (
+                                                            <ConfidentialDocumentPreview
+                                                                document={
+                                                                    promotion.document
+                                                                }
+                                                                triggerLabel={t(
+                                                                    'View document',
+                                                                )}
+                                                            />
+                                                        )}
                                                         <PromotionDialog
                                                             memberId={memberId}
                                                             memberRank={
@@ -3304,12 +3652,27 @@ export function PromotionsTab({
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
-                                                                                            'Session',
+                                                                                            'Tournament',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
-                                                                                            'Tournament',
+                                                                                            'Venue',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Date',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Tier',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Session',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
@@ -3317,9 +3680,9 @@ export function PromotionsTab({
                                                                                             'Event',
                                                                                         )}
                                                                                     </th>
-                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
                                                                                         {t(
-                                                                                            'Tier',
+                                                                                            'Event type',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
@@ -3345,7 +3708,7 @@ export function PromotionsTab({
                                                                                     <tr>
                                                                                         <td
                                                                                             colSpan={
-                                                                                                9
+                                                                                                12
                                                                                             }
                                                                                             className="px-2 py-2 text-muted-foreground"
                                                                                         >
@@ -3382,12 +3745,27 @@ export function PromotionsTab({
                                                                                                     </Badge>
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceSessionLabel(
+                                                                                                    {evidenceTournamentLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceTournamentLabel(
+                                                                                                    {evidenceVenueLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceDateLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceTierLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceSessionLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
@@ -3396,8 +3774,8 @@ export function PromotionsTab({
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
-                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceTierLabel(
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceEventTypeLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>

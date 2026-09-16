@@ -21,11 +21,13 @@ class UpdateCoachRequest extends FormRequest
     public function rules(): array
     {
         $orgId = (int) $this->user()->organization_id;
-        $coachId = (int) $this->route('coach')?->getKey();
+        $coach = $this->route('coach');
+        $coachId = (int) $coach?->getKey();
+        $memberId = $coach?->member_id ? (int) $coach->member_id : null;
 
         return [
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
-            'pno' => ['sometimes', 'nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, 'coaches', $coachId)],
+            'pno' => ['sometimes', 'nullable', 'string', 'max:20', new UniquePnoAcrossPeople($orgId, 'coaches', $coachId, ignoreMemberId: $memberId)],
             'mobile' => ['sometimes', 'nullable', 'string', 'max:20'],
             'blood_group' => ['sometimes', 'nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'])],
             'district_id' => ['sometimes', 'nullable', 'integer', Rule::exists('districts', 'id'), 'prohibits:unit_id'],

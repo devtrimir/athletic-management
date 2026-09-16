@@ -46,10 +46,9 @@ test('tournament overview route returns profile shell without event rows', funct
     ]);
     $participation = Participation::factory()->create([
         'event_id' => $event->id,
-        'member_id' => null,
+        'member_id' => Member::factory()->create(['organization_id' => $user->organization_id])->id,
         'team_id' => $team->id,
         'session_id' => $tournament->session_id,
-        'lineup_member_ids' => [Member::factory()->create(['organization_id' => $user->organization_id])->id],
     ]);
     Achievement::factory()->create(['participation_id' => $participation->id]);
 
@@ -88,6 +87,7 @@ test('tournament events tab returns event rows only when requested', function ()
             ->where('activeTab', 'events')
             ->where('tournament.id', $tournament->id)
             ->has('sports')
+            ->has('ranks')
             ->has('events', 1)
             ->where('events.0.name', '100m Sprint')
         );

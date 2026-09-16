@@ -4,6 +4,7 @@ import {
     Building2,
     CalendarDays,
     LocateIcon,
+    Tags,
     Medal,
     Monitor,
     Shield,
@@ -29,6 +30,7 @@ import { edit as editSecurity } from '@/routes/security';
 import { index as sessionsIndex } from '@/routes/sessions';
 import { index as sportsIndex } from '@/routes/sports';
 import { index as tournamentTiersIndex } from '@/routes/tournament-tiers';
+import { index as unitTypesIndex } from '@/routes/unit-types';
 import { index as unitsIndex } from '@/routes/units';
 import { index as usersIndex } from '@/routes/users';
 import type { Auth, NavItem } from '@/types';
@@ -68,6 +70,11 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
         { title: t('Sessions'), href: sessionsIndex(), icon: CalendarDays },
         { title: t('Sports'), href: sportsIndex(), icon: Trophy },
         { title: t('Units'), href: unitsIndex(), icon: Building2 },
+        {
+            title: t('Unit Types'),
+            href: unitTypesIndex(),
+            icon: Tags,
+        },
         { title: t('Districts'), href: districtsIndex(), icon: LocateIcon },
         { title: t('Ranks'), href: ranksIndex(), icon: ShieldIcon },
         {

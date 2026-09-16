@@ -53,19 +53,21 @@ function detailTeamMedal(Organization $org, ?SportSession $session = null): arra
         'sport_id' => $sport->id,
         'event_type' => 'team',
     ]);
-    $participation = Participation::factory()->create([
-        'member_id' => null,
-        'team_id' => $team->id,
-        'event_id' => $event->id,
-        'session_id' => $session->id,
-        'lineup_member_ids' => $members->pluck('id')->all(),
-    ]);
-    $achievement = Achievement::factory()->create([
-        'participation_id' => $participation->id,
-        'medal_type' => 'GOLD',
-    ]);
+    $achievements = [];
+    foreach ($members as $m) {
+        $participation = Participation::factory()->create([
+            'member_id' => $m->id,
+            'team_id' => $team->id,
+            'event_id' => $event->id,
+            'session_id' => $session->id,
+        ]);
+        $achievements[] = Achievement::factory()->create([
+            'participation_id' => $participation->id,
+            'medal_type' => 'GOLD',
+        ]);
+    }
 
-    return compact('team', 'members', 'achievement', 'event');
+    return compact('team', 'members', 'achievements', 'event');
 }
 
 test('detail report expands team event medals to lineup members', function (): void {
@@ -114,7 +116,7 @@ test('detail medal counts count a team event medal once', function (): void {
 test('detail medal counts collapse duplicate team event medal rows', function (): void {
     $org = Organization::factory()->create();
     $setup = detailTeamMedal($org);
-    $participation = Participation::findOrFail($setup['achievement']->participation_id);
+    $participation = Participation::findOrFail($setup['achievements'][0]->participation_id);
 
     Achievement::factory()->create([
         'participation_id' => $participation->id,
