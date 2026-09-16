@@ -495,17 +495,17 @@ function DetailsTable({
 
     return (
         <div className="overflow-hidden rounded-md border print:rounded-sm">
-            <table className="w-full text-xs">
+            <table className="w-full border-collapse text-xs">
                 <tbody className="print:text-[10px]">
                     {visibleRows.map((row) => (
                         <tr
                             key={row.label}
                             className="border-t first:border-t-0"
                         >
-                            <th className="w-1/3 bg-muted/30 p-2 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase print:py-1 print:text-[9px]">
+                            <th className="border w-1/3 bg-muted/30 p-1.5 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase print:py-0.5 print:text-[9px]">
                                 {row.label}
                             </th>
-                            <td className="p-2 text-foreground print:py-1">
+                            <td className="border p-1.5 text-foreground print:py-0.5">
                                 {row.value}
                             </td>
                         </tr>
@@ -687,9 +687,11 @@ function groupPromotionEvidenceRows(
 function PromotionEvidenceTable({
     rows,
     t,
+    locale,
 }: {
     rows: PromotionEvidenceTableRow[];
     t: (key: string) => string;
+    locale: string;
 }) {
     if (rows.length === 0) {
         return null;
@@ -729,68 +731,150 @@ function PromotionEvidenceTable({
                 </tr>
             </thead>
             <tbody>
-                {groups.map((group) =>
-                    group.rows.map((row, rowIndex) => (
+                {groups.map((group) => {
+                    const groupRowSpan = group.rows.reduce(
+                        (sum, r) =>
+                            sum + (r.players && r.players.length > 0 ? 2 : 1),
+                        0,
+                    );
+
+                    return group.rows.map((row, rowIndex) => (
                         <Fragment key={row.key}>
                             <tr>
                                 <td className="border p-1.5 text-center text-muted-foreground">
                                     {++rowNumber}
                                 </td>
-                            {rowIndex === 0 && (
-                                <td
-                                    className="border p-1.5 text-center align-middle whitespace-nowrap"
-                                    rowSpan={group.rows.length}
-                                >
-                                    {row.session || '—'}
+                                {rowIndex === 0 && (
+                                    <td
+                                        className="border p-1.5 text-center align-top whitespace-nowrap"
+                                        rowSpan={groupRowSpan}
+                                    >
+                                        {row.session || '—'}
+                                    </td>
+                                )}
+                                {rowIndex === 0 && (
+                                    <td
+                                        className="border p-1.5 text-center align-top"
+                                        rowSpan={groupRowSpan}
+                                    >
+                                        {row.tournament || '—'}
+                                    </td>
+                                )}
+                                <td className="border p-1.5 align-top">
+                                    {row.event || '—'}
                                 </td>
-                            )}
-                            {rowIndex === 0 && (
-                                <td
-                                    className="border p-1.5 text-center align-middle"
-                                    rowSpan={group.rows.length}
-                                >
-                                    {row.tournament || '—'}
+                                <td className="border p-1.5 align-top whitespace-nowrap">
+                                    {row.eventType || '—'}
                                 </td>
-                            )}
-                            <td className="border p-1.5 align-top">
-                                {row.event || '—'}
-                            </td>
-                            <td className="border p-1.5 align-top whitespace-nowrap">
-                                {row.eventType || '—'}
-                            </td>
-                            {rowIndex === 0 && (
-                                <td
-                                    className="border p-1.5 text-center align-middle whitespace-nowrap"
-                                    rowSpan={group.rows.length}
-                                >
-                                    {row.level || '—'}
+                                {rowIndex === 0 && (
+                                    <td
+                                        className="border p-1.5 text-center align-top whitespace-nowrap"
+                                        rowSpan={groupRowSpan}
+                                    >
+                                        {row.level || '—'}
+                                    </td>
+                                )}
+                                {rowIndex === 0 && (
+                                    <td
+                                        className="border p-1.5 text-center align-top whitespace-nowrap"
+                                        rowSpan={groupRowSpan}
+                                    >
+                                        {row.date || '—'}
+                                    </td>
+                                )}
+                                <td className="border p-1.5 align-top whitespace-nowrap">
+                                    {row.gender || '—'}
                                 </td>
-                            )}
-                            {rowIndex === 0 && (
-                                <td
-                                    className="border p-1.5 text-center align-middle whitespace-nowrap"
-                                    rowSpan={group.rows.length}
-                                >
-                                    {row.date || '—'}
+                                <td className="border p-1.5 align-top font-medium whitespace-nowrap">
+                                    {row.result || '—'}
                                 </td>
+                                {rowIndex === 0 && (
+                                    <td
+                                        className="border p-1.5 text-center align-top"
+                                        rowSpan={groupRowSpan}
+                                    >
+                                        {row.venue || '—'}
+                                    </td>
+                                )}
+                            </tr>
+                            {row.players && row.players.length > 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={10}
+                                        className="border bg-muted/20 p-0"
+                                    >
+                                        <table className="w-full border-collapse text-xs print:text-[9px]">
+                                            <thead className="text-left text-[10px] tracking-wide text-muted-foreground uppercase print:text-[8px]">
+                                                <tr>
+                                                    <th className="border w-12 p-1.5 whitespace-nowrap">
+                                                        {t('S. No.')}
+                                                    </th>
+                                                    <th className="border p-1.5">
+                                                        {t('Player name')}
+                                                    </th>
+                                                    <th className="border w-32 p-1.5 whitespace-nowrap">
+                                                        {t('PNO')}
+                                                    </th>
+                                                    <th className="border w-32 p-1.5 whitespace-nowrap">
+                                                        {t('Medal')}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {row.players.map(
+                                                    (player, playerIndex) => (
+                                                        <tr
+                                                            key={`${row.key}-${player.member.id}`}
+                                                            className="odd:bg-muted/10"
+                                                        >
+                                                            <td className="border p-1.5 text-center text-muted-foreground">
+                                                                {playerIndex +
+                                                                    1}
+                                                            </td>
+                                                            <td className="border p-1.5 font-medium text-foreground">
+                                                                <span>
+                                                                    {
+                                                                        player
+                                                                            .member
+                                                                            .full_name
+                                                                    }
+                                                                </span>
+                                                                {player.member
+                                                                    .is_coach && (
+                                                                    <span className="py-0.2 ml-1.5 inline-block rounded border border-amber-300 bg-amber-50 px-1 text-[9px] font-semibold text-amber-900 print:border-amber-400 print:bg-amber-50 print:text-[8px] print:text-amber-900">
+                                                                        {t(
+                                                                            'Coach',
+                                                                        )}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="border p-1.5 font-mono text-muted-foreground">
+                                                                {player.member
+                                                                    .pno || '—'}
+                                                            </td>
+                                                            <td className="border p-1.5 font-semibold text-foreground">
+                                                                {player.medal_type
+                                                                    ? locale ===
+                                                                      'hi'
+                                                                        ? t(
+                                                                              player.medal_type,
+                                                                          )
+                                                                        : humanize(
+                                                                              player.medal_type,
+                                                                          )
+                                                                    : '—'}
+                                                            </td>
+                                                        </tr>
+                                                    ),
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
                             )}
-                            <td className="border p-1.5 align-top whitespace-nowrap">
-                                {row.gender || '—'}
-                            </td>
-                            <td className="border p-1.5 align-top font-medium whitespace-nowrap">
-                                {row.result || '—'}
-                            </td>
-                            {rowIndex === 0 && (
-                                <td
-                                    className="border p-1.5 text-center align-middle"
-                                    rowSpan={group.rows.length}
-                                >
-                                    {row.venue || '—'}
-                                </td>
-                            )}
-                        </tr>
-                    )),
-                )}
+                        </Fragment>
+                    ));
+                })}
             </tbody>
         </table>
     );
@@ -812,14 +896,14 @@ function DetailStack({
             <tbody>
                 {visibleItems.map((item) => (
                     <tr key={item.label} className="border-b last:border-b-0">
-                        <th className="w-36 border-r bg-muted/30 px-2 py-1.5 text-left align-top font-medium text-muted-foreground print:w-28 print:px-1.5 print:py-1">
+                        <th className="border w-36 border-r bg-muted/30 px-1.5 py-1 text-left align-top font-medium text-muted-foreground print:w-28 print:px-1.5 print:py-0.5">
                             {item.label}
                         </th>
                         <td
                             className={
                                 item.muted
-                                    ? 'px-2 py-1.5 align-top break-words text-muted-foreground print:px-1.5 print:py-1'
-                                    : 'px-2 py-1.5 align-top break-words text-foreground print:px-1.5 print:py-1'
+                                    ? 'border px-1.5 py-1 align-top break-words text-muted-foreground print:px-1.5 print:py-0.5'
+                                    : 'border px-1.5 py-1 align-top break-words text-foreground print:px-1.5 print:py-0.5'
                             }
                         >
                             {item.value}
@@ -905,6 +989,19 @@ export default function CoachPrintPreview({
     const achievements = useMemo(
         () => coachAchievements?.groups ?? [],
         [coachAchievements],
+    );
+    const teamAchievementRowSpans = useMemo(
+        () =>
+            computeRowSpans(achievements, (group) =>
+                [
+                    group.tournament.name,
+                    group.tournament.venue,
+                    formatTournamentDateRange(group.tournament),
+                    group.session.name,
+                    group.team.name,
+                ].join('|'),
+            ),
+        [achievements],
     );
     const specialAchievementRecords = specialAchievements?.records ?? [];
     const playingAchievementRecords = useMemo(
@@ -1240,29 +1337,29 @@ export default function CoachPrintPreview({
                     {enabled('sports') && sports.length > 0 && (
                         <Section title={t('Playable sports')}>
                             <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                <table className="w-full text-xs">
+                                <table className="w-full border-collapse text-xs">
                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                         <tr>
-                                            <th className="p-2">
+                                            <th className="border p-1.5">
                                                 {t('Sport')}
                                             </th>
                                             {showSportEvent && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Event / Discipline')}
                                                 </th>
                                             )}
                                             {showSportLevel && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Level')}
                                                 </th>
                                             )}
                                             {showSportPeriod && (
-                                                <th className="p-2 whitespace-nowrap">
+                                                <th className="border p-1.5 whitespace-nowrap">
                                                     {t('Period')}
                                                 </th>
                                             )}
                                             {showSportNotes && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Notes')}
                                                 </th>
                                             )}
@@ -1274,7 +1371,7 @@ export default function CoachPrintPreview({
                                                 key={sport.id}
                                                 className="border-t print:align-top"
                                             >
-                                                <td className="p-2 font-medium print:py-1">
+                                                <td className="border p-1.5 font-medium print:py-0.5">
                                                     {sport.name}
                                                     {sport.is_primary && (
                                                         <span className="ml-2 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary uppercase print:text-[8px]">
@@ -1283,18 +1380,18 @@ export default function CoachPrintPreview({
                                                     )}
                                                 </td>
                                                 {showSportEvent && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {sport.sport_event ||
                                                             '—'}
                                                     </td>
                                                 )}
                                                 {showSportLevel && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {sport.level || '—'}
                                                     </td>
                                                 )}
                                                 {showSportPeriod && (
-                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                    <td className="border p-1.5 whitespace-nowrap print:py-0.5">
                                                         {[
                                                             formatDate(
                                                                 sport.effective_from,
@@ -1308,7 +1405,7 @@ export default function CoachPrintPreview({
                                                     </td>
                                                 )}
                                                 {showSportNotes && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {sport.notes || '—'}
                                                     </td>
                                                 )}
@@ -1323,39 +1420,39 @@ export default function CoachPrintPreview({
                     {enabled('assignments') && coachTeams.length > 0 && (
                         <Section title={t('Team assignments')}>
                             <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                <table className="w-full text-xs">
+                                <table className="w-full border-collapse text-xs">
                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                         <tr>
-                                            <th className="w-10 p-2 text-center align-top">
+                                            <th className="border w-10 p-1.5 text-center align-top">
                                                 {t('S. No.')}
                                             </th>
-                                            <th className="p-2">{t('Team')}</th>
+                                            <th className="border p-1.5">{t('Team')}</th>
                                             {showAssignmentSport && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Sport')}
                                                 </th>
                                             )}
                                             {showAssignmentSession && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Session')}
                                                 </th>
                                             )}
                                             {showAssignmentRole && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Role')}
                                                 </th>
                                             )}
                                             {showAssignmentAssignedAt && (
-                                                <th className="p-2 whitespace-nowrap">
+                                                <th className="border p-1.5 whitespace-nowrap">
                                                     {t('Assigned at')}
                                                 </th>
                                             )}
                                             {showAssignmentRemovedAt && (
-                                                <th className="p-2 whitespace-nowrap">
+                                                <th className="border p-1.5 whitespace-nowrap">
                                                     {t('Removed at')}
                                                 </th>
                                             )}
-                                            <th className="p-2 whitespace-nowrap">
+                                            <th className="border p-1.5 whitespace-nowrap">
                                                 {t('Status')}
                                             </th>
                                         </tr>
@@ -1366,27 +1463,27 @@ export default function CoachPrintPreview({
                                                 key={assignment.id}
                                                 className="border-t print:align-top"
                                             >
-                                                <td className="p-2 text-center text-muted-foreground print:py-1">
+                                                <td className="border p-1.5 text-center text-muted-foreground print:py-0.5">
                                                     {index + 1}
                                                 </td>
-                                                <td className="p-2 font-medium print:py-1">
+                                                <td className="border p-1.5 font-medium print:py-0.5">
                                                     {assignment.team?.name ??
                                                         '—'}
                                                 </td>
                                                 {showAssignmentSport && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {assignment.sport
                                                             ?.name ?? '—'}
                                                     </td>
                                                 )}
                                                 {showAssignmentSession && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {assignment.session
                                                             ?.name ?? '—'}
                                                     </td>
                                                 )}
                                                 {showAssignmentRole && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {coachRoleLabel(
                                                             assignment.role,
                                                             t,
@@ -1394,20 +1491,20 @@ export default function CoachPrintPreview({
                                                     </td>
                                                 )}
                                                 {showAssignmentAssignedAt && (
-                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                    <td className="border p-1.5 whitespace-nowrap print:py-0.5">
                                                         {formatDate(
                                                             assignment.assigned_at,
                                                         ) || '—'}
                                                     </td>
                                                 )}
                                                 {showAssignmentRemovedAt && (
-                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                    <td className="border p-1.5 whitespace-nowrap print:py-0.5">
                                                         {formatDate(
                                                             assignment.removed_at,
                                                         ) || '—'}
                                                     </td>
                                                 )}
-                                                <td className="p-2 whitespace-nowrap print:py-1">
+                                                <td className="border p-1.5 whitespace-nowrap print:py-0.5">
                                                     <span
                                                         className={
                                                             assignment.is_current
@@ -1473,80 +1570,120 @@ export default function CoachPrintPreview({
                                 <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase print:text-[10px] print:text-black">
                                     {t('Team achievements')}
                                 </h3>
-                                <div className="space-y-3">
-                                    {achievements.map((group, index) => (
-                                        <div
-                                            key={group.id}
-                                            className="overflow-hidden rounded-md border print:break-inside-avoid print:rounded-sm"
-                                        >
-                                            <table className="w-full text-xs">
-                                                <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
-                                                    <tr>
-                                                        <th className="w-10 p-2 text-center align-top">
-                                                            {t('S. No.')}
-                                                        </th>
-                                                        <th className="p-2 align-top">
-                                                            {t('Tournament')}
-                                                        </th>
-                                                        <th className="w-[10%] p-2 align-top whitespace-nowrap">
-                                                            {t('Session')}
-                                                        </th>
-                                                        <th className="w-[12%] p-2 align-top">
-                                                            {t('Team')}
-                                                        </th>
-                                                        <th className="p-2 align-top">
-                                                            {t('Event')}
-                                                        </th>
-                                                        <th className="w-[10%] p-2 align-top whitespace-nowrap">
-                                                            {t('Event type')}
-                                                        </th>
-                                                        <th className="w-[14%] p-2 align-top whitespace-nowrap">
-                                                            {t('Medals')}
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y print:text-[10px]">
-                                                    <tr className="bg-muted/10 align-top">
-                                                        <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                <div className="overflow-hidden rounded-md border print:rounded-sm">
+                                    <table className="w-full border-collapse text-xs">
+                                        <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
+                                            <tr>
+                                                <th className="border w-10 p-1.5 text-center align-top">
+                                                    {t('S. No.')}
+                                                </th>
+                                                <th className="border p-1.5 align-top">
+                                                    {t('Tournament')}
+                                                </th>
+                                                <th className="border w-[10%] p-1.5 align-top whitespace-nowrap">
+                                                    {t('Session')}
+                                                </th>
+                                                <th className="border w-[12%] p-1.5 align-top">
+                                                    {t('Team')}
+                                                </th>
+                                                <th className="border p-1.5 align-top">
+                                                    {t('Event')}
+                                                </th>
+                                                <th className="border w-[10%] p-1.5 align-top whitespace-nowrap">
+                                                    {t('Event type')}
+                                                </th>
+                                                <th className="border w-[14%] p-1.5 align-top whitespace-nowrap">
+                                                    {t('Medals')}
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y print:text-[10px]">
+                                            {achievements.map(
+                                                (group, index) => (
+                                                    <tr
+                                                        key={group.id}
+                                                        className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                    >
+                                                        <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
                                                             {index + 1}
                                                         </td>
-                                                        <td className="p-3 align-top print:p-2">
-                                                            <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                        {teamAchievementRowSpans[
+                                                            index
+                                                        ] > 0 && (
+                                                            <td
+                                                                className="border p-1.5 text-center align-top print:p-1"
+                                                                rowSpan={
+                                                                    teamAchievementRowSpans[
+                                                                        index
+                                                                    ]
+                                                                }
+                                                            >
+                                                                <div className="leading-5 font-medium break-words text-foreground print:leading-4">
+                                                                    {
+                                                                        group
+                                                                            .tournament
+                                                                            .name
+                                                                    }
+                                                                </div>
+                                                                <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
+                                                                    {[
+                                                                        tierLabel(
+                                                                            group.tournament,
+                                                                            locale,
+                                                                            t,
+                                                                        ),
+                                                                        formatTournamentDateRange(
+                                                                            group.tournament,
+                                                                        ),
+                                                                        group
+                                                                            .tournament
+                                                                            .venue,
+                                                                    ]
+                                                                        .filter(
+                                                                            Boolean,
+                                                                        )
+                                                                        .join(
+                                                                            ' · ',
+                                                                        )}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {teamAchievementRowSpans[
+                                                            index
+                                                        ] > 0 && (
+                                                            <td
+                                                                className="border p-1.5 text-center align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                                                rowSpan={
+                                                                    teamAchievementRowSpans[
+                                                                        index
+                                                                    ]
+                                                                }
+                                                            >
                                                                 {
                                                                     group
-                                                                        .tournament
+                                                                        .session
                                                                         .name
                                                                 }
-                                                            </div>
-                                                            <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
-                                                                {[
-                                                                    tierLabel(
-                                                                        group.tournament,
-                                                                        locale,
-                                                                        t,
-                                                                    ),
-                                                                    formatTournamentDateRange(
-                                                                        group.tournament,
-                                                                    ),
-                                                                    group
-                                                                        .tournament
-                                                                        .venue,
-                                                                ]
-                                                                    .filter(
-                                                                        Boolean,
-                                                                    )
-                                                                    .join(
-                                                                        ' · ',
-                                                                    )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
-                                                            {group.session.name}
-                                                        </td>
-                                                        <td className="p-3 align-top text-xs font-medium text-foreground print:p-2 print:text-[9px]">
-                                                            {group.team.name}
-                                                        </td>
-                                                        <td className="p-3 align-top print:p-2">
+                                                            </td>
+                                                        )}
+                                                        {teamAchievementRowSpans[
+                                                            index
+                                                        ] > 0 && (
+                                                            <td
+                                                                className="border p-1.5 text-center align-top text-xs font-medium text-foreground print:p-1 print:text-[9px]"
+                                                                rowSpan={
+                                                                    teamAchievementRowSpans[
+                                                                        index
+                                                                    ]
+                                                                }
+                                                            >
+                                                                {
+                                                                    group.team
+                                                                        .name
+                                                                }
+                                                            </td>
+                                                        )}
+                                                        <td className="border p-1.5 align-top print:p-1">
                                                             <div className="text-xs font-medium text-foreground print:text-[9px]">
                                                                 {
                                                                     group.event
@@ -1564,7 +1701,7 @@ export default function CoachPrintPreview({
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                        <td className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
                                                             {group.event
                                                                 .event_type ===
                                                             'team'
@@ -1577,7 +1714,7 @@ export default function CoachPrintPreview({
                                                                     )
                                                                   : '—'}
                                                         </td>
-                                                        <td className="p-3 align-top whitespace-nowrap print:p-2">
+                                                        <td className="border p-1.5 align-top whitespace-nowrap print:p-1">
                                                             <div className="space-y-0.5 text-xs print:text-[9px]">
                                                                 {(
                                                                     [
@@ -1626,156 +1763,10 @@ export default function CoachPrintPreview({
                                                             </div>
                                                         </td>
                                                     </tr>
-                                                </tbody>
-                                            </table>
-
-                                            {group.players.length > 0 && (
-                                                <table className="w-full border-t text-xs">
-                                                    <thead className="bg-muted/20 text-left text-[10px] tracking-wide text-muted-foreground uppercase print:text-[8px]">
-                                                        <tr>
-                                                            <th className="w-10 p-2 text-center align-top">
-                                                                {t('S. No.')}
-                                                            </th>
-                                                            <th className="p-2 align-top">
-                                                                {t(
-                                                                    'Player name',
-                                                                )}
-                                                            </th>
-                                                            <th className="w-[15%] p-2 align-top whitespace-nowrap">
-                                                                {t('PNO')}
-                                                            </th>
-                                                            <th className="w-[18%] p-2 align-top whitespace-nowrap">
-                                                                {t('Medal')}
-                                                            </th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y print:text-[9px]">
-                                                        {group.players.map(
-                                                            (
-                                                                player,
-                                                                playerIndex,
-                                                            ) => {
-                                                                const isTeamEvent =
-                                                                    group.event
-                                                                        .event_type ===
-                                                                    'team';
-                                                                const teamRemarks =
-                                                                    isTeamEvent
-                                                                        ? Array.from(
-                                                                              new Set(
-                                                                                  group.players
-                                                                                      .map(
-                                                                                          (
-                                                                                              p,
-                                                                                          ) =>
-                                                                                              p.remarks,
-                                                                                      )
-                                                                                      .filter(
-                                                                                          (
-                                                                                              remark,
-                                                                                          ): remark is string =>
-                                                                                              Boolean(
-                                                                                                  remark,
-                                                                                              ),
-                                                                                      ),
-                                                                              ),
-                                                                          )
-                                                                        : [];
-
-                                                                return (
-                                                                    <tr
-                                                                        key={`${group.id}-${player.achievement_id}-${player.member.id}`}
-                                                                        className="align-top odd:bg-muted/5 print:break-inside-avoid"
-                                                                    >
-                                                                        <td className="p-2 text-center text-muted-foreground">
-                                                                            {playerIndex +
-                                                                                1}
-                                                                        </td>
-                                                                        <td className="p-2 font-medium text-foreground">
-                                                                            <span>
-                                                                                {
-                                                                                    player
-                                                                                        .member
-                                                                                        .full_name
-                                                                                }
-                                                                            </span>
-                                                                            {player
-                                                                                .member
-                                                                                .is_coach && (
-                                                                                <span className="py-0.2 ml-1.5 inline-block rounded border border-amber-300 bg-amber-50 px-1 text-[9px] font-semibold text-amber-900 print:border-amber-400 print:bg-amber-50 print:text-[8px] print:text-amber-900">
-                                                                                    {t(
-                                                                                        'Coach',
-                                                                                    )}
-                                                                                </span>
-                                                                            )}
-                                                                        </td>
-                                                                        <td className="p-2 font-mono text-muted-foreground">
-                                                                            {player
-                                                                                .member
-                                                                                .pno ||
-                                                                                '—'}
-                                                                        </td>
-                                                                        {(!isTeamEvent ||
-                                                                            playerIndex ===
-                                                                                0) && (
-                                                                            <td
-                                                                                className="p-2 text-center align-middle"
-                                                                                rowSpan={
-                                                                                    isTeamEvent
-                                                                                        ? group
-                                                                                              .players
-                                                                                              .length
-                                                                                        : undefined
-                                                                                }
-                                                                            >
-                                                                                <span className="font-semibold text-foreground">
-                                                                                    {locale ===
-                                                                                    'hi'
-                                                                                        ? t(
-                                                                                              player.medal_type,
-                                                                                          ) ||
-                                                                                          humanize(
-                                                                                              player.medal_type,
-                                                                                          )
-                                                                                        : humanize(
-                                                                                              player.medal_type,
-                                                                                          )}
-                                                                                </span>
-                                                                                {isTeamEvent
-                                                                                    ? teamRemarks.map(
-                                                                                          (
-                                                                                              remark,
-                                                                                          ) => (
-                                                                                              <div
-                                                                                                  key={
-                                                                                                      remark
-                                                                                                  }
-                                                                                                  className="mt-0.5 text-muted-foreground"
-                                                                                              >
-                                                                                                  {
-                                                                                                      remark
-                                                                                                  }
-                                                                                              </div>
-                                                                                          ),
-                                                                                      )
-                                                                                    : player.remarks && (
-                                                                                          <div className="mt-0.5 text-muted-foreground">
-                                                                                              {
-                                                                                                  player.remarks
-                                                                                              }
-                                                                                          </div>
-                                                                                      )}
-                                                                            </td>
-                                                                        )}
-                                                                    </tr>
-                                                                );
-                                                            },
-                                                        )}
-                                                    </tbody>
-                                                </table>
+                                                ),
                                             )}
-                                        </div>
-                                    ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </Section>
@@ -1785,40 +1776,40 @@ export default function CoachPrintPreview({
                         specialAchievementRecords.length > 0 && (
                             <Section title={t('Special achievements')}>
                                 <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                    <table className="w-full text-xs">
+                                    <table className="w-full border-collapse text-xs">
                                         <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                             <tr>
-                                                <th className="w-10 p-2 text-center align-top">
+                                                <th className="border w-10 p-1.5 text-center align-top">
                                                     {t('S. No.')}
                                                 </th>
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Achievement type')}
                                                 </th>
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Title')}
                                                 </th>
                                                 {showSpecialAwardedOn && (
-                                                    <th className="p-2 whitespace-nowrap">
+                                                    <th className="border p-1.5 whitespace-nowrap">
                                                         {t('Award date')}
                                                     </th>
                                                 )}
                                                 {showSpecialIssuingAuthority && (
-                                                    <th className="p-2">
+                                                    <th className="border p-1.5">
                                                         {t('Issuing authority')}
                                                     </th>
                                                 )}
                                                 {showSpecialOrderReference && (
-                                                    <th className="p-2">
+                                                    <th className="border p-1.5">
                                                         {t('Order reference')}
                                                     </th>
                                                 )}
                                                 {showSpecialPlace && (
-                                                    <th className="p-2">
+                                                    <th className="border p-1.5">
                                                         {t('Place')}
                                                     </th>
                                                 )}
                                                 {showSpecialRemarks && (
-                                                    <th className="p-2">
+                                                    <th className="border p-1.5">
                                                         {t('Remarks')}
                                                     </th>
                                                 )}
@@ -1831,44 +1822,44 @@ export default function CoachPrintPreview({
                                                         key={record.id}
                                                         className="border-t print:align-top"
                                                     >
-                                                        <td className="p-2 text-center text-muted-foreground print:py-1">
+                                                        <td className="border p-1.5 text-center text-muted-foreground print:py-0.5">
                                                             {index + 1}
                                                         </td>
-                                                        <td className="p-2 print:py-1">
+                                                        <td className="border p-1.5 print:py-0.5">
                                                             {humanize(
                                                                 record.achievement_type,
                                                             )}
                                                         </td>
-                                                        <td className="p-2 font-medium text-foreground print:py-1">
+                                                        <td className="border p-1.5 font-medium text-foreground print:py-0.5">
                                                             {record.title}
                                                         </td>
                                                         {showSpecialAwardedOn && (
-                                                            <td className="p-2 whitespace-nowrap print:py-1">
+                                                            <td className="border p-1.5 whitespace-nowrap print:py-0.5">
                                                                 {formatDate(
                                                                     record.awarded_on,
                                                                 ) || '—'}
                                                             </td>
                                                         )}
                                                         {showSpecialIssuingAuthority && (
-                                                            <td className="p-2 print:py-1">
+                                                            <td className="border p-1.5 print:py-0.5">
                                                                 {record.issuing_authority ||
                                                                     '—'}
                                                             </td>
                                                         )}
                                                         {showSpecialOrderReference && (
-                                                            <td className="p-2 print:py-1">
+                                                            <td className="border p-1.5 print:py-0.5">
                                                                 {record.order_reference ||
                                                                     '—'}
                                                             </td>
                                                         )}
                                                         {showSpecialPlace && (
-                                                            <td className="p-2 print:py-1">
+                                                            <td className="border p-1.5 print:py-0.5">
                                                                 {record.place ||
                                                                     '—'}
                                                             </td>
                                                         )}
                                                         {showSpecialRemarks && (
-                                                            <td className="p-2 print:py-1">
+                                                            <td className="border p-1.5 print:py-0.5">
                                                                 {record.remarks ||
                                                                     '—'}
                                                             </td>
@@ -1893,31 +1884,31 @@ export default function CoachPrintPreview({
                             >
                                 {playingAchievements?.source === 'member' ? (
                                     <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                        <table className="w-full text-xs">
+                                        <table className="w-full border-collapse text-xs">
                                             <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                 <tr>
-                                                    <th className="w-10 p-2 text-center align-top">
+                                                    <th className="border w-10 p-1.5 text-center align-top">
                                                         {t('S. No.')}
                                                     </th>
-                                                    <th className="p-2 align-top">
+                                                    <th className="border p-1.5 align-top">
                                                         {t('Tournament')}
                                                     </th>
-                                                    <th className="w-[10%] p-2 align-top whitespace-nowrap">
+                                                    <th className="border w-[10%] p-1.5 align-top whitespace-nowrap">
                                                         {t('Session')}
                                                     </th>
-                                                    <th className="p-2 align-top">
+                                                    <th className="border p-1.5 align-top">
                                                         {t('Event')}
                                                     </th>
-                                                    <th className="w-[9%] p-2 align-top whitespace-nowrap">
+                                                    <th className="border w-[9%] p-1.5 align-top whitespace-nowrap">
                                                         {t('Kind')}
                                                     </th>
-                                                    <th className="w-[12%] p-2 align-top whitespace-nowrap">
+                                                    <th className="border w-[12%] p-1.5 align-top whitespace-nowrap">
                                                         {t('Date')}
                                                     </th>
-                                                    <th className="w-[14%] p-2 align-top">
+                                                    <th className="border w-[14%] p-1.5 align-top">
                                                         {t('Venue')}
                                                     </th>
-                                                    <th className="w-[10%] p-2 align-top">
+                                                    <th className="border w-[10%] p-1.5 align-top">
                                                         {t('Result')}
                                                     </th>
                                                 </tr>
@@ -1946,7 +1937,7 @@ export default function CoachPrintPreview({
                                                                         }
                                                                         className="align-top odd:bg-muted/10 print:break-inside-avoid"
                                                                     >
-                                                                        <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                        <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
                                                                             {
                                                                                 ++rowNumber
                                                                             }
@@ -1954,7 +1945,7 @@ export default function CoachPrintPreview({
                                                                         {rowIndex ===
                                                                             0 && (
                                                                             <td
-                                                                                className="p-3 text-center align-middle print:p-2"
+                                                                                className="border p-1.5 text-center align-middle print:p-1"
                                                                                 rowSpan={
                                                                                     group
                                                                                         .rows
@@ -1986,7 +1977,7 @@ export default function CoachPrintPreview({
                                                                         {rowIndex ===
                                                                             0 && (
                                                                             <td
-                                                                                className="p-3 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]"
+                                                                                className="border p-1.5 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
                                                                                 rowSpan={
                                                                                     group
                                                                                         .rows
@@ -2000,7 +1991,7 @@ export default function CoachPrintPreview({
                                                                                 }
                                                                             </td>
                                                                         )}
-                                                                        <td className="p-3 align-top text-xs font-medium text-foreground print:p-2 print:text-[9px]">
+                                                                        <td className="border p-1.5 align-top text-xs font-medium text-foreground print:p-1 print:text-[9px]">
                                                                             {
                                                                                 record
                                                                                     .event
@@ -2012,7 +2003,7 @@ export default function CoachPrintPreview({
                                                                         ] >
                                                                             0 && (
                                                                             <td
-                                                                                className="p-3 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]"
+                                                                                className="border p-1.5 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
                                                                                 rowSpan={
                                                                                     kindSpans[
                                                                                         rowIndex
@@ -2032,7 +2023,7 @@ export default function CoachPrintPreview({
                                                                         {rowIndex ===
                                                                             0 && (
                                                                             <td
-                                                                                className="p-3 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]"
+                                                                                className="border p-1.5 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
                                                                                 rowSpan={
                                                                                     group
                                                                                         .rows
@@ -2048,7 +2039,7 @@ export default function CoachPrintPreview({
                                                                         {rowIndex ===
                                                                             0 && (
                                                                             <td
-                                                                                className="p-3 text-center align-middle text-xs break-words text-foreground print:p-2 print:text-[9px]"
+                                                                                className="border p-1.5 text-center align-middle text-xs break-words text-foreground print:p-1 print:text-[9px]"
                                                                                 rowSpan={
                                                                                     group
                                                                                         .rows
@@ -2061,7 +2052,7 @@ export default function CoachPrintPreview({
                                                                                     '—'}
                                                                             </td>
                                                                         )}
-                                                                        <td className="p-3 align-top print:p-2">
+                                                                        <td className="border p-1.5 align-top print:p-1">
                                                                             <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
                                                                                 {record.medal_type
                                                                                     ? humanize(
@@ -2125,45 +2116,45 @@ export default function CoachPrintPreview({
                                                             {group.label}
                                                         </div>
                                                         <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                                            <table className="w-full text-xs">
+                                                            <table className="w-full border-collapse text-xs">
                                                                 <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                                     <tr>
-                                                                        <th className="w-10 p-2 text-center align-top">
+                                                                        <th className="border w-10 p-1.5 text-center align-top">
                                                                             {t(
                                                                                 'S. No.',
                                                                             )}
                                                                         </th>
-                                                                        <th className="p-2 align-top">
+                                                                        <th className="border p-1.5 align-top">
                                                                             {t(
                                                                                 'Title',
                                                                             )}
                                                                         </th>
-                                                                        <th className="p-2 align-top">
+                                                                        <th className="border p-1.5 align-top">
                                                                             {t(
                                                                                 'Competition / Event',
                                                                             )}
                                                                         </th>
-                                                                        <th className="w-[10%] p-2 align-top whitespace-nowrap">
+                                                                        <th className="border w-[10%] p-1.5 align-top whitespace-nowrap">
                                                                             {t(
                                                                                 'Level',
                                                                             )}
                                                                         </th>
-                                                                        <th className="w-[9%] p-2 align-top whitespace-nowrap">
+                                                                        <th className="border w-[9%] p-1.5 align-top whitespace-nowrap">
                                                                             {t(
                                                                                 'Kind',
                                                                             )}
                                                                         </th>
-                                                                        <th className="w-[12%] p-2 align-top whitespace-nowrap">
+                                                                        <th className="border w-[12%] p-1.5 align-top whitespace-nowrap">
                                                                             {t(
                                                                                 'Event date',
                                                                             )}
                                                                         </th>
-                                                                        <th className="w-[14%] p-2 align-top">
+                                                                        <th className="border w-[14%] p-1.5 align-top">
                                                                             {t(
                                                                                 'Venue',
                                                                             )}
                                                                         </th>
-                                                                        <th className="w-[10%] p-2 align-top">
+                                                                        <th className="border w-[10%] p-1.5 align-top">
                                                                             {t(
                                                                                 'Result',
                                                                             )}
@@ -2182,16 +2173,16 @@ export default function CoachPrintPreview({
                                                                                 }
                                                                                 className="align-top odd:bg-muted/10 print:break-inside-avoid"
                                                                             >
-                                                                                <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                                <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
                                                                                     {index +
                                                                                         1}
                                                                                 </td>
-                                                                                <td className="p-3 align-top font-medium text-foreground print:p-2">
+                                                                                <td className="border p-1.5 align-top font-medium text-foreground print:p-1">
                                                                                     {
                                                                                         record.title
                                                                                     }
                                                                                 </td>
-                                                                                <td className="p-3 align-top text-xs break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                <td className="border p-1.5 align-top text-xs break-words text-foreground print:p-1 print:text-[9px]">
                                                                                     {[
                                                                                         record.competition_details,
                                                                                         record.event,
@@ -2204,7 +2195,7 @@ export default function CoachPrintPreview({
                                                                                         ) ||
                                                                                         '—'}
                                                                                 </td>
-                                                                                <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                                                <td className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
                                                                                     {tierLabel(
                                                                                         {
                                                                                             tier_code:
@@ -2216,7 +2207,7 @@ export default function CoachPrintPreview({
                                                                                         record.level ||
                                                                                         '—'}
                                                                                 </td>
-                                                                                <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                                                <td className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
                                                                                     {record.event_type
                                                                                         ? record.event_type ===
                                                                                           'team'
@@ -2228,17 +2219,17 @@ export default function CoachPrintPreview({
                                                                                               )
                                                                                         : '—'}
                                                                                 </td>
-                                                                                <td className="p-3 align-top text-xs whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
+                                                                                <td className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
                                                                                     {formatDate(
                                                                                         record.event_date,
                                                                                     ) ||
                                                                                         '—'}
                                                                                 </td>
-                                                                                <td className="p-3 align-top text-xs break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                <td className="border p-1.5 align-top text-xs break-words text-foreground print:p-1 print:text-[9px]">
                                                                                     {record.venue ||
                                                                                         '—'}
                                                                                 </td>
-                                                                                <td className="p-3 align-top print:p-2">
+                                                                                <td className="border p-1.5 align-top print:p-1">
                                                                                     <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
                                                                                         {record.medal_type
                                                                                             ? humanize(
@@ -2265,32 +2256,32 @@ export default function CoachPrintPreview({
                     {enabled('certifications') && certifications.length > 0 && (
                         <Section title={t('Certifications')}>
                             <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                <table className="w-full text-xs">
+                                <table className="w-full border-collapse text-xs">
                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                         <tr>
-                                            <th className="w-10 p-2 text-center align-top">
+                                            <th className="border w-10 p-1.5 text-center align-top">
                                                 {t('S. No.')}
                                             </th>
-                                            <th className="p-2">
+                                            <th className="border p-1.5">
                                                 {t('Certificate')}
                                             </th>
                                             {showCertType && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Type')}
                                                 </th>
                                             )}
                                             {showCertIssuer && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Issuer')}
                                                 </th>
                                             )}
                                             {showCertIssuedAt && (
-                                                <th className="p-2 whitespace-nowrap">
+                                                <th className="border p-1.5 whitespace-nowrap">
                                                     {t('Issued at')}
                                                 </th>
                                             )}
                                             {showCertExpiredAt && (
-                                                <th className="p-2 whitespace-nowrap">
+                                                <th className="border p-1.5 whitespace-nowrap">
                                                     {t('Expired at')}
                                                 </th>
                                             )}
@@ -2302,32 +2293,32 @@ export default function CoachPrintPreview({
                                                 key={cert.id}
                                                 className="border-t print:align-top"
                                             >
-                                                <td className="p-2 text-center text-muted-foreground print:py-1">
+                                                <td className="border p-1.5 text-center text-muted-foreground print:py-0.5">
                                                     {index + 1}
                                                 </td>
-                                                <td className="p-2 font-medium text-foreground print:py-1">
+                                                <td className="border p-1.5 font-medium text-foreground print:py-0.5">
                                                     {cert.name}
                                                 </td>
                                                 {showCertType && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {cert.certificate_type ||
                                                             '—'}
                                                     </td>
                                                 )}
                                                 {showCertIssuer && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {cert.issuer || '—'}
                                                     </td>
                                                 )}
                                                 {showCertIssuedAt && (
-                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                    <td className="border p-1.5 whitespace-nowrap print:py-0.5">
                                                         {formatDate(
                                                             cert.issued_at,
                                                         ) || '—'}
                                                     </td>
                                                 )}
                                                 {showCertExpiredAt && (
-                                                    <td className="p-2 whitespace-nowrap print:py-1">
+                                                    <td className="border p-1.5 whitespace-nowrap print:py-0.5">
                                                         {formatDate(
                                                             cert.expired_at,
                                                         ) || '—'}
@@ -2359,17 +2350,17 @@ export default function CoachPrintPreview({
                                             </p>
                                         ) : (
                                             <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                                <table className="w-full text-xs">
+                                                <table className="w-full border-collapse text-xs">
                                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                         <tr>
-                                                            <th className="w-10 p-2 text-center align-top">
+                                                            <th className="border w-10 p-1.5 text-center align-top">
                                                                 {t('S. No.')}
                                                             </th>
-                                                            <th className="p-2 align-top">
+                                                            <th className="border p-1.5 align-top">
                                                                 {t('Promotion')}
                                                             </th>
                                                             {showPromotionDate && (
-                                                                <th className="w-[20%] p-2 align-top">
+                                                                <th className="border w-[20%] p-1.5 align-top">
                                                                     {t(
                                                                         'Promotion date',
                                                                     )}
@@ -2426,11 +2417,11 @@ export default function CoachPrintPreview({
                                                                         key={`promotion-${row.id}`}
                                                                     >
                                                                         <tr className="align-top odd:bg-muted/10">
-                                                                            <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                            <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
                                                                                 {index +
                                                                                     1}
                                                                             </td>
-                                                                            <td className="p-3 align-top print:p-2">
+                                                                            <td className="border p-1.5 align-top print:p-1">
                                                                                 <div className="leading-5 font-medium break-words text-foreground print:leading-4">
                                                                                     {resolveRankLabel(
                                                                                         row.to_rank,
@@ -2458,7 +2449,7 @@ export default function CoachPrintPreview({
                                                                                     )}
                                                                             </td>
                                                                             {showPromotionDate && (
-                                                                                <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                <td className="border p-1.5 align-top text-xs leading-4 break-words text-foreground print:p-1 print:text-[9px]">
                                                                                     {formatDate(
                                                                                         row.promotion_date,
                                                                                     ) ||
@@ -2469,7 +2460,7 @@ export default function CoachPrintPreview({
                                                                         {hasDetails && (
                                                                             <tr className="bg-muted/5 print:break-inside-avoid">
                                                                                 <td
-                                                                                    className="px-3 pt-0 pb-3 print:px-2 print:pb-2"
+                                                                                    className="px-1.5 pt-0 pb-1.5 print:px-1.5 print:pb-1"
                                                                                     colSpan={
                                                                                         2 +
                                                                                         (showPromotionDate
@@ -2495,6 +2486,9 @@ export default function CoachPrintPreview({
                                                                                                 }
                                                                                                 t={
                                                                                                     t
+                                                                                                }
+                                                                                                locale={
+                                                                                                    locale
                                                                                                 }
                                                                                             />
                                                                                         </div>
@@ -2522,21 +2516,21 @@ export default function CoachPrintPreview({
                                             </p>
                                         ) : (
                                             <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                                <table className="w-full text-xs">
+                                                <table className="w-full border-collapse text-xs">
                                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                         <tr>
-                                                            <th className="w-10 p-2 text-center align-top">
+                                                            <th className="border w-10 p-1.5 text-center align-top">
                                                                 {t('S. No.')}
                                                             </th>
                                                             {showRewardAmount && (
-                                                                <th className="w-[35%] p-2 align-top">
+                                                                <th className="border w-[35%] p-1.5 align-top">
                                                                     {t(
                                                                         'Cash reward amount',
                                                                     )}
                                                                 </th>
                                                             )}
                                                             {showRewardDate && (
-                                                                <th className="w-[25%] p-2 align-top">
+                                                                <th className="border w-[25%] p-1.5 align-top">
                                                                     {t(
                                                                         'Cash reward date',
                                                                     )}
@@ -2593,19 +2587,19 @@ export default function CoachPrintPreview({
                                                                         key={`reward-${row.id}`}
                                                                     >
                                                                         <tr className="align-top odd:bg-muted/10">
-                                                                            <td className="p-3 text-center text-xs font-medium text-muted-foreground print:p-2">
+                                                                            <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
                                                                                 {index +
                                                                                     1}
                                                                             </td>
                                                                             {showRewardAmount && (
-                                                                                <td className="p-3 align-top font-medium text-foreground print:p-2">
+                                                                                <td className="border p-1.5 align-top font-medium text-foreground print:p-1">
                                                                                     {row.cash_reward_amount
                                                                                         ? `₹${row.cash_reward_amount}`
                                                                                         : '—'}
                                                                                 </td>
                                                                             )}
                                                                             {showRewardDate && (
-                                                                                <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
+                                                                                <td className="border p-1.5 align-top text-xs leading-4 break-words text-foreground print:p-1 print:text-[9px]">
                                                                                     {formatDate(
                                                                                         row.cash_reward_date,
                                                                                     ) ||
@@ -2616,7 +2610,7 @@ export default function CoachPrintPreview({
                                                                         {hasDetails && (
                                                                             <tr className="bg-muted/5 print:break-inside-avoid">
                                                                                 <td
-                                                                                    className="px-3 pt-0 pb-3 print:px-2 print:pb-2"
+                                                                                    className="px-1.5 pt-0 pb-1.5 print:px-1.5 print:pb-1"
                                                                                     colSpan={
                                                                                         1 +
                                                                                         (showRewardAmount
@@ -2646,6 +2640,9 @@ export default function CoachPrintPreview({
                                                                                                 t={
                                                                                                     t
                                                                                                 }
+                                                                                                locale={
+                                                                                                    locale
+                                                                                                }
                                                                                             />
                                                                                         </div>
                                                                                     )}
@@ -2669,22 +2666,22 @@ export default function CoachPrintPreview({
                     {enabled('status') && statusHistory.length > 0 && (
                         <Section title={t('Status history')}>
                             <div className="overflow-hidden rounded-md border print:rounded-sm">
-                                <table className="w-full text-xs">
+                                <table className="w-full border-collapse text-xs">
                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                         <tr>
-                                            <th className="p-2">
+                                            <th className="border p-1.5">
                                                 {t('Status')}
                                             </th>
-                                            <th className="p-2 whitespace-nowrap">
+                                            <th className="border p-1.5 whitespace-nowrap">
                                                 {t('Effective on')}
                                             </th>
                                             {showStatusReason && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Reason')}
                                                 </th>
                                             )}
                                             {showStatusRecordedBy && (
-                                                <th className="p-2">
+                                                <th className="border p-1.5">
                                                     {t('Recorded by')}
                                                 </th>
                                             )}
@@ -2696,21 +2693,21 @@ export default function CoachPrintPreview({
                                                 key={row.id}
                                                 className="border-t print:align-top"
                                             >
-                                                <td className="p-2 font-medium print:py-1">
+                                                <td className="border p-1.5 font-medium print:py-0.5">
                                                     {humanize(row.status)}
                                                 </td>
-                                                <td className="p-2 whitespace-nowrap print:py-1">
+                                                <td className="border p-1.5 whitespace-nowrap print:py-0.5">
                                                     {formatDate(
                                                         row.effective_on,
                                                     ) || '—'}
                                                 </td>
                                                 {showStatusReason && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {row.reason || '—'}
                                                     </td>
                                                 )}
                                                 {showStatusRecordedBy && (
-                                                    <td className="p-2 print:py-1">
+                                                    <td className="border p-1.5 print:py-0.5">
                                                         {row.recorded_by_name ||
                                                             '—'}
                                                     </td>
