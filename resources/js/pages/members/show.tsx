@@ -104,6 +104,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDateRange } from '@/lib/dates';
 import { playerCategoryLabel } from '@/lib/player-category';
 import { resolveRankLabel } from '@/lib/ranks';
 
@@ -759,6 +760,34 @@ export default function MembersShow({
         provisional_reason: 'Match not found in system, create new context.',
         allow_inactive_member: '',
     });
+
+    const setQuickAddField = (
+        field: keyof QuickAddAchievementForm,
+        value: string,
+    ): void => {
+        setQuickAddErrors((current) => {
+            if (!(field in current)) {
+                return current;
+            }
+
+            const next = { ...current };
+
+            delete next[field];
+
+            return next;
+        });
+        setQuickAddForm((current) => ({
+            ...current,
+            [field]: value,
+        }));
+    };
+
+    const getQuickAddError = (field: keyof QuickAddAchievementForm): string => {
+        const error = quickAddErrors[field];
+
+        return error ?? '';
+    };
+
     const [medalFilter, setMedalFilter] = useState<
         'all' | 'GOLD' | 'SILVER' | 'BRONZE' | 'MERIT' | 'none'
     >('all');
@@ -869,7 +898,10 @@ export default function MembersShow({
             }
 
             for (const promotion of promotionsForRow) {
-                if (promotion.to_rank && promotion.to_rank !== promotion.from_rank) {
+                if (
+                    promotion.to_rank &&
+                    promotion.to_rank !== promotion.from_rank
+                ) {
                     types.push('PROMOTION');
                 }
 
@@ -1306,33 +1338,6 @@ export default function MembersShow({
                 router.reload();
             },
         });
-    };
-
-    const setQuickAddField = (
-        field: keyof QuickAddAchievementForm,
-        value: string,
-    ): void => {
-        setQuickAddErrors((current) => {
-            if (!(field in current)) {
-                return current;
-            }
-
-            const next = { ...current };
-
-            delete next[field];
-
-            return next;
-        });
-        setQuickAddForm((current) => ({
-            ...current,
-            [field]: value,
-        }));
-    };
-
-    const getQuickAddError = (field: keyof QuickAddAchievementForm): string => {
-        const error = quickAddErrors[field];
-
-        return error ?? '';
     };
 
     const achievementSummary = useMemo(() => {
@@ -3023,14 +3028,18 @@ export default function MembersShow({
                                                                                         </div>
                                                                                     </TableCell>
                                                                                     <TableCell>
-                                                                                        {formatDisplayDate(
+                                                                                        {formatDateRange(
                                                                                             participation
                                                                                                 .tournament
                                                                                                 .date_from,
-                                                                                        ) ??
+                                                                                            participation
+                                                                                                .tournament
+                                                                                                .date_to,
+                                                                                            ' - ',
                                                                                             t(
                                                                                                 'No date',
-                                                                                            )}
+                                                                                            ),
+                                                                                        )}
                                                                                     </TableCell>
                                                                                     <TableCell>
                                                                                         {eventClassLabel(
@@ -4415,18 +4424,14 @@ export default function MembersShow({
                                         {t('Date')}
                                     </p>
                                     <p>
-                                        {[
-                                            formatDisplayDate(
-                                                achievementPreview.tournament
-                                                    .date_from,
-                                            ),
-                                            formatDisplayDate(
-                                                achievementPreview.tournament
-                                                    .date_to,
-                                            ),
-                                        ]
-                                            .filter(Boolean)
-                                            .join(' - ') || t('No date')}
+                                        {formatDateRange(
+                                            achievementPreview.tournament
+                                                .date_from,
+                                            achievementPreview.tournament
+                                                .date_to,
+                                            ' - ',
+                                            t('No date'),
+                                        )}
                                     </p>
                                 </div>
                                 {achievementPreview.kind === 'event' ? (
