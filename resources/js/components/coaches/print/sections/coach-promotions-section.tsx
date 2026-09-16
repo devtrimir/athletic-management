@@ -18,11 +18,13 @@ export function CoachPromotionsSection({
     ranks = [],
     locale,
     t,
+    showPlayers = true,
 }: {
     promotions: CoachPromotion[];
     ranks?: RankOption[];
     locale: string;
     t: (key: string) => string;
+    showPlayers?: boolean;
 }) {
     const promotionRows = promotions.filter(hasPromotionFields);
     const rewardRows = promotions.filter(hasRewardFields);
@@ -94,7 +96,7 @@ export function CoachPromotionsSection({
                                 <table className="w-full border-collapse text-xs">
                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                         <tr>
-                                            <th className="w-10 border p-1.5 text-center align-top">
+                                            <th className="w-10 border p-1.5 align-top">
                                                 {t('S. No.')}
                                             </th>
                                             <th className="border p-1.5 align-top">
@@ -148,28 +150,35 @@ export function CoachPromotionsSection({
                                                         </td>
                                                         <td className="border p-1.5 align-top print:p-1">
                                                             <div className="leading-5 font-medium break-words text-foreground print:leading-4">
-                                                                {resolveRankLabel(
-                                                                    row.to_rank,
-                                                                    ranks,
-                                                                    '',
-                                                                ) || '—'}
-                                                            </div>
-                                                            {showPromotionFromRank &&
+                                                                {showPromotionFromRank &&
                                                                 hasValue(
                                                                     row.from_rank,
-                                                                ) && (
-                                                                    <div className="mt-1 text-xs leading-4 break-words text-muted-foreground print:text-[9px]">
-                                                                        {t(
-                                                                            'From rank',
-                                                                        )}
-                                                                        :{' '}
+                                                                ) ? (
+                                                                    <>
                                                                         {resolveRankLabel(
                                                                             row.from_rank,
                                                                             ranks,
                                                                             '',
-                                                                        )}
-                                                                    </div>
+                                                                        ) ||
+                                                                            '—'}
+                                                                        <span className="mx-1.5 text-muted-foreground">
+                                                                            &rarr;
+                                                                        </span>
+                                                                        {resolveRankLabel(
+                                                                            row.to_rank,
+                                                                            ranks,
+                                                                            '',
+                                                                        ) ||
+                                                                            '—'}
+                                                                    </>
+                                                                ) : (
+                                                                    resolveRankLabel(
+                                                                        row.to_rank,
+                                                                        ranks,
+                                                                        '',
+                                                                    ) || '—'
                                                                 )}
+                                                            </div>
                                                         </td>
                                                         {showPromotionDate && (
                                                             <td className="border p-1.5 align-top text-xs leading-4 break-words text-foreground print:p-1 print:text-[9px]">
@@ -212,6 +221,9 @@ export function CoachPromotionsSection({
                                                                             locale={
                                                                                 locale
                                                                             }
+                                                                            showPlayers={
+                                                                                showPlayers
+                                                                            }
                                                                         />
                                                                     </div>
                                                                 )}
@@ -240,7 +252,7 @@ export function CoachPromotionsSection({
                                 <table className="w-full border-collapse text-xs">
                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                         <tr>
-                                            <th className="w-10 border p-1.5 text-center align-top">
+                                            <th className="w-10 border p-1.5 align-top">
                                                 {t('S. No.')}
                                             </th>
                                             {showRewardReferenceColumn && (
@@ -301,7 +313,7 @@ export function CoachPromotionsSection({
                                                     key={`reward-${row.id}`}
                                                 >
                                                     <tr className="align-top odd:bg-muted/10">
-                                                        <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
+                                                        <td className="border p-1.5 text-xs font-medium text-muted-foreground print:p-1">
                                                             {index + 1}
                                                         </td>
                                                         {showRewardReferenceColumn && (
@@ -354,6 +366,9 @@ export function CoachPromotionsSection({
                                                                             }
                                                                             locale={
                                                                                 locale
+                                                                            }
+                                                                            showPlayers={
+                                                                                showPlayers
                                                                             }
                                                                         />
                                                                     </div>

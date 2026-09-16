@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
 import type { BreadcrumbItem } from '@/types';
@@ -506,29 +507,6 @@ function parseDateValue(value: string): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatDateValue(
-    value: string | null | undefined,
-    locale: string,
-): string | null {
-    // Dates are always displayed in plain DD/MM/YYYY, regardless of locale.
-    void locale;
-
-    if (!value) {
-        return null;
-    }
-
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-
-    return `${day}/${month}/${year}`;
-}
 
 function formatTimelineTime(value: string, locale: string): string {
     // Dates are always displayed in plain DD/MM/YYYY, regardless of locale.
@@ -890,7 +868,7 @@ function promotionEvidenceTableRows(
                 locale,
                 t,
             ),
-            date: formatDateValue(evidence.tournament?.date_from, locale),
+            date: formatDate(evidence.tournament?.date_from),
             gender: genderClassLabel(evidence.event?.gender_class, t),
             result,
             venue: evidence.tournament?.venue,
@@ -1137,7 +1115,7 @@ function timelineChangeValue(
     }
 
     if (DATE_FIELD_LABELS.has(field)) {
-        return formatDateValue(value, locale) ?? value;
+        return formatDate(value);
     }
 
     if (field.toLowerCase().includes('amount') && !value.includes('₹')) {
@@ -1630,9 +1608,8 @@ export default function PrintPreview({
                                                     'Date of birth',
                                                     locale,
                                                 ),
-                                                value: formatDateValue(
+                                                value: formatDate(
                                                     member.dob,
-                                                    locale,
                                                 ),
                                             },
                                             {
@@ -1702,16 +1679,14 @@ export default function PrintPreview({
                                 rows={[
                                     {
                                         label: uiText('Joining date', locale),
-                                        value: formatDateValue(
+                                        value: formatDate(
                                             member.joining_date,
-                                            locale,
                                         ),
                                     },
                                     {
                                         label: uiText('Promotion date', locale),
-                                        value: formatDateValue(
+                                        value: formatDate(
                                             member.promotion_date,
-                                            locale,
                                         ),
                                     },
                                     {
@@ -1734,9 +1709,8 @@ export default function PrintPreview({
                                     },
                                     {
                                         label: uiText('Team since', locale),
-                                        value: formatDateValue(
+                                        value: formatDate(
                                             member.team_since,
-                                            locale,
                                         ),
                                     },
                                     {
@@ -2023,17 +1997,15 @@ export default function PrintPreview({
                                                         )}
                                                         {showTeamJoinedOn && (
                                                             <td className="p-2">
-                                                                {formatDateValue(
+                                                                {formatDate(
                                                                     row.joined_on,
-                                                                    locale,
                                                                 )}
                                                             </td>
                                                         )}
                                                         {showTeamLeftOn && (
                                                             <td className="p-2">
-                                                                {formatDateValue(
+                                                                {formatDate(
                                                                     row.left_on,
-                                                                    locale,
                                                                 )}
                                                             </td>
                                                         )}
@@ -2111,13 +2083,11 @@ export default function PrintPreview({
                                                         >
                                                             <td className="p-2 print:py-1">
                                                                 {[
-                                                                    formatDateValue(
+                                                                    formatDate(
                                                                         assignment.start_date,
-                                                                        locale,
                                                                     ),
-                                                                    formatDateValue(
+                                                                    formatDate(
                                                                         assignment.end_date,
-                                                                        locale,
                                                                     ),
                                                                 ]
                                                                     .filter(
@@ -2356,11 +2326,10 @@ export default function PrintPreview({
                                                                                         '—'}
                                                                                 </td>
                                                                                 <td className="p-3 align-top text-xs leading-4 whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
-                                                                                    {formatDateValue(
+                                                                                    {formatDate(
                                                                                         row.eventDate,
-                                                                                        locale,
-                                                                                    ) ??
-                                                                                        '—'}
+                                                                                        '—',
+                                                                                    )}
                                                                                 </td>
                                                                                 <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
                                                                                     {row.venue ??
@@ -2478,9 +2447,8 @@ export default function PrintPreview({
                                                             </td>
                                                             {showSpecialAwardedOn && (
                                                                 <td className="p-2 print:py-1">
-                                                                    {formatDateValue(
+                                                                    {formatDate(
                                                                         row.awarded_on,
-                                                                        locale,
                                                                     )}
                                                                 </td>
                                                             )}
@@ -2661,9 +2629,8 @@ export default function PrintPreview({
                                                                                 </td>
                                                                                 {showPromotionDate && (
                                                                                     <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
-                                                                                        {formatDateValue(
+                                                                                        {formatDate(
                                                                                             row.promotion_date,
-                                                                                            locale,
                                                                                         )}
                                                                                     </td>
                                                                                 )}
@@ -2823,9 +2790,8 @@ export default function PrintPreview({
                                                                                 )}
                                                                                 {showRewardDate && (
                                                                                     <td className="p-3 align-top text-xs leading-4 break-words text-foreground print:p-2 print:text-[9px]">
-                                                                                        {formatDateValue(
+                                                                                        {formatDate(
                                                                                             row.cash_reward_date,
-                                                                                            locale,
                                                                                         )}
                                                                                     </td>
                                                                                 )}
@@ -2969,9 +2935,8 @@ export default function PrintPreview({
                                                                 )}
                                                             </td>
                                                             <td className="p-2 print:py-1">
-                                                                {formatDateValue(
+                                                                {formatDate(
                                                                     row.effective_on,
-                                                                    locale,
                                                                 )}
                                                             </td>
                                                             {showStatusReason && (

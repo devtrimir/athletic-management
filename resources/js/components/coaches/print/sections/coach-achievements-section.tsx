@@ -86,6 +86,15 @@ export function CoachAchievementsSection({
                                 <th className="border p-1.5 align-top">
                                     {t('Tournament')}
                                 </th>
+                                <th className="w-[14%] border p-1.5 align-top">
+                                    {t('Venue')}
+                                </th>
+                                <th className="w-[12%] border p-1.5 align-top whitespace-nowrap">
+                                    {t('Date')}
+                                </th>
+                                <th className="w-[10%] border p-1.5 align-top whitespace-nowrap">
+                                    {t('Tier')}
+                                </th>
                                 <th className="w-[10%] border p-1.5 align-top whitespace-nowrap">
                                     {t('Session')}
                                 </th>
@@ -122,21 +131,42 @@ export function CoachAchievementsSection({
                                             <div className="leading-5 font-medium break-words text-foreground print:leading-4">
                                                 {group.tournament.name}
                                             </div>
-                                            <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
-                                                {[
-                                                    tierLabel(
-                                                        group.tournament,
-                                                        locale,
-                                                        t,
-                                                    ),
-                                                    formatTournamentDateRange(
-                                                        group.tournament,
-                                                    ),
-                                                    group.tournament.venue,
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' · ')}
-                                            </div>
+                                        </td>
+                                    )}
+                                    {teamAchievementRowSpans[index] > 0 && (
+                                        <td
+                                            className="border p-1.5 align-top text-xs break-words text-foreground print:p-1 print:text-[9px]"
+                                            rowSpan={
+                                                teamAchievementRowSpans[index]
+                                            }
+                                        >
+                                            {group.tournament.venue || '—'}
+                                        </td>
+                                    )}
+                                    {teamAchievementRowSpans[index] > 0 && (
+                                        <td
+                                            className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                            rowSpan={
+                                                teamAchievementRowSpans[index]
+                                            }
+                                        >
+                                            {formatTournamentDateRange(
+                                                group.tournament,
+                                            ) || '—'}
+                                        </td>
+                                    )}
+                                    {teamAchievementRowSpans[index] > 0 && (
+                                        <td
+                                            className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                            rowSpan={
+                                                teamAchievementRowSpans[index]
+                                            }
+                                        >
+                                            {tierLabel(
+                                                group.tournament,
+                                                locale,
+                                                t,
+                                            ) || '—'}
                                         </td>
                                     )}
                                     {teamAchievementRowSpans[index] > 0 && (

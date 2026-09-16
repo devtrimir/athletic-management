@@ -104,7 +104,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
-import { formatDateRange } from '@/lib/dates';
+import { formatDate, formatDateRange } from '@/lib/dates';
 import { playerCategoryLabel } from '@/lib/player-category';
 import { resolveRankLabel } from '@/lib/ranks';
 
@@ -280,22 +280,6 @@ function parseDateValue(value: string): Date | null {
     const date = new Date(value);
 
     return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDisplayDate(value: string | null | undefined): string | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        dateStyle: 'medium',
-    }).format(date);
 }
 
 type ParticipationEntry = {
@@ -839,12 +823,9 @@ export default function MembersShow({
         [t],
     );
 
-    const formatReadableDate = useCallback(
-        (value: string | null): string | null => {
-            return formatDisplayDate(value);
-        },
-        [],
-    );
+    const formatReadableDate = useCallback((value: string | null): string => {
+        return formatDate(value);
+    }, []);
 
     const achievementPrizeMoney = useCallback(
         (
@@ -1879,7 +1860,7 @@ export default function MembersShow({
                           ? t('Female')
                           : t('Other gender');
                 case 'dob':
-                    return formatDisplayDate(member.dob) ?? '';
+                    return formatDate(member.dob);
                 case 'rank':
                     return member.rank
                         ? resolveRankLabel(member.rank, ranks ?? [], pageLocale)
@@ -1897,7 +1878,7 @@ export default function MembersShow({
                 case 'home_district':
                     return member.home_district?.name ?? '';
                 case 'joining_date':
-                    return formatDisplayDate(member.joining_date) ?? '';
+                    return formatDate(member.joining_date);
                 case 'blood_group':
                     return member.blood_group ?? '';
                 case 'caste':
@@ -1924,9 +1905,9 @@ export default function MembersShow({
                         )
                         .join(' | ');
                 case 'promotion_date':
-                    return formatDisplayDate(member.promotion_date) ?? '';
+                    return formatDate(member.promotion_date);
                 case 'team_since':
-                    return formatDisplayDate(member.team_since) ?? '';
+                    return formatDate(member.team_since);
                 default:
                     return '';
             }
@@ -2281,7 +2262,7 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Date of birth'),
-                                            formatDisplayDate(member.dob),
+                                            formatDate(member.dob),
                                         )}
                                         {detail(t('Mobile'), member.mobile)}
                                         {member.blood_group &&
@@ -2326,7 +2307,7 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Joining date'),
-                                            formatDisplayDate(
+                                            formatDate(
                                                 member.joining_date,
                                             ),
                                         )}
@@ -2379,14 +2360,14 @@ export default function MembersShow({
                                         {member.promotion_date &&
                                             detail(
                                                 t('Promotion date'),
-                                                formatDisplayDate(
+                                                formatDate(
                                                     member.promotion_date,
                                                 ),
                                             )}
                                         {member.team_since &&
                                             detail(
                                                 t('Team since'),
-                                                formatDisplayDate(
+                                                formatDate(
                                                     member.team_since,
                                                 ),
                                             )}
@@ -3550,7 +3531,7 @@ export default function MembersShow({
                                                 </div>
                                                 <div className="text-right text-xs text-muted-foreground">
                                                     <p>
-                                                        {formatDisplayDate(
+                                                        {formatDate(
                                                             row.effective_on,
                                                         )}
                                                     </p>

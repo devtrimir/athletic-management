@@ -79,11 +79,14 @@ export function CoachPlayingAchievementsSection({
                     <table className="w-full border-collapse text-xs">
                         <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                             <tr>
-                                <th className="w-10 border p-1.5 text-center align-top">
+                                <th className="w-10 border p-1.5  align-top">
                                     {t('S. No.')}
                                 </th>
                                 <th className="border p-1.5 align-top">
                                     {t('Tournament')}
+                                </th>
+                                <th className="w-[9%] border p-1.5 align-top whitespace-nowrap">
+                                    {t('Tier')}
                                 </th>
                                 <th className="w-[10%] border p-1.5 align-top whitespace-nowrap">
                                     {t('Session')}
@@ -122,7 +125,7 @@ export function CoachPlayingAchievementsSection({
                                                     key={record.id}
                                                     className="align-top odd:bg-muted/10 print:break-inside-avoid"
                                                 >
-                                                    <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
+                                                    <td className="border p-1.5  text-xs font-medium text-muted-foreground print:p-1">
                                                         {++rowNumber}
                                                     </td>
                                                     {rowIndex === 0 && (
@@ -140,19 +143,21 @@ export function CoachPlayingAchievementsSection({
                                                                         .name
                                                                 }
                                                             </div>
+                                                        </td>
+                                                    )}
+                                                    {rowIndex === 0 && (
+                                                        <td
+                                                            className="border p-1.5 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                                            rowSpan={
+                                                                group.rows
+                                                                    .length
+                                                            }
+                                                        >
                                                             {tierLabel(
                                                                 record.tournament,
                                                                 locale,
                                                                 t,
-                                                            ) && (
-                                                                <div className="mt-0.5 text-xs text-muted-foreground print:text-[9px]">
-                                                                    {tierLabel(
-                                                                        record.tournament,
-                                                                        locale,
-                                                                        t,
-                                                                    )}
-                                                                </div>
-                                                            )}
+                                                            ) || '—'}
                                                         </td>
                                                     )}
                                                     {rowIndex === 0 && (
@@ -276,7 +281,7 @@ export function CoachPlayingAchievementsSection({
                                         <table className="w-full border-collapse text-xs">
                                             <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                 <tr>
-                                                    <th className="w-10 border p-1.5 text-center align-top">
+                                                    <th className="w-10 border p-1.5  align-top">
                                                         {t('S. No.')}
                                                     </th>
                                                     <th className="border p-1.5 align-top">

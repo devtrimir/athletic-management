@@ -6,10 +6,12 @@ export function PromotionEvidenceTable({
     rows,
     t,
     locale,
+    showPlayers = true,
 }: {
     rows: PromotionEvidenceTableRow[];
     t: (key: string) => string;
     locale: string;
+    showPlayers?: boolean;
 }) {
     if (rows.length === 0) {
         return null;
@@ -19,7 +21,7 @@ export function PromotionEvidenceTable({
         <table className="w-full border-collapse text-xs print:text-[9px]">
             <thead className="bg-muted/40 text-left text-[10px] tracking-wide text-muted-foreground uppercase print:text-[8px]">
                 <tr>
-                    <th className="w-12 border p-1.5 text-center whitespace-nowrap">
+                    <th className="w-12 border p-1.5 whitespace-nowrap">
                         {t('S. No.')}
                     </th>
                     <th className="w-16 border p-1.5 whitespace-nowrap">
@@ -48,7 +50,9 @@ export function PromotionEvidenceTable({
             <tbody>
                 {rows.map((row, index) => {
                     const hasPlayers =
-                        Array.isArray(row.players) && row.players.length > 0;
+                        showPlayers &&
+                        Array.isArray(row.players) &&
+                        row.players.length > 0;
 
                     return (
                         <Fragment key={row.key}>
@@ -118,7 +122,7 @@ export function PromotionEvidenceTable({
                                                             key={`${row.key}-${player.member.id}`}
                                                             className="odd:bg-muted/10"
                                                         >
-                                                            <td className="border p-1.5 text-center text-muted-foreground">
+                                                            <td className="border p-1.5 text-muted-foreground">
                                                                 {playerIndex +
                                                                     1}
                                                             </td>

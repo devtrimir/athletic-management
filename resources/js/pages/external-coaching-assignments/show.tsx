@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Download, Pencil } from 'lucide-react';
 
 import {
@@ -10,6 +10,7 @@ import { ConfidentialDocumentPreview } from '@/components/shared/confidential-do
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDateRange } from '@/lib/dates';
 
 type Assignment = {
     id: number;
@@ -46,15 +47,14 @@ export default function ExternalCoachingAssignmentsShow({
     assignment: Assignment;
 }) {
     const { t } = useTranslation();
-    const { locale } = usePage().props as { locale: string };
     const title =
         assignment.member?.full_name ?? t('External coaching assignment');
-    const period = [
-        formatDisplayDate(assignment.start_date, locale),
-        formatDisplayDate(assignment.end_date, locale),
-    ]
-        .filter(Boolean)
-        .join(' - ');
+    const period = formatDateRange(
+        assignment.start_date,
+        assignment.end_date,
+        ' - ',
+        '',
+    );
 
     return (
         <>
@@ -227,36 +227,4 @@ function fileSizeLabel(value: number | null): string | null {
     }
 
     return `${(value / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function parseDateValue(value: string): Date | null {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const [year, month, day] = value.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDisplayDate(
-    value: string | null | undefined,
-    locale: string,
-): string | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        dateStyle: 'medium',
-    }).format(date);
 }

@@ -37,6 +37,7 @@ export default function CoachPrintPreview({
     const [selectedSections, setSelectedSections] =
         useState<SectionKey[]>(DEFAULT_SECTIONS);
     const enabled = (section: SectionKey) => selectedSections.includes(section);
+    const [showPromotionPlayers, setShowPromotionPlayers] = useState(true);
 
     const filename = useMemo(() => {
         const safeName = coach.full_name
@@ -120,6 +121,10 @@ export default function CoachPrintPreview({
                     onToggleSection={toggleSection}
                     onPrint={handlePrint}
                     t={t}
+                    showPromotionPlayers={showPromotionPlayers}
+                    onToggleShowPromotionPlayers={() =>
+                        setShowPromotionPlayers((current) => !current)
+                    }
                 />
 
                 <CoachPrintHeader t={t} />
@@ -183,6 +188,7 @@ export default function CoachPrintPreview({
                             ranks={ranks}
                             locale={locale}
                             t={t}
+                            showPlayers={showPromotionPlayers}
                         />
                     )}
 

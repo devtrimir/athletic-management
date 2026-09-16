@@ -15,6 +15,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 type PaginationLink = {
     url: string | null;
@@ -47,10 +48,6 @@ type Incharge = {
         assigned_at: string | null;
     }[];
 };
-
-function formatDate(value: string | null | undefined): string {
-    return value ? value.trim().split('T')[0] : '';
-}
 
 type PaginatedIncharges = {
     data: Incharge[];

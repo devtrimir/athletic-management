@@ -76,6 +76,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate, formatDateRange } from '@/lib/dates';
 
 type Tournament = {
     id: number;
@@ -1457,28 +1458,8 @@ export default function TournamentsShow({
         return Number.isNaN(date.getTime()) ? null : date;
     }
 
-    function formatDate(value: string | null): string {
-        const date = parseDateValue(value);
-
-        if (!date) {
-            return value ?? '—';
-        }
-
-        return new Intl.DateTimeFormat('en-IN', {
-            dateStyle: 'medium',
-        }).format(date);
-    }
-
     function dateRange(): string {
-        if (
-            tournament.date_from &&
-            tournament.date_to &&
-            tournament.date_from !== tournament.date_to
-        ) {
-            return `${formatDate(tournament.date_from)} - ${formatDate(tournament.date_to)}`;
-        }
-
-        return formatDate(tournament.date_from ?? tournament.date_to);
+        return formatDateRange(tournament.date_from, tournament.date_to);
     }
 
     function tournamentStatus(): string {
@@ -1710,18 +1691,18 @@ export default function TournamentsShow({
     const supportingDetails = [
         {
             label: t('Date from'),
-            value: formatDate(tournament.date_from),
+            value: formatDate(tournament.date_from, '—'),
         },
         {
             label: t('Date to'),
-            value: formatDate(tournament.date_to),
+            value: formatDate(tournament.date_to, '—'),
         },
         {
             label: t('Created'),
             value: (
                 <span className="inline-flex items-center gap-1.5">
                     <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                    {formatDate(tournament.created_at)}
+                    {formatDate(tournament.created_at, '—')}
                 </span>
             ),
         },

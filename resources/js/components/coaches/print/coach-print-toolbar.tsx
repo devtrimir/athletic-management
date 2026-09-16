@@ -13,12 +13,16 @@ export function CoachPrintToolbar({
     onToggleSection,
     onPrint,
     t,
+    showPromotionPlayers,
+    onToggleShowPromotionPlayers,
 }: {
     coach: Coach;
     selectedSections: SectionKey[];
     onToggleSection: (section: SectionKey) => void;
     onPrint: () => void;
     t: (key: string) => string;
+    showPromotionPlayers?: boolean;
+    onToggleShowPromotionPlayers?: () => void;
 }) {
     return (
         <>
@@ -68,6 +72,17 @@ export function CoachPrintToolbar({
                         </label>
                     ))}
                 </div>
+                {onToggleShowPromotionPlayers && (
+                    <label className="flex w-fit items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-sm">
+                        <Checkbox
+                            checked={showPromotionPlayers}
+                            onCheckedChange={onToggleShowPromotionPlayers}
+                        />
+                        <span>
+                            {t('Show player data in promotions / rewards')}
+                        </span>
+                    </label>
+                )}
             </div>
         </>
     );
