@@ -17,9 +17,11 @@ use App\Models\Rank;
 use App\Models\Sport;
 use App\Models\TournamentTier;
 use App\Models\Unit;
+use App\Services\Coaches\CoachDeletionService;
 use App\Services\PromotionSyncService;
 use App\Support\Coaches\CoachProfileData;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -108,6 +110,43 @@ class CoachController extends Controller
         }
 
         return $payload;
+    }
+
+    /**
+     * Carry a member's playable sports over onto their new coach profile so
+     * "register as coach" doesn't silently drop sport data the member
+     * already has recorded. Only runs when the create form didn't submit its
+     * own `sports` selection.
+     */
+    private function syncSportsFromMember(Coach $coach, Member $member): void
+    {
+        $playableSports = $member->playableSports()->get();
+
+        if ($playableSports->isEmpty()) {
+            return;
+        }
+
+        $rows = [];
+
+        foreach ($playableSports as $sport) {
+            $rows[$sport->id] = [
+                'is_primary' => false,
+                'level_master_id' => null,
+                'level' => null,
+                'sport_event' => $sport->pivot?->sport_event,
+                'effective_from' => null,
+                'effective_to' => null,
+                'notes' => null,
+            ];
+        }
+
+        $primaryId = $member->sport_id !== null && isset($rows[$member->sport_id])
+            ? $member->sport_id
+            : array_key_first($rows);
+
+        $rows[$primaryId]['is_primary'] = true;
+
+        $coach->sports()->sync($rows);
     }
 
     /**
@@ -830,6 +869,16 @@ class CoachController extends Controller
                 $payload['member_id'] = null;
             }
 
+            if (! empty($payload['member_id'])) {
+                // A member can have at most one linked coach. If an older
+                // coach (e.g. one left archived via "Proceed as New Coach")
+                // still points at this member, clear that stale link first
+                // so it can't collide with the one we're about to create.
+                Coach::withTrashed()
+                    ->where('member_id', $payload['member_id'])
+                    ->update(['member_id' => null]);
+            }
+
             /** @var Coach $coach */
             $coach = Coach::create(Arr::except($payload, ['certifications', 'sports']));
 
@@ -839,6 +888,8 @@ class CoachController extends Controller
 
             if (array_key_exists('sports', $payload)) {
                 $coach->sports()->sync($this->buildSyncPayload((array) $payload['sports']));
+            } elseif (isset($member)) {
+                $this->syncSportsFromMember($coach, $member);
             }
 
             return $coach;
@@ -951,5 +1002,46 @@ class CoachController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Coach deleted.')]);
 
         return to_route('coaches.index');
+    }
+
+    public function checkPno(Request $request, CoachDeletionService $deletionService): JsonResponse
+    {
+        if (! $request->user()->can('coaches.view') && ! $request->user()->can('coaches.create')) {
+            abort(403);
+        }
+
+        $result = $deletionService->checkPno(
+            (string) $request->query('pno', ''),
+            (int) $request->user()->organization_id,
+            $request->filled('ignore_coach_id') ? (int) $request->query('ignore_coach_id') : null,
+            $request->filled('ignore_member_id') ? (int) $request->query('ignore_member_id') : null,
+        );
+
+        return response()->json($result);
+    }
+
+    public function restore(Request $request, Coach $coach, CoachDeletionService $deletionService): RedirectResponse
+    {
+        Gate::authorize('restore', $coach);
+
+        if (! $coach->trashed()) {
+            Inertia::flash('toast', [
+                'type' => 'info',
+                'message' => __('Coach is already active.'),
+            ]);
+
+            return redirect()->back(302, [], route('coaches.show', $coach));
+        }
+
+        $deletionService->restore($coach, $request->user());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Coach :name has been successfully restored.', [
+                'name' => $coach->full_name,
+            ]),
+        ]);
+
+        return redirect()->back(302, [], route('coaches.index'));
     }
 }

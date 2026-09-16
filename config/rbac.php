@@ -36,6 +36,7 @@ return [
         ['code' => 'coaches.create', 'group' => 'coaches', 'name_hi' => 'कोच जोड़ें',    'name_en' => 'Create coaches'],
         ['code' => 'coaches.update', 'group' => 'coaches', 'name_hi' => 'कोच अपडेट करें', 'name_en' => 'Update coaches'],
         ['code' => 'coaches.delete', 'group' => 'coaches', 'name_hi' => 'कोच हटाएं',     'name_en' => 'Delete coaches'],
+        ['code' => 'coaches.restore', 'group' => 'coaches', 'name_hi' => 'कोच पुनर्स्थापित करें', 'name_en' => 'Restore coaches'],
         ['code' => 'coaches.export', 'group' => 'coaches', 'name_hi' => 'कोच निर्यात करें', 'name_en' => 'Export coaches'],
         ['code' => 'coaches.print', 'group' => 'coaches', 'name_hi' => 'कोच प्रिंट करें', 'name_en' => 'Print coaches'],
         ['code' => 'coaches.uploadMedia', 'group' => 'coaches', 'name_hi' => 'कोच मीडिया अपलोड करें', 'name_en' => 'Upload coach media'],

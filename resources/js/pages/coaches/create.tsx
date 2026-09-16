@@ -1,9 +1,11 @@
-import { Head, Link, setLayoutProps, useForm } from '@inertiajs/react';
+import { Head, Link, router, setLayoutProps, useForm } from '@inertiajs/react';
 import { IdCard, UserRound } from 'lucide-react';
 import {
     index as coachesIndex,
+    show as showCoach,
     store as storeCoach,
 } from '@/actions/App/Http/Controllers/CoachController';
+import { CoachPnoConflictNotice } from '@/components/coaches/coach-pno-conflict-notice';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
@@ -321,6 +323,14 @@ export default function CoachesCreate({
                                     )}
                                     <InputError message={errors.pno} />
                                 </div>
+
+                                <CoachPnoConflictNotice
+                                    pno={data.pno}
+                                    ignoreMemberId={prefill?.member_id}
+                                    onRestoreSuccess={(id) => {
+                                        router.visit(showCoach.url(id));
+                                    }}
+                                />
                             </div>
 
                             <div className="grid gap-5 sm:grid-cols-2">

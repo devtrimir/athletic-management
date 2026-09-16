@@ -12,6 +12,7 @@ use App\Models\Participation;
 use App\Models\TeamMember;
 use App\Models\TeamMemberMovement;
 use App\Models\User;
+use App\Services\PromotionSyncService;
 use App\Support\Teams\TeamSessionStatusManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -319,6 +320,23 @@ class MemberDeletionService
                 'reason' => 'Member restored from archive.',
                 'recorded_by' => $actor?->id,
             ]);
+
+            // Archiving this member (see delete() above) nulled out any
+            // linked coach's member_id. Re-link it here so the coach's
+            // member-derived data (playing achievements, sports, promotions)
+            // is visible again instead of silently staying disconnected.
+            if (! empty($member->pno)) {
+                $coach = Coach::withoutGlobalScopes()
+                    ->where('organization_id', $member->organization_id)
+                    ->where('pno', $member->pno)
+                    ->whereNull('member_id')
+                    ->first();
+
+                if ($coach !== null) {
+                    $coach->update(['member_id' => $member->id]);
+                    app(PromotionSyncService::class)->syncLinkedProfiles($member, $coach);
+                }
+            }
         });
     }
 

@@ -271,43 +271,21 @@ function sanitizeEventDetail(value?: string | null): string {
     return (value ?? '').trim().replace(/\s+/g, ' ');
 }
 
-function normalizeOfficialEventDetail(value: string): string {
-    const text = sanitizeEventDetail(value)
-        .replace(/,/g, ' / ')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-
-    const parts = text
-        .split('/')
-        .map((part) => part.trim())
-        .filter(Boolean);
-    const firstPart = parts.length > 0 ? parts[0] : '';
-
-    return firstPart
-        .replace(
-            /^(?:powerlifting|weightlifting)\s+(?:total|total\s+points)\s*:?\s*/i,
-            '',
-        )
-        .replace(/^(?:official|provisional)\s*:?\s*/i, '')
-        .trim();
-}
-
 function eventSubtitle(
     event: EventRow,
     t: (key: string) => string,
 ): { title: string; fallbackName?: string } {
     const name = sanitizeEventDetail(event.name);
-    const discipline = sanitizeEventDetail(event.discipline);
     const weight = sanitizeEventDetail(event.weight_category);
 
-    if (event.event_source !== 'official') {
-        return { title: name || t('Event') };
-    }
-
-    const officialTitle = weight || normalizeOfficialEventDetail(discipline);
-
-    if (officialTitle) {
-        return { title: officialTitle };
+    // `discipline` is a broad sport-category tag (e.g. "team", "swim",
+    // "track") shared by every event under that sport — never a specific
+    // event label — so it must never stand in for the event's own name.
+    // `weight_category` is the one exception: for weight-class sports
+    // (combat/weightlifting) it's the more useful primary label, with the
+    // actual event name kept visible underneath.
+    if (event.event_source === 'official' && weight) {
+        return { title: weight, fallbackName: name || undefined };
     }
 
     return { title: name || t('Event') };

@@ -9,6 +9,7 @@ import {
     destroy as destroyCoachPhoto,
     store as storeCoachPhoto,
 } from '@/actions/App/Http/Controllers/CoachPhotoController';
+import { CoachPnoConflictNotice } from '@/components/coaches/coach-pno-conflict-notice';
 import { Combobox } from '@/components/combobox';
 import { DatePicker } from '@/components/date-picker';
 import Heading from '@/components/heading';
@@ -355,6 +356,16 @@ export default function CoachesEdit({
                                     )}
                                     <InputError message={errors.pno} />
                                 </div>
+
+                                {coach.member_id === null && (
+                                    <CoachPnoConflictNotice
+                                        pno={data.pno}
+                                        ignoreCoachId={coach.id}
+                                        onRestoreSuccess={(id) => {
+                                            router.visit(showCoach.url(id));
+                                        }}
+                                    />
+                                )}
                             </div>
 
                             <div className="grid gap-5 sm:grid-cols-2">

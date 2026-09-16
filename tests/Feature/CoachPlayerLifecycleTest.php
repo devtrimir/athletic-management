@@ -93,6 +93,40 @@ test('unique pno rule permits coach to share pno with linked member profile', fu
     ]);
 });
 
+test('store coach clears a stale member_id link from an archived coach that still holds it', function () {
+    $user = lifecycleUser('coaches.create');
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => 'PNO665544',
+        'full_name' => 'Repeat Registration Athlete',
+    ]);
+
+    // An older coach linked to this member was archived directly (not via
+    // member deletion), so its member_id was never cleared — reproducing
+    // the "Proceed as New Coach" scenario from the PNO conflict notice.
+    $staleCoach = Coach::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => 'PNO665544',
+        'member_id' => $member->id,
+    ]);
+    $staleCoach->delete();
+
+    $response = $this->actingAs($user)->post(route('coaches.store'), [
+        'member_id' => $member->id,
+        'full_name' => 'Repeat Registration Athlete',
+        'pno' => 'PNO665544',
+        'coach_status' => 'ACTIVE',
+    ]);
+
+    $newCoach = Coach::latest('id')->first();
+    $response->assertRedirect(route('coaches.show', $newCoach));
+
+    expect($newCoach->id)->not->toBe($staleCoach->id)
+        ->and($newCoach->member_id)->toBe($member->id)
+        ->and($staleCoach->fresh()->member_id)->toBeNull()
+        ->and($member->fresh()->coach->id)->toBe($newCoach->id);
+});
+
 test('unique pno rule rejects unlinked coach reusing an existing member pno', function () {
     $user = lifecycleUser('coaches.create');
     Member::factory()->create([
@@ -125,6 +159,69 @@ test('store coach rejects pno mismatch when member_id is supplied', function () 
     ]);
 
     $response->assertSessionHasErrors('pno');
+});
+
+test('store coach syncs the linked members playable sports when the form submits none', function () {
+    $user = lifecycleUser('coaches.create');
+    $sportA = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $sportB = Sport::factory()->create(['organization_id' => $user->organization_id]);
+
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => 'PNO554433',
+        'sport_id' => $sportB->id,
+    ]);
+    $member->playableSports()->sync([
+        $sportA->id => ['sport_event' => '100m'],
+        $sportB->id => ['sport_event' => 'Long Jump'],
+    ]);
+
+    $response = $this->actingAs($user)->post(route('coaches.store'), [
+        'member_id' => $member->id,
+        'full_name' => 'Athlete Turned Coach',
+        'pno' => 'PNO554433',
+        'coach_status' => 'ACTIVE',
+    ]);
+
+    $coach = Coach::latest('id')->first();
+    $response->assertRedirect(route('coaches.show', $coach));
+
+    $coachSports = $coach->sports()->withPivot(['is_primary', 'sport_event'])->get()->keyBy('id');
+
+    expect($coachSports)->toHaveCount(2)
+        ->and($coachSports[$sportA->id]->pivot->sport_event)->toBe('100m')
+        ->and($coachSports[$sportB->id]->pivot->sport_event)->toBe('Long Jump')
+        ->and($coachSports[$sportB->id]->pivot->is_primary)->toBeTrue()
+        ->and($coachSports[$sportA->id]->pivot->is_primary)->toBeFalse();
+});
+
+test('store coach does not override an explicit sports selection with the members playable sports', function () {
+    $user = lifecycleUser('coaches.create');
+    $memberSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $formSport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+
+    $member = Member::factory()->create([
+        'organization_id' => $user->organization_id,
+        'pno' => 'PNO554455',
+    ]);
+    $member->playableSports()->sync([$memberSport->id => ['sport_event' => 'Sprint']]);
+
+    $response = $this->actingAs($user)->post(route('coaches.store'), [
+        'member_id' => $member->id,
+        'full_name' => 'Explicit Sports Coach',
+        'pno' => 'PNO554455',
+        'coach_status' => 'ACTIVE',
+        'sports' => [
+            ['sport_id' => $formSport->id, 'is_primary' => true],
+        ],
+    ]);
+
+    $coach = Coach::latest('id')->first();
+    $response->assertRedirect(route('coaches.show', $coach));
+
+    $coachSports = $coach->sports;
+    expect($coachSports)->toHaveCount(1)
+        ->and($coachSports->first()->id)->toBe($formSport->id);
 });
 
 test('coach create page delivers prefill data when member_id query parameter is provided', function () {

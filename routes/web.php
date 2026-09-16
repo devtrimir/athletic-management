@@ -124,6 +124,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('members/{member}/export', [MemberExportController::class, 'show'])->withTrashed()->name('members.export.show');
     Route::get('coaches/export', [CoachExportController::class, 'index'])->name('coaches.export');
     Route::get('coaches/print', [CoachController::class, 'print'])->name('coaches.print');
+    Route::get('coaches/check-pno', [CoachController::class, 'checkPno'])->name('coaches.check-pno');
+    Route::post('coaches/{coach}/restore', [CoachController::class, 'restore'])->withTrashed()->name('coaches.restore');
     Route::resource('coaches', CoachController::class);
     Route::post('coaches/{coach}/generate-athlete-profile', [CoachController::class, 'generateAthleteProfile'])->name('coaches.generate-athlete-profile');
     Route::get('coaches/{coach}/assignments', [CoachProfileTabController::class, 'assignments'])->name('coaches.assignments');
