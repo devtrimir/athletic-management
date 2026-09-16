@@ -209,15 +209,15 @@ export function promotionEvidenceTableRows(
             key: promotionEvidenceKey(evidence),
             session: evidence.session?.name,
             tournament: evidence.tournament?.name ?? evidence.summary,
-            event: evidence.event?.name,
-            eventType,
-            level: tierLabel(evidence.tournament, locale, t),
+            venue: evidence.tournament?.venue,
             date: evidence.tournament
                 ? formatTournamentDateRange(evidence.tournament)
                 : '',
+            tier: tierLabel(evidence.tournament, locale, t),
+            event: evidence.event?.name,
+            eventType,
             gender: genderClassLabel(evidence.event?.gender_class, t),
             result,
-            venue: evidence.tournament?.venue,
             players: evidence.players,
         });
     }
@@ -257,9 +257,9 @@ export function groupPromotionEvidenceRows(
         const key = [
             row.session,
             row.tournament,
-            row.level,
-            row.date,
             row.venue,
+            row.date,
+            row.tier,
         ].join('|');
 
         const existingIndex = groupIndexByKey.get(key);

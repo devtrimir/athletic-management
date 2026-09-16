@@ -1001,7 +1001,7 @@ export default function MembersShow({
                 label: tournament.name,
                 description: [
                     tournament.venue,
-                    tournament.date_from,
+                    formatDateRange(tournament.date_from, tournament.date_to),
                     tournament.sports.map((sport) => sport.name).join(', '),
                 ]
                     .filter(Boolean)

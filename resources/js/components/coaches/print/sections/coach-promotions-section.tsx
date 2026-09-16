@@ -96,14 +96,14 @@ export function CoachPromotionsSection({
                                 <table className="w-full border-collapse text-xs">
                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                         <tr>
-                                            <th className="w-10 border p-1.5 align-top">
+                                            <th className="w-10 border p-1.5 align-middle">
                                                 {t('S. No.')}
                                             </th>
-                                            <th className="border p-1.5 align-top">
+                                            <th className="border p-1.5 align-middle">
                                                 {t('Promotion')}
                                             </th>
                                             {showPromotionDate && (
-                                                <th className="w-[20%] border p-1.5 align-top">
+                                                <th className="w-[20%] border p-1.5 align-middle">
                                                     {t('Promotion date')}
                                                 </th>
                                             )}
@@ -144,11 +144,11 @@ export function CoachPromotionsSection({
                                                 <Fragment
                                                     key={`promotion-${row.id}`}
                                                 >
-                                                    <tr className="align-top odd:bg-muted/10">
+                                                    <tr className="align-middle odd:bg-muted/10">
                                                         <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
                                                             {index + 1}
                                                         </td>
-                                                        <td className="border p-1.5 align-top print:p-1">
+                                                        <td className="border p-1.5 align-middle print:p-1">
                                                             <div className="leading-5 font-medium break-words text-foreground print:leading-4">
                                                                 {showPromotionFromRank &&
                                                                 hasValue(
@@ -181,7 +181,7 @@ export function CoachPromotionsSection({
                                                             </div>
                                                         </td>
                                                         {showPromotionDate && (
-                                                            <td className="border p-1.5 align-top text-xs leading-4 break-words text-foreground print:p-1 print:text-[9px]">
+                                                            <td className="border p-1.5 align-middle text-xs leading-4 break-words text-foreground print:p-1 print:text-[9px]">
                                                                 {formatDate(
                                                                     row.promotion_date,
                                                                 ) || '—'}
@@ -252,21 +252,21 @@ export function CoachPromotionsSection({
                                 <table className="w-full border-collapse text-xs">
                                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                         <tr>
-                                            <th className="w-10 border p-1.5 align-top">
+                                            <th className="w-10 border p-1.5 align-middle">
                                                 {t('S. No.')}
                                             </th>
                                             {showRewardReferenceColumn && (
-                                                <th className="border p-1.5 align-top">
+                                                <th className="border p-1.5 align-middle">
                                                     {t('Cash reward reference')}
                                                 </th>
                                             )}
                                             {showRewardAmount && (
-                                                <th className="w-[35%] border p-1.5 align-top">
+                                                <th className="w-[35%] border p-1.5 align-middle">
                                                     {t('Cash reward amount')}
                                                 </th>
                                             )}
                                             {showRewardDate && (
-                                                <th className="w-[25%] border p-1.5 align-top">
+                                                <th className="w-[25%] border p-1.5 align-middle">
                                                     {t('Cash reward date')}
                                                 </th>
                                             )}
@@ -312,25 +312,25 @@ export function CoachPromotionsSection({
                                                 <Fragment
                                                     key={`reward-${row.id}`}
                                                 >
-                                                    <tr className="align-top odd:bg-muted/10">
+                                                    <tr className="align-middle odd:bg-muted/10">
                                                         <td className="border p-1.5 text-xs font-medium text-muted-foreground print:p-1">
                                                             {index + 1}
                                                         </td>
                                                         {showRewardReferenceColumn && (
-                                                            <td className="border p-1.5 align-top font-medium text-foreground print:p-1">
+                                                            <td className="border p-1.5 align-middle font-medium text-foreground print:p-1">
                                                                 {row.cash_reward_reference ||
                                                                     '—'}
                                                             </td>
                                                         )}
                                                         {showRewardAmount && (
-                                                            <td className="border p-1.5 align-top font-medium text-foreground print:p-1">
+                                                            <td className="border p-1.5 align-middle font-medium text-foreground print:p-1">
                                                                 {row.cash_reward_amount
                                                                     ? `₹${row.cash_reward_amount}`
                                                                     : '—'}
                                                             </td>
                                                         )}
                                                         {showRewardDate && (
-                                                            <td className="border p-1.5 align-top text-xs leading-4 break-words text-foreground print:p-1 print:text-[9px]">
+                                                            <td className="border p-1.5 align-middle text-xs leading-4 break-words text-foreground print:p-1 print:text-[9px]">
                                                                 {formatDate(
                                                                     row.cash_reward_date,
                                                                 ) || '—'}

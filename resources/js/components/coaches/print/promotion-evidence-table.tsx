@@ -24,19 +24,20 @@ export function PromotionEvidenceTable({
                     <th className="w-12 border p-1.5 whitespace-nowrap">
                         {t('S. No.')}
                     </th>
+                    <th className="border p-1.5">{t('Tournament')}</th>
+                    <th className="border p-1.5">{t('Venue')}</th>
+                    <th className="w-24 border p-1.5 whitespace-nowrap">
+                        {t('Date')}
+                    </th>
+                    <th className="w-20 border p-1.5 whitespace-nowrap">
+                        {t('Tier')}
+                    </th>
                     <th className="w-16 border p-1.5 whitespace-nowrap">
                         {t('Session')}
                     </th>
-                    <th className="border p-1.5">{t('Tournament')}</th>
                     <th className="border p-1.5">{t('Event')}</th>
                     <th className="w-16 border p-1.5 whitespace-nowrap">
                         {t('Event type')}
-                    </th>
-                    <th className="w-20 border p-1.5 whitespace-nowrap">
-                        {t('Level')}
-                    </th>
-                    <th className="w-24 border p-1.5 whitespace-nowrap">
-                        {t('Event date')}
                     </th>
                     <th className="w-14 border p-1.5 whitespace-nowrap">
                         {t('Gender')}
@@ -44,7 +45,6 @@ export function PromotionEvidenceTable({
                     <th className="border p-1.5 whitespace-nowrap">
                         {t('Result')}
                     </th>
-                    <th className="border p-1.5">{t('Venue')}</th>
                 </tr>
             </thead>
             <tbody>
@@ -56,36 +56,36 @@ export function PromotionEvidenceTable({
 
                     return (
                         <Fragment key={row.key}>
-                            <tr className="align-top odd:bg-muted/10">
+                            <tr className="align-middle odd:bg-muted/10">
                                 <td className="border p-1.5 text-center text-muted-foreground">
                                     {index + 1}
                                 </td>
-                                <td className="border p-1.5 align-top whitespace-nowrap">
-                                    {row.session || '—'}
-                                </td>
-                                <td className="border p-1.5 align-top">
+                                <td className="border p-1.5 align-middle">
                                     {row.tournament || '—'}
                                 </td>
-                                <td className="border p-1.5 align-top">
-                                    {row.event || '—'}
+                                <td className="border p-1.5 align-middle">
+                                    {row.venue || '—'}
                                 </td>
-                                <td className="border p-1.5 align-top whitespace-nowrap">
-                                    {row.eventType || '—'}
-                                </td>
-                                <td className="border p-1.5 align-top whitespace-nowrap">
-                                    {row.level || '—'}
-                                </td>
-                                <td className="border p-1.5 align-top whitespace-nowrap">
+                                <td className="border p-1.5 align-middle whitespace-nowrap">
                                     {row.date || '—'}
                                 </td>
-                                <td className="border p-1.5 align-top whitespace-nowrap">
+                                <td className="border p-1.5 align-middle whitespace-nowrap">
+                                    {row.tier || '—'}
+                                </td>
+                                <td className="border p-1.5 align-middle whitespace-nowrap">
+                                    {row.session || '—'}
+                                </td>
+                                <td className="border p-1.5 align-middle">
+                                    {row.event || '—'}
+                                </td>
+                                <td className="border p-1.5 align-middle whitespace-nowrap">
+                                    {row.eventType || '—'}
+                                </td>
+                                <td className="border p-1.5 align-middle whitespace-nowrap">
                                     {row.gender || '—'}
                                 </td>
-                                <td className="border p-1.5 align-top font-medium whitespace-nowrap">
+                                <td className="border p-1.5 align-middle font-medium whitespace-nowrap">
                                     {row.result || '—'}
-                                </td>
-                                <td className="border p-1.5 align-top">
-                                    {row.venue || '—'}
                                 </td>
                             </tr>
                             {hasPlayers && (

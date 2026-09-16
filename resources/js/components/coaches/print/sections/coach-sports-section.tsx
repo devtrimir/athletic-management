@@ -50,7 +50,7 @@ export function CoachSportsSection({
                         {sports.map((sport) => (
                             <tr
                                 key={sport.id}
-                                className="border-t print:align-top"
+                                className="border-t print:align-middle"
                             >
                                 <td className="border p-1.5 font-medium print:py-0.5">
                                     {sport.name}

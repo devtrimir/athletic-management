@@ -52,7 +52,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-translation';
-import { formatDate } from '@/lib/dates';
+import { formatDate, formatDateRange } from '@/lib/dates';
 import { resolveRankLabel as resolveRankLabelShared } from '@/lib/ranks';
 
 type LiveAchievement = {
@@ -66,6 +66,7 @@ type LiveAchievement = {
         name: string;
         tier_code: string | null;
         date_from?: string | null;
+        date_to?: string | null;
         venue?: string | null;
     };
     event: {
@@ -249,6 +250,15 @@ type Props = {
     onSaved: () => void;
     showActions?: boolean;
 };
+
+function humanize(value: string): string {
+    return value
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 function evidenceKey(type: string, id: number): string {
     return `${type}:${id}`;
@@ -2772,8 +2782,29 @@ export function PromotionsTab({
         return t('—');
     }
     function evidenceTierLabel(evidence: PromotionEvidence): string {
-        if (evidence.tournament?.tier_code) {
-            return evidence.tournament.tier_code;
+        const tierCode =
+            evidence.tournament?.tier_code ??
+            (evidence.type === 'participation'
+                ? (participations
+                      .flatMap((group) => group.participations)
+                      .find((record) => record.id === evidence.evidence_id)
+                      ?.tournament.tier_code ?? null)
+                : evidence.type === 'achievement'
+                  ? (achievements.find((a) => a.id === evidence.evidence_id)
+                        ?.tournament.tier_code ?? null)
+                  : null);
+
+        if (!tierCode) {
+            return '—';
+        }
+
+        const translated = t(tierCode);
+
+        return translated === tierCode ? humanize(tierCode) : translated;
+    }
+    function evidenceVenueLabel(evidence: PromotionEvidence): string {
+        if (evidence.venue) {
+            return evidence.venue;
         }
 
         if (evidence.type === 'participation') {
@@ -2781,7 +2812,7 @@ export function PromotionsTab({
                 .flatMap((group) => group.participations)
                 .find((record) => record.id === evidence.evidence_id);
 
-            return item?.tournament.tier_code ?? t('—');
+            return item?.tournament.venue ?? '—';
         }
 
         if (evidence.type === 'achievement') {
@@ -2789,10 +2820,47 @@ export function PromotionsTab({
                 (a) => a.id === evidence.evidence_id,
             );
 
-            return item?.tournament.tier_code ?? t('—');
+            return item?.tournament.venue ?? '—';
         }
 
-        return t('—');
+        return '—';
+    }
+    function evidenceDateLabel(evidence: PromotionEvidence): string {
+        if (evidence.date_from) {
+            return formatDate(evidence.date_from);
+        }
+
+        if (evidence.event_date) {
+            return formatDate(evidence.event_date);
+        }
+
+        if (evidence.type === 'participation') {
+            const item = participations
+                .flatMap((group) => group.participations)
+                .find((record) => record.id === evidence.evidence_id);
+
+            if (item?.tournament.date_from) {
+                return formatDateRange(
+                    item.tournament.date_from,
+                    item.tournament.date_to,
+                );
+            }
+        }
+
+        if (evidence.type === 'achievement') {
+            const item = achievements.find(
+                (a) => a.id === evidence.evidence_id,
+            );
+
+            if (item?.tournament.date_from) {
+                return formatDateRange(
+                    item.tournament.date_from,
+                    item.tournament.date_to,
+                );
+            }
+        }
+
+        return '—';
     }
     function evidenceDetailLabel(evidence: PromotionEvidence): string {
         const details = new Array<string>();
@@ -3251,12 +3319,27 @@ export function PromotionsTab({
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
-                                                                                            'Session',
+                                                                                            'Tournament',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
-                                                                                            'Tournament',
+                                                                                            'Venue',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Date',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Tier',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Session',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
@@ -3264,14 +3347,9 @@ export function PromotionsTab({
                                                                                             'Event',
                                                                                         )}
                                                                                     </th>
-                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
                                                                                         {t(
                                                                                             'Event type',
-                                                                                        )}
-                                                                                    </th>
-                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                        {t(
-                                                                                            'Tier',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
@@ -3297,7 +3375,7 @@ export function PromotionsTab({
                                                                                     <tr>
                                                                                         <td
                                                                                             colSpan={
-                                                                                                10
+                                                                                                12
                                                                                             }
                                                                                             className="px-2 py-2 text-muted-foreground"
                                                                                         >
@@ -3334,12 +3412,27 @@ export function PromotionsTab({
                                                                                                     </Badge>
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceSessionLabel(
+                                                                                                    {evidenceTournamentLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceTournamentLabel(
+                                                                                                    {evidenceVenueLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceDateLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceTierLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceSessionLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
@@ -3348,13 +3441,8 @@ export function PromotionsTab({
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
-                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
                                                                                                     {evidenceEventTypeLabel(
-                                                                                                        evidence,
-                                                                                                    )}
-                                                                                                </td>
-                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceTierLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
@@ -3605,12 +3693,27 @@ export function PromotionsTab({
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
-                                                                                            'Session',
+                                                                                            'Tournament',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
                                                                                         {t(
-                                                                                            'Tournament',
+                                                                                            'Venue',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Date',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Tier',
+                                                                                        )}
+                                                                                    </th>
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                                                                                        {t(
+                                                                                            'Session',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
@@ -3618,14 +3721,9 @@ export function PromotionsTab({
                                                                                             'Event',
                                                                                         )}
                                                                                     </th>
-                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
                                                                                         {t(
                                                                                             'Event type',
-                                                                                        )}
-                                                                                    </th>
-                                                                                    <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                                                        {t(
-                                                                                            'Tier',
                                                                                         )}
                                                                                     </th>
                                                                                     <th className="px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
@@ -3651,7 +3749,7 @@ export function PromotionsTab({
                                                                                     <tr>
                                                                                         <td
                                                                                             colSpan={
-                                                                                                10
+                                                                                                12
                                                                                             }
                                                                                             className="px-2 py-2 text-muted-foreground"
                                                                                         >
@@ -3688,12 +3786,27 @@ export function PromotionsTab({
                                                                                                     </Badge>
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceSessionLabel(
+                                                                                                    {evidenceTournamentLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
                                                                                                 <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceTournamentLabel(
+                                                                                                    {evidenceVenueLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceDateLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceTierLabel(
+                                                                                                        evidence,
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
+                                                                                                    {evidenceSessionLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
@@ -3702,13 +3815,8 @@ export function PromotionsTab({
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>
-                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
+                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 whitespace-nowrap dark:border-slate-700">
                                                                                                     {evidenceEventTypeLabel(
-                                                                                                        evidence,
-                                                                                                    )}
-                                                                                                </td>
-                                                                                                <td className="border-r border-slate-100 px-2 py-1.5 dark:border-slate-700">
-                                                                                                    {evidenceTierLabel(
                                                                                                         evidence,
                                                                                                     )}
                                                                                                 </td>

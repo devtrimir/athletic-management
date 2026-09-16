@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
-import { formatDate } from '@/lib/dates';
+import { formatDate, formatDateRange } from '@/lib/dates';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
 import type { BreadcrumbItem } from '@/types';
@@ -868,7 +868,10 @@ function promotionEvidenceTableRows(
                 locale,
                 t,
             ),
-            date: formatDate(evidence.tournament?.date_from),
+            date: formatDateRange(
+                evidence.tournament?.date_from,
+                evidence.tournament?.date_to,
+            ),
             gender: genderClassLabel(evidence.event?.gender_class, t),
             result,
             venue: evidence.tournament?.venue,
@@ -1293,6 +1296,7 @@ export default function PrintPreview({
                     ? uiText('Team', locale)
                     : uiText('Individual', locale),
             eventDate: row.tournament.date_from,
+            eventDateTo: row.tournament.date_to,
             venue: row.tournament.venue,
             genderClass: genderClassLabel(row.event.gender_class, t),
             position: row.position ?? row.participation_position,
@@ -2326,8 +2330,10 @@ export default function PrintPreview({
                                                                                         '—'}
                                                                                 </td>
                                                                                 <td className="p-3 align-top text-xs leading-4 whitespace-nowrap text-foreground print:p-2 print:text-[9px]">
-                                                                                    {formatDate(
+                                                                                    {formatDateRange(
                                                                                         row.eventDate,
+                                                                                        row.eventDateTo,
+                                                                                        ' - ',
                                                                                         '—',
                                                                                     )}
                                                                                 </td>

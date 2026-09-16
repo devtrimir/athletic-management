@@ -279,13 +279,13 @@ export type PromotionEvidenceTableRow = {
     key: string;
     session?: string | null;
     tournament?: string | null;
+    venue?: string | null;
+    date?: string | null;
+    tier?: string | number | null;
     event?: string | null;
     eventType?: string | null;
-    level?: string | number | null;
-    date?: string | null;
     gender?: string | null;
     result?: string | null;
-    venue?: string | null;
     players?: PromotionEvidenceTablePlayer[];
 };
 

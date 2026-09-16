@@ -68,14 +68,14 @@ export function DetailStack({
             <tbody>
                 {visibleItems.map((item) => (
                     <tr key={item.label} className="border-b last:border-b-0">
-                        <th className="w-36 border border-r bg-muted/30 px-1.5 py-1 text-left align-top font-medium text-muted-foreground print:w-28 print:px-1.5 print:py-0.5">
+                        <th className="w-36 border border-r bg-muted/30 px-1.5 py-1 text-left align-middle font-medium text-muted-foreground print:w-28 print:px-1.5 print:py-0.5">
                             {item.label}
                         </th>
                         <td
                             className={
                                 item.muted
-                                    ? 'border px-1.5 py-1 align-top break-words text-muted-foreground print:px-1.5 print:py-0.5'
-                                    : 'border px-1.5 py-1 align-top break-words text-foreground print:px-1.5 print:py-0.5'
+                                    ? 'border px-1.5 py-1 align-middle break-words text-muted-foreground print:px-1.5 print:py-0.5'
+                                    : 'border px-1.5 py-1 align-middle break-words text-foreground print:px-1.5 print:py-0.5'
                             }
                         >
                             {item.value}

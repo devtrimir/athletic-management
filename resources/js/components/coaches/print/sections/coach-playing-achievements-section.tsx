@@ -79,31 +79,31 @@ export function CoachPlayingAchievementsSection({
                     <table className="w-full border-collapse text-xs">
                         <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                             <tr>
-                                <th className="w-10 border p-1.5  align-top">
+                                <th className="w-10 border p-1.5  align-middle">
                                     {t('S. No.')}
                                 </th>
-                                <th className="border p-1.5 align-top">
+                                <th className="border p-1.5 align-middle">
                                     {t('Tournament')}
                                 </th>
-                                <th className="w-[9%] border p-1.5 align-top whitespace-nowrap">
-                                    {t('Tier')}
-                                </th>
-                                <th className="w-[10%] border p-1.5 align-top whitespace-nowrap">
-                                    {t('Session')}
-                                </th>
-                                <th className="border p-1.5 align-top">
-                                    {t('Event')}
-                                </th>
-                                <th className="w-[9%] border p-1.5 align-top whitespace-nowrap">
-                                    {t('Kind')}
-                                </th>
-                                <th className="w-[12%] border p-1.5 align-top whitespace-nowrap">
-                                    {t('Date')}
-                                </th>
-                                <th className="w-[14%] border p-1.5 align-top">
+                                <th className="w-[14%] border p-1.5 align-middle">
                                     {t('Venue')}
                                 </th>
-                                <th className="w-[10%] border p-1.5 align-top">
+                                <th className="w-[12%] border p-1.5 align-middle whitespace-nowrap">
+                                    {t('Date')}
+                                </th>
+                                <th className="w-[10%] border p-1.5 align-middle whitespace-nowrap">
+                                    {t('Tier')}
+                                </th>
+                                <th className="w-[10%] border p-1.5 align-middle whitespace-nowrap">
+                                    {t('Session')}
+                                </th>
+                                <th className="border p-1.5 align-middle">
+                                    {t('Event')}
+                                </th>
+                                <th className="w-[10%] border p-1.5 align-middle whitespace-nowrap">
+                                    {t('Event type')}
+                                </th>
+                                <th className="w-[14%] border p-1.5 align-middle">
                                     {t('Result')}
                                 </th>
                             </tr>
@@ -123,7 +123,7 @@ export function CoachPlayingAchievementsSection({
                                             (record, rowIndex) => (
                                                 <tr
                                                     key={record.id}
-                                                    className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                    className="align-middle odd:bg-muted/10 print:break-inside-avoid"
                                                 >
                                                     <td className="border p-1.5  text-xs font-medium text-muted-foreground print:p-1">
                                                         {++rowNumber}
@@ -147,7 +147,32 @@ export function CoachPlayingAchievementsSection({
                                                     )}
                                                     {rowIndex === 0 && (
                                                         <td
-                                                            className="border p-1.5 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                                            className="border p-1.5 align-middle text-xs break-words text-foreground print:p-1 print:text-[9px]"
+                                                            rowSpan={
+                                                                group.rows
+                                                                    .length
+                                                            }
+                                                        >
+                                                            {record.tournament
+                                                                .venue || '—'}
+                                                        </td>
+                                                    )}
+                                                    {rowIndex === 0 && (
+                                                        <td
+                                                            className="border p-1.5 align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                                            rowSpan={
+                                                                group.rows
+                                                                    .length
+                                                            }
+                                                        >
+                                                            {formatTournamentDateRange(
+                                                                record.tournament,
+                                                            ) || '—'}
+                                                        </td>
+                                                    )}
+                                                    {rowIndex === 0 && (
+                                                        <td
+                                                            className="border p-1.5 align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
                                                             rowSpan={
                                                                 group.rows
                                                                     .length
@@ -174,13 +199,13 @@ export function CoachPlayingAchievementsSection({
                                                             }
                                                         </td>
                                                     )}
-                                                    <td className="border p-1.5 align-top text-xs font-medium text-foreground print:p-1 print:text-[9px]">
+                                                    <td className="border p-1.5 align-middle text-xs font-medium text-foreground print:p-1 print:text-[9px]">
                                                         {record.event.name}
                                                     </td>
                                                     {kindSpans[rowIndex] >
                                                         0 && (
                                                         <td
-                                                            className="border p-1.5 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                                            className="border p-1.5 align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
                                                             rowSpan={
                                                                 kindSpans[
                                                                     rowIndex
@@ -195,32 +220,7 @@ export function CoachPlayingAchievementsSection({
                                                                   )}
                                                         </td>
                                                     )}
-                                                    {rowIndex === 0 && (
-                                                        <td
-                                                            className="border p-1.5 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
-                                                            rowSpan={
-                                                                group.rows
-                                                                    .length
-                                                            }
-                                                        >
-                                                            {formatTournamentDateRange(
-                                                                record.tournament,
-                                                            ) || '—'}
-                                                        </td>
-                                                    )}
-                                                    {rowIndex === 0 && (
-                                                        <td
-                                                            className="border p-1.5 text-center align-middle text-xs break-words text-foreground print:p-1 print:text-[9px]"
-                                                            rowSpan={
-                                                                group.rows
-                                                                    .length
-                                                            }
-                                                        >
-                                                            {record.tournament
-                                                                .venue || '—'}
-                                                        </td>
-                                                    )}
-                                                    <td className="border p-1.5 align-top print:p-1">
+                                                    <td className="border p-1.5 align-middle print:p-1">
                                                         <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
                                                             {record.medal_type
                                                                 ? humanize(
@@ -281,30 +281,30 @@ export function CoachPlayingAchievementsSection({
                                         <table className="w-full border-collapse text-xs">
                                             <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                                                 <tr>
-                                                    <th className="w-10 border p-1.5  align-top">
+                                                    <th className="w-10 border p-1.5  align-middle">
                                                         {t('S. No.')}
                                                     </th>
-                                                    <th className="border p-1.5 align-top">
+                                                    <th className="border p-1.5 align-middle">
                                                         {t('Title')}
                                                     </th>
-                                                    <th className="border p-1.5 align-top">
+                                                    <th className="border p-1.5 align-middle">
                                                         {t(
                                                             'Competition / Event',
                                                         )}
                                                     </th>
-                                                    <th className="w-[10%] border p-1.5 align-top whitespace-nowrap">
-                                                        {t('Level')}
-                                                    </th>
-                                                    <th className="w-[9%] border p-1.5 align-top whitespace-nowrap">
-                                                        {t('Kind')}
-                                                    </th>
-                                                    <th className="w-[12%] border p-1.5 align-top whitespace-nowrap">
-                                                        {t('Event date')}
-                                                    </th>
-                                                    <th className="w-[14%] border p-1.5 align-top">
+                                                    <th className="w-[14%] border p-1.5 align-middle">
                                                         {t('Venue')}
                                                     </th>
-                                                    <th className="w-[10%] border p-1.5 align-top">
+                                                    <th className="w-[12%] border p-1.5 align-middle whitespace-nowrap">
+                                                        {t('Date')}
+                                                    </th>
+                                                    <th className="w-[10%] border p-1.5 align-middle whitespace-nowrap">
+                                                        {t('Tier')}
+                                                    </th>
+                                                    <th className="w-[9%] border p-1.5 align-middle whitespace-nowrap">
+                                                        {t('Event type')}
+                                                    </th>
+                                                    <th className="w-[10%] border p-1.5 align-middle">
                                                         {t('Result')}
                                                     </th>
                                                 </tr>
@@ -314,15 +314,15 @@ export function CoachPlayingAchievementsSection({
                                                     (record, index) => (
                                                         <tr
                                                             key={record.id}
-                                                            className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                                            className="align-middle odd:bg-muted/10 print:break-inside-avoid"
                                                         >
                                                             <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
                                                                 {index + 1}
                                                             </td>
-                                                            <td className="border p-1.5 align-top font-medium text-foreground print:p-1">
+                                                            <td className="border p-1.5 align-middle font-medium text-foreground print:p-1">
                                                                 {record.title}
                                                             </td>
-                                                            <td className="border p-1.5 align-top text-xs break-words text-foreground print:p-1 print:text-[9px]">
+                                                            <td className="border p-1.5 align-middle text-xs break-words text-foreground print:p-1 print:text-[9px]">
                                                                 {[
                                                                     record.competition_details,
                                                                     record.event,
@@ -334,7 +334,16 @@ export function CoachPlayingAchievementsSection({
                                                                         ' · ',
                                                                     ) || '—'}
                                                             </td>
-                                                            <td className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
+                                                            <td className="border p-1.5 align-middle text-xs break-words text-foreground print:p-1 print:text-[9px]">
+                                                                {record.venue ||
+                                                                    '—'}
+                                                            </td>
+                                                            <td className="border p-1.5 align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
+                                                                {formatDate(
+                                                                    record.event_date,
+                                                                ) || '—'}
+                                                            </td>
+                                                            <td className="border p-1.5 align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
                                                                 {tierLabel(
                                                                     {
                                                                         tier_code:
@@ -346,7 +355,7 @@ export function CoachPlayingAchievementsSection({
                                                                     record.level ||
                                                                     '—'}
                                                             </td>
-                                                            <td className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
+                                                            <td className="border p-1.5 align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
                                                                 {record.event_type
                                                                     ? record.event_type ===
                                                                       'team'
@@ -358,16 +367,7 @@ export function CoachPlayingAchievementsSection({
                                                                           )
                                                                     : '—'}
                                                             </td>
-                                                            <td className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
-                                                                {formatDate(
-                                                                    record.event_date,
-                                                                ) || '—'}
-                                                            </td>
-                                                            <td className="border p-1.5 align-top text-xs break-words text-foreground print:p-1 print:text-[9px]">
-                                                                {record.venue ||
-                                                                    '—'}
-                                                            </td>
-                                                            <td className="border p-1.5 align-top print:p-1">
+                                                            <td className="border p-1.5 align-middle print:p-1">
                                                                 <div className="text-xs leading-4 font-semibold text-foreground print:text-[9px]">
                                                                     {record.medal_type
                                                                         ? humanize(

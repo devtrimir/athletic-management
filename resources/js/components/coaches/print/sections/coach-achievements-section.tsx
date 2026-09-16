@@ -80,34 +80,34 @@ export function CoachAchievementsSection({
                     <table className="w-full border-collapse text-xs">
                         <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                             <tr>
-                                <th className="w-10 border p-1.5 text-center align-top">
+                                <th className="w-10 border p-1.5 text-center align-middle">
                                     {t('S. No.')}
                                 </th>
-                                <th className="border p-1.5 align-top">
+                                <th className="border p-1.5 align-middle">
                                     {t('Tournament')}
                                 </th>
-                                <th className="w-[14%] border p-1.5 align-top">
+                                <th className="w-[14%] border p-1.5 align-middle">
                                     {t('Venue')}
                                 </th>
-                                <th className="w-[12%] border p-1.5 align-top whitespace-nowrap">
+                                <th className="w-[12%] border p-1.5 align-middle whitespace-nowrap">
                                     {t('Date')}
                                 </th>
-                                <th className="w-[10%] border p-1.5 align-top whitespace-nowrap">
+                                <th className="w-[10%] border p-1.5 align-middle whitespace-nowrap">
                                     {t('Tier')}
                                 </th>
-                                <th className="w-[10%] border p-1.5 align-top whitespace-nowrap">
+                                <th className="w-[10%] border p-1.5 align-middle whitespace-nowrap">
                                     {t('Session')}
                                 </th>
-                                <th className="w-[12%] border p-1.5 align-top">
+                                <th className="w-[12%] border p-1.5 align-middle">
                                     {t('Team')}
                                 </th>
-                                <th className="border p-1.5 align-top">
+                                <th className="border p-1.5 align-middle">
                                     {t('Event')}
                                 </th>
-                                <th className="w-[10%] border p-1.5 align-top whitespace-nowrap">
+                                <th className="w-[10%] border p-1.5 align-middle whitespace-nowrap">
                                     {t('Event type')}
                                 </th>
-                                <th className="w-[14%] border p-1.5 align-top whitespace-nowrap">
+                                <th className="w-[14%] border p-1.5 align-middle whitespace-nowrap">
                                     {t('Medals')}
                                 </th>
                             </tr>
@@ -116,14 +116,14 @@ export function CoachAchievementsSection({
                             {achievements.map((group, index) => (
                                 <tr
                                     key={group.id}
-                                    className="align-top odd:bg-muted/10 print:break-inside-avoid"
+                                    className="align-middle odd:bg-muted/10 print:break-inside-avoid"
                                 >
                                     <td className="border p-1.5 text-center text-xs font-medium text-muted-foreground print:p-1">
                                         {index + 1}
                                     </td>
                                     {teamAchievementRowSpans[index] > 0 && (
                                         <td
-                                            className="border p-1.5 text-center align-top print:p-1"
+                                            className="border p-1.5 text-center align-middle print:p-1"
                                             rowSpan={
                                                 teamAchievementRowSpans[index]
                                             }
@@ -135,7 +135,7 @@ export function CoachAchievementsSection({
                                     )}
                                     {teamAchievementRowSpans[index] > 0 && (
                                         <td
-                                            className="border p-1.5 align-top text-xs break-words text-foreground print:p-1 print:text-[9px]"
+                                            className="border p-1.5 align-middle text-xs break-words text-foreground print:p-1 print:text-[9px]"
                                             rowSpan={
                                                 teamAchievementRowSpans[index]
                                             }
@@ -145,7 +145,7 @@ export function CoachAchievementsSection({
                                     )}
                                     {teamAchievementRowSpans[index] > 0 && (
                                         <td
-                                            className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                            className="border p-1.5 align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
                                             rowSpan={
                                                 teamAchievementRowSpans[index]
                                             }
@@ -157,7 +157,7 @@ export function CoachAchievementsSection({
                                     )}
                                     {teamAchievementRowSpans[index] > 0 && (
                                         <td
-                                            className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                            className="border p-1.5 align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
                                             rowSpan={
                                                 teamAchievementRowSpans[index]
                                             }
@@ -171,7 +171,7 @@ export function CoachAchievementsSection({
                                     )}
                                     {teamAchievementRowSpans[index] > 0 && (
                                         <td
-                                            className="border p-1.5 text-center align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
+                                            className="border p-1.5 text-center align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]"
                                             rowSpan={
                                                 teamAchievementRowSpans[index]
                                             }
@@ -181,7 +181,7 @@ export function CoachAchievementsSection({
                                     )}
                                     {teamAchievementRowSpans[index] > 0 && (
                                         <td
-                                            className="border p-1.5 text-center align-top text-xs font-medium text-foreground print:p-1 print:text-[9px]"
+                                            className="border p-1.5 text-center align-middle text-xs font-medium text-foreground print:p-1 print:text-[9px]"
                                             rowSpan={
                                                 teamAchievementRowSpans[index]
                                             }
@@ -189,7 +189,7 @@ export function CoachAchievementsSection({
                                             {group.team.name}
                                         </td>
                                     )}
-                                    <td className="border p-1.5 align-top print:p-1">
+                                    <td className="border p-1.5 align-middle print:p-1">
                                         <div className="text-xs font-medium text-foreground print:text-[9px]">
                                             {group.event.name}
                                         </div>
@@ -199,7 +199,7 @@ export function CoachAchievementsSection({
                                             </div>
                                         )}
                                     </td>
-                                    <td className="border p-1.5 align-top text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
+                                    <td className="border p-1.5 align-middle text-xs whitespace-nowrap text-foreground print:p-1 print:text-[9px]">
                                         {group.event.event_type === 'team'
                                             ? t('Team')
                                             : group.event.event_type ===
@@ -207,7 +207,7 @@ export function CoachAchievementsSection({
                                               ? t('Individual')
                                               : '—'}
                                     </td>
-                                    <td className="border p-1.5 align-top whitespace-nowrap print:p-1">
+                                    <td className="border p-1.5 align-middle whitespace-nowrap print:p-1">
                                         <div className="space-y-0.5 text-xs print:text-[9px]">
                                             {(
                                                 [

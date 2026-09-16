@@ -42,7 +42,7 @@ export function CoachSpecialAchievementsSection({
                 <table className="w-full border-collapse text-xs">
                     <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase print:text-[9px]">
                         <tr>
-                            <th className="w-10 border p-1.5 text-center align-top">
+                            <th className="w-10 border p-1.5 text-center align-middle">
                                 {t('S. No.')}
                             </th>
                             <th className="border p-1.5">
@@ -76,7 +76,7 @@ export function CoachSpecialAchievementsSection({
                         {specialAchievementRecords.map((record, index) => (
                             <tr
                                 key={record.id}
-                                className="border-t print:align-top"
+                                className="border-t print:align-middle"
                             >
                                 <td className="border p-1.5 text-center text-muted-foreground print:py-0.5">
                                     {index + 1}

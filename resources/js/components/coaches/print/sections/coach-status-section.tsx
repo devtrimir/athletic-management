@@ -43,7 +43,7 @@ export function CoachStatusSection({
                         {statusHistory.map((row) => (
                             <tr
                                 key={row.id}
-                                className="border-t print:align-top"
+                                className="border-t print:align-middle"
                             >
                                 <td className="border p-1.5 font-medium print:py-0.5">
                                     {humanize(row.status)}
