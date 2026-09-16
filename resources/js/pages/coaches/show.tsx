@@ -111,6 +111,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate, formatDateRange } from '@/lib/dates';
 import { coachRoleLabel } from '@/lib/coach';
 import { resolveRankLabel } from '@/lib/ranks';
 
@@ -393,55 +394,14 @@ function genderLabel(
     }
 }
 
-function formatDate(value: string | null | undefined): string {
-    if (!value) {
-        return '—';
-    }
-
-    const trimmed = value.trim();
-
-    if (!trimmed) {
-        return '—';
-    }
-
-    const datePart = trimmed.split('T')[0].split(' ')[0];
-    const parts = datePart.split('-');
-
-    if (parts.length === 3 && parts[0].length === 4) {
-        const [year, month, day] = parts;
-
-        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-    }
-
-    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(datePart)) {
-        const [day, month, year] = datePart.split('/');
-
-        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-    }
-
-    return value;
-}
-
 function formatTournamentDateRange(tournament: {
     date_from?: string | null;
     date_to?: string | null;
 }): string | null {
-    const from = tournament.date_from ? formatDate(tournament.date_from) : null;
-    const to = tournament.date_to ? formatDate(tournament.date_to) : null;
-
-    if (from && from !== '—' && to && to !== '—' && from !== to) {
-        return `${from} - ${to}`;
-    }
-
-    if (from && from !== '—') {
-        return from;
-    }
-
-    if (to && to !== '—') {
-        return to;
-    }
-
-    return null;
+    return (
+        formatDateRange(tournament.date_from, tournament.date_to, ' - ', '') ||
+        null
+    );
 }
 
 export default function CoachesShow({
@@ -1286,7 +1246,7 @@ export default function CoachesShow({
                                     )}
                                     {detail(
                                         t('Date of birth'),
-                                        formatDate(coach.date_of_birth),
+                                        formatDate(coach.date_of_birth, '—'),
                                     )}
                                     {detail(t('Address'), coach.address ?? '')}
                                     {detail(
@@ -1462,6 +1422,7 @@ export default function CoachesShow({
                                                         <TableCell>
                                                             {formatDate(
                                                                 certification.issued_at,
+                                                                '—',
                                                             )}
                                                         </TableCell>
                                                         <TableCell>
@@ -1631,11 +1592,13 @@ export default function CoachesShow({
                                                             <TableCell>
                                                                 {formatDate(
                                                                     sport.effective_from,
+                                                                    '—',
                                                                 )}
                                                             </TableCell>
                                                             <TableCell>
                                                                 {formatDate(
                                                                     sport.effective_to,
+                                                                    '—',
                                                                 )}
                                                             </TableCell>
                                                             <TableCell>
@@ -1756,11 +1719,13 @@ export default function CoachesShow({
                                                     <TableCell>
                                                         {formatDate(
                                                             assignment.assigned_at,
+                                                            '—',
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
                                                         {formatDate(
                                                             assignment.removed_at,
+                                                            '—',
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
@@ -2706,6 +2671,7 @@ export default function CoachesShow({
                                                     <p>
                                                         {formatDate(
                                                             row.effective_on,
+                                                            '—',
                                                         )}
                                                     </p>
                                                     {row.recorded_by_name ? (

@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Calendar, Search, X } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
@@ -28,6 +28,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 type Update = {
     id: number;
@@ -76,7 +77,6 @@ export default function ExternalCoachPerformanceUpdatesIndex({
     sports,
 }: Props) {
     const { t } = useTranslation();
-    const { locale = 'en' } = usePage().props as { locale?: string };
     const [memberQuery, setMemberQuery] = useState<string>(
         filters.member_query ?? '',
     );
@@ -376,10 +376,7 @@ export default function ExternalCoachPerformanceUpdatesIndex({
                                         {(updates.from ?? 1) + index}
                                     </TableCell>
                                     <TableCell>
-                                        {formatDisplayDate(
-                                            update.update_date,
-                                            locale,
-                                        )}
+                                        {formatDate(update.update_date)}
                                     </TableCell>
                                     <TableCell>
                                         <div className="font-medium">
@@ -431,31 +428,3 @@ export default function ExternalCoachPerformanceUpdatesIndex({
     );
 }
 
-function parseDateValue(value: string): Date | null {
-    const dateOnly = value.match(/^(\d{4}-\d{2}-\d{2})/);
-
-    if (dateOnly) {
-        const [year, month, day] = dateOnly[1].split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDisplayDate(value: string, locale: string): string {
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(date);
-}

@@ -52,6 +52,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 import { resolveRankLabel as resolveRankLabelShared } from '@/lib/ranks';
 
 type LiveAchievement = {
@@ -482,36 +483,6 @@ function sessionLabelById(
     return sessionNames;
 }
 
-function parseDateValue(value: string): Date | null {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const [year, month, day] = value.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const match = /^\d{4}-\d{2}-\d{2}/.exec(value);
-    const datePart = match ? match[0] : value;
-    const date = new Date(datePart);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDisplayDate(value: string | null | undefined): string | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = parseDateValue(value);
-
-    if (!date) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        dateStyle: 'medium',
-    }).format(date);
-}
 
 function isOtherTierEvent(tierCode?: string | null): boolean {
     return tierCode?.trim().toUpperCase() === 'OTHER';
@@ -2844,9 +2815,7 @@ export function PromotionsTab({
                     }
 
                     if (benefit.benefit_date) {
-                        parts.push(
-                            formatDisplayDate(benefit.benefit_date) ?? '',
-                        );
+                        parts.push(formatDate(benefit.benefit_date));
                     }
 
                     if (benefit.order_reference) {
@@ -3131,7 +3100,7 @@ export function PromotionsTab({
                                                     ) || t('Unknown')}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    {formatDisplayDate(
+                                                    {formatDate(
                                                         promotion.promotion_date,
                                                     ) || '—'}
                                                 </td>
@@ -3477,7 +3446,7 @@ export function PromotionsTab({
                                                     </Badge>
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    {formatDisplayDate(
+                                                    {formatDate(
                                                         promotion.cash_reward_date ??
                                                             promotion.promotion_date,
                                                     ) || '—'}

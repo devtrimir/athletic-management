@@ -12,6 +12,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 type Member = {
     id: number;
@@ -72,12 +73,6 @@ type Props = {
     assignments: Assignment[];
     attendances: Attendance[];
     attendanceFilters: MonthFilter;
-};
-
-function formatDate(value: string): string {
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 };
 
 export default function ExternalCoachPlayerAssignments({
@@ -161,7 +156,7 @@ export default function ExternalCoachPlayerAssignments({
                                             <TableCell>{assignment.sport?.name ?? '-'}</TableCell>
                                             <TableCell>{assignment.training_venue?.name ?? '-'}</TableCell>
                                             <TableCell>{assignment.attendance_mode}</TableCell>
-                                            <TableCell>{`${formatDate(assignment.start_date ?? '-')}`} → {`${formatDate(assignment.end_date ?? '-')}`}</TableCell>
+                                            <TableCell>{`${formatDate(assignment.start_date, '-')}`} → {`${formatDate(assignment.end_date, '-')}`}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline">{t(assignment.status)}</Badge>
                                             </TableCell>

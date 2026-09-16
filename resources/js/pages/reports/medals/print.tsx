@@ -5,6 +5,7 @@ import {
     store as storeMedalsReportExport,
 } from '@/actions/App/Http/Controllers/MedalsReportExportController';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
 
@@ -136,14 +137,6 @@ const replaceQueryValue = (key: string, value: string | null): void => {
 
 const sectionLabel = (section: 'tally' | 'detail'): string =>
     section === 'tally' ? 'Medal Tally' : 'Medal Details';
-
-const formatDate = (value: string | null): string => {
-    if (!value) {
-        return '';
-    }
-
-    return value.slice(0, 10);
-};
 
 const isTeamEventMedal = (row: MedalRow): boolean => row.event.event_type === 'team';
 

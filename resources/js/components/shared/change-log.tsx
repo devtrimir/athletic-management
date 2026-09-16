@@ -1,4 +1,3 @@
-import { format, parseISO } from 'date-fns';
 import {
     AlignLeft,
     Check,
@@ -26,6 +25,7 @@ import {
 } from '@/components/ui/table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 export type AuditChange = {
     field: string;
@@ -78,7 +78,7 @@ function humanizeValue(value: string | null): string {
     }
 
     if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(trimmed)) {
-        return format(parseISO(trimmed), 'd MMM yyyy');
+        return formatDate(trimmed);
     }
 
     if (!/^[a-zA-Z]/.test(trimmed)) {

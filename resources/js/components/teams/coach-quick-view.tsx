@@ -23,6 +23,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 type CertificationItem = {
     id: number;
@@ -147,35 +148,6 @@ type CoachPreview = {
     assignment_history: AssignmentHistoryItem[];
 };
 
-function formatDate(value: string | null | undefined): string {
-    if (!value) {
-        return '—';
-    }
-
-    const trimmed = value.trim();
-
-    if (!trimmed) {
-        return '—';
-    }
-
-    const datePart = trimmed.split('T')[0].split(' ')[0];
-    const parts = datePart.split('-');
-
-    if (parts.length === 3 && parts[0].length === 4) {
-        const [year, month, day] = parts;
-
-        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-    }
-
-    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(datePart)) {
-        const [day, month, year] = datePart.split('/');
-
-        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-    }
-
-    return value;
-}
-
 function Section({
     title,
     children,
@@ -277,7 +249,7 @@ function buildPrintHtml(data: CoachPreview, t: (k: string) => string): string {
                       `<tr><td colspan="7" style="background:#f0f0f0;font-weight:bold;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#555">${group.label}</td></tr>`,
                       ...group.rows.map(
                           (a) =>
-                              `<tr><td>${a.medal_type ?? ''}</td><td>${a.title}</td><td>${a.level ?? ''}</td><td>${a.event_type ? (a.event_type === 'team' ? t('Team') : t('Individual')) : ''}</td><td>${a.competition_details ?? ''}</td><td>${a.event_date ?? ''}</td><td>${a.venue ?? ''}</td></tr>`,
+                              `<tr><td>${a.medal_type ?? ''}</td><td>${a.title}</td><td>${a.level ?? ''}</td><td>${a.event_type ? (a.event_type === 'team' ? t('Team') : t('Individual')) : ''}</td><td>${a.competition_details ?? ''}</td><td>${formatDate(a.event_date)}</td><td>${a.venue ?? ''}</td></tr>`,
                       ),
                   ])
     ).join('');

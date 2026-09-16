@@ -60,6 +60,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 import { resolveRankLabel as resolveRankLabelShared } from '@/lib/ranks';
 
 export type RankOption = {
@@ -284,22 +285,6 @@ function formatCurrency(amount: string | number | null | undefined): string {
         currency: 'INR',
         maximumFractionDigits: 2,
     }).format(num);
-}
-
-function formatDateDisplay(value?: string | null): string {
-    if (!value) {
-        return '—';
-    }
-
-    const match = /^\d{4}-\d{2}-\d{2}/.exec(value.trim());
-
-    if (!match) {
-        return value;
-    }
-
-    const [year, month, day] = match[0].split('-');
-
-    return `${day}/${month}/${year}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -2148,7 +2133,7 @@ export function CoachPromotionsTab({
                                                     ) || t('Unknown')}
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    {formatDateDisplay(
+                                                    {formatDate(
                                                         promotion.promotion_date,
                                                     ) || '—'}
                                                 </td>
@@ -2583,7 +2568,7 @@ export function CoachPromotionsTab({
                                                     </Badge>
                                                 </td>
                                                 <td className="border-r border-slate-100 px-2 py-1.5">
-                                                    {formatDateDisplay(
+                                                    {formatDate(
                                                         promotion.cash_reward_date ??
                                                             promotion.promotion_date,
                                                     ) || '—'}

@@ -21,6 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 import { playerCategoryLabel } from '@/lib/player-category';
 
 type Athlete = {
@@ -900,20 +901,6 @@ function tabLinkClass(isActive: boolean): string {
     return isActive
         ? `${baseClass} bg-primary text-primary-foreground`
         : `${baseClass} text-muted-foreground hover:bg-muted hover:text-foreground`;
-}
-
-function formatDate(value: string): string {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(date);
 }
 
 function formatDateTime(value: string): string {

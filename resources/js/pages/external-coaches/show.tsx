@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { List, Pencil } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -25,27 +25,6 @@ type ExternalCoach = {
     }>;
 };
 
-function parseDate(value: string | null): Date | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = new Date(value);
-
-    return Number.isFinite(date.getTime()) ? date : null;
-}
-
-function formatDate(value: string | null, locale: string): string {
-    const date = parseDate(value);
-
-    if (date === null) {
-        return '-';
-    }
-
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        dateStyle: 'medium',
-    }).format(date);
-}
 
 type Props = {
     externalCoach: ExternalCoach;

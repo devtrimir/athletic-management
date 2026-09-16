@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 import { Lightbox } from './media-lightbox';
 import type { MediaFile } from './participation-media-sheet';
 
@@ -365,9 +366,7 @@ function ListRow({
                 </p>
                 <p className="text-xs text-muted-foreground">
                     {formatBytes(file.size_bytes)} ·{' '}
-                    {new Intl.DateTimeFormat('en-IN', {
-                        dateStyle: 'medium',
-                    }).format(new Date(file.created_at))}
+                    {formatDate(file.created_at)}
                 </p>
             </div>
 

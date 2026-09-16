@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Download, List, Printer } from 'lucide-react';
 import { useCallback } from 'react';
 
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { formatDate } from '@/lib/dates';
 
 type ExternalCoach = {
     id: number;
@@ -71,28 +72,6 @@ type Props = {
     perPage: number;
 };
 
-function parseDate(value: string | null): Date | null {
-    if (!value) {
-        return null;
-    }
-
-    const date = new Date(value);
-
-    return Number.isFinite(date.getTime()) ? date : null;
-}
-
-function formatDate(value: string | null, locale: string): string {
-    const date = parseDate(value);
-
-    if (date === null) {
-        return '-';
-    }
-
-    return new Intl.DateTimeFormat(locale === 'en' ? 'en-IN' : 'hi-IN', {
-        dateStyle: 'medium',
-    }).format(date);
-}
-
 const ATTENDANCE_MODE_LABELS: Record<string, string> = {
     single_mark: 'Single Mark',
     check_in_check_out: 'Check In / Check Out',
@@ -129,15 +108,14 @@ function formatAttendanceMode(
 function assignmentStatusHistory(
     assignment: Assignment,
     t: (key: string) => string,
-    locale: string,
 ): string {
     const items = [
-        `${t('Created')}: ${formatDate(assignment.created_at, locale)}`,
+        `${t('Created')}: ${formatDate(assignment.created_at, '-')}`,
     ];
     const extra = [
-        `${t('Last update')}: ${formatDate(assignment.updated_at, locale)}`,
+        `${t('Last update')}: ${formatDate(assignment.updated_at, '-')}`,
         assignment.approved_at
-            ? `${t('Approved')}: ${formatDate(assignment.approved_at, locale)}`
+            ? `${t('Approved')}: ${formatDate(assignment.approved_at, '-')}`
             : null,
         assignment.cancellation_reason
             ? `${t('Cancellation reason')}: ${assignment.cancellation_reason}`
@@ -167,21 +145,20 @@ function escapeHtml(value: string): string {
 function assignmentStatusRows(
     assignment: Assignment,
     t: (key: string) => string,
-    locale: string,
 ): AssignmentStatusRow[] {
     return [
         {
             label: t('Created'),
-            value: formatDate(assignment.created_at, locale),
+            value: formatDate(assignment.created_at, '-'),
         },
         {
             label: t('Last update'),
-            value: formatDate(assignment.updated_at, locale),
+            value: formatDate(assignment.updated_at, '-'),
         },
         assignment.approved_at
             ? {
                   label: t('Approved'),
-                  value: formatDate(assignment.approved_at, locale),
+                  value: formatDate(assignment.approved_at, '-'),
               }
             : null,
         assignment.cancellation_reason
@@ -212,8 +189,6 @@ export default function ExternalCoachesAssignments({
     perPage,
 }: Props) {
     const { t } = useTranslation();
-    const { locale: appLocale } = usePage().props as { locale?: string };
-    const locale = appLocale ?? 'en';
 
     const isActiveNow = (assignment: Assignment): boolean =>
         assignment.member?.id !== undefined
@@ -251,9 +226,9 @@ export default function ExternalCoachesAssignments({
         const rows = assignments.data.map((assignment, index) => [
             (index + 1).toString(),
             `${t('Player')}: ${assignment.member?.full_name ?? '-'} | ${t('Rank')}: ${assignment.member?.rank ?? '-'} | ${t('PNO')}: ${assignment.member?.pno ?? '-'} | ${t('Phone')}: ${assignment.member?.mobile ?? '-'}`,
-            `${t('Sport')}: ${assignment.sport?.name ?? '-'} | ${t('Venue')}: ${assignment.training_venue?.name ?? '-'} | ${t('Attendance')}: ${formatAttendanceMode(assignment.attendance_mode, t)} | ${t('Period')}: ${formatDate(assignment.start_date, locale)} - ${formatDate(assignment.end_date, locale)}`,
+            `${t('Sport')}: ${assignment.sport?.name ?? '-'} | ${t('Venue')}: ${assignment.training_venue?.name ?? '-'} | ${t('Attendance')}: ${formatAttendanceMode(assignment.attendance_mode, t)} | ${t('Period')}: ${formatDate(assignment.start_date, '-')} - ${formatDate(assignment.end_date, '-')}`,
             `${t('Assignment status')}: ${formatStatusLabel(assignment.status, t)} | ${t('Player status')}: ${assignment.member?.current_status ? formatStatusLabel(assignment.member.current_status, t) : '-'} | ${t('Active now')}: ${isActiveNow(assignment) ? t('Yes') : t('No')}`,
-            assignmentStatusHistory(assignment, t, locale),
+            assignmentStatusHistory(assignment, t),
         ]);
 
         const escapeCsvCell = (value: string | number | null): string => {
@@ -284,11 +259,7 @@ export default function ExternalCoachesAssignments({
     function printAssignments() {
         const rows = assignments.data
             .map((assignment, index) => {
-                const timelineRows = assignmentStatusRows(
-                    assignment,
-                    t,
-                    locale,
-                );
+                const timelineRows = assignmentStatusRows(assignment, t);
 
                 return `
                     <tr>
@@ -327,7 +298,7 @@ export default function ExternalCoachesAssignments({
                                         ),
                                     )}</td></tr>
                                     <tr><td class="mini-label">${escapeHtml(t('Period'))}</td><td class="mini-value">${escapeHtml(
-                                        `${formatDate(assignment.start_date, locale)} - ${formatDate(assignment.end_date, locale)}`,
+                                        `${formatDate(assignment.start_date, '-')} - ${formatDate(assignment.end_date, '-')}`,
                                     )}</td></tr>
                                 </tbody>
                             </table>
@@ -595,7 +566,6 @@ export default function ExternalCoachesAssignments({
                                                         assignmentStatusRows(
                                                             assignment,
                                                             t,
-                                                            locale,
                                                         );
 
                                                     return (
@@ -789,9 +759,9 @@ export default function ExternalCoachesAssignments({
                                                                             <td
                                                                                 className={`${MINI_VALUE_CELL_CLASS} border-b-0`}
                                                                             >
-                                                                                {`${formatDate(assignment.start_date, locale)} - ${formatDate(
+                                                                                {`${formatDate(assignment.start_date, '-')} - ${formatDate(
                                                                                     assignment.end_date,
-                                                                                    locale,
+                                                                                    '-',
                                                                                 )}`}
                                                                             </td>
                                                                         </tr>
