@@ -19,7 +19,7 @@ import {
 import { useTranslation } from '@/hooks/use-translation';
 import { playerCategoryLabel } from '@/lib/player-category';
 
-export const memberTableClass = `${listingTableClass} min-w-[1180px]`;
+export const memberTableClass = `${listingTableClass} min-w-[1300px]`;
 export const memberHeadCellClass = listingHeadCellClass;
 export const memberCellClass = listingCellClass;
 export const memberStickyLeftHeadClass = stickyLeftHeadCellClass;
