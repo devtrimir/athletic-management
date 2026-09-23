@@ -310,7 +310,7 @@ class CoachController extends Controller
 
         $coaches = $this->listingQuery($statusScope)
             ->withCount(['assignmentHistory as assignments_count' => fn ($q) => $q->current()])
-            ->paginate(25)
+            ->paginate(100)
             ->withQueryString();
 
         return Inertia::render('coaches/index', [
@@ -319,6 +319,7 @@ class CoachController extends Controller
                 'status_scope' => $statusScope,
                 ...$filters,
             ],
+            'sort' => is_string($request->query('sort')) ? $request->query('sort') : null,
             'activeCoachCount' => $this->coachStatusScopeQuery('active')->count(),
             'inactiveCoachCount' => $this->coachStatusScopeQuery('inactive')->count(),
             'playerCoachCount' => $this->coachStatusScopeQuery('player_coaches')->count(),

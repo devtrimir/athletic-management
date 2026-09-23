@@ -1,4 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
+import type {
+    OnChangeFn,
+    RowSelectionState,
+    SortingState,
+} from '@tanstack/react-table';
 import {
     Check,
     ChevronDown,
@@ -8,15 +13,20 @@ import {
     Search,
     X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import CoachController, {
     print as printCoachesUrl,
 } from '@/actions/App/Http/Controllers/CoachController';
 import { index as exportCoachesUrl } from '@/actions/App/Http/Controllers/CoachExportController';
+import { ActiveCoachesTable } from '@/components/coaches/active-coaches-table';
+import type {
+    PaginatedCoaches,
+    SportOption,
+} from '@/components/coaches/coach-listing-types';
+import { InactiveCoachesTable } from '@/components/coaches/inactive-coaches-table';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
-import PlayerCoachBadge from '@/components/player-coach-badge';
 import { Button } from '@/components/ui/button';
 import {
     Command,
@@ -48,137 +58,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
-import { coachRoleLabel } from '@/lib/coach';
-
-type PaginationLink = {
-    url: string | null;
-    label: string;
-    active: boolean;
-};
-
-type Coach = {
-    id: number;
-    full_name: string;
-    pno: string | null;
-    blood_group?: string | null;
-    gender?: string | null;
-    mobile: string | null;
-    email: string | null;
-    coach_status: string | null;
-    member_id?: number | null;
-    member?: {
-        id: number;
-        full_name: string;
-        pno: string | null;
-    } | null;
-    rank_master?: {
-        id: number;
-        code: string | null;
-        name: string | null;
-        short_name: string | null;
-    } | null;
-    nis_master?: {
-        id: number;
-        kind: string | null;
-        code: string | null;
-        name: string | null;
-        short_name: string | null;
-    } | null;
-    district?: { id: number; name: string } | null;
-    unit?: { id: number; name: string } | null;
-    sports?: {
-        id: number;
-        name: string;
-        is_primary?: boolean;
-        level_master_id?: number | null;
-        level?: string | null;
-        sport_event?: string | null;
-        effective_from?: string | null;
-        effective_to?: string | null;
-        notes?: string | null;
-        pivot?: {
-            is_primary?: boolean;
-            level_master_id?: number | null;
-            level?: string | null;
-            sport_event?: string | null;
-            effective_from?: string | null;
-            effective_to?: string | null;
-            notes?: string | null;
-        };
-    }[];
-    current_assignments?: {
-        id: number;
-        role: string | null;
-        assigned_at: string | null;
-        session?: {
-            id: number;
-            name: string;
-        } | null;
-        team?: {
-            id: number;
-            name: string;
-            sport_id: number | null;
-            location_label?: string | null;
-            sport?: {
-                id: number;
-                name: string;
-            } | null;
-            session?: {
-                id: number;
-                name: string;
-            } | null;
-        } | null;
-    }[];
-};
-
-type TeamCoach = {
-    id: number;
-    rank: string | null;
-    pno: string | null;
-    full_name: string;
-    mobile: string | null;
-    posting: string;
-    role: string;
-    team: string;
-    nis_master_name: string | null;
-    member_id?: number | null;
-    member?: {
-        id: number;
-        full_name: string;
-        pno: string | null;
-    } | null;
-};
-
-type SportTeamGroupRow = {
-    sport: string;
-    team: string;
-    coaches: TeamCoach[];
-};
-
-type PaginatedCoaches = {
-    data: Coach[];
-    links: PaginationLink[];
-    current_page: number;
-    last_page: number;
-    total: number;
-    from: number | null;
-    to: number | null;
-};
-
-type SportOption = {
-    id: number;
-    name: string;
-};
+import { genderLabel } from '@/lib/coach';
 
 type Filters = {
     status_scope?: 'active' | 'inactive' | 'player_coaches';
@@ -356,137 +238,10 @@ function SearchableOptionList({
     );
 }
 
-function buildCoachTeamSportRows(
-    coaches: Coach[],
-    sports: SportOption[],
-    t: (key: string) => string,
-): SportTeamGroupRow[] {
-    const sportNameById = new Map(
-        sports.map((sport) => [sport.id, sport.name]),
-    );
-    const getRoleOrder = (role: string): number => {
-        const normalizedRole = role?.toLowerCase() ?? '';
-
-        if (normalizedRole.includes('head')) {
-            return 0;
-        }
-
-        if (normalizedRole.includes('assistant')) {
-            return 1;
-        }
-
-        return 2;
-    };
-
-    const grouped = new Map<string, SportTeamGroupRow>();
-    const unassigned: SportTeamGroupRow[] = [];
-
-    coaches.forEach((coach) => {
-        const assignments = coach.current_assignments ?? [];
-
-        if (assignments.length === 0) {
-            unassigned.push({
-                sport: t('Unassigned'),
-                team: '-',
-                coaches: [
-                    {
-                        id: coach.id,
-                        rank:
-                            coach.rank_master?.name ??
-                            coach.rank_master?.short_name ??
-                            null,
-                        pno: coach.pno,
-                        full_name: coach.full_name,
-                        mobile: coach.mobile,
-                        posting: [coach.unit?.name, coach.district?.name]
-                            .filter(Boolean)
-                            .join(' - '),
-                        team: '-',
-                        role: t('Inactive'),
-                        nis_master_name: coach.nis_master?.name ?? null,
-                        member_id: coach.member_id,
-                        member: coach.member,
-                    },
-                ],
-            });
-
-            return;
-        }
-
-        assignments.forEach((assignment) => {
-            const teamId = assignment.team?.id ?? 0;
-            const sportId =
-                assignment.team?.sport?.id ?? assignment.team?.sport_id ?? 0;
-            const key = `${sportId}-${teamId}`;
-
-            const row =
-                grouped.get(key) ??
-                ({
-                    sport:
-                        assignment.team?.sport?.name ??
-                        (sportId ? sportNameById.get(sportId) : undefined) ??
-                        t('Unspecified sport'),
-                    team: assignment.team?.name ?? t('Unspecified team'),
-                    coaches: [],
-                } as SportTeamGroupRow);
-
-            if (
-                !row.coaches.some((coachInTeam) => coachInTeam.id === coach.id)
-            ) {
-                row.coaches.push({
-                    id: coach.id,
-                    rank:
-                        coach.rank_master?.name ??
-                        coach.rank_master?.short_name ??
-                        null,
-                    pno: coach.pno,
-                    full_name: coach.full_name,
-                    mobile: coach.mobile,
-                    posting: [coach.unit?.name, coach.district?.name]
-                        .filter(Boolean)
-                        .join(' - '),
-                    team: assignment.team?.name ?? t('Unspecified team'),
-                    role:
-                        coachRoleLabel(assignment.role, t) || t('Coach'),
-                    nis_master_name: coach.nis_master?.name ?? null,
-                    member_id: coach.member_id,
-                    member: coach.member,
-                });
-            }
-
-            grouped.set(key, row);
-        });
-    });
-
-    const rows = [...grouped.values(), ...unassigned];
-
-    rows.forEach((row) => {
-        row.coaches.sort((left, right) => {
-            const leftRole = getRoleOrder(left.role);
-            const rightRole = getRoleOrder(right.role);
-
-            if (leftRole !== rightRole) {
-                return leftRole - rightRole;
-            }
-
-            return (left.rank ?? '-').localeCompare(right.rank ?? '-');
-        });
-    });
-
-    return rows.sort((a, b) => {
-        const sportOrder = a.sport.localeCompare(b.sport);
-
-        if (sportOrder !== 0) {
-            return sportOrder;
-        }
-
-        return a.team.localeCompare(b.team);
-    });
-}
-
 export default function CoachesIndex({
     coaches,
     filters,
+    sort,
     sports,
     activeCoachCount,
     inactiveCoachCount,
@@ -496,6 +251,7 @@ export default function CoachesIndex({
 }: {
     coaches: PaginatedCoaches;
     filters: Filters;
+    sort?: string | null;
     sports: SportOption[];
     activeCoachCount: number;
     inactiveCoachCount: number;
@@ -505,18 +261,31 @@ export default function CoachesIndex({
 }) {
     const { t } = useTranslation();
 
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    const [previousStatusScope, setPreviousStatusScope] = useState(
+        filters.status_scope ?? 'active',
+    );
     const [reportAction, setReportAction] = useState<ReportAction | null>(null);
     const [printOrientation, setPrintOrientation] =
         useState<PrintOrientation>('landscape');
     const [showMoreFilters, setShowMoreFilters] = useState(false);
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const teamSportRows = useMemo(
-        () => buildCoachTeamSportRows(coaches.data, sports, t),
-        [coaches.data, sports, t],
-    );
     const activeStatusScope = filters.status_scope ?? 'active';
+    const currentSort = sort ?? undefined;
+    const sortingState: SortingState = currentSort
+        ? [
+              {
+                  id: currentSort.startsWith('-')
+                      ? currentSort.slice(1)
+                      : currentSort,
+                  desc: currentSort.startsWith('-'),
+              },
+          ]
+        : [];
+    const selectedIds = Object.keys(rowSelection).filter(
+        (id) => rowSelection[id],
+    );
     const isInactiveTab =
         activeStatusScope === 'inactive' ||
         activeStatusScope === 'player_coaches';
@@ -531,7 +300,7 @@ export default function CoachesIndex({
     }
 
     const applyFilters = useCallback(
-        (patch: Partial<Filters>) => {
+        (patch: Partial<Filters> & { sort?: string }) => {
             const nextStatusScope =
                 (patch.status_scope as Filters['status_scope']) ??
                 activeStatusScope;
@@ -602,6 +371,12 @@ export default function CoachesIndex({
                     merged.has_active_assignment;
             }
 
+            const nextSort = 'sort' in patch ? patch.sort : currentSort;
+
+            if (nextSort) {
+                clean.sort = nextSort;
+            }
+
             router.get(CoachController.index.url(), clean, {
                 preserveState: true,
                 replace: true,
@@ -610,6 +385,7 @@ export default function CoachesIndex({
         [
             query,
             activeStatusScope,
+            currentSort,
             filters.blood_group,
             filters.coach_status,
             filters.gender,
@@ -618,6 +394,29 @@ export default function CoachesIndex({
             filters.certification_type,
             filters.sport_id,
         ],
+    );
+
+    const handleSortingChange: OnChangeFn<SortingState> = useCallback(
+        (updater) => {
+            const next =
+                typeof updater === 'function' ? updater(sortingState) : updater;
+            const nextSort = next[0]
+                ? `${next[0].desc ? '-' : ''}${next[0].id}`
+                : '';
+
+            applyFilters({ sort: nextSort });
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [applyFilters, currentSort],
+    );
+
+    const handleRowSelectionChange: OnChangeFn<RowSelectionState> = useCallback(
+        (updater) => {
+            setRowSelection((previous) =>
+                typeof updater === 'function' ? updater(previous) : updater,
+            );
+        },
+        [],
     );
 
     useEffect(() => {
@@ -637,12 +436,17 @@ export default function CoachesIndex({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
+    if (activeStatusScope !== previousStatusScope) {
+        setPreviousStatusScope(activeStatusScope);
+        setRowSelection({});
+    }
+
     function buildExportUrl(): string {
         const params = new URLSearchParams();
 
-        if (selectedIds.size > 0) {
+        if (selectedIds.length > 0) {
             for (const id of selectedIds) {
-                params.append('ids[]', String(id));
+                params.append('ids[]', id);
             }
         } else {
             if (filters.q) {
@@ -815,14 +619,7 @@ export default function CoachesIndex({
     ].map((value) => ({ value, label: value }));
     const genderOptions = genders.map((gender) => ({
         value: gender,
-        label:
-            gender === 'M'
-                ? t('Male')
-                : gender === 'F'
-                  ? t('Female')
-                  : gender === 'O'
-                    ? t('Other gender')
-                    : gender,
+        label: genderLabel(gender, t),
     }));
     const certificationOptions = [
         { value: 'true', label: t('Has certification') },
@@ -859,7 +656,7 @@ export default function CoachesIndex({
 
     function clearAllFilters(): void {
         setQuery('');
-        setSelectedIds(new Set());
+        setRowSelection({});
         router.get(
             CoachController.index.url(),
             { 'filter[status_scope]': activeStatusScope },
@@ -871,9 +668,9 @@ export default function CoachesIndex({
         <>
             <Head title={t('Coaches')} />
 
-            <div className="max-w-full min-w-0 space-y-5 overflow-x-hidden">
-                <div className="sticky top-0 z-40 max-w-full min-w-0 space-y-5 overflow-x-hidden bg-card/95 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/85">
-                    <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex h-[calc(100svh-3rem)] flex-col gap-3 overflow-hidden">
+                <div className="shrink-0 space-y-3">
+                    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <Heading
                             variant="small"
                             title={t('Coaches')}
@@ -896,10 +693,10 @@ export default function CoachesIndex({
                                 onClick={() => setReportAction('export')}
                             >
                                 <Download className="mr-1.5 h-4 w-4" />
-                                {selectedIds.size > 0
+                                {selectedIds.length > 0
                                     ? t('Export :n selected').replace(
                                           ':n',
-                                          String(selectedIds.size),
+                                          String(selectedIds.length),
                                       )
                                     : t('Export coaches')}
                             </Button>
@@ -912,43 +709,49 @@ export default function CoachesIndex({
                         </div>
                     </div>
 
-                    <Tabs value={activeStatusScope} className="w-full">
-                        <TabsList className="w-auto max-w-full">
-                            {STATUS_TABS.map((tab) => {
-                                const count =
-                                    tab.value === 'active'
-                                        ? activeCoachCount
-                                        : tab.value === 'inactive'
-                                          ? inactiveCoachCount
-                                          : playerCoachCount;
-
-                                return (
-                                    <TabsTrigger
-                                        key={tab.value}
-                                        value={tab.value}
-                                        asChild
-                                    >
-                                        <Link
-                                            href={buildIndexUrl({
-                                                status_scope: tab.value,
-                                            })}
-                                            preserveState
-                                            replace
-                                        >
-                                            {t(tab.label)}
-                                            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                                                {count}
-                                            </span>
-                                        </Link>
-                                    </TabsTrigger>
-                                );
-                            })}
-                        </TabsList>
-                    </Tabs>
-
-                    <div className="max-w-full min-w-0 space-y-1.5 rounded-xl border bg-card p-3">
+                    <div className="max-w-full min-w-0 space-y-1.5 rounded-xl border bg-card p-1">
                         <div className="flex flex-wrap items-center gap-2">
-                            <div className="relative w-full sm:w-auto sm:max-w-[320px] sm:flex-1">
+                            <Tabs
+                                value={activeStatusScope}
+                                className="shrink-0"
+                            >
+                                <TabsList className="h-7 w-auto max-w-full gap-1 rounded-md border-none bg-transparent p-0">
+                                    {STATUS_TABS.map((tab) => {
+                                        const count =
+                                            tab.value === 'active'
+                                                ? activeCoachCount
+                                                : tab.value === 'inactive'
+                                                  ? inactiveCoachCount
+                                                  : playerCoachCount;
+
+                                        return (
+                                            <TabsTrigger
+                                                key={tab.value}
+                                                value={tab.value}
+                                                asChild
+                                                className="h-7 rounded-md border-b-0 px-2.5 text-xs font-medium data-[state=active]:border-primary/40 data-[state=active]:bg-primary/8 data-[state=active]:text-primary data-[state=active]:shadow-none"
+                                            >
+                                                <Link
+                                                    href={buildIndexUrl({
+                                                        status_scope: tab.value,
+                                                    })}
+                                                    preserveState
+                                                    replace
+                                                >
+                                                    {t(tab.label)}
+                                                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                                        {count}
+                                                    </span>
+                                                </Link>
+                                            </TabsTrigger>
+                                        );
+                                    })}
+                                </TabsList>
+                            </Tabs>
+
+                            <div className="hidden h-6 w-px shrink-0 bg-border sm:block" />
+
+                            <div className="relative w-full sm:w-auto sm:max-w-[260px] sm:flex-1">
                                 <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     placeholder={t('Search coaches…')}
@@ -1154,312 +957,37 @@ export default function CoachesIndex({
                             </div>
                         ) : null}
                     </div>
-
-                    <ListingPagination
-                        paginator={coaches}
-                        itemLabel={t('coaches')}
-                        className="sticky top-0 z-40 max-w-full min-w-0 shadow-sm"
-                    />
-                    <div className="max-w-full min-w-0 overflow-x-auto overflow-y-hidden rounded-xl border bg-card">
-                        <Table className="min-w-[900px] table-fixed border-separate border border-border/60 [&_td]:border-r [&_td]:border-b [&_td]:border-border/45 [&_th]:border-r [&_th]:border-b [&_th]:border-border/45">
-                            <TableHeader>
-                                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                    <TableHead className="w-[72px] px-2 text-center">
-                                        {t('S.No.')}
-                                    </TableHead>
-                                    {isInactiveTab ? null : (
-                                        <TableHead className="w-[140px]">
-                                            {t('Sport')}
-                                        </TableHead>
-                                    )}
-                                    {isInactiveTab ? null : (
-                                        <TableHead className="w-[180px]">
-                                            {t('Team')}
-                                        </TableHead>
-                                    )}
-                                    {isInactiveTab ? (
-                                        <>
-                                            <TableHead className="w-[120px]">
-                                                {t('Rank')}
-                                            </TableHead>
-                                            <TableHead>{t('Name')}</TableHead>
-                                            <TableHead className="w-[120px]">
-                                                {t('PNO')}
-                                            </TableHead>
-                                            <TableHead className="w-[130px]">
-                                                {t('Mobile')}
-                                            </TableHead>
-                                            <TableHead className="w-[120px]">
-                                                {t('Posting')}
-                                            </TableHead>
-                                        </>
-                                    ) : (
-                                        <TableHead className="whitespace-normal">
-                                            <div className="space-y-1">
-                                                <div>
-                                                    {t('Coaches in team')}
-                                                </div>
-                                                <Table className="w-full table-fixed border-none">
-                                                    <colgroup>
-                                                        <col className="w-[10%]" />
-                                                        <col className="w-[22%]" />
-                                                        <col className="w-[13%]" />
-                                                        <col className="w-[11%]" />
-                                                        <col className="w-[10%]" />
-                                                        <col className="w-[12%]" />
-                                                        <col className="w-[12%]" />
-                                                    </colgroup>
-                                                    <TableBody>
-                                                        <TableRow className="border-none hover:bg-transparent">
-                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
-                                                                {t('Rank')}
-                                                            </TableCell>
-                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
-                                                                {t('Name')}
-                                                            </TableCell>
-                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
-                                                                {t('PNO')}
-                                                            </TableCell>
-                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
-                                                                {t('Mobile')}
-                                                            </TableCell>
-                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
-                                                                {t('Role')}
-                                                            </TableCell>
-                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
-                                                                {t('Posting')}
-                                                            </TableCell>
-                                                            <TableCell className="py-1 text-[11px] font-medium text-muted-foreground">
-                                                                {t('NIS info')}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                        </TableHead>
-                                    )}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {isInactiveTab ? (
-                                    coaches.data.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={7}
-                                                className="py-12 text-center text-muted-foreground"
-                                            >
-                                                {hasActiveFilters
-                                                    ? t(
-                                                          'No coaches match your filters.',
-                                                      )
-                                                    : t('No coaches yet.')}
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        coaches.data.map((coach, index) => {
-                                            const serialNumber =
-                                                (coaches.from ?? 1) + index;
-
-                                            return (
-                                                <TableRow key={coach.id}>
-                                                    <TableCell className="px-2 text-center text-sm font-semibold text-muted-foreground tabular-nums">
-                                                        {serialNumber}
-                                                    </TableCell>
-                                                    <TableCell className="py-2 text-xs">
-                                                        {coach.rank_master
-                                                            ?.name ??
-                                                            coach.rank_master
-                                                                ?.short_name ??
-                                                            '-'}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        <div className="flex flex-wrap items-center gap-1.5">
-                                                            <Link
-                                                                href={CoachController.show.url(
-                                                                    coach.id,
-                                                                )}
-                                                                className="text-primary hover:underline font-medium"
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                            >
-                                                                {coach.full_name}
-                                                            </Link>
-                                                            {coach.member_id && (
-                                                                <PlayerCoachBadge
-                                                                    memberId={coach.member_id}
-                                                                    memberName={coach.member?.full_name}
-                                                                    pno={coach.member?.pno}
-                                                                    variant="compact"
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        {coach.pno ? (
-                                                            <Link
-                                                                href={CoachController.show.url(
-                                                                    coach.id,
-                                                                )}
-                                                                className="text-primary hover:underline"
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                            >
-                                                                {coach.pno}
-                                                            </Link>
-                                                        ) : (
-                                                            '-'
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        {coach.mobile ?? '-'}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs">
-                                                        {[
-                                                            coach.unit?.name,
-                                                            coach.district
-                                                                ?.name,
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' - ') || '-'}
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    )
-                                ) : teamSportRows.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={4}
-                                            className="py-12 text-center text-muted-foreground"
-                                        >
-                                            {hasActiveFilters
-                                                ? t(
-                                                      'No coaches match your filters.',
-                                                  )
-                                                : t('No coaches yet.')}
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    teamSportRows.map((row, index) => {
-                                        const serialNumber =
-                                            (coaches.from ?? 1) + index;
-
-                                        return (
-                                            <TableRow
-                                                key={`${row.team}-${row.sport}-${index}`}
-                                            >
-                                                <TableCell className="px-2 text-center text-sm font-semibold text-muted-foreground tabular-nums">
-                                                    {serialNumber}
-                                                </TableCell>
-                                                <TableCell
-                                                    className="text-sm break-words whitespace-normal"
-                                                    title={row.sport}
-                                                >
-                                                    {row.sport}
-                                                </TableCell>
-                                                <TableCell className="text-sm break-words whitespace-normal">
-                                                    {row.team}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="w-full">
-                                                        <Table className="w-full table-fixed border-none">
-                                                            <colgroup>
-                                                                <col className="w-[10%]" />
-                                                                <col className="w-[22%]" />
-                                                                <col className="w-[13%]" />
-                                                                <col className="w-[11%]" />
-                                                                <col className="w-[10%]" />
-                                                                <col className="w-[12%]" />
-                                                                <col className="w-[12%]" />
-                                                            </colgroup>
-                                                            <TableBody>
-                                                                {row.coaches.map(
-                                                                    (
-                                                                        coachInTeam,
-                                                                    ) => (
-                                                                        <TableRow
-                                                                            key={
-                                                                                coachInTeam.id
-                                                                            }
-                                                                        >
-                                                                            <TableCell className="w-[10%] py-2 text-xs">
-                                                                                {coachInTeam.rank ??
-                                                                                    '-'}
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[22%] py-2 text-sm">
-                                                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                                                    <Link
-                                                                                        href={CoachController.show.url(
-                                                                                            coachInTeam.id,
-                                                                                        )}
-                                                                                        className="text-primary hover:underline"
-                                                                                        target="_blank"
-                                                                                        rel="noopener noreferrer"
-                                                                                    >
-                                                                                        {
-                                                                                            coachInTeam.full_name
-                                                                                        }
-                                                                                    </Link>
-                                                                                    {coachInTeam.member_id && (
-                                                                                        <PlayerCoachBadge
-                                                                                            memberId={coachInTeam.member_id}
-                                                                                            memberName={coachInTeam.member?.full_name}
-                                                                                            pno={coachInTeam.member?.pno}
-                                                                                            variant="compact"
-                                                                                        />
-                                                                                    )}
-                                                                                </div>
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[13%] py-2 text-sm">
-                                                                                {coachInTeam.pno ? (
-                                                                                    <Link
-                                                                                        href={CoachController.show.url(
-                                                                                            coachInTeam.id,
-                                                                                        )}
-                                                                                        className="text-primary hover:underline"
-                                                                                        target="_blank"
-                                                                                        rel="noopener noreferrer"
-                                                                                    >
-                                                                                        {
-                                                                                            coachInTeam.pno
-                                                                                        }
-                                                                                    </Link>
-                                                                                ) : (
-                                                                                    '-'
-                                                                                )}
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[11%] py-2 text-sm">
-                                                                                {coachInTeam.mobile ??
-                                                                                    '-'}
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[10%] py-2 text-xs">
-                                                                                {
-                                                                                    coachInTeam.role
-                                                                                }
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[12%] py-2 text-xs">
-                                                                                {coachInTeam.posting ||
-                                                                                    '-'}
-                                                                            </TableCell>
-                                                                            <TableCell className="w-[12%] py-2 text-xs">
-                                                                                {coachInTeam.nis_master_name ||
-                                                                                    '—'}
-                                                                            </TableCell>
-                                                                        </TableRow>
-                                                                    ),
-                                                                )}
-                                                            </TableBody>
-                                                        </Table>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
                 </div>
+
+                <div className="min-h-0 max-w-full min-w-0 flex-1 overflow-hidden">
+                    {isInactiveTab ? (
+                        <InactiveCoachesTable
+                            coaches={coaches}
+                            hasActiveFilters={hasActiveFilters}
+                            sorting={sortingState}
+                            onSortingChange={handleSortingChange}
+                            rowSelection={rowSelection}
+                            onRowSelectionChange={handleRowSelectionChange}
+                            t={t}
+                        />
+                    ) : (
+                        <ActiveCoachesTable
+                            coaches={coaches.data}
+                            sports={sports}
+                            fromIndex={coaches.from}
+                            hasActiveFilters={hasActiveFilters}
+                            rowSelection={rowSelection}
+                            onRowSelectionChange={handleRowSelectionChange}
+                            t={t}
+                        />
+                    )}
+                </div>
+
+                <ListingPagination
+                    paginator={coaches}
+                    itemLabel={t('coaches')}
+                    className="shrink-0 shadow-sm"
+                />
             </div>
 
             <ExportDialog
@@ -1501,7 +1029,7 @@ function ExportDialog({
     action: ReportAction | null;
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    selectedIds: Set<number>;
+    selectedIds: string[];
     coaches: PaginatedCoaches;
     printOrientation: PrintOrientation;
     setPrintOrientation: Dispatch<SetStateAction<PrintOrientation>>;
@@ -1523,10 +1051,10 @@ function ExportDialog({
                             ? t(
                                   'Printing all :count filtered coaches.',
                               ).replace(':count', String(coaches.total))
-                            : selectedIds.size > 0
+                            : selectedIds.length > 0
                               ? t('Exporting :n selected coaches.').replace(
                                     ':n',
-                                    String(selectedIds.size),
+                                    String(selectedIds.length),
                                 )
                               : t('Exporting all :count coaches.').replace(
                                     ':count',

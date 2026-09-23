@@ -49,7 +49,7 @@ export function ListingPagination({
             ? `Showing ${paginator.from}-${paginator.to ?? paginator.from} of ${paginator.total} ${itemLabel}`
             : `Showing 0 of ${paginator.total} ${itemLabel}`;
 
-    if (!showControls && paginator.total === 0) {
+    if (!showControls) {
         return null;
     }
 
