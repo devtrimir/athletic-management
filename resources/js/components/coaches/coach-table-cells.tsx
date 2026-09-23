@@ -1,21 +1,35 @@
 import { Link } from '@inertiajs/react';
 import { IdCard } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
 import CoachController from '@/actions/App/Http/Controllers/CoachController';
 import { CoachAvatar } from '@/components/coaches/coach-avatar';
+import type { Coach } from '@/components/coaches/coach-listing-types';
+import {
+    IconText,
+    listingCellClass,
+    listingHeadCellClass,
+    listingTableClass,
+    stickyLeftBodyCellClass,
+    stickyLeftHeadCellClass,
+} from '@/components/data-table/table-primitives';
 import PlayerCoachBadge from '@/components/player-coach-badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { cn } from '@/lib/utils';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { useTranslation } from '@/hooks/use-translation';
 
-export const coachTableClass =
-    'w-full min-w-[1140px] table-fixed border-separate border-spacing-0 text-xs';
+export {
+    SelectionHeaderCheckbox,
+    SelectionRowCheckbox,
+    IconText,
+} from '@/components/data-table/table-primitives';
 
-export const coachHeadCellClass =
-    'h-7 border-r border-b border-border/45 bg-card px-1.5 text-[11px] last:border-r-0';
+export const coachTableClass = `${listingTableClass} min-w-[1140px]`;
 
-export const coachCellClass =
-    'overflow-hidden border-r border-b border-border/45 px-1.5 py-0.5 align-middle text-xs break-words last:border-r-0';
+export const coachHeadCellClass = listingHeadCellClass;
+
+export const coachCellClass = listingCellClass;
 
 export const teamGroupEndClass = 'border-b-2 border-b-primary/30';
 
@@ -48,48 +62,8 @@ export function CoachColgroupCol() {
     return <col className="w-60" />;
 }
 
-export const stickyHeadCellClass = 'sticky z-20 bg-card';
-export const stickyBodyCellClass = 'sticky z-10 bg-card';
-
-export function SelectionHeaderCheckbox({
-    checked,
-    indeterminate,
-    onCheckedChange,
-    label,
-}: {
-    checked: boolean;
-    indeterminate: boolean;
-    onCheckedChange: (checked: boolean) => void;
-    label: string;
-}) {
-    return (
-        <Checkbox
-            checked={checked}
-            data-state={indeterminate ? 'indeterminate' : undefined}
-            onCheckedChange={(value) => onCheckedChange(value === true)}
-            aria-label={label}
-        />
-    );
-}
-
-export function SelectionRowCheckbox({
-    checked,
-    onCheckedChange,
-    label,
-}: {
-    checked: boolean;
-    onCheckedChange: (checked: boolean) => void;
-    label: string;
-}) {
-    return (
-        <Checkbox
-            checked={checked}
-            onCheckedChange={(value) => onCheckedChange(value === true)}
-            aria-label={label}
-            onClick={(event) => event.stopPropagation()}
-        />
-    );
-}
+export const stickyHeadCellClass = stickyLeftHeadCellClass;
+export const stickyBodyCellClass = stickyLeftBodyCellClass;
 
 export function CoachIdentity({
     id,
@@ -136,23 +110,6 @@ export function CoachIdentity({
     );
 }
 
-export function IconText({
-    icon: Icon,
-    iconClassName,
-    children,
-}: {
-    icon: LucideIcon;
-    iconClassName: string;
-    children: ReactNode;
-}) {
-    return (
-        <span className="flex min-w-0 items-center gap-1">
-            <Icon className={cn('size-3 shrink-0', iconClassName)} />
-            <span className="min-w-0 break-words">{children}</span>
-        </span>
-    );
-}
-
 export function CoachPnoLink({ id, pno }: { id: number; pno: string | null }) {
     if (!pno) {
         return '-';
@@ -172,5 +129,71 @@ export function CoachPnoLink({ id, pno }: { id: number; pno: string | null }) {
                 {pno}
             </IconText>
         </Link>
+    );
+}
+
+function coachSportSummary(
+    sport: NonNullable<Coach['sports']>[number],
+): string {
+    return [
+        sport.name,
+        sport.level ?? sport.pivot?.level,
+        sport.sport_event ?? sport.pivot?.sport_event,
+        sport.notes ?? sport.pivot?.notes,
+    ]
+        .filter(Boolean)
+        .join(' · ');
+}
+
+export function CoachSportsCell({ coach }: { coach: Coach }) {
+    const { t } = useTranslation();
+    const sports = coach.sports ?? [];
+
+    if (sports.length === 0) {
+        return '-';
+    }
+
+    const primary = sports.find((sport) => sport.is_primary) ?? sports[0];
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left hover:bg-accent"
+                >
+                    <span className="truncate">{primary.name}</span>
+                    {sports.length > 1 && (
+                        <span className="shrink-0 rounded-md border px-1.5 py-0 text-[10px] text-muted-foreground">
+                            +{sports.length - 1}
+                        </span>
+                    )}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-3">
+                <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                        {t('Sports')}
+                    </p>
+                    <ul className="space-y-2 text-sm">
+                        {sports.map((sport) => (
+                            <li key={sport.id} className="space-y-0.5">
+                                <p className="font-medium">
+                                    {sport.name}
+                                    {sport.is_primary && (
+                                        <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                                            ({t('Primary')})
+                                        </span>
+                                    )}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {coachSportSummary(sport) || '—'}
+                                </p>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </PopoverContent>
+        </Popover>
     );
 }

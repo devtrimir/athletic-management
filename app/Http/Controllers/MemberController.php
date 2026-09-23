@@ -104,7 +104,7 @@ class MemberController extends Controller
                 'sport:id,name',
                 'playableSports',
             ])
-            ->paginate(min((int) ($request->query('per_page', 25)), 100))
+            ->paginate(min((int) ($request->query('per_page', 100)), 100))
             ->withQueryString();
 
         $members->getCollection()->transform(function (Member $member): array {
@@ -150,7 +150,7 @@ class MemberController extends Controller
                 'current_status' => $filters['current_status'] ?? ($statusScope === 'active' ? 'ACTIVE' : null),
                 ...$filters,
             ],
-            'perPage' => min((int) ($request->query('per_page', 25)), 100),
+            'perPage' => min((int) ($request->query('per_page', 100)), 100),
             'levels' => $levels,
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'districts' => District::orderBy('name')->get(['id', 'name']),

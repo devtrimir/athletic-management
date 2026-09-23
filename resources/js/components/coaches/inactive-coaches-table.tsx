@@ -18,6 +18,7 @@ import {
     CoachColgroupCol,
     CoachIdentity,
     CoachPnoLink,
+    CoachSportsCell,
     IconText,
     LeadingColgroup,
     SelectionHeaderCheckbox,
@@ -179,6 +180,11 @@ export function InactiveCoachesTable({
                         ),
                 }),
                 columnHelper.display({
+                    id: 'sports',
+                    header: t('Sports'),
+                    cell: ({ row }) => <CoachSportsCell coach={row.original} />,
+                }),
+                columnHelper.display({
                     id: 'nis',
                     header: t('NIS'),
                     cell: ({ row }) =>
@@ -233,7 +239,7 @@ export function InactiveCoachesTable({
 
     return (
         <div className="h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
-            <Table className={coachTableClass}>
+            <Table className={cn(coachTableClass, 'min-w-[1320px]')}>
                 <colgroup>
                     <LeadingColgroup />
                     <CoachColgroupCol />
@@ -242,6 +248,7 @@ export function InactiveCoachesTable({
                     <col className="w-40" />
                     <col className="w-[90px]" />
                     <col className="w-20" />
+                    <col className="w-[140px]" />
                     <col className="w-[110px]" />
                     <col />
                 </colgroup>

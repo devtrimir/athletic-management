@@ -1,21 +1,13 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import type { OnChangeFn, RowSelectionState } from '@tanstack/react-table';
 import {
     Check,
     ChevronDown,
     Download,
-    Eye,
-    IdCard,
-    Info,
-    MapPinned,
     Plus,
     Printer,
     Search,
-    ShieldCheck,
-    RotateCcw,
-    Trash2,
     Upload,
-    UserCheck,
-    UserRound,
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -26,23 +18,16 @@ import {
 } from '@/actions/App/Http/Controllers/MemberExportController';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
-import { ArchivedMemberActionDialog } from '@/components/members/archived-member-action-dialog';
-import { DeleteMemberDialog } from '@/components/members/delete-member-dialog';
 import { MemberImportDialog } from '@/components/members/member-import-dialog';
+import type {
+    MasterOption,
+    PaginatedMembers,
+    SportOption,
+} from '@/components/members/member-listing-types';
 import { MemberQuickView } from '@/components/members/member-quick-view';
+import { MembersTable } from '@/components/members/members-table';
 import { OptionMultiSelect } from '@/components/option-multi-select';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
+import { PriorityFilterRow } from '@/components/priority-filter-row';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -67,83 +52,13 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
-import {
-    normalizePlayerCategory,
-    PLAYER_CATEGORIES,
-    playerCategoryLabel,
-} from '@/lib/player-category';
-import { resolveRankLabel } from '@/lib/ranks';
-
-type PaginationLink = {
-    url: string | null;
-    label: string;
-    active: boolean;
-};
-
-type Member = {
-    id: number;
-    member_code: string;
-    pno: string | null;
-    photo_path?: string | null;
-    full_name: string;
-    rank: string | null;
-    gender?: string | null;
-    blood_group?: string | null;
-    player_category: string;
-    player_level: string;
-    current_status: string;
-    deleted_at?: string | null;
-    home_district: { id: number | null; name: string } | null;
-    current_unit: { id: number; name: string } | null;
-    posting_district: { id: number; name: string } | null;
-    playable_sports: Array<
-        SportOption & {
-            pivot?: {
-                role?: string | null;
-                position?: string | null;
-                sport_event?: string | null;
-                weight?: string | null;
-                notes?: string | null;
-            };
-            role?: string | null;
-            position?: string | null;
-            sport_event?: string | null;
-            weight?: string | null;
-            notes?: string | null;
-        }
-    >;
-};
+import { PLAYER_CATEGORIES, playerCategoryLabel } from '@/lib/player-category';
 
 type UnitOption = { id: number; name: string };
 type DistrictOption = { id: number; name: string };
-type SportOption = { id: number; name: string };
 type LevelOption = { code: string; label_en: string; label_hi: string };
-type MasterOption = {
-    code: string;
-    name: string;
-    name_en: string | null;
-    short_name: string | null;
-};
-
-type PaginatedMembers = {
-    data: Member[];
-    links: PaginationLink[];
-    current_page: number;
-    last_page: number;
-    total: number;
-    from: number | null;
-    to: number | null;
-};
 
 type Filters = {
     q?: string;
@@ -221,169 +136,8 @@ const STATUS_TABS = [
     { value: 'archived', label: 'Archived members' },
 ] as const;
 
-const CATEGORY_BADGE_CLASS: Record<string, string> = {
-    GD: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
-    SPORTS_QUOTA:
-        'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300',
-};
-
-const LEVEL_BADGE_CLASS: Record<string, string> = {
-    ZONAL: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300',
-    AIPSC: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-300',
-    NATIONAL:
-        'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300',
-    INTERNATIONAL:
-        'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300',
-};
-
 function localeName(entity: { name: string }, locale: string): string {
     return locale === 'en' ? entity.name : (entity.name ?? entity.name);
-}
-
-function postingLocation(member: Member): string | null {
-    return member.current_unit?.name ?? member.posting_district?.name ?? null;
-}
-
-function genderLabel(
-    value: string | null | undefined,
-    t: (key: string) => string,
-): string {
-    switch (value) {
-        case 'M':
-            return t('Male');
-        case 'F':
-            return t('Female');
-        case 'O':
-            return t('Other gender');
-        default:
-            return value ?? '';
-    }
-}
-
-function sportSummary(sport: Member['playable_sports'][number]): string {
-    return [
-        sport.name,
-        sport.role ?? sport.pivot?.role,
-        sport.sport_event ?? sport.pivot?.sport_event,
-        sport.weight ?? sport.pivot?.weight,
-        sport.position ?? sport.pivot?.position,
-        sport.notes ?? sport.pivot?.notes,
-    ]
-        .filter(Boolean)
-        .join(' · ');
-}
-
-function SportCell({ member }: { member: Member }) {
-    const { t } = useTranslation();
-    const playableSports = member.playable_sports;
-
-    if (playableSports.length === 0) {
-        return <span className="text-border select-none">—</span>;
-    }
-
-    return (
-        <Popover>
-            <PopoverTrigger asChild>
-                <button
-                    type="button"
-                    className="inline-flex max-w-44 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-accent"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <span className="truncate">
-                        {sportSummary(playableSports[0])}
-                    </span>
-                    {playableSports.length > 1 && (
-                        <Badge
-                            variant="outline"
-                            className="shrink-0 px-1.5 py-0 text-[10px]"
-                        >
-                            +{playableSports.length - 1}
-                        </Badge>
-                    )}
-                </button>
-            </PopoverTrigger>
-            <PopoverContent
-                className="w-56 p-3"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="space-y-2">
-                    <div>
-                        <p className="text-xs font-medium text-muted-foreground">
-                            {t('Sports')}
-                        </p>
-                        <ul className="mt-1 space-y-2 text-sm">
-                            {playableSports.map((sport) => (
-                                <li key={sport.id} className="space-y-0.5">
-                                    <p className="font-medium">{sport.name}</p>
-                                    <div className="space-y-0.5 text-xs text-muted-foreground">
-                                        {(sport.role ?? sport.pivot?.role) && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    {t('Role / position')}:
-                                                </span>{' '}
-                                                {sport.role ??
-                                                    sport.pivot?.role}
-                                            </p>
-                                        )}
-                                        {(sport.position ??
-                                            sport.pivot?.position) && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    {t('Position')}:
-                                                </span>{' '}
-                                                {sport.position ??
-                                                    sport.pivot?.position}
-                                            </p>
-                                        )}
-                                        {(sport.sport_event ??
-                                            sport.pivot?.sport_event) && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    {t('Sport event')}:
-                                                </span>{' '}
-                                                {sport.sport_event ??
-                                                    sport.pivot?.sport_event}
-                                            </p>
-                                        )}
-                                        {(sport.weight ??
-                                            sport.pivot?.weight) && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    {t('Weight')}:
-                                                </span>{' '}
-                                                {sport.weight ??
-                                                    sport.pivot?.weight}
-                                            </p>
-                                        )}
-                                        {(sport.notes ??
-                                            sport.pivot?.notes) && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    {t('Notes')}:
-                                                </span>{' '}
-                                                {sport.notes ??
-                                                    sport.pivot?.notes}
-                                            </p>
-                                        )}
-                                        {!sport.role &&
-                                            !sport.pivot?.role &&
-                                            !sport.position &&
-                                            !sport.pivot?.position &&
-                                            !sport.sport_event &&
-                                            !sport.pivot?.sport_event &&
-                                            !sport.weight &&
-                                            !sport.pivot?.weight &&
-                                            !sport.notes &&
-                                            !sport.pivot?.notes && <p>—</p>}
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            </PopoverContent>
-        </Popover>
-    );
 }
 
 // ── Filter pill ───────────────────────────────────────────────────────────────
@@ -416,7 +170,7 @@ function FilterPill({
                 >
                     <span>{label}</span>
                     {isActive && (
-                        <>
+                        <span className="inline-flex animate-in items-center gap-1.5 duration-150 fade-in-0">
                             <span className="text-primary/50">·</span>
                             <span className="max-w-24 truncate font-semibold">
                                 {activeLabel}
@@ -441,7 +195,7 @@ function FilterPill({
                             >
                                 <X className="size-3" />
                             </span>
-                        </>
+                        </span>
                     )}
                     {!isActive && <ChevronDown className="size-3 opacity-50" />}
                 </button>
@@ -604,7 +358,18 @@ export default function MembersIndex({
     const [quickViewId, setQuickViewId] = useState<number | null>(null);
 
     // Row selection — persists across pagination pages
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    const selectedIds = Object.keys(rowSelection).filter(
+        (id) => rowSelection[id],
+    );
+    const handleRowSelectionChange: OnChangeFn<RowSelectionState> = useCallback(
+        (updater) => {
+            setRowSelection((previous) =>
+                typeof updater === 'function' ? updater(previous) : updater,
+            );
+        },
+        [],
+    );
 
     // Local draft for joining year (applied on blur/enter only to avoid spamming requests)
     const [yearFrom, setYearFrom] = useState(filters.joining_year_from ?? '');
@@ -830,10 +595,10 @@ export default function MembersIndex({
     }
 
     function appendListParams(params: URLSearchParams): void {
-        if (selectedIds.size > 0) {
+        if (selectedIds.length > 0) {
             // Export only the selected rows by ID
             for (const id of selectedIds) {
-                params.append('ids[]', String(id));
+                params.append('ids[]', id);
             }
         } else {
             // Export filtered results
@@ -897,51 +662,27 @@ export default function MembersIndex({
         return printMembersUrl.url() + '?' + params.toString();
     }
 
-    const pageIds = members.data.map((m) => m.id);
-    const allPageSelected =
-        pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
-    const somePageSelected = pageIds.some((id) => selectedIds.has(id));
-
-    function toggleRow(id: number) {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-
-            return next;
-        });
-    }
-
-    function togglePage() {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-
-            if (allPageSelected) {
-                pageIds.forEach((id) => next.delete(id));
-            } else {
-                pageIds.forEach((id) => next.add(id));
-            }
-
-            return next;
-        });
-    }
-
     return (
         <>
             <Head title={t('Members')} />
 
-            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
+            <div className="flex h-[calc(100svh-3rem)] flex-col gap-3 overflow-hidden">
                 <div className="flex shrink-0 items-start justify-between gap-4">
                     <Heading
                         variant="small"
                         title={t('Members')}
                         description={t('Manage athlete roster')}
                     />
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
+                        <div className="relative w-56 shrink-0">
+                            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder={t('Search members…')}
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                className="h-8 pl-8 text-sm"
+                            />
+                        </div>
                         {canImport && (
                             <Button
                                 variant="outline"
@@ -958,10 +699,10 @@ export default function MembersIndex({
                             onClick={() => setExportOpen(true)}
                         >
                             <Download className="mr-1.5 h-4 w-4" />
-                            {selectedIds.size > 0
+                            {selectedIds.length > 0
                                 ? t('Export :n selected').replace(
                                       ':n',
-                                      String(selectedIds.size),
+                                      String(selectedIds.length),
                                   )
                                 : t('Export')}
                         </Button>
@@ -974,369 +715,427 @@ export default function MembersIndex({
                     </div>
                 </div>
 
-                <Tabs value={activeStatusScope} className="w-full shrink-0">
-                    <TabsList className="w-auto max-w-full">
-                        {STATUS_TABS.map((tab) => (
-                            <TabsTrigger
-                                key={tab.value}
-                                value={tab.value}
-                                asChild
-                            >
-                                <Link
-                                    href={buildIndexUrl({
-                                        status_scope: tab.value,
-                                        current_status: undefined,
-                                    })}
-                                    preserveState
-                                    replace
-                                >
-                                    {t(tab.label)}
-                                    <span className="rounded-full border border-muted bg-muted/80 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                                        {statusCounts[tab.value]}
-                                    </span>
-                                </Link>
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
-
                 {/* Filter bar */}
-                <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
-                    {/* Search */}
-                    <div className="relative w-56 shrink-0">
-                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder={t('Search members…')}
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            className="h-8 pl-8 text-sm"
-                        />
-                    </div>
+                <div className="flex shrink-0 flex-nowrap items-center gap-2 overflow-hidden rounded-xl border bg-card p-1">
+                    <Tabs value={activeStatusScope} className="shrink-0">
+                        <TabsList className="h-9 w-auto max-w-full gap-1 rounded-lg border-none bg-muted/60 p-1">
+                            {STATUS_TABS.map((tab) => (
+                                <TabsTrigger
+                                    key={tab.value}
+                                    value={tab.value}
+                                    asChild
+                                    className="group h-7 rounded-md border-b-0 px-4 text-xs font-semibold text-muted-foreground transition-colors data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+                                >
+                                    <Link
+                                        href={buildIndexUrl({
+                                            status_scope: tab.value,
+                                            current_status: undefined,
+                                        })}
+                                        preserveState
+                                        replace
+                                    >
+                                        {t(tab.label)}
+                                        <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground group-data-[state=active]:bg-primary-foreground/20 group-data-[state=active]:text-primary-foreground">
+                                            {statusCounts[tab.value]}
+                                        </span>
+                                    </Link>
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </Tabs>
 
-                    {/* Category */}
-                    <FilterPill
-                        label={t('Category')}
-                        activeLabel={
-                            filters.player_category
-                                ? playerCategoryLabel(
-                                      filters.player_category,
-                                      t,
-                                  )
-                                : undefined
-                        }
-                        onClear={() =>
-                            applyFilters({ player_category: undefined })
-                        }
-                    >
-                        <OptionList
-                            options={PLAYER_CATEGORIES.map((c) => ({
-                                value: c,
-                                label: playerCategoryLabel(c, t),
-                            }))}
-                            value={filters.player_category}
-                            onSelect={(v) =>
-                                applyFilters({ player_category: v })
-                            }
-                        />
-                    </FilterPill>
-
-                    {/* Level */}
-                    <FilterPill
-                        label={t('Level')}
-                        activeLabel={
-                            filters.player_level
-                                ? levelLabel(filters.player_level)
-                                : undefined
-                        }
-                        onClear={() =>
-                            applyFilters({ player_level: undefined })
-                        }
-                    >
-                        <OptionList
-                            options={levels.map((level) => ({
-                                value: level.code,
-                                label: levelLabel(level.code),
-                            }))}
-                            value={filters.player_level}
-                            onSelect={(v) => applyFilters({ player_level: v })}
-                        />
-                    </FilterPill>
-
-                    <FilterPill
-                        label={t('Rank')}
-                        activeLabel={
-                            filters.rank
-                                ? ranks.find(
-                                      (rank) => rank.code === filters.rank,
-                                  )
-                                    ? rankMasterLabel(
-                                          ranks.find(
-                                              (rank) =>
-                                                  rank.code === filters.rank,
-                                          )!,
-                                      )
-                                    : filters.rank
-                                : undefined
-                        }
-                        onClear={() => applyFilters({ rank: undefined })}
-                    >
-                        <SearchableOptionList
-                            options={ranks.map((rank) => ({
-                                value: rank.code,
-                                label: rankMasterLabel(rank),
-                            }))}
-                            value={filters.rank}
-                            onSelect={(v) => applyFilters({ rank: v })}
-                            searchPlaceholder={t('Search ranks…')}
-                        />
-                    </FilterPill>
-
-                    {/* Posting */}
-                    <FilterPill
-                        label={t('Posting')}
-                        activeLabel={
-                            filters.current_unit_id
-                                ? units.find(
-                                      (u) =>
-                                          String(u.id) ===
-                                          filters.current_unit_id,
-                                  )
-                                    ? localeName(
-                                          units.find(
-                                              (u) =>
-                                                  String(u.id) ===
-                                                  filters.current_unit_id,
-                                          )!,
-                                          locale,
-                                      )
-                                    : filters.current_unit_id
-                                : undefined
-                        }
-                        onClear={() =>
-                            applyFilters({ current_unit_id: undefined })
-                        }
-                    >
-                        <SearchableOptionList
-                            options={units.map((u) => ({
-                                value: String(u.id),
-                                label: localeName(u, locale),
-                            }))}
-                            value={filters.current_unit_id}
-                            onSelect={(v) =>
-                                applyFilters({ current_unit_id: v })
-                            }
-                            searchPlaceholder={t('Search postings…')}
-                        />
-                    </FilterPill>
-
-                    {/* Home district */}
-                    <FilterPill
-                        label={t('Home district')}
-                        activeLabel={
-                            filters.home_district_id
-                                ? districts.find(
-                                      (d) =>
-                                          String(d.id) ===
-                                          filters.home_district_id,
-                                  )
-                                    ? localeName(
-                                          districts.find(
-                                              (d) =>
-                                                  String(d.id) ===
-                                                  filters.home_district_id,
-                                          )!,
-                                          locale,
-                                      )
-                                    : filters.home_district_id
-                                : undefined
-                        }
-                        onClear={() =>
-                            applyFilters({ home_district_id: undefined })
-                        }
-                    >
-                        <SearchableOptionList
-                            options={districts.map((d) => ({
-                                value: String(d.id),
-                                label: localeName(d, locale),
-                            }))}
-                            value={filters.home_district_id}
-                            onSelect={(v) =>
-                                applyFilters({ home_district_id: v })
-                            }
-                            searchPlaceholder={t('Search districts…')}
-                        />
-                    </FilterPill>
-
-                    {/* Posting district */}
-                    <FilterPill
-                        label={t('Posting district')}
-                        activeLabel={
-                            filters.posting_district_id
-                                ? districts.find(
-                                      (d) =>
-                                          String(d.id) ===
-                                          filters.posting_district_id,
-                                  )
-                                    ? localeName(
-                                          districts.find(
-                                              (d) =>
-                                                  String(d.id) ===
-                                                  filters.posting_district_id,
-                                          )!,
-                                          locale,
-                                      )
-                                    : filters.posting_district_id
-                                : undefined
-                        }
-                        onClear={() =>
-                            applyFilters({ posting_district_id: undefined })
-                        }
-                    >
-                        <SearchableOptionList
-                            options={districts.map((d) => ({
-                                value: String(d.id),
-                                label: localeName(d, locale),
-                            }))}
-                            value={filters.posting_district_id}
-                            onSelect={(v) =>
-                                applyFilters({ posting_district_id: v })
-                            }
-                            searchPlaceholder={t('Search districts…')}
-                        />
-                    </FilterPill>
-
-                    {/* Gender */}
-                    <FilterPill
-                        label={t('Gender')}
-                        activeLabel={
-                            filters.gender
-                                ? t(
-                                      GENDER_OPTIONS.find(
-                                          (g) => g.value === filters.gender,
-                                      )?.label ?? filters.gender,
-                                  )
-                                : undefined
-                        }
-                        onClear={() => applyFilters({ gender: undefined })}
-                    >
-                        <OptionList
-                            options={GENDER_OPTIONS.map((g) => ({
-                                value: g.value,
-                                label: t(g.label),
-                            }))}
-                            value={filters.gender}
-                            onSelect={(v) => applyFilters({ gender: v })}
-                        />
-                    </FilterPill>
-
-                    {/* Blood group */}
-                    <FilterPill
-                        label={t('Blood group')}
-                        activeLabel={filters.blood_group}
-                        onClear={() => applyFilters({ blood_group: undefined })}
-                    >
-                        <OptionList
-                            options={BLOOD_GROUP_OPTIONS.map((bg) => ({
-                                value: bg,
-                                label: bg,
-                            }))}
-                            value={filters.blood_group}
-                            onSelect={(v) => applyFilters({ blood_group: v })}
-                        />
-                    </FilterPill>
-
-                    {/* Playable sport */}
-                    <OptionMultiSelect
-                        value={selectedSportIds}
-                        onValueChange={(value) =>
-                            applyFilters({
-                                sport_id: undefined,
-                                sport_ids: value,
-                            })
-                        }
-                        options={sports.map((s) => ({
-                            value: String(s.id),
-                            label: s.name,
-                        }))}
-                        placeholder={t('Playable sport')}
-                        searchPlaceholder={t('Search sports…')}
-                        className="h-8 w-48 text-xs"
+                    <PriorityFilterRow
+                        items={[
+                            <div key="category">
+                                {/* Category */}
+                                <FilterPill
+                                    label={t('Category')}
+                                    activeLabel={
+                                        filters.player_category
+                                            ? playerCategoryLabel(
+                                                  filters.player_category,
+                                                  t,
+                                              )
+                                            : undefined
+                                    }
+                                    onClear={() =>
+                                        applyFilters({
+                                            player_category: undefined,
+                                        })
+                                    }
+                                >
+                                    <OptionList
+                                        options={PLAYER_CATEGORIES.map((c) => ({
+                                            value: c,
+                                            label: playerCategoryLabel(c, t),
+                                        }))}
+                                        value={filters.player_category}
+                                        onSelect={(v) =>
+                                            applyFilters({ player_category: v })
+                                        }
+                                    />
+                                </FilterPill>
+                            </div>,
+                            <div key="level">
+                                {/* Level */}
+                                <FilterPill
+                                    label={t('Level')}
+                                    activeLabel={
+                                        filters.player_level
+                                            ? levelLabel(filters.player_level)
+                                            : undefined
+                                    }
+                                    onClear={() =>
+                                        applyFilters({
+                                            player_level: undefined,
+                                        })
+                                    }
+                                >
+                                    <OptionList
+                                        options={levels.map((level) => ({
+                                            value: level.code,
+                                            label: levelLabel(level.code),
+                                        }))}
+                                        value={filters.player_level}
+                                        onSelect={(v) =>
+                                            applyFilters({ player_level: v })
+                                        }
+                                    />
+                                </FilterPill>
+                            </div>,
+                            <div key="gender">
+                                {/* Gender */}
+                                <FilterPill
+                                    label={t('Gender')}
+                                    activeLabel={
+                                        filters.gender
+                                            ? t(
+                                                  GENDER_OPTIONS.find(
+                                                      (g) =>
+                                                          g.value ===
+                                                          filters.gender,
+                                                  )?.label ?? filters.gender,
+                                              )
+                                            : undefined
+                                    }
+                                    onClear={() =>
+                                        applyFilters({ gender: undefined })
+                                    }
+                                >
+                                    <OptionList
+                                        options={GENDER_OPTIONS.map((g) => ({
+                                            value: g.value,
+                                            label: t(g.label),
+                                        }))}
+                                        value={filters.gender}
+                                        onSelect={(v) =>
+                                            applyFilters({ gender: v })
+                                        }
+                                    />
+                                </FilterPill>
+                            </div>,
+                            <div key="blood_group">
+                                {/* Blood group */}
+                                <FilterPill
+                                    label={t('Blood group')}
+                                    activeLabel={filters.blood_group}
+                                    onClear={() =>
+                                        applyFilters({ blood_group: undefined })
+                                    }
+                                >
+                                    <OptionList
+                                        options={BLOOD_GROUP_OPTIONS.map(
+                                            (bg) => ({
+                                                value: bg,
+                                                label: bg,
+                                            }),
+                                        )}
+                                        value={filters.blood_group}
+                                        onSelect={(v) =>
+                                            applyFilters({ blood_group: v })
+                                        }
+                                    />
+                                </FilterPill>
+                            </div>,
+                            <div key="rank">
+                                <FilterPill
+                                    label={t('Rank')}
+                                    activeLabel={
+                                        filters.rank
+                                            ? ranks.find(
+                                                  (rank) =>
+                                                      rank.code ===
+                                                      filters.rank,
+                                              )
+                                                ? rankMasterLabel(
+                                                      ranks.find(
+                                                          (rank) =>
+                                                              rank.code ===
+                                                              filters.rank,
+                                                      )!,
+                                                  )
+                                                : filters.rank
+                                            : undefined
+                                    }
+                                    onClear={() =>
+                                        applyFilters({ rank: undefined })
+                                    }
+                                >
+                                    <SearchableOptionList
+                                        options={ranks.map((rank) => ({
+                                            value: rank.code,
+                                            label: rankMasterLabel(rank),
+                                        }))}
+                                        value={filters.rank}
+                                        onSelect={(v) =>
+                                            applyFilters({ rank: v })
+                                        }
+                                        searchPlaceholder={t('Search ranks…')}
+                                    />
+                                </FilterPill>
+                            </div>,
+                            <div key="posting">
+                                {/* Posting */}
+                                <FilterPill
+                                    label={t('Posting')}
+                                    activeLabel={
+                                        filters.current_unit_id
+                                            ? units.find(
+                                                  (u) =>
+                                                      String(u.id) ===
+                                                      filters.current_unit_id,
+                                              )
+                                                ? localeName(
+                                                      units.find(
+                                                          (u) =>
+                                                              String(u.id) ===
+                                                              filters.current_unit_id,
+                                                      )!,
+                                                      locale,
+                                                  )
+                                                : filters.current_unit_id
+                                            : undefined
+                                    }
+                                    onClear={() =>
+                                        applyFilters({
+                                            current_unit_id: undefined,
+                                        })
+                                    }
+                                >
+                                    <SearchableOptionList
+                                        options={units.map((u) => ({
+                                            value: String(u.id),
+                                            label: localeName(u, locale),
+                                        }))}
+                                        value={filters.current_unit_id}
+                                        onSelect={(v) =>
+                                            applyFilters({ current_unit_id: v })
+                                        }
+                                        searchPlaceholder={t(
+                                            'Search postings…',
+                                        )}
+                                    />
+                                </FilterPill>
+                            </div>,
+                            <div key="home_district">
+                                {/* Home district */}
+                                <FilterPill
+                                    label={t('Home district')}
+                                    activeLabel={
+                                        filters.home_district_id
+                                            ? districts.find(
+                                                  (d) =>
+                                                      String(d.id) ===
+                                                      filters.home_district_id,
+                                              )
+                                                ? localeName(
+                                                      districts.find(
+                                                          (d) =>
+                                                              String(d.id) ===
+                                                              filters.home_district_id,
+                                                      )!,
+                                                      locale,
+                                                  )
+                                                : filters.home_district_id
+                                            : undefined
+                                    }
+                                    onClear={() =>
+                                        applyFilters({
+                                            home_district_id: undefined,
+                                        })
+                                    }
+                                >
+                                    <SearchableOptionList
+                                        options={districts.map((d) => ({
+                                            value: String(d.id),
+                                            label: localeName(d, locale),
+                                        }))}
+                                        value={filters.home_district_id}
+                                        onSelect={(v) =>
+                                            applyFilters({
+                                                home_district_id: v,
+                                            })
+                                        }
+                                        searchPlaceholder={t(
+                                            'Search districts…',
+                                        )}
+                                    />
+                                </FilterPill>
+                            </div>,
+                            <div key="posting_district">
+                                {/* Posting district */}
+                                <FilterPill
+                                    label={t('Posting district')}
+                                    activeLabel={
+                                        filters.posting_district_id
+                                            ? districts.find(
+                                                  (d) =>
+                                                      String(d.id) ===
+                                                      filters.posting_district_id,
+                                              )
+                                                ? localeName(
+                                                      districts.find(
+                                                          (d) =>
+                                                              String(d.id) ===
+                                                              filters.posting_district_id,
+                                                      )!,
+                                                      locale,
+                                                  )
+                                                : filters.posting_district_id
+                                            : undefined
+                                    }
+                                    onClear={() =>
+                                        applyFilters({
+                                            posting_district_id: undefined,
+                                        })
+                                    }
+                                >
+                                    <SearchableOptionList
+                                        options={districts.map((d) => ({
+                                            value: String(d.id),
+                                            label: localeName(d, locale),
+                                        }))}
+                                        value={filters.posting_district_id}
+                                        onSelect={(v) =>
+                                            applyFilters({
+                                                posting_district_id: v,
+                                            })
+                                        }
+                                        searchPlaceholder={t(
+                                            'Search districts…',
+                                        )}
+                                    />
+                                </FilterPill>
+                            </div>,
+                            <div key="playable_sport">
+                                {/* Playable sport */}
+                                <OptionMultiSelect
+                                    value={selectedSportIds}
+                                    onValueChange={(value) =>
+                                        applyFilters({
+                                            sport_id: undefined,
+                                            sport_ids: value,
+                                        })
+                                    }
+                                    options={sports.map((s) => ({
+                                        value: String(s.id),
+                                        label: s.name,
+                                    }))}
+                                    placeholder={t('Playable sport')}
+                                    searchPlaceholder={t('Search sports…')}
+                                    className="h-8 w-48 text-xs"
+                                />
+                            </div>,
+                            <div key="joining_year">
+                                {/* Joining year range */}
+                                <FilterPill
+                                    label={t('Joining year')}
+                                    activeLabel={
+                                        filters.joining_year_from ||
+                                        filters.joining_year_to
+                                            ? [
+                                                  filters.joining_year_from ??
+                                                      '…',
+                                                  filters.joining_year_to ??
+                                                      '…',
+                                              ].join('–')
+                                            : undefined
+                                    }
+                                    onClear={() => {
+                                        setYearFrom('');
+                                        setYearTo('');
+                                        applyFilters({
+                                            joining_year_from: undefined,
+                                            joining_year_to: undefined,
+                                        });
+                                    }}
+                                >
+                                    <div className="flex items-center gap-2 p-3">
+                                        <Input
+                                            type="number"
+                                            placeholder={t('From')}
+                                            min={1950}
+                                            max={new Date().getFullYear()}
+                                            className="h-8 w-20 text-sm"
+                                            value={yearFrom}
+                                            onChange={(e) =>
+                                                setYearFrom(e.target.value)
+                                            }
+                                            onBlur={() =>
+                                                applyFilters({
+                                                    joining_year_from:
+                                                        yearFrom || undefined,
+                                                })
+                                            }
+                                            onKeyDown={(e) =>
+                                                e.key === 'Enter' &&
+                                                applyFilters({
+                                                    joining_year_from:
+                                                        yearFrom || undefined,
+                                                })
+                                            }
+                                        />
+                                        <span className="text-xs text-muted-foreground">
+                                            –
+                                        </span>
+                                        <Input
+                                            type="number"
+                                            placeholder={t('To')}
+                                            min={1950}
+                                            max={new Date().getFullYear()}
+                                            className="h-8 w-20 text-sm"
+                                            value={yearTo}
+                                            onChange={(e) =>
+                                                setYearTo(e.target.value)
+                                            }
+                                            onBlur={() =>
+                                                applyFilters({
+                                                    joining_year_to:
+                                                        yearTo || undefined,
+                                                })
+                                            }
+                                            onKeyDown={(e) =>
+                                                e.key === 'Enter' &&
+                                                applyFilters({
+                                                    joining_year_to:
+                                                        yearTo || undefined,
+                                                })
+                                            }
+                                        />
+                                    </div>
+                                </FilterPill>
+                            </div>,
+                        ]}
+                        moreLabel={t('More filters')}
+                        lessLabel={t('Less filters')}
+                        className="min-w-0 flex-1"
                     />
-
-                    {/* Joining year range */}
-                    <FilterPill
-                        label={t('Joining year')}
-                        activeLabel={
-                            filters.joining_year_from || filters.joining_year_to
-                                ? [
-                                      filters.joining_year_from ?? '…',
-                                      filters.joining_year_to ?? '…',
-                                  ].join('–')
-                                : undefined
-                        }
-                        onClear={() => {
-                            setYearFrom('');
-                            setYearTo('');
-                            applyFilters({
-                                joining_year_from: undefined,
-                                joining_year_to: undefined,
-                            });
-                        }}
-                    >
-                        <div className="flex items-center gap-2 p-3">
-                            <Input
-                                type="number"
-                                placeholder={t('From')}
-                                min={1950}
-                                max={new Date().getFullYear()}
-                                className="h-8 w-20 text-sm"
-                                value={yearFrom}
-                                onChange={(e) => setYearFrom(e.target.value)}
-                                onBlur={() =>
-                                    applyFilters({
-                                        joining_year_from:
-                                            yearFrom || undefined,
-                                    })
-                                }
-                                onKeyDown={(e) =>
-                                    e.key === 'Enter' &&
-                                    applyFilters({
-                                        joining_year_from:
-                                            yearFrom || undefined,
-                                    })
-                                }
-                            />
-                            <span className="text-xs text-muted-foreground">
-                                –
-                            </span>
-                            <Input
-                                type="number"
-                                placeholder={t('To')}
-                                min={1950}
-                                max={new Date().getFullYear()}
-                                className="h-8 w-20 text-sm"
-                                value={yearTo}
-                                onChange={(e) => setYearTo(e.target.value)}
-                                onBlur={() =>
-                                    applyFilters({
-                                        joining_year_to: yearTo || undefined,
-                                    })
-                                }
-                                onKeyDown={(e) =>
-                                    e.key === 'Enter' &&
-                                    applyFilters({
-                                        joining_year_to: yearTo || undefined,
-                                    })
-                                }
-                            />
-                        </div>
-                    </FilterPill>
 
                     {/* Clear all */}
                     {hasAnyFilter && (
                         <button
                             type="button"
-                            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            className="h-8 shrink-0 animate-in px-2 text-xs text-muted-foreground duration-150 fade-in-0 hover:text-foreground"
                             onClick={clearAll}
                         >
                             <X className="mr-1 inline size-3" />
@@ -1347,343 +1146,26 @@ export default function MembersIndex({
 
                 {/* Result count when filtering */}
                 {hasAnyFilter && (
-                    <p className="shrink-0 text-xs text-muted-foreground">
+                    <p className="shrink-0 animate-in text-xs text-muted-foreground duration-150 fade-in-0">
                         {members.total} {t('results')}
                     </p>
                 )}
 
-                {/* Table */}
-                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm [&>[data-slot=table-container]]:h-full">
-                    <Table>
-                        <TableHeader className="sticky top-0 z-10">
-                            <TableRow className="bg-muted hover:bg-muted">
-                                <TableHead className="w-0 pr-0">
-                                    <Checkbox
-                                        checked={allPageSelected}
-                                        data-state={
-                                            somePageSelected && !allPageSelected
-                                                ? 'indeterminate'
-                                                : undefined
-                                        }
-                                        onCheckedChange={togglePage}
-                                        aria-label={t('Select all on page')}
-                                    />
-                                </TableHead>
-                                <TableHead>{t('Sr no')}</TableHead>
-                                <TableHead className="w-12 px-2 text-center">
-                                    {t('Photo')}
-                                </TableHead>
-                                <TableHead>{t('Name')}</TableHead>
-                                <TableHead className="hidden md:table-cell">
-                                    {t('PNO')}
-                                </TableHead>
-                                <TableHead className="hidden md:table-cell">
-                                    {t('Blood group')}
-                                </TableHead>
-                                <TableHead className="hidden lg:table-cell">
-                                    {t('Gender')}
-                                </TableHead>
-                                <TableHead>{t('Playable sports')}</TableHead>
-                                <TableHead>{t('Category')}</TableHead>
-                                <TableHead>{t('Level')}</TableHead>
-                                <TableHead>{t('Posting')}</TableHead>
-                                <TableHead className="sticky right-0 z-20 w-0 bg-muted text-right">
-                                    {t('Actions')}
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {members.data.length === 0 ? (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={12}
-                                        className="py-12 text-center text-muted-foreground"
-                                    >
-                                        {hasAnyFilter
-                                            ? t(
-                                                  'No members match your filters.',
-                                              )
-                                            : t('No members yet.')}
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                members.data.map((member, index) => (
-                                    <TableRow
-                                        key={member.id}
-                                        className="group cursor-pointer transition-colors hover:bg-muted/30 data-[selected]:bg-primary/5"
-                                        data-selected={
-                                            selectedIds.has(member.id) ||
-                                            undefined
-                                        }
-                                        onClick={() =>
-                                            router.visit(
-                                                getMemberShowUrl(
-                                                    member.id,
-                                                    Boolean(member.deleted_at),
-                                                ),
-                                            )
-                                        }
-                                    >
-                                        <TableCell
-                                            className="pr-0"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <Checkbox
-                                                checked={selectedIds.has(
-                                                    member.id,
-                                                )}
-                                                onCheckedChange={() =>
-                                                    toggleRow(member.id)
-                                                }
-                                                aria-label={t('Select row')}
-                                            />
-                                        </TableCell>
-                                        <TableCell className="font-mono text-xs text-muted-foreground">
-                                            {(members.from ?? 1) + index}
-                                        </TableCell>
-                                        <TableCell className="w-12 px-2 py-2 text-center">
-                                            <div className="mx-auto flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted shadow-xs">
-                                                {member.photo_path ? (
-                                                    <img
-                                                        src={`/storage/${member.photo_path}`}
-                                                        alt={member.full_name}
-                                                        className="size-full object-cover"
-                                                        loading="lazy"
-                                                    />
-                                                ) : (
-                                                    <UserRound className="size-4 text-muted-foreground/60" />
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex min-w-56 items-center gap-2 overflow-hidden whitespace-nowrap">
-                                                {member.rank && (
-                                                    <span className="inline-flex shrink-0 items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] leading-none font-medium text-sky-700 dark:text-sky-300">
-                                                        {resolveRankLabel(
-                                                            member.rank,
-                                                            ranks,
-                                                            locale,
-                                                        )}
-                                                    </span>
-                                                )}
-                                                <span className="truncate font-semibold text-foreground">
-                                                    {member.full_name}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="hidden text-muted-foreground md:table-cell">
-                                            {member.pno ? (
-                                                <div className="flex items-center gap-2">
-                                                    <IdCard className="h-4 w-4 text-sky-600 dark:text-sky-300" />
-                                                    <span>{member.pno}</span>
-                                                </div>
-                                            ) : null}
-                                        </TableCell>
-                                        <TableCell className="hidden text-muted-foreground md:table-cell">
-                                            {member.blood_group ? (
-                                                <div className="flex items-center gap-2">
-                                                    <ShieldCheck className="h-4 w-4 text-rose-600 dark:text-rose-300" />
-                                                    <span>
-                                                        {member.blood_group}
-                                                    </span>
-                                                </div>
-                                            ) : null}
-                                        </TableCell>
-                                        <TableCell className="hidden text-muted-foreground lg:table-cell">
-                                            {member.gender ? (
-                                                <div className="flex items-center gap-2">
-                                                    <UserCheck className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-300" />
-                                                    <span>
-                                                        {genderLabel(
-                                                            member.gender,
-                                                            t,
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            ) : null}
-                                        </TableCell>
-                                        <TableCell>
-                                            <SportCell member={member} />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={
-                                                    CATEGORY_BADGE_CLASS[
-                                                        normalizePlayerCategory(
-                                                            member.player_category,
-                                                        ) ??
-                                                            member.player_category
-                                                    ]
-                                                }
-                                            >
-                                                {playerCategoryLabel(
-                                                    member.player_category,
-                                                    t,
-                                                )}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={
-                                                    LEVEL_BADGE_CLASS[
-                                                        member.player_level
-                                                    ]
-                                                }
-                                            >
-                                                {levelLabel(
-                                                    member.player_level,
-                                                )}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {postingLocation(member) ? (
-                                                <div className="flex items-center gap-2">
-                                                    <MapPinned className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                                                    <span>
-                                                        {postingLocation(
-                                                            member,
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            ) : null}
-                                        </TableCell>
-                                        <TableCell
-                                            className="sticky right-0 z-10 w-0 bg-card text-right"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <div className="flex items-center justify-end">
-                                                {!member.deleted_at && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        title={t('Quick info')}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setQuickViewId(
-                                                                member.id,
-                                                            );
-                                                        }}
-                                                    >
-                                                        <Info className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    title={t('View')}
-                                                    asChild
-                                                >
-                                                    <Link
-                                                        href={getMemberShowUrl(
-                                                            member.id,
-                                                            Boolean(
-                                                                member.deleted_at,
-                                                            ),
-                                                        )}
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </Link>
-                                                </Button>
-
-                                                {member.deleted_at ? (
-                                                    <>
-                                                        {canRestoreMember && (
-                                                            <AlertDialog>
-                                                                <AlertDialogTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        title={t('Restore member')}
-                                                                        className="text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400"
-                                                                        onClick={(e) =>
-                                                                            e.stopPropagation()
-                                                                        }
-                                                                    >
-                                                                        <RotateCcw className="h-4 w-4" />
-                                                                    </Button>
-                                                                </AlertDialogTrigger>
-                                                                <AlertDialogContent>
-                                                                    <AlertDialogHeader>
-                                                                        <AlertDialogTitle>
-                                                                            {t('Restore :name?').replace(':name', member.full_name)}
-                                                                        </AlertDialogTitle>
-                                                                        <AlertDialogDescription>
-                                                                            {t(
-                                                                                'This will restore the archived member back to active status. Their historical records (participations, medals, promotions) will be re-linked. This action can be reversed by archiving the member again.',
-                                                                            )}
-                                                                        </AlertDialogDescription>
-                                                                    </AlertDialogHeader>
-                                                                    <AlertDialogFooter>
-                                                                        <AlertDialogCancel>
-                                                                            {t('Cancel')}
-                                                                        </AlertDialogCancel>
-                                                                        <AlertDialogAction
-                                                                            className="bg-amber-700 text-white hover:bg-amber-800 dark:bg-amber-600 dark:hover:bg-amber-500"
-                                                                            onClick={() => {
-                                                                                router.post(
-                                                                                    MemberController.restore.url(member.id),
-                                                                                    {},
-                                                                                    { preserveScroll: true },
-                                                                                );
-                                                                            }}
-                                                                        >
-                                                                            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                                                                            {t('Yes, Restore Member')}
-                                                                        </AlertDialogAction>
-                                                                    </AlertDialogFooter>
-                                                                </AlertDialogContent>
-                                                            </AlertDialog>
-                                                        )}
-                                                        {canDeleteMember && (
-                                                            <ArchivedMemberActionDialog
-                                                                member={member}
-                                                                trigger={
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        title={t('Delete / Restore')}
-                                                                        className="text-muted-foreground hover:text-destructive"
-                                                                        onClick={(e) =>
-                                                                            e.stopPropagation()
-                                                                        }
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                    </Button>
-                                                                }
-                                                            />
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    canDeleteMember && (
-                                                        <DeleteMemberDialog
-                                                            member={member}
-                                                            trigger={
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    title={t(
-                                                                        'Delete',
-                                                                    )}
-                                                                    className="text-muted-foreground hover:text-destructive"
-                                                                    onClick={(e) =>
-                                                                        e.stopPropagation()
-                                                                    }
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            }
-                                                        />
-                                                    )
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                <div className="min-h-0 flex-1 overflow-hidden">
+                    <MembersTable
+                        members={members}
+                        ranks={ranks}
+                        locale={locale}
+                        levelLabel={levelLabel}
+                        hasAnyFilter={hasAnyFilter}
+                        rowSelection={rowSelection}
+                        onRowSelectionChange={handleRowSelectionChange}
+                        getMemberShowUrl={getMemberShowUrl}
+                        canDeleteMember={canDeleteMember}
+                        canRestoreMember={canRestoreMember}
+                        onQuickView={setQuickViewId}
+                        t={t}
+                    />
                 </div>
 
                 <ListingPagination
@@ -1710,10 +1192,10 @@ export default function MembersIndex({
 
                     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                         <p className="text-sm text-muted-foreground">
-                            {selectedIds.size > 0
+                            {selectedIds.length > 0
                                 ? t('Exporting :n selected members.').replace(
                                       ':n',
-                                      String(selectedIds.size),
+                                      String(selectedIds.length),
                                   )
                                 : hasAnyFilter
                                   ? t(

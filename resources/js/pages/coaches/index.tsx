@@ -27,6 +27,7 @@ import type {
 import { InactiveCoachesTable } from '@/components/coaches/inactive-coaches-table';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
+import { PriorityFilterRow } from '@/components/priority-filter-row';
 import { Button } from '@/components/ui/button';
 import {
     Command,
@@ -114,7 +115,7 @@ function FilterPill({
                 >
                     <span>{label}</span>
                     {isActive && (
-                        <>
+                        <span className="inline-flex animate-in items-center gap-1.5 duration-150 fade-in-0">
                             <span className="text-primary/50">·</span>
                             <span className="max-w-20 truncate font-semibold">
                                 {activeLabel}
@@ -139,7 +140,7 @@ function FilterPill({
                             >
                                 <X className="size-3" />
                             </span>
-                        </>
+                        </span>
                     )}
                     {!isActive && <ChevronDown className="size-3 opacity-50" />}
                 </button>
@@ -268,7 +269,6 @@ export default function CoachesIndex({
     const [reportAction, setReportAction] = useState<ReportAction | null>(null);
     const [printOrientation, setPrintOrientation] =
         useState<PrintOrientation>('landscape');
-    const [showMoreFilters, setShowMoreFilters] = useState(false);
     const [query, setQuery] = useState(filters.q ?? '');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const activeStatusScope = filters.status_scope ?? 'active';
@@ -709,13 +709,13 @@ export default function CoachesIndex({
                         </div>
                     </div>
 
-                    <div className="max-w-full min-w-0 space-y-1.5 rounded-xl border bg-card p-1">
-                        <div className="flex flex-wrap items-center gap-2">
+                    <div className="max-w-full min-w-0 rounded-xl border bg-card p-1">
+                        <div className="flex flex-nowrap items-center gap-2 overflow-hidden">
                             <Tabs
                                 value={activeStatusScope}
                                 className="shrink-0"
                             >
-                                <TabsList className="h-7 w-auto max-w-full gap-1 rounded-md border-none bg-transparent p-0">
+                                <TabsList className="h-9 w-auto max-w-full gap-1 rounded-lg border-none bg-muted/60 p-1">
                                     {STATUS_TABS.map((tab) => {
                                         const count =
                                             tab.value === 'active'
@@ -729,7 +729,7 @@ export default function CoachesIndex({
                                                 key={tab.value}
                                                 value={tab.value}
                                                 asChild
-                                                className="h-7 rounded-md border-b-0 px-2.5 text-xs font-medium data-[state=active]:border-primary/40 data-[state=active]:bg-primary/8 data-[state=active]:text-primary data-[state=active]:shadow-none"
+                                                className="group h-7 rounded-md border-b-0 px-4 text-xs font-semibold text-muted-foreground transition-colors data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
                                             >
                                                 <Link
                                                     href={buildIndexUrl({
@@ -739,7 +739,7 @@ export default function CoachesIndex({
                                                     replace
                                                 >
                                                     {t(tab.label)}
-                                                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                                    <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground group-data-[state=active]:bg-primary-foreground/20 group-data-[state=active]:text-primary-foreground">
                                                         {count}
                                                     </span>
                                                 </Link>
@@ -761,9 +761,211 @@ export default function CoachesIndex({
                                 />
                             </div>
 
+                            <PriorityFilterRow
+                                items={[
+                                    <div key="blood_group">
+                                        <FilterPill
+                                            label={t('Blood group')}
+                                            activeLabel={filters.blood_group}
+                                            onClear={() =>
+                                                applyFilters({
+                                                    blood_group: undefined,
+                                                })
+                                            }
+                                        >
+                                            <OptionList
+                                                options={bloodGroupOptions}
+                                                value={filters.blood_group}
+                                                onSelect={(value) =>
+                                                    applyFilters({
+                                                        blood_group: value,
+                                                    })
+                                                }
+                                            />
+                                        </FilterPill>
+                                    </div>,
+                                    <div key="gender">
+                                        <FilterPill
+                                            label={t('Gender')}
+                                            activeLabel={optionLabel(
+                                                genderOptions,
+                                                filters.gender,
+                                            )}
+                                            onClear={() =>
+                                                applyFilters({
+                                                    gender: undefined,
+                                                })
+                                            }
+                                        >
+                                            <OptionList
+                                                options={genderOptions}
+                                                value={filters.gender}
+                                                onSelect={(value) =>
+                                                    applyFilters({
+                                                        gender: value,
+                                                    })
+                                                }
+                                            />
+                                        </FilterPill>
+                                    </div>,
+                                    <div key="certification">
+                                        <FilterPill
+                                            label={t('Certification')}
+                                            activeLabel={optionLabel(
+                                                certificationOptions,
+                                                filters.has_certification,
+                                            )}
+                                            onClear={() =>
+                                                applyFilters({
+                                                    has_certification:
+                                                        undefined,
+                                                })
+                                            }
+                                        >
+                                            <OptionList
+                                                options={certificationOptions}
+                                                value={
+                                                    filters.has_certification
+                                                }
+                                                onSelect={(value) =>
+                                                    applyFilters({
+                                                        has_certification:
+                                                            value,
+                                                    })
+                                                }
+                                            />
+                                        </FilterPill>
+                                    </div>,
+                                    <div key="sport">
+                                        <FilterPill
+                                            label={t('Sport')}
+                                            activeLabel={optionLabel(
+                                                sportOptions,
+                                                filters.sport_id,
+                                            )}
+                                            onClear={() =>
+                                                applyFilters({
+                                                    sport_id: undefined,
+                                                })
+                                            }
+                                        >
+                                            <SearchableOptionList
+                                                options={sportOptions}
+                                                value={filters.sport_id}
+                                                onSelect={(value) =>
+                                                    applyFilters({
+                                                        sport_id: value,
+                                                    })
+                                                }
+                                                searchPlaceholder={t(
+                                                    'Search sports…',
+                                                )}
+                                            />
+                                        </FilterPill>
+                                    </div>,
+                                    <div key="certificate_type">
+                                        <FilterPill
+                                            label={t('Certificate type')}
+                                            activeLabel={optionLabel(
+                                                certificateTypeOptions,
+                                                filters.certification_type,
+                                            )}
+                                            onClear={() =>
+                                                applyFilters({
+                                                    certification_type:
+                                                        undefined,
+                                                })
+                                            }
+                                        >
+                                            <SearchableOptionList
+                                                options={certificateTypeOptions}
+                                                value={
+                                                    filters.certification_type
+                                                }
+                                                onSelect={(value) =>
+                                                    applyFilters({
+                                                        certification_type:
+                                                            value,
+                                                    })
+                                                }
+                                                searchPlaceholder={t(
+                                                    'Search certificate types…',
+                                                )}
+                                            />
+                                        </FilterPill>
+                                    </div>,
+                                    <div key="certificate_name">
+                                        <FilterPill
+                                            label={t('Certificate name')}
+                                            activeLabel={
+                                                filters.certification_name
+                                            }
+                                            onClear={() =>
+                                                applyFilters({
+                                                    certification_name:
+                                                        undefined,
+                                                })
+                                            }
+                                        >
+                                            <div className="w-64 p-3">
+                                                <Input
+                                                    autoFocus
+                                                    placeholder={t(
+                                                        'Certification name',
+                                                    )}
+                                                    value={
+                                                        filters.certification_name ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        applyFilters({
+                                                            certification_name:
+                                                                e.target
+                                                                    .value ||
+                                                                undefined,
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+                                        </FilterPill>
+                                    </div>,
+                                    <div key="assignment">
+                                        <FilterPill
+                                            label={t('Assignment')}
+                                            activeLabel={optionLabel(
+                                                assignmentOptions,
+                                                filters.has_active_assignment,
+                                            )}
+                                            onClear={() =>
+                                                applyFilters({
+                                                    has_active_assignment:
+                                                        undefined,
+                                                })
+                                            }
+                                        >
+                                            <OptionList
+                                                options={assignmentOptions}
+                                                value={
+                                                    filters.has_active_assignment
+                                                }
+                                                onSelect={(value) =>
+                                                    applyFilters({
+                                                        has_active_assignment:
+                                                            value,
+                                                    })
+                                                }
+                                            />
+                                        </FilterPill>
+                                    </div>,
+                                ]}
+                                moreLabel={t('More filters')}
+                                lessLabel={t('Less filters')}
+                                className="min-w-0 flex-1"
+                            />
+
                             <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                                 {activeFilterCount > 0 && (
-                                    <span className="text-[11px]">
+                                    <span className="animate-in text-[11px] duration-150 fade-in-0">
                                         {t(':count filters active').replace(
                                             ':count',
                                             String(activeFilterCount),
@@ -775,187 +977,14 @@ export default function CoachesIndex({
                                         variant="ghost"
                                         size="sm"
                                         onClick={clearAllFilters}
-                                        className="h-7 px-2 text-xs"
+                                        className="h-7 animate-in px-2 text-xs duration-150 fade-in-0"
                                     >
                                         <X className="mr-1.5 h-3.5 w-3.5" />
                                         {t('Clear filters')}
                                     </Button>
                                 )}
                             </div>
-
-                            <div className="flex flex-wrap items-center gap-1.5">
-                                <FilterPill
-                                    label={t('Blood group')}
-                                    activeLabel={filters.blood_group}
-                                    onClear={() =>
-                                        applyFilters({ blood_group: undefined })
-                                    }
-                                >
-                                    <OptionList
-                                        options={bloodGroupOptions}
-                                        value={filters.blood_group}
-                                        onSelect={(value) =>
-                                            applyFilters({ blood_group: value })
-                                        }
-                                    />
-                                </FilterPill>
-
-                                <FilterPill
-                                    label={t('Gender')}
-                                    activeLabel={optionLabel(
-                                        genderOptions,
-                                        filters.gender,
-                                    )}
-                                    onClear={() =>
-                                        applyFilters({ gender: undefined })
-                                    }
-                                >
-                                    <OptionList
-                                        options={genderOptions}
-                                        value={filters.gender}
-                                        onSelect={(value) =>
-                                            applyFilters({ gender: value })
-                                        }
-                                    />
-                                </FilterPill>
-
-                                <FilterPill
-                                    label={t('Certification')}
-                                    activeLabel={optionLabel(
-                                        certificationOptions,
-                                        filters.has_certification,
-                                    )}
-                                    onClear={() =>
-                                        applyFilters({
-                                            has_certification: undefined,
-                                        })
-                                    }
-                                >
-                                    <OptionList
-                                        options={certificationOptions}
-                                        value={filters.has_certification}
-                                        onSelect={(value) =>
-                                            applyFilters({
-                                                has_certification: value,
-                                            })
-                                        }
-                                    />
-                                </FilterPill>
-
-                                <FilterPill
-                                    label={t('Sport')}
-                                    activeLabel={optionLabel(
-                                        sportOptions,
-                                        filters.sport_id,
-                                    )}
-                                    onClear={() =>
-                                        applyFilters({ sport_id: undefined })
-                                    }
-                                >
-                                    <SearchableOptionList
-                                        options={sportOptions}
-                                        value={filters.sport_id}
-                                        onSelect={(value) =>
-                                            applyFilters({ sport_id: value })
-                                        }
-                                        searchPlaceholder={t('Search sports…')}
-                                    />
-                                </FilterPill>
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                    setShowMoreFilters((prev) => !prev)
-                                }
-                                className="h-7 px-2.5 text-xs"
-                            >
-                                {showMoreFilters
-                                    ? t('Less filters')
-                                    : t('More filters')}
-                            </Button>
                         </div>
-                        {showMoreFilters ? (
-                            <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                <FilterPill
-                                    label={t('Certificate type')}
-                                    activeLabel={optionLabel(
-                                        certificateTypeOptions,
-                                        filters.certification_type,
-                                    )}
-                                    onClear={() =>
-                                        applyFilters({
-                                            certification_type: undefined,
-                                        })
-                                    }
-                                >
-                                    <SearchableOptionList
-                                        options={certificateTypeOptions}
-                                        value={filters.certification_type}
-                                        onSelect={(value) =>
-                                            applyFilters({
-                                                certification_type: value,
-                                            })
-                                        }
-                                        searchPlaceholder={t(
-                                            'Search certificate types…',
-                                        )}
-                                    />
-                                </FilterPill>
-
-                                <FilterPill
-                                    label={t('Certificate name')}
-                                    activeLabel={filters.certification_name}
-                                    onClear={() =>
-                                        applyFilters({
-                                            certification_name: undefined,
-                                        })
-                                    }
-                                >
-                                    <div className="w-64 p-3">
-                                        <Input
-                                            autoFocus
-                                            placeholder={t(
-                                                'Certification name',
-                                            )}
-                                            value={
-                                                filters.certification_name ?? ''
-                                            }
-                                            onChange={(e) =>
-                                                applyFilters({
-                                                    certification_name:
-                                                        e.target.value ||
-                                                        undefined,
-                                                })
-                                            }
-                                        />
-                                    </div>
-                                </FilterPill>
-
-                                <FilterPill
-                                    label={t('Assignment')}
-                                    activeLabel={optionLabel(
-                                        assignmentOptions,
-                                        filters.has_active_assignment,
-                                    )}
-                                    onClear={() =>
-                                        applyFilters({
-                                            has_active_assignment: undefined,
-                                        })
-                                    }
-                                >
-                                    <OptionList
-                                        options={assignmentOptions}
-                                        value={filters.has_active_assignment}
-                                        onSelect={(value) =>
-                                            applyFilters({
-                                                has_active_assignment: value,
-                                            })
-                                        }
-                                    />
-                                </FilterPill>
-                            </div>
-                        ) : null}
                     </div>
                 </div>
 
