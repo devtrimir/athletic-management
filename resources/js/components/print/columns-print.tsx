@@ -10,7 +10,16 @@ export type PrintColumn<T> = {
     cell: (row: T, t: (key: string) => string) => ReactNode;
     /** Hidden by default (can be ticked in the toolbar). */
     optional?: boolean;
+    /** Relative width share among visible columns (default 1). */
+    weight?: number;
+    /** Text-heavy columns read better left-aligned. */
+    align?: 'left' | 'center';
+    /** Allow breaking anywhere (emails, codes) instead of at word boundaries. */
+    breakAny?: boolean;
 };
+
+/** Share of the table given to the S.No. column. */
+const SNO_WEIGHT = 0.7;
 
 /**
  * Standard print page for a listing: toggleable columns, orientation, S.No.
@@ -40,6 +49,14 @@ export function ColumnsPrint<T extends { id: number | string }>({
         columns.filter((column) => !column.optional).map((c) => c.key),
     );
     const shown = columns.filter((column) => visible.includes(column.key));
+    const totalWeight =
+        SNO_WEIGHT + shown.reduce((sum, c) => sum + (c.weight ?? 1), 0);
+    const widthOf = (weight: number) =>
+        `${((weight / totalWeight) * 100).toFixed(2)}%`;
+    const classOf = (column: PrintColumn<T>) =>
+        [column.align === 'left' && 'is-left', column.breakAny && 'is-any']
+            .filter(Boolean)
+            .join(' ');
 
     function toggle(key: string) {
         setVisible((current) =>
@@ -81,11 +98,25 @@ export function ColumnsPrint<T extends { id: number | string }>({
                 <div className="print-empty">{emptyText}</div>
             ) : (
                 <table>
+                    <colgroup>
+                        <col style={{ width: widthOf(SNO_WEIGHT) }} />
+                        {shown.map((column) => (
+                            <col
+                                key={column.key}
+                                style={{ width: widthOf(column.weight ?? 1) }}
+                            />
+                        ))}
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>{t('S.No.')}</th>
                             {shown.map((column) => (
-                                <th key={column.key}>{t(column.label)}</th>
+                                <th
+                                    key={column.key}
+                                    className={classOf(column)}
+                                >
+                                    {t(column.label)}
+                                </th>
                             ))}
                         </tr>
                     </thead>
@@ -94,7 +125,10 @@ export function ColumnsPrint<T extends { id: number | string }>({
                             <tr key={row.id}>
                                 <td>{index + 1}</td>
                                 {shown.map((column) => (
-                                    <td key={column.key}>
+                                    <td
+                                        key={column.key}
+                                        className={classOf(column)}
+                                    >
                                         {column.cell(row, t)}
                                     </td>
                                 ))}

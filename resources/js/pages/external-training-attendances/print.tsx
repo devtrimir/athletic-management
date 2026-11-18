@@ -39,9 +39,16 @@ const REVIEW_LABELS: Record<string, string> = {
 };
 
 const COLUMNS: PrintColumn<Attendance>[] = [
-    { key: 'date', label: 'Date', cell: (a) => formatDate(a.date, '-') },
+    {
+        key: 'date',
+        weight: 1.1,
+        label: 'Date',
+        cell: (a) => formatDate(a.date, '-'),
+    },
     {
         key: 'member',
+        weight: 2.2,
+        align: 'left',
         label: 'Member',
         cell: (a) => (
             <>
@@ -52,40 +59,67 @@ const COLUMNS: PrintColumn<Attendance>[] = [
     },
     {
         key: 'coach',
+        weight: 1.8,
+        align: 'left',
         label: 'External coach',
         cell: (a) => a.external_coach ?? '-',
     },
-    { key: 'venue', label: 'Venue', cell: (a) => a.venue ?? '-' },
-    { key: 'sport', label: 'Sport', cell: (a) => a.sport ?? '-' },
+    {
+        key: 'venue',
+        weight: 2.2,
+        align: 'left',
+        label: 'Venue',
+        cell: (a) => a.venue ?? '-',
+    },
+    {
+        key: 'sport',
+        weight: 1.4,
+        align: 'left',
+        label: 'Sport',
+        cell: (a) => a.sport ?? '-',
+    },
     {
         key: 'attendance',
+        weight: 1.3,
         label: 'Attendance',
         cell: (a, t) => t(a.attendance_status),
     },
     {
         key: 'corrected',
+        weight: 1.3,
         label: 'Corrected status',
         cell: (a, t) => (a.corrected_status ? t(a.corrected_status) : '-'),
     },
-    { key: 'geo', label: 'Geo status', cell: (a, t) => t(a.geo_status) },
+    {
+        key: 'geo',
+        weight: 1.4,
+        label: 'Geo status',
+        cell: (a, t) => t(a.geo_status),
+    },
     {
         key: 'review',
+        weight: 1.3,
         label: 'Review action',
         cell: (a, t) => t(REVIEW_LABELS[a.review_status] ?? a.review_status),
     },
     {
         key: 'distance',
+        weight: 1.2,
         label: 'Distance',
         cell: (a) => (a.distance_meters ? `${a.distance_meters} m` : '-'),
     },
     {
         key: 'reviewer',
+        weight: 1.4,
+        align: 'left',
         label: 'Reviewed by',
         optional: true,
         cell: (a) => a.reviewed_by ?? '-',
     },
     {
         key: 'remarks',
+        weight: 2.5,
+        align: 'left',
         label: 'Coach remarks',
         optional: true,
         cell: (a) => a.coach_remarks ?? '-',

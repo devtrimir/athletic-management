@@ -15,17 +15,41 @@ type Venue = {
 };
 
 const COLUMNS: PrintColumn<Venue>[] = [
-    { key: 'name', label: 'Venue', cell: (v) => <strong>{v.name}</strong> },
-    { key: 'code', label: 'Code', cell: (v) => v.code ?? '-' },
-    { key: 'city', label: 'City', cell: (v) => v.city ?? '-' },
-    { key: 'district', label: 'District', cell: (v) => v.district ?? '-' },
-    { key: 'unit', label: 'Unit', cell: (v) => v.unit ?? '-' },
+    {
+        key: 'name',
+        weight: 3,
+        align: 'left',
+        label: 'Venue',
+        cell: (v) => <strong>{v.name}</strong>,
+    },
+    {
+        key: 'code',
+        weight: 1,
+        breakAny: true,
+        label: 'Code',
+        cell: (v) => v.code ?? '-',
+    },
+    { key: 'city', weight: 1.5, label: 'City', cell: (v) => v.city ?? '-' },
+    {
+        key: 'district',
+        weight: 1.5,
+        label: 'District',
+        cell: (v) => v.district ?? '-',
+    },
+    {
+        key: 'unit',
+        weight: 2,
+        align: 'left',
+        label: 'Unit',
+        cell: (v) => v.unit ?? '-',
+    },
     {
         key: 'radius',
+        weight: 1.1,
         label: 'Radius',
         cell: (v) => `${v.allowed_radius_meters} m`,
     },
-    { key: 'status', label: 'Status', cell: (v, t) => t(v.status) },
+    { key: 'status', weight: 1, label: 'Status', cell: (v, t) => t(v.status) },
 ];
 
 export default function TrainingVenuesPrint({

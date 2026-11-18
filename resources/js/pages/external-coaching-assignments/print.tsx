@@ -28,6 +28,8 @@ type Filters = {
 const COLUMNS: PrintColumn<Assignment>[] = [
     {
         key: 'member',
+        weight: 2.4,
+        align: 'left',
         label: 'Member',
         cell: (a) => (
             <>
@@ -36,22 +38,47 @@ const COLUMNS: PrintColumn<Assignment>[] = [
             </>
         ),
     },
-    { key: 'coach', label: 'Coach', cell: (a) => a.external_coach ?? '-' },
-    { key: 'venue', label: 'Venue', cell: (a) => a.venue ?? '-' },
-    { key: 'sport', label: 'Sport', cell: (a) => a.sport ?? '-' },
+    {
+        key: 'coach',
+        weight: 2,
+        align: 'left',
+        label: 'Coach',
+        cell: (a) => a.external_coach ?? '-',
+    },
+    {
+        key: 'venue',
+        weight: 2.4,
+        align: 'left',
+        label: 'Venue',
+        cell: (a) => a.venue ?? '-',
+    },
+    {
+        key: 'sport',
+        weight: 1.6,
+        align: 'left',
+        label: 'Sport',
+        cell: (a) => a.sport ?? '-',
+    },
     {
         key: 'start',
+        weight: 1.1,
         label: 'Start',
         cell: (a) => formatDate(a.start_date, '-'),
     },
-    { key: 'end', label: 'End', cell: (a) => formatDate(a.end_date, '-') },
+    {
+        key: 'end',
+        weight: 1.1,
+        label: 'End',
+        cell: (a) => formatDate(a.end_date, '-'),
+    },
     {
         key: 'mode',
+        weight: 1.2,
         label: 'Attendance mode',
         optional: true,
         cell: (a) => a.attendance_mode ?? '-',
     },
-    { key: 'status', label: 'Status', cell: (a, t) => t(a.status) },
+    { key: 'status', weight: 1, label: 'Status', cell: (a, t) => t(a.status) },
 ];
 
 export default function ExternalCoachingAssignmentsPrint({

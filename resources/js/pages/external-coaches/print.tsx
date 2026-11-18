@@ -30,6 +30,7 @@ const join = (items: Named) => items.map((item) => item.name).join(', ') || '-';
 const COLUMNS: PrintColumn<Coach>[] = [
     {
         key: 'photo',
+        weight: 0.7,
         label: 'Photo',
         cell: (coach) =>
             coach.photo_path ? (
@@ -49,34 +50,64 @@ const COLUMNS: PrintColumn<Coach>[] = [
     },
     {
         key: 'name',
+        weight: 2,
+        align: 'left',
         label: 'Coach',
         cell: (coach) => <strong>{coach.name}</strong>,
     },
-    { key: 'email', label: 'Email', cell: (coach) => coach.email },
-    { key: 'phone', label: 'Phone', cell: (coach) => coach.phone ?? '-' },
+    {
+        key: 'email',
+        weight: 2.6,
+        align: 'left',
+        breakAny: true,
+        label: 'Email',
+        cell: (coach) => coach.email,
+    },
+    {
+        key: 'phone',
+        weight: 1.3,
+        label: 'Phone',
+        cell: (coach) => coach.phone ?? '-',
+    },
     {
         key: 'city',
+        weight: 1.3,
         label: 'City',
         optional: true,
         cell: (coach) => coach.city ?? '-',
     },
-    { key: 'sports', label: 'Sports', cell: (coach) => join(coach.sports) },
+    {
+        key: 'sports',
+        weight: 1.8,
+        align: 'left',
+        label: 'Sports',
+        cell: (coach) => join(coach.sports),
+    },
     {
         key: 'venues',
+        weight: 2.2,
+        align: 'left',
         label: 'Training venues',
         cell: (coach) => join(coach.training_venues),
     },
     {
         key: 'experience',
+        weight: 1.2,
         label: 'Experience',
         cell: (coach) => coach.experience_years ?? '-',
     },
     {
         key: 'players',
+        weight: 1.2,
         label: 'Active players',
         cell: (coach) => coach.active_coached_players_count,
     },
-    { key: 'status', label: 'Status', cell: (coach, t) => t(coach.status) },
+    {
+        key: 'status',
+        weight: 1.1,
+        label: 'Status',
+        cell: (coach, t) => t(coach.status),
+    },
 ];
 
 export default function ExternalCoachesPrint({

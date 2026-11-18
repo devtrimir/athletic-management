@@ -28,9 +28,16 @@ type Filters = {
 };
 
 const COLUMNS: PrintColumn<Update>[] = [
-    { key: 'date', label: 'Date', cell: (u) => formatDate(u.update_date, '-') },
+    {
+        key: 'date',
+        weight: 1.1,
+        label: 'Date',
+        cell: (u) => formatDate(u.update_date, '-'),
+    },
     {
         key: 'member',
+        weight: 2.2,
+        align: 'left',
         label: 'Member',
         cell: (u) => (
             <>
@@ -41,35 +48,56 @@ const COLUMNS: PrintColumn<Update>[] = [
     },
     {
         key: 'coach',
+        weight: 1.8,
+        align: 'left',
         label: 'External coach',
         cell: (u) => u.external_coach ?? '-',
     },
-    { key: 'sport', label: 'Sport', cell: (u) => u.sport ?? '-' },
-    { key: 'score', label: 'Score', cell: (u) => u.performance_score ?? '-' },
+    {
+        key: 'sport',
+        weight: 1.4,
+        align: 'left',
+        label: 'Sport',
+        cell: (u) => u.sport ?? '-',
+    },
+    {
+        key: 'score',
+        weight: 0.9,
+        label: 'Score',
+        cell: (u) => u.performance_score ?? '-',
+    },
     {
         key: 'level',
+        weight: 1.2,
         label: 'Level',
         cell: (u, t) => (u.performance_level ? t(u.performance_level) : '-'),
     },
     {
         key: 'status',
+        weight: 1.3,
         label: 'Review status',
         cell: (u, t) => t(u.review_status),
     },
     {
         key: 'reviewer',
+        weight: 1.4,
+        align: 'left',
         label: 'Reviewed by',
         optional: true,
         cell: (u) => u.reviewed_by ?? '-',
     },
     {
         key: 'summary',
+        weight: 3,
+        align: 'left',
         label: 'Training summary',
         optional: true,
         cell: (u) => u.training_summary ?? '-',
     },
     {
         key: 'notes',
+        weight: 3,
+        align: 'left',
         label: 'Improvement notes',
         optional: true,
         cell: (u) => u.improvement_notes ?? '-',

@@ -35,7 +35,7 @@ export function PrintSheet({
         <>
             <style>{`
                 @media print { @page { size: A4 ${orientation}; margin: 10mm; } }
-                .print-root { position: relative; padding: 16px 22px 24px; max-width: 1200px; margin: 0 auto; font-family: Arial, 'Helvetica Neue', sans-serif; color: #111827; line-height: 1.4; }
+                .print-root { -webkit-print-color-adjust: exact; print-color-adjust: exact; position: relative; padding: 16px 22px 24px; max-width: 1200px; margin: 0 auto; font-family: Arial, 'Helvetica Neue', sans-serif; color: #111827; line-height: 1.4; }
                 .print-root::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: url('${LETTERHEAD_LOGO_SRC}') center 58% / 360px auto no-repeat; opacity: 0.06; }
                 .print-root > * { position: relative; z-index: 1; }
                 .print-controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 16px; padding: 14px; border: 1px solid #d9e2ec; border-radius: 12px; background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%); box-shadow: 0 2px 10px #0206170d; }
@@ -53,9 +53,12 @@ export function PrintSheet({
                 .letterhead-subtitle { color: #334155; font-size: 12px; letter-spacing: 0.02em; }
                 .doc-title { margin: 12px 0 6px; font-size: 24px; font-weight: 700; text-align: center; }
                 .doc-info { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #cbd5e1; font-size: 11px; color: #475569; }
-                .print-root table { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 10px; }
-                .print-root th, .print-root td { border: 1px solid #d1d5db; padding: 6px 7px; vertical-align: middle; text-align: center; overflow-wrap: anywhere; }
-                .print-root th { background: #f3f4f6; font-size: 10px; text-transform: uppercase; letter-spacing: 0.02em; color: #334155; font-weight: 700; }
+                .print-root table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10.5px; margin-bottom: 10px; }
+                .print-root th, .print-root td { border: 1px solid #d1d5db; padding: 5px 6px; vertical-align: middle; text-align: center; word-break: normal; overflow-wrap: break-word; hyphens: none; line-height: 1.35; }
+                .print-root th { background: #f3f4f6; padding: 5px 3px; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.01em; color: #334155; font-weight: 700; overflow-wrap: normal; word-break: keep-all; }
+                .print-root th.is-left, .print-root td.is-left { text-align: left; }
+                .print-root td.is-any { overflow-wrap: anywhere; }
+                .print-root .muted { display: block; color: #64748b; font-size: 9.5px; }
                 .print-root tbody tr:nth-child(even) td { background: #fafafa; }
                 .print-root thead { display: table-header-group; }
                 .print-root tr { break-inside: avoid; }
@@ -64,6 +67,7 @@ export function PrintSheet({
                     html, body, #app { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 0 !important; background: #fff !important; }
                     .print-controls { display: none !important; }
                     .print-root { padding: 0; max-width: none; width: 100%; }
+                    .print-root table { font-size: 10px; }
                 }
             `}</style>
 
