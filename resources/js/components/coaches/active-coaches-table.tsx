@@ -23,14 +23,13 @@ import {
     STICKY_LEFT,
     coachCellClass,
     coachHeadCellClass,
-    coachTableClass,
     stickyBodyCellClass,
     stickyHeadCellClass,
     teamGroupEndClass,
 } from '@/components/coaches/coach-table-cells';
 import { coachTableFeatures } from '@/components/coaches/coach-table-features';
+import { ListingTable } from '@/components/data-table/listing-layout';
 import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -362,135 +361,124 @@ export function ActiveCoachesTable({
     const rows = table.getRowModel().rows;
 
     return (
-        <div className="h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
-            <Table className={coachTableClass}>
-                <colgroup>
-                    <LeadingColgroup />
-                    <col className="w-[120px]" />
-                    <col className="w-[140px]" />
-                    <CoachColgroupCol />
-                    <col className="w-[100px]" />
-                    <col className="w-[90px]" />
-                    <col className="w-[90px]" />
-                    <col className="w-[120px]" />
-                    <col />
-                </colgroup>
-                <TableHeader className="sticky top-0 z-20">
-                    {table.getHeaderGroups().map((headerGroup) => (
-                        <TableRow
-                            key={headerGroup.id}
-                            className="hover:bg-transparent"
-                        >
-                            {headerGroup.headers.map((header) => (
-                                <TableHead
-                                    key={header.id}
-                                    style={
-                                        stickyLeft[header.column.id] !==
-                                        undefined
-                                            ? {
-                                                  left: stickyLeft[
-                                                      header.column.id
-                                                  ],
-                                              }
-                                            : undefined
-                                    }
-                                    className={cn(
-                                        coachHeadCellClass,
-                                        header.column.id === 'sno' &&
-                                            'text-center',
-                                        stickyLeft[header.column.id] !==
-                                            undefined && stickyHeadCellClass,
-                                    )}
-                                >
-                                    {flexRender(
-                                        header.column.columnDef.header,
-                                        header.getContext(),
-                                    )}
-                                </TableHead>
-                            ))}
-                        </TableRow>
-                    ))}
-                </TableHeader>
-                <TableBody>
-                    {rows.length === 0 ? (
-                        <TableRow>
-                            <TableCell
-                                colSpan={columns.length}
-                                className="py-12 text-center text-muted-foreground"
+        <ListingTable minWidth={1140}>
+            <colgroup>
+                <LeadingColgroup />
+                <col className="w-[120px]" />
+                <col className="w-[140px]" />
+                <CoachColgroupCol />
+                <col className="w-[100px]" />
+                <col className="w-[90px]" />
+                <col className="w-[90px]" />
+                <col className="w-[120px]" />
+                <col />
+            </colgroup>
+            <TableHeader className="sticky top-0 z-20">
+                {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow
+                        key={headerGroup.id}
+                        className="hover:bg-transparent"
+                    >
+                        {headerGroup.headers.map((header) => (
+                            <TableHead
+                                key={header.id}
+                                style={
+                                    stickyLeft[header.column.id] !== undefined
+                                        ? {
+                                              left: stickyLeft[
+                                                  header.column.id
+                                              ],
+                                          }
+                                        : undefined
+                                }
+                                className={cn(
+                                    coachHeadCellClass,
+                                    header.column.id === 'sno' && 'text-center',
+                                    stickyLeft[header.column.id] !==
+                                        undefined && stickyHeadCellClass,
+                                )}
                             >
-                                {hasActiveFilters
-                                    ? t('No coaches match your filters.')
-                                    : t('No coaches yet.')}
-                            </TableCell>
-                        </TableRow>
-                    ) : (
-                        rows.map((row, index) => {
-                            const nextRow = rows[index + 1];
-                            const isGroupEnd =
-                                !nextRow ||
-                                nextRow.original.groupKey !==
-                                    row.original.groupKey;
+                                {flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext(),
+                                )}
+                            </TableHead>
+                        ))}
+                    </TableRow>
+                ))}
+            </TableHeader>
+            <TableBody>
+                {rows.length === 0 ? (
+                    <TableRow>
+                        <TableCell
+                            colSpan={columns.length}
+                            className="py-12 text-center text-muted-foreground"
+                        >
+                            {hasActiveFilters
+                                ? t('No coaches match your filters.')
+                                : t('No coaches yet.')}
+                        </TableCell>
+                    </TableRow>
+                ) : (
+                    rows.map((row, index) => {
+                        const nextRow = rows[index + 1];
+                        const isGroupEnd =
+                            !nextRow ||
+                            nextRow.original.groupKey !== row.original.groupKey;
 
-                            return (
-                                <TableRow
-                                    key={row.id}
-                                    data-state={
-                                        row.getIsSelected()
-                                            ? 'selected'
-                                            : undefined
+                        return (
+                            <TableRow
+                                key={row.id}
+                                data-state={
+                                    row.getIsSelected() ? 'selected' : undefined
+                                }
+                                className="hover:bg-muted/30 data-[state=selected]:bg-primary/5"
+                            >
+                                {row.getVisibleCells().map((cell) => {
+                                    if (cell.getIsCovered()) {
+                                        return null;
                                     }
-                                    className="hover:bg-muted/30 data-[state=selected]:bg-primary/5"
-                                >
-                                    {row.getVisibleCells().map((cell) => {
-                                        if (cell.getIsCovered()) {
-                                            return null;
-                                        }
 
-                                        return (
-                                            <TableCell
-                                                key={cell.id}
-                                                rowSpan={cell.getRowSpan()}
-                                                style={
-                                                    stickyLeft[
-                                                        cell.column.id
-                                                    ] !== undefined
-                                                        ? {
-                                                              left: stickyLeft[
-                                                                  cell.column.id
-                                                              ],
-                                                          }
-                                                        : undefined
-                                                }
-                                                className={cn(
-                                                    coachCellClass,
-                                                    cell.column.id === 'sno' &&
-                                                        'text-center font-semibold text-muted-foreground tabular-nums',
-                                                    cell.column.id ===
-                                                        'sport' &&
-                                                        'font-medium',
-                                                    (isGroupEnd ||
-                                                        cell.getRowSpan() >
-                                                            1) &&
-                                                        teamGroupEndClass,
-                                                    stickyLeft[
-                                                        cell.column.id
-                                                    ] !== undefined &&
-                                                        stickyBodyCellClass,
-                                                )}
-                                            >
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext(),
-                                                )}
-                                            </TableCell>
-                                        );
-                                    })}
-                                </TableRow>
-                            );
-                        })
-                    )}
-                </TableBody>
-            </Table>
-        </div>
+                                    return (
+                                        <TableCell
+                                            key={cell.id}
+                                            rowSpan={cell.getRowSpan()}
+                                            style={
+                                                stickyLeft[cell.column.id] !==
+                                                undefined
+                                                    ? {
+                                                          left: stickyLeft[
+                                                              cell.column.id
+                                                          ],
+                                                      }
+                                                    : undefined
+                                            }
+                                            className={cn(
+                                                coachCellClass,
+                                                cell.column.id === 'sno' &&
+                                                    'text-center font-semibold text-muted-foreground tabular-nums',
+                                                cell.column.id === 'sport' &&
+                                                    'font-medium',
+                                                (isGroupEnd ||
+                                                    cell.getRowSpan() > 1) &&
+                                                    teamGroupEndClass,
+                                                stickyLeft[cell.column.id] !==
+                                                    undefined &&
+                                                    stickyBodyCellClass,
+                                            )}
+                                        >
+                                            {flexRender(
+                                                cell.column.columnDef.cell,
+                                                cell.getContext(),
+                                            )}
+                                        </TableCell>
+                                    );
+                                })}
+                            </TableRow>
+                        );
+                    })
+                )}
+            </TableBody>
+        </ListingTable>
     );
 }

@@ -26,14 +26,13 @@ import {
     STICKY_LEFT,
     coachCellClass,
     coachHeadCellClass,
-    coachTableClass,
     stickyBodyCellClass,
     stickyHeadCellClass,
 } from '@/components/coaches/coach-table-cells';
 import { coachTableFeatures } from '@/components/coaches/coach-table-features';
 import { SortableHeaderLabel } from '@/components/coaches/coach-table-toolbar';
+import { ListingTable } from '@/components/data-table/listing-layout';
 import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -238,110 +237,104 @@ export function InactiveCoachesTable({
     };
 
     return (
-        <div className="h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
-            <Table className={cn(coachTableClass, 'min-w-[1320px]')}>
-                <colgroup>
-                    <LeadingColgroup />
-                    <CoachColgroupCol />
-                    <col className="w-[100px]" />
-                    <col className="w-[100px]" />
-                    <col className="w-40" />
-                    <col className="w-[90px]" />
-                    <col className="w-20" />
-                    <col className="w-[140px]" />
-                    <col className="w-[110px]" />
-                    <col />
-                </colgroup>
-                <TableHeader className="sticky top-0 z-20">
-                    {table.getHeaderGroups().map((headerGroup) => (
-                        <TableRow
-                            key={headerGroup.id}
-                            className="hover:bg-transparent"
+        <ListingTable minWidth={1320}>
+            <colgroup>
+                <LeadingColgroup />
+                <CoachColgroupCol />
+                <col className="w-[100px]" />
+                <col className="w-[100px]" />
+                <col className="w-40" />
+                <col className="w-[90px]" />
+                <col className="w-20" />
+                <col className="w-[140px]" />
+                <col className="w-[110px]" />
+                <col />
+            </colgroup>
+            <TableHeader className="sticky top-0 z-20">
+                {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow
+                        key={headerGroup.id}
+                        className="hover:bg-transparent"
+                    >
+                        {headerGroup.headers.map((header) => (
+                            <TableHead
+                                key={header.id}
+                                style={
+                                    stickyLeft[header.column.id] !== undefined
+                                        ? {
+                                              left: stickyLeft[
+                                                  header.column.id
+                                              ],
+                                          }
+                                        : undefined
+                                }
+                                className={cn(
+                                    coachHeadCellClass,
+                                    header.column.id === 'sno' && 'text-center',
+                                    stickyLeft[header.column.id] !==
+                                        undefined && stickyHeadCellClass,
+                                )}
+                            >
+                                {flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext(),
+                                )}
+                            </TableHead>
+                        ))}
+                    </TableRow>
+                ))}
+            </TableHeader>
+            <TableBody>
+                {table.getRowModel().rows.length === 0 ? (
+                    <TableRow>
+                        <TableCell
+                            colSpan={columns.length}
+                            className="py-12 text-center text-muted-foreground"
                         >
-                            {headerGroup.headers.map((header) => (
-                                <TableHead
-                                    key={header.id}
+                            {hasActiveFilters
+                                ? t('No coaches match your filters.')
+                                : t('No coaches yet.')}
+                        </TableCell>
+                    </TableRow>
+                ) : (
+                    table.getRowModel().rows.map((row) => (
+                        <TableRow
+                            key={row.id}
+                            data-state={
+                                row.getIsSelected() ? 'selected' : undefined
+                            }
+                            className="hover:bg-muted/30 data-[state=selected]:bg-primary/5"
+                        >
+                            {row.getVisibleCells().map((cell) => (
+                                <TableCell
+                                    key={cell.id}
                                     style={
-                                        stickyLeft[header.column.id] !==
-                                        undefined
+                                        stickyLeft[cell.column.id] !== undefined
                                             ? {
                                                   left: stickyLeft[
-                                                      header.column.id
+                                                      cell.column.id
                                                   ],
                                               }
                                             : undefined
                                     }
                                     className={cn(
-                                        coachHeadCellClass,
-                                        header.column.id === 'sno' &&
-                                            'text-center',
-                                        stickyLeft[header.column.id] !==
-                                            undefined && stickyHeadCellClass,
+                                        coachCellClass,
+                                        cell.column.id === 'sno' &&
+                                            'text-center font-semibold text-muted-foreground tabular-nums',
+                                        stickyLeft[cell.column.id] !==
+                                            undefined && stickyBodyCellClass,
                                     )}
                                 >
                                     {flexRender(
-                                        header.column.columnDef.header,
-                                        header.getContext(),
+                                        cell.column.columnDef.cell,
+                                        cell.getContext(),
                                     )}
-                                </TableHead>
+                                </TableCell>
                             ))}
                         </TableRow>
-                    ))}
-                </TableHeader>
-                <TableBody>
-                    {table.getRowModel().rows.length === 0 ? (
-                        <TableRow>
-                            <TableCell
-                                colSpan={columns.length}
-                                className="py-12 text-center text-muted-foreground"
-                            >
-                                {hasActiveFilters
-                                    ? t('No coaches match your filters.')
-                                    : t('No coaches yet.')}
-                            </TableCell>
-                        </TableRow>
-                    ) : (
-                        table.getRowModel().rows.map((row) => (
-                            <TableRow
-                                key={row.id}
-                                data-state={
-                                    row.getIsSelected() ? 'selected' : undefined
-                                }
-                                className="hover:bg-muted/30 data-[state=selected]:bg-primary/5"
-                            >
-                                {row.getVisibleCells().map((cell) => (
-                                    <TableCell
-                                        key={cell.id}
-                                        style={
-                                            stickyLeft[cell.column.id] !==
-                                            undefined
-                                                ? {
-                                                      left: stickyLeft[
-                                                          cell.column.id
-                                                      ],
-                                                  }
-                                                : undefined
-                                        }
-                                        className={cn(
-                                            coachCellClass,
-                                            cell.column.id === 'sno' &&
-                                                'text-center font-semibold text-muted-foreground tabular-nums',
-                                            stickyLeft[cell.column.id] !==
-                                                undefined &&
-                                                stickyBodyCellClass,
-                                        )}
-                                    >
-                                        {flexRender(
-                                            cell.column.columnDef.cell,
-                                            cell.getContext(),
-                                        )}
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
-        </div>
+                    ))
+                )}
+            </TableBody>
+        </ListingTable>
     );
 }

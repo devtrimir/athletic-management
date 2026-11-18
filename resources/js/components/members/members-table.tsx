@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useMemo } from 'react';
 import MemberController from '@/actions/App/Http/Controllers/MemberController';
+import { ListingTable } from '@/components/data-table/listing-layout';
 import {
     IconText,
     SelectionHeaderCheckbox,
@@ -46,7 +47,6 @@ import {
     memberStickyLeftHeadClass,
     memberStickyRightBodyClass,
     memberStickyRightHeadClass,
-    memberTableClass,
     postingLocation,
 } from '@/components/members/member-table-cells';
 import {
@@ -62,7 +62,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -419,124 +418,118 @@ export function MembersTable({
     const rows = table.getRowModel().rows;
 
     return (
-        <div className="h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
-            <Table className={memberTableClass}>
-                <colgroup>
-                    <LeadingColgroup />
-                    <col className="w-[100px]" />
-                    <col className="w-[90px]" />
-                    <col className="w-[90px]" />
-                    <col className="w-[180px]" />
-                    <col className="w-[110px]" />
-                    <col className="w-[110px]" />
-                    <col />
-                    <col className="w-[110px]" />
-                </colgroup>
-                <TableHeader className="sticky top-0 z-20">
-                    {table.getHeaderGroups().map((headerGroup) => (
-                        <TableRow
-                            key={headerGroup.id}
-                            className="hover:bg-transparent"
+        <ListingTable minWidth={1300}>
+            <colgroup>
+                <LeadingColgroup />
+                <col className="w-[100px]" />
+                <col className="w-[90px]" />
+                <col className="w-[90px]" />
+                <col className="w-[180px]" />
+                <col className="w-[110px]" />
+                <col className="w-[110px]" />
+                <col />
+                <col className="w-[110px]" />
+            </colgroup>
+            <TableHeader className="sticky top-0 z-20">
+                {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow
+                        key={headerGroup.id}
+                        className="hover:bg-transparent"
+                    >
+                        {headerGroup.headers.map((header) => (
+                            <TableHead
+                                key={header.id}
+                                style={
+                                    stickyLeft[header.column.id] !== undefined
+                                        ? {
+                                              left: stickyLeft[
+                                                  header.column.id
+                                              ],
+                                          }
+                                        : undefined
+                                }
+                                className={cn(
+                                    memberHeadCellClass,
+                                    header.column.id === 'sno' && 'text-center',
+                                    header.column.id === 'actions' &&
+                                        'text-right',
+                                    stickyLeft[header.column.id] !==
+                                        undefined && memberStickyLeftHeadClass,
+                                    header.column.id === 'actions' &&
+                                        memberStickyRightHeadClass,
+                                )}
+                            >
+                                {flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext(),
+                                )}
+                            </TableHead>
+                        ))}
+                    </TableRow>
+                ))}
+            </TableHeader>
+            <TableBody>
+                {rows.length === 0 ? (
+                    <TableRow>
+                        <TableCell
+                            colSpan={columns.length}
+                            className="py-12 text-center text-muted-foreground"
                         >
-                            {headerGroup.headers.map((header) => (
-                                <TableHead
-                                    key={header.id}
+                            {hasAnyFilter
+                                ? t('No members match your filters.')
+                                : t('No members yet.')}
+                        </TableCell>
+                    </TableRow>
+                ) : (
+                    rows.map((row) => (
+                        <TableRow
+                            key={row.id}
+                            data-state={
+                                row.getIsSelected() ? 'selected' : undefined
+                            }
+                            className="cursor-pointer hover:bg-muted/30 data-[state=selected]:bg-primary/5"
+                            onClick={() =>
+                                router.visit(
+                                    getMemberShowUrl(
+                                        row.original.id,
+                                        Boolean(row.original.deleted_at),
+                                    ),
+                                )
+                            }
+                        >
+                            {row.getAllCells().map((cell) => (
+                                <TableCell
+                                    key={cell.id}
                                     style={
-                                        stickyLeft[header.column.id] !==
-                                        undefined
+                                        stickyLeft[cell.column.id] !== undefined
                                             ? {
                                                   left: stickyLeft[
-                                                      header.column.id
+                                                      cell.column.id
                                                   ],
                                               }
                                             : undefined
                                     }
                                     className={cn(
-                                        memberHeadCellClass,
-                                        header.column.id === 'sno' &&
-                                            'text-center',
-                                        header.column.id === 'actions' &&
-                                            'text-right',
-                                        stickyLeft[header.column.id] !==
+                                        memberCellClass,
+                                        cell.column.id === 'sno' &&
+                                            'text-center font-mono text-muted-foreground tabular-nums',
+                                        stickyLeft[cell.column.id] !==
                                             undefined &&
-                                            memberStickyLeftHeadClass,
-                                        header.column.id === 'actions' &&
-                                            memberStickyRightHeadClass,
+                                            memberStickyLeftBodyClass,
+                                        cell.column.id === 'actions' &&
+                                            memberStickyRightBodyClass,
                                     )}
                                 >
                                     {flexRender(
-                                        header.column.columnDef.header,
-                                        header.getContext(),
+                                        cell.column.columnDef.cell,
+                                        cell.getContext(),
                                     )}
-                                </TableHead>
+                                </TableCell>
                             ))}
                         </TableRow>
-                    ))}
-                </TableHeader>
-                <TableBody>
-                    {rows.length === 0 ? (
-                        <TableRow>
-                            <TableCell
-                                colSpan={columns.length}
-                                className="py-12 text-center text-muted-foreground"
-                            >
-                                {hasAnyFilter
-                                    ? t('No members match your filters.')
-                                    : t('No members yet.')}
-                            </TableCell>
-                        </TableRow>
-                    ) : (
-                        rows.map((row) => (
-                            <TableRow
-                                key={row.id}
-                                data-state={
-                                    row.getIsSelected() ? 'selected' : undefined
-                                }
-                                className="cursor-pointer hover:bg-muted/30 data-[state=selected]:bg-primary/5"
-                                onClick={() =>
-                                    router.visit(
-                                        getMemberShowUrl(
-                                            row.original.id,
-                                            Boolean(row.original.deleted_at),
-                                        ),
-                                    )
-                                }
-                            >
-                                {row.getAllCells().map((cell) => (
-                                    <TableCell
-                                        key={cell.id}
-                                        style={
-                                            stickyLeft[cell.column.id] !==
-                                            undefined
-                                                ? {
-                                                      left: stickyLeft[
-                                                          cell.column.id
-                                                      ],
-                                                  }
-                                                : undefined
-                                        }
-                                        className={cn(
-                                            memberCellClass,
-                                            cell.column.id === 'sno' &&
-                                                'text-center font-mono text-muted-foreground tabular-nums',
-                                            stickyLeft[cell.column.id] !==
-                                                undefined &&
-                                                memberStickyLeftBodyClass,
-                                            cell.column.id === 'actions' &&
-                                                memberStickyRightBodyClass,
-                                        )}
-                                    >
-                                        {flexRender(
-                                            cell.column.columnDef.cell,
-                                            cell.getContext(),
-                                        )}
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
-        </div>
+                    ))
+                )}
+            </TableBody>
+        </ListingTable>
     );
 }
