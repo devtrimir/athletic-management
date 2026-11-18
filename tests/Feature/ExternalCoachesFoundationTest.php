@@ -223,6 +223,8 @@ test('external coach can view assigned athlete profile and history only', functi
         'external_coach_id' => $externalCoach->id,
         'training_venue_id' => $venue->id,
         'sport_id' => $sport->id,
+        'start_date' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+        'end_date' => now()->addMonths(2)->toDateString(),
         'status' => 'active',
     ]);
     $otherAssignment = ExternalCoachingAssignment::factory()->create([
@@ -292,7 +294,8 @@ test('external coach can view assigned athlete profile and history only', functi
             ->where('tabCounts.attendance', 2)
             ->where('tabCounts.performance', 2)
             ->where('attendanceFilters.month', now()->format('Y-m'))
-            ->has('attendances', 1)
+            ->has('attendanceFilters.months', 2)
+            ->has('attendances', 2)
             ->where('attendances.0.attendance_status', 'present')
             ->where('attendances.0.review_status', 'corrected')
             ->where('attendances.0.review_remarks', 'Corrected after admin verification.')
@@ -311,7 +314,7 @@ test('external coach can view assigned athlete profile and history only', functi
             ->where('tabCounts.performance', 2)
             ->where('performanceFilters.month', now()->format('Y-m'))
             ->missing('attendances')
-            ->has('performanceUpdates', 1)
+            ->has('performanceUpdates', 2)
             ->where('performanceUpdates.0.training_summary', 'Footwork improved.')
             ->etc());
 
@@ -325,8 +328,8 @@ test('external coach can view assigned athlete profile and history only', functi
             ->component('external-coach/athletes/show')
             ->where('activeTab', 'performance')
             ->where('performanceFilters.month', now()->subMonthNoOverflow()->format('Y-m'))
-            ->has('performanceUpdates', 1)
-            ->where('performanceUpdates.0.training_summary', 'Strength improved.')
+            ->has('performanceUpdates', 2)
+            ->where('performanceUpdates.1.training_summary', 'Strength improved.')
             ->etc());
 
     $this->actingAs($externalCoach, 'external_coach')
@@ -339,8 +342,8 @@ test('external coach can view assigned athlete profile and history only', functi
             ->component('external-coach/athletes/show')
             ->where('activeTab', 'attendance')
             ->where('attendanceFilters.month', now()->subMonthNoOverflow()->format('Y-m'))
-            ->has('attendances', 1)
-            ->where('attendances.0.attendance_status', 'absent')
+            ->has('attendances', 2)
+            ->where('attendances.1.attendance_status', 'absent')
             ->etc());
 
     $this->actingAs($externalCoach, 'external_coach')
@@ -821,4 +824,39 @@ test('external coach listing filters by sport and training venue, and keeps garb
             ->where('filters.sport', 'Boxing')
             ->where('filters.training_venue', 'Main Hall')
             ->has('coaches', 1));
+});
+
+test('the month picker only offers months the athlete trains in, in one payload', function () {
+    $organization = Organization::factory()->create();
+    $coach = ExternalCoach::factory()->create(['organization_id' => $organization->id, 'status' => 'active']);
+    $member = Member::factory()->create(['organization_id' => $organization->id, 'current_status' => 'ACTIVE']);
+    ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $organization->id,
+        'member_id' => $member->id,
+        'external_coach_id' => $coach->id,
+        'training_venue_id' => TrainingVenue::factory()->create(['organization_id' => $organization->id])->id,
+        'sport_id' => Sport::factory()->create(['organization_id' => $organization->id])->id,
+        'start_date' => now()->subMonths(3)->startOfMonth()->toDateString(),
+        'end_date' => now()->addMonths(6)->toDateString(),
+        'status' => 'active',
+    ]);
+
+    $expected = collect(range(3, 0))->map(fn (int $ago): string => now()->startOfMonth()->subMonthsNoOverflow($ago)->format('Y-m'))->all();
+
+    $this->actingAs($coach, 'external_coach')
+        ->get(route('external-coach.athletes.attendance', $member))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            // Past training months through the current one; nothing before the start, nothing in the future.
+            ->has('attendanceFilters.months', 4)
+            ->where('attendanceFilters.months', fn ($months) => collect($months)->pluck('value')->all() === $expected)
+            ->where('attendanceFilters.month', now()->format('Y-m'))
+            ->etc());
+
+    // A month outside the training span falls back to the nearest training month instead of an empty page.
+    foreach ([['month' => now()->subYear()->format('Y-m'), 'expect' => $expected[0]], ['month' => now()->addYear()->format('Y-m'), 'expect' => $expected[3]]] as $case) {
+        $this->actingAs($coach, 'external_coach')
+            ->get(route('external-coach.athletes.attendance', ['member' => $member, 'month' => $case['month']]))
+            ->assertInertia(fn (Assert $page) => $page->where('attendanceFilters.month', $case['expect'])->etc());
+    }
 });
