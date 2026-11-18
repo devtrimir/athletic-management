@@ -38,6 +38,8 @@ type ExternalCoach = {
     email: string;
     phone: string | null;
     photo_path: string | null;
+    sports: { id: number; name: string }[];
+    training_venues: { id: number; name: string }[];
     status: string;
     experience_years: number | null;
     active_coached_players_count: number;
@@ -60,6 +62,36 @@ type Props = {
     statuses: string[];
     perPage: number;
 };
+
+type Named = { id: number; name: string }[];
+
+function joinNames(items: Named): string {
+    return items.map((item) => item.name).join(', ');
+}
+
+/** First two names plus a "+N" badge; full list on hover. */
+function NameList({ items }: { items: Named }) {
+    if (items.length === 0) {
+        return <>-</>;
+    }
+
+    return (
+        <span
+            className="flex min-w-0 items-center gap-1"
+            title={joinNames(items)}
+        >
+            <span className="truncate">{joinNames(items.slice(0, 2))}</span>
+            {items.length > 2 && (
+                <Badge
+                    variant="outline"
+                    className="shrink-0 px-1.5 py-0 text-[10px]"
+                >
+                    +{items.length - 2}
+                </Badge>
+            )}
+        </span>
+    );
+}
 
 function escapeCsvCell(value: string | number | null): string {
     const text = String(value ?? '').replaceAll('"', '""');
@@ -205,6 +237,8 @@ export default function ExternalCoachesIndex({
             t('Name'),
             t('Email'),
             t('Phone'),
+            t('Sports'),
+            t('Training venues'),
             t('Experience'),
             t('Active players'),
             t('Status'),
@@ -215,6 +249,8 @@ export default function ExternalCoachesIndex({
             coach.name,
             coach.email,
             coach.phone ?? '-',
+            joinNames(coach.sports) || '-',
+            joinNames(coach.training_venues) || '-',
             coach.experience_years ?? '-',
             coach.active_coached_players_count,
             t(coach.status),
@@ -245,6 +281,8 @@ export default function ExternalCoachesIndex({
             t('Coach'),
             t('Email'),
             t('Phone'),
+            t('Sports'),
+            t('Training venues'),
             t('Coaching'),
             t('Status'),
         ];
@@ -285,6 +323,8 @@ export default function ExternalCoachesIndex({
                                         coach.name,
                                         coach.email,
                                         coach.phone ?? '-',
+                                        joinNames(coach.sports) || '-',
+                                        joinNames(coach.training_venues) || '-',
                                         [
                                             `${t('Experience')}: ${coach.experience_years ?? '-'}`,
                                             `${t('Active players')}: ${coach.active_coached_players_count}`,
@@ -408,7 +448,7 @@ export default function ExternalCoachesIndex({
                 <div className="min-h-0 flex-1 overflow-hidden">
                     <div className="h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
                         <Table
-                            className={`${listingTableClass} min-w-[1050px]`}
+                            className={`${listingTableClass} min-w-[1400px]`}
                         >
                             <colgroup>
                                 <col className="w-9" />
@@ -417,6 +457,8 @@ export default function ExternalCoachesIndex({
                                 <col className="w-[220px]" />
                                 <col className="w-[260px]" />
                                 <col className="w-[140px]" />
+                                <col className="w-[200px]" />
+                                <col className="w-[240px]" />
                                 <col className="w-[100px]" />
                                 <col className="w-[120px]" />
                                 <col />
@@ -480,6 +522,12 @@ export default function ExternalCoachesIndex({
                                         {t('Phone')}
                                     </TableHead>
                                     <TableHead className={listingHeadCellClass}>
+                                        {t('Sports')}
+                                    </TableHead>
+                                    <TableHead className={listingHeadCellClass}>
+                                        {t('Training venues')}
+                                    </TableHead>
+                                    <TableHead className={listingHeadCellClass}>
                                         {t('Experience')}
                                     </TableHead>
                                     <TableHead className={listingHeadCellClass}>
@@ -503,7 +551,7 @@ export default function ExternalCoachesIndex({
                                 {externalCoaches.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={10}
+                                            colSpan={12}
                                             className="py-12 text-center text-muted-foreground"
                                         >
                                             {hasFilters
@@ -597,6 +645,22 @@ export default function ExternalCoachesIndex({
                                                 className={listingCellClass}
                                             >
                                                 {coach.phone ?? '-'}
+                                            </TableCell>
+                                            <TableCell
+                                                className={listingCellClass}
+                                            >
+                                                <NameList
+                                                    items={coach.sports}
+                                                />
+                                            </TableCell>
+                                            <TableCell
+                                                className={listingCellClass}
+                                            >
+                                                <NameList
+                                                    items={
+                                                        coach.training_venues
+                                                    }
+                                                />
                                             </TableCell>
                                             <TableCell
                                                 className={cn(

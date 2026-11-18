@@ -715,3 +715,17 @@ test('external coaching dates serialize as plain dates so IST does not shift the
 
     expect($assignment->toArray())->toMatchArray(['start_date' => '2026-11-01', 'end_date' => '2026-11-30']);
 });
+
+test('external coaches index includes each coach sports and photo path', function () {
+    $user = rcUser('external-coaches.view');
+    $coach = ExternalCoach::factory()->create(['organization_id' => $user->organization_id, 'photo_path' => 'external-coach-photos/1/x.jpg']);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Archery']);
+    $coach->sports()->attach($sport);
+    $coach->trainingVenues()->attach(TrainingVenue::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Main Ground']));
+
+    $this->actingAs($user)->get(route('external-coaches.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('externalCoaches.data.0.sports.0.name', 'Archery')
+            ->where('externalCoaches.data.0.training_venues.0.name', 'Main Ground')
+            ->where('externalCoaches.data.0.photo_path', 'external-coach-photos/1/x.jpg'));
+});

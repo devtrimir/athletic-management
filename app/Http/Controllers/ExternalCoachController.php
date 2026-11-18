@@ -36,6 +36,7 @@ class ExternalCoachController extends Controller
         $externalCoaches = ExternalCoach::query()
             ->where('organization_id', $orgId)
             ->filter($statusFilter, $search)
+            ->with(['sports:id,name', 'trainingVenues:id,name'])
             ->withActivePlayersCount()
             ->latest('id')
             ->paginate($perPage)
