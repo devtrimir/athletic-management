@@ -33,17 +33,15 @@ class AthleteController extends Controller
         $validated = $request->validate([
             'month' => ['nullable', 'date_format:Y-m'],
         ]);
-        $selectedMonth = Carbon::createFromFormat('!Y-m', $validated['month'] ?? now()->format('Y-m'));
+        $months = $this->trainingMonths($context['assignments']);
+        $selectedMonth = $this->selectedMonth($months, $validated['month'] ?? null);
 
         $attendances = ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)
             ->where('organization_id', $context['coach']->organization_id)
             ->where('external_coach_id', $context['coach']->id)
             ->where('member_id', $context['athlete']->id)
             ->whereIn('external_coaching_assignment_id', $context['assignmentIds'])
-            ->whereBetween('attendance_date', [
-                $selectedMonth->copy()->startOfMonth()->toDateString(),
-                $selectedMonth->copy()->endOfMonth()->toDateString(),
-            ])
+            ->whereBetween('attendance_date', $this->rangeOf($months))
             ->latest('attendance_date')
             ->get([
                 'id',
@@ -62,7 +60,7 @@ class AthleteController extends Controller
         return Inertia::render('external-coach/athletes/show', [
             ...$this->shellPayload($context['athlete'], $context['assignments'], 'attendance'),
             'tabCounts' => $this->tabCounts($context),
-            'attendanceFilters' => $this->monthFilters($context['athlete'], $selectedMonth, 'external-coach.athletes.attendance'),
+            'attendanceFilters' => $this->monthFilters($selectedMonth, $months, $attendances->pluck('attendance_date')),
             'attendances' => $attendances,
         ]);
     }
@@ -73,7 +71,8 @@ class AthleteController extends Controller
         $validated = $request->validate([
             'month' => ['nullable', 'date_format:Y-m'],
         ]);
-        $selectedMonth = Carbon::createFromFormat('!Y-m', $validated['month'] ?? now()->format('Y-m'));
+        $months = $this->trainingMonths($context['assignments']);
+        $selectedMonth = $this->selectedMonth($months, $validated['month'] ?? null);
 
         $performanceUpdates = ExternalCoachPerformanceUpdate::withoutGlobalScope(BelongsToOrganization::class)
             ->with(['sport:id,name'])
@@ -81,10 +80,7 @@ class AthleteController extends Controller
             ->where('external_coach_id', $context['coach']->id)
             ->where('member_id', $context['athlete']->id)
             ->whereIn('external_coaching_assignment_id', $context['assignmentIds'])
-            ->whereBetween('update_date', [
-                $selectedMonth->copy()->startOfMonth()->toDateString(),
-                $selectedMonth->copy()->endOfMonth()->toDateString(),
-            ])
+            ->whereBetween('update_date', $this->rangeOf($months))
             ->latest('update_date')
             ->get([
                 'id',
@@ -101,7 +97,7 @@ class AthleteController extends Controller
         return Inertia::render('external-coach/athletes/show', [
             ...$this->shellPayload($context['athlete'], $context['assignments'], 'performance'),
             'tabCounts' => $this->tabCounts($context),
-            'performanceFilters' => $this->monthFilters($context['athlete'], $selectedMonth, 'external-coach.athletes.performance'),
+            'performanceFilters' => $this->monthFilters($selectedMonth, $months, $performanceUpdates->pluck('update_date')),
             'performanceUpdates' => $performanceUpdates,
         ]);
     }
@@ -204,25 +200,76 @@ class AthleteController extends Controller
     }
 
     /**
-     * @return array{month: string, label: string, previous: string, current: string, next: string}
+     * The calendar months this athlete trains in with this coach: every month
+     * covered by an active assignment, up to the current month (nothing can be
+     * submitted for the future). Newest last.
+     *
+     * @param  Collection<int, ExternalCoachingAssignment>  $assignments
+     * @return Collection<int, string> "Y-m" values
      */
-    private function monthFilters(Member $athlete, Carbon $selectedMonth, string $routeName): array
+    private function trainingMonths(Collection $assignments): Collection
+    {
+        $currentMonth = now()->startOfMonth();
+        $months = collect();
+
+        foreach ($assignments as $assignment) {
+            $cursor = $assignment->start_date->copy()->startOfMonth();
+            $last = $assignment->end_date->copy()->startOfMonth()->min($currentMonth);
+
+            do {
+                $months->push($cursor->format('Y-m'));
+                $cursor = $cursor->copy()->addMonthNoOverflow();
+            } while ($cursor->lte($last));
+        }
+
+        return $months->unique()->sort()->values();
+    }
+
+    /**
+     * The requested month if the athlete trains in it, otherwise the nearest
+     * earlier training month (or the first one, or the latest when none is requested).
+     *
+     * @param  Collection<int, string>  $months
+     */
+    private function selectedMonth(Collection $months, ?string $requested): Carbon
+    {
+        $requested ??= now()->format('Y-m');
+        $chosen = $months->filter(fn (string $month): bool => $month <= $requested)->last() ?? $months->first();
+
+        return Carbon::createFromFormat('!Y-m', $chosen);
+    }
+
+    /**
+     * @param  Collection<int, string>  $months
+     * @return array{0: string, 1: string}
+     */
+    private function rangeOf(Collection $months): array
     {
         return [
+            Carbon::createFromFormat('!Y-m', (string) $months->first())->startOfMonth()->toDateString(),
+            Carbon::createFromFormat('!Y-m', (string) $months->last())->endOfMonth()->toDateString(),
+        ];
+    }
+
+    /**
+     * Everything the month picker needs in one payload: the selected month and
+     * every training month with how many records it holds.
+     *
+     * @param  Collection<int, string>  $months
+     * @param  Collection<int, mixed>  $recordDates
+     * @return array{month: string, months: list<array{value: string, label: string, count: int}>}
+     */
+    private function monthFilters(Carbon $selectedMonth, Collection $months, Collection $recordDates): array
+    {
+        $counts = $recordDates->map(fn (mixed $date): string => substr((string) $date, 0, 7))->countBy();
+
+        return [
             'month' => $selectedMonth->format('Y-m'),
-            'label' => $selectedMonth->translatedFormat('F Y'),
-            'previous' => route($routeName, [
-                'member' => $athlete,
-                'month' => $selectedMonth->copy()->subMonthNoOverflow()->format('Y-m'),
-            ]),
-            'current' => route($routeName, [
-                'member' => $athlete,
-                'month' => now()->format('Y-m'),
-            ]),
-            'next' => route($routeName, [
-                'member' => $athlete,
-                'month' => $selectedMonth->copy()->addMonthNoOverflow()->format('Y-m'),
-            ]),
+            'months' => $months->map(fn (string $month): array => [
+                'value' => $month,
+                'label' => Carbon::createFromFormat('!Y-m', $month)->translatedFormat('F Y'),
+                'count' => (int) ($counts[$month] ?? 0),
+            ])->all(),
         ];
     }
 }

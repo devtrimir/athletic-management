@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarDays,
@@ -9,6 +9,7 @@ import {
     TrendingUp,
     UserRound,
 } from 'lucide-react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +75,9 @@ type PerformanceUpdate = {
     sport: { name: string };
 };
 
+type MonthOption = { value: string; label: string; count: number };
+type MonthFilters = { month: string; months: MonthOption[] };
+
 type Props = {
     athlete: Athlete;
     assignments: Assignment[];
@@ -86,20 +90,8 @@ type Props = {
         attendance: number;
         performance: number;
     };
-    attendanceFilters?: {
-        month: string;
-        label: string;
-        previous: string;
-        current: string;
-        next: string;
-    };
-    performanceFilters?: {
-        month: string;
-        label: string;
-        previous: string;
-        current: string;
-        next: string;
-    };
+    attendanceFilters?: MonthFilters;
+    performanceFilters?: MonthFilters;
     attendances?: Attendance[];
     performanceUpdates?: PerformanceUpdate[];
 };
@@ -112,31 +104,34 @@ export default function ExternalCoachAthleteShow({
     tabCounts,
     attendanceFilters,
     performanceFilters,
-    attendances = [],
-    performanceUpdates = [],
+    attendances: allAttendances = [],
+    performanceUpdates: allPerformanceUpdates = [],
 }: Props) {
     const { t } = useTranslation();
     const activeAssignment = assignments[0];
-    const attendanceSummary = buildAttendanceSummary(attendances);
-    const performanceSummary = buildPerformanceSummary(performanceUpdates);
     const activeFilters =
         activeTab === 'performance' ? performanceFilters : attendanceFilters;
-    const selectedMonth = parseMonthValue(activeFilters?.month);
-    const monthOptions = buildMonthOptions(t);
-    const yearOptions = buildYearOptions(selectedMonth.year);
+    // The server sends every training month in one payload; switching month is instant.
+    const [selected, setSelected] = useState(activeFilters?.month ?? '');
+    const attendances = allAttendances.filter((attendance) =>
+        attendance.attendance_date.startsWith(selected),
+    );
+    const performanceUpdates = allPerformanceUpdates.filter((update) =>
+        update.update_date.startsWith(selected),
+    );
+    const attendanceSummary = buildAttendanceSummary(attendances);
+    const performanceSummary = buildPerformanceSummary(performanceUpdates);
+    const monthLabel =
+        activeFilters?.months.find((month) => month.value === selected)
+            ?.label ?? '';
 
-    function filterByMonth(month: string): void {
-        router.get(
-            activeTab === 'performance'
-                ? tabLinks.performance
-                : tabLinks.attendance,
-            { month },
-            { preserveScroll: true, preserveState: true },
+    function selectMonth(month: string): void {
+        setSelected(month);
+        window.history.replaceState(
+            window.history.state,
+            '',
+            `${window.location.pathname}?month=${month}`,
         );
-    }
-
-    function filterByMonthParts(year: string, month: string): void {
-        filterByMonth(`${year}-${month}`);
     }
 
     return (
@@ -299,9 +294,7 @@ export default function ExternalCoachAthleteShow({
                                                 </div>
                                                 <div className="mt-1 flex flex-wrap items-center gap-2">
                                                     <span className="text-sm font-semibold">
-                                                        {
-                                                            attendanceFilters.label
-                                                        }
+                                                        {monthLabel}
                                                     </span>
                                                     <InlineStat
                                                         label={t('Marked')}
@@ -333,138 +326,13 @@ export default function ExternalCoachAthleteShow({
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-                                                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_80px] overflow-hidden rounded-md border bg-background shadow-xs sm:grid-cols-[minmax(0,1fr)_96px]">
-                                                    <Select
-                                                        value={
-                                                            selectedMonth.month
-                                                        }
-                                                        onValueChange={(
-                                                            month,
-                                                        ) =>
-                                                            filterByMonthParts(
-                                                                selectedMonth.year,
-                                                                month,
-                                                            )
-                                                        }
-                                                    >
-                                                        <SelectTrigger className="h-9 rounded-none border-0 border-r bg-transparent shadow-none focus:ring-0">
-                                                            <SelectValue
-                                                                placeholder={t(
-                                                                    'Month',
-                                                                )}
-                                                            />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {monthOptions.map(
-                                                                (month) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            month.value
-                                                                        }
-                                                                        value={
-                                                                            month.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            month.label
-                                                                        }
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <Select
-                                                        value={
-                                                            selectedMonth.year
-                                                        }
-                                                        onValueChange={(year) =>
-                                                            filterByMonthParts(
-                                                                year,
-                                                                selectedMonth.month,
-                                                            )
-                                                        }
-                                                    >
-                                                        <SelectTrigger className="h-9 rounded-none border-0 bg-transparent shadow-none focus:ring-0">
-                                                            <SelectValue
-                                                                placeholder={t(
-                                                                    'Year',
-                                                                )}
-                                                            />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {yearOptions.map(
-                                                                (year) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            year
-                                                                        }
-                                                                        value={
-                                                                            year
-                                                                        }
-                                                                    >
-                                                                        {year}
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-
-                                                <div className="grid min-w-0 grid-cols-[36px_minmax(0,1fr)_36px] overflow-hidden rounded-md border bg-background shadow-xs sm:w-auto sm:grid-cols-[40px_minmax(82px,1fr)_40px]">
-                                                    <Button
-                                                        asChild
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-9 rounded-none border-r px-2"
-                                                        aria-label={t(
-                                                            'Previous month',
-                                                        )}
-                                                    >
-                                                        <Link
-                                                            href={
-                                                                attendanceFilters.previous
-                                                            }
-                                                            preserveScroll
-                                                        >
-                                                            <ChevronLeft className="size-4" />
-                                                        </Link>
-                                                    </Button>
-                                                    <Button
-                                                        asChild
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-9 rounded-none border-r px-3"
-                                                    >
-                                                        <Link
-                                                            href={
-                                                                attendanceFilters.current
-                                                            }
-                                                            preserveScroll
-                                                        >
-                                                            {t('Current')}
-                                                        </Link>
-                                                    </Button>
-                                                    <Button
-                                                        asChild
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-9 rounded-none px-2"
-                                                        aria-label={t(
-                                                            'Next month',
-                                                        )}
-                                                    >
-                                                        <Link
-                                                            href={
-                                                                attendanceFilters.next
-                                                            }
-                                                            preserveScroll
-                                                        >
-                                                            <ChevronRight className="size-4" />
-                                                        </Link>
-                                                    </Button>
-                                                </div>
-                                            </div>
+                                            <MonthControls
+                                                months={
+                                                    attendanceFilters.months
+                                                }
+                                                selected={selected}
+                                                onSelect={selectMonth}
+                                            />
                                         </div>
                                     </section>
                                 ) : null}
@@ -499,9 +367,7 @@ export default function ExternalCoachAthleteShow({
                                                 </div>
                                                 <div className="mt-1 flex flex-wrap items-center gap-2">
                                                     <span className="text-sm font-semibold">
-                                                        {
-                                                            performanceFilters.label
-                                                        }
+                                                        {monthLabel}
                                                     </span>
                                                     <InlineStat
                                                         label={t('Updates')}
@@ -535,138 +401,13 @@ export default function ExternalCoachAthleteShow({
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-                                                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_80px] overflow-hidden rounded-md border bg-background shadow-xs sm:grid-cols-[minmax(0,1fr)_96px]">
-                                                    <Select
-                                                        value={
-                                                            selectedMonth.month
-                                                        }
-                                                        onValueChange={(
-                                                            month,
-                                                        ) =>
-                                                            filterByMonthParts(
-                                                                selectedMonth.year,
-                                                                month,
-                                                            )
-                                                        }
-                                                    >
-                                                        <SelectTrigger className="h-9 rounded-none border-0 border-r bg-transparent shadow-none focus:ring-0">
-                                                            <SelectValue
-                                                                placeholder={t(
-                                                                    'Month',
-                                                                )}
-                                                            />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {monthOptions.map(
-                                                                (month) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            month.value
-                                                                        }
-                                                                        value={
-                                                                            month.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            month.label
-                                                                        }
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <Select
-                                                        value={
-                                                            selectedMonth.year
-                                                        }
-                                                        onValueChange={(year) =>
-                                                            filterByMonthParts(
-                                                                year,
-                                                                selectedMonth.month,
-                                                            )
-                                                        }
-                                                    >
-                                                        <SelectTrigger className="h-9 rounded-none border-0 bg-transparent shadow-none focus:ring-0">
-                                                            <SelectValue
-                                                                placeholder={t(
-                                                                    'Year',
-                                                                )}
-                                                            />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {yearOptions.map(
-                                                                (year) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            year
-                                                                        }
-                                                                        value={
-                                                                            year
-                                                                        }
-                                                                    >
-                                                                        {year}
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-
-                                                <div className="grid min-w-0 grid-cols-[36px_minmax(0,1fr)_36px] overflow-hidden rounded-md border bg-background shadow-xs sm:w-auto sm:grid-cols-[40px_minmax(82px,1fr)_40px]">
-                                                    <Button
-                                                        asChild
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-9 rounded-none border-r px-2"
-                                                        aria-label={t(
-                                                            'Previous month',
-                                                        )}
-                                                    >
-                                                        <Link
-                                                            href={
-                                                                performanceFilters.previous
-                                                            }
-                                                            preserveScroll
-                                                        >
-                                                            <ChevronLeft className="size-4" />
-                                                        </Link>
-                                                    </Button>
-                                                    <Button
-                                                        asChild
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-9 rounded-none border-r px-3"
-                                                    >
-                                                        <Link
-                                                            href={
-                                                                performanceFilters.current
-                                                            }
-                                                            preserveScroll
-                                                        >
-                                                            {t('Current')}
-                                                        </Link>
-                                                    </Button>
-                                                    <Button
-                                                        asChild
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-9 rounded-none px-2"
-                                                        aria-label={t(
-                                                            'Next month',
-                                                        )}
-                                                    >
-                                                        <Link
-                                                            href={
-                                                                performanceFilters.next
-                                                            }
-                                                            preserveScroll
-                                                        >
-                                                            <ChevronRight className="size-4" />
-                                                        </Link>
-                                                    </Button>
-                                                </div>
-                                            </div>
+                                            <MonthControls
+                                                months={
+                                                    performanceFilters.months
+                                                }
+                                                selected={selected}
+                                                onSelect={selectMonth}
+                                            />
                                         </div>
                                     </section>
                                 ) : null}
@@ -924,55 +665,6 @@ function formatDateTime(value: string): string {
     }).format(date);
 }
 
-function parseMonthValue(value: string | undefined): {
-    year: string;
-    month: string;
-} {
-    const fallback = new Date();
-    const [year, month] = value?.split('-') ?? [];
-
-    if (year && month) {
-        return { year, month };
-    }
-
-    return {
-        year: String(fallback.getFullYear()),
-        month: String(fallback.getMonth() + 1).padStart(2, '0'),
-    };
-}
-
-function buildMonthOptions(
-    t: (key: string) => string,
-): Array<{ value: string; label: string }> {
-    return [
-        ['01', 'January'],
-        ['02', 'February'],
-        ['03', 'March'],
-        ['04', 'April'],
-        ['05', 'May'],
-        ['06', 'June'],
-        ['07', 'July'],
-        ['08', 'August'],
-        ['09', 'September'],
-        ['10', 'October'],
-        ['11', 'November'],
-        ['12', 'December'],
-    ].map(([value, label]) => ({ value, label: t(label) }));
-}
-
-function buildYearOptions(selectedYear: string): string[] {
-    const currentYear = new Date().getFullYear();
-    const years = new Set<string>([selectedYear]);
-
-    for (let offset = -2; offset <= 1; offset += 1) {
-        years.add(String(currentYear + offset));
-    }
-
-    return Array.from(years).sort(
-        (first, second) => Number(second) - Number(first),
-    );
-}
-
 function buildAttendanceSummary(attendances: Attendance[]): {
     total: number;
     present: number;
@@ -1175,4 +867,100 @@ function performanceScoreBadgeClass(score: number | null): string {
     }
 
     return 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/70 dark:bg-rose-900/20 dark:text-rose-200';
+}
+
+function MonthControls({
+    months,
+    selected,
+    onSelect,
+}: {
+    months: MonthOption[];
+    selected: string;
+    onSelect: (month: string) => void;
+}) {
+    const { t } = useTranslation();
+    const index = months.findIndex((month) => month.value === selected);
+    const year = selected.slice(0, 4);
+    const years = Array.from(
+        new Set(months.map((month) => month.value.slice(0, 4))),
+    ).sort((first, second) => Number(second) - Number(first));
+    const inYear = months.filter((month) => month.value.startsWith(year));
+
+    function selectYear(nextYear: string): void {
+        const sameMonth = months.find(
+            (month) => month.value === `${nextYear}-${selected.slice(5)}`,
+        );
+        const inNextYear = months.filter((month) =>
+            month.value.startsWith(nextYear),
+        );
+
+        onSelect((sameMonth ?? inNextYear[inNextYear.length - 1]).value);
+    }
+
+    return (
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_88px] overflow-hidden rounded-md border bg-background shadow-xs sm:grid-cols-[minmax(0,1fr)_96px]">
+                <Select value={selected} onValueChange={onSelect}>
+                    <SelectTrigger className="h-9 rounded-none border-0 border-r bg-transparent shadow-none focus:ring-0">
+                        <SelectValue placeholder={t('Month')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {inYear.map((month) => (
+                            <SelectItem key={month.value} value={month.value}>
+                                {month.label.replace(/\s*\d{4}$/, '')} (
+                                {month.count})
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select
+                    value={years.includes(year) ? year : undefined}
+                    onValueChange={selectYear}
+                >
+                    <SelectTrigger className="h-9 rounded-none border-0 bg-transparent shadow-none focus:ring-0">
+                        <SelectValue placeholder={t('Year')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {years.map((option) => (
+                            <SelectItem key={option} value={option}>
+                                {option}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            <div className="grid min-w-0 grid-cols-[36px_minmax(0,1fr)_36px] overflow-hidden rounded-md border bg-background shadow-xs sm:w-auto sm:grid-cols-[40px_minmax(82px,1fr)_40px]">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 rounded-none border-r px-2"
+                    aria-label={t('Previous month')}
+                    disabled={index <= 0}
+                    onClick={() => onSelect(months[index - 1].value)}
+                >
+                    <ChevronLeft className="size-4" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 rounded-none border-r px-3"
+                    disabled={index === months.length - 1}
+                    onClick={() => onSelect(months[months.length - 1].value)}
+                >
+                    {t('Current')}
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 rounded-none px-2"
+                    aria-label={t('Next month')}
+                    disabled={index === -1 || index >= months.length - 1}
+                    onClick={() => onSelect(months[index + 1].value)}
+                >
+                    <ChevronRight className="size-4" />
+                </Button>
+            </div>
+        </div>
+    );
 }
