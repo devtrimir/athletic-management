@@ -13,6 +13,7 @@ use App\Models\Scopes\BelongsToOrganization;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -70,18 +71,34 @@ class ExternalCoachPerformanceUpdateController extends Controller
             ]);
         }
 
-        ExternalCoachPerformanceUpdate::withoutGlobalScope(BelongsToOrganization::class)->create([
-            ...$payload,
-            'organization_id' => $assignment->organization_id,
-            'external_coaching_assignment_id' => $assignment->id,
-            'member_id' => $assignment->member_id,
-            'external_coach_id' => $coach->id,
-            'sport_id' => $assignment->sport_id,
-            'update_date' => $updateDate,
-            'review_status' => 'pending',
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-        ]);
+        // One update per athlete per day. The lock closes the window where two
+        // parallel submissions would both pass the check.
+        Cache::lock("external-performance-update:{$assignment->id}:{$updateDate->toDateString()}", 10)->block(5, function () use ($assignment, $updateDate, $payload, $coach, $request): void {
+            $alreadySubmitted = ExternalCoachPerformanceUpdate::withoutGlobalScope(BelongsToOrganization::class)
+                ->where('external_coaching_assignment_id', $assignment->id)
+                ->where('member_id', $assignment->member_id)
+                ->whereDate('update_date', $updateDate)
+                ->exists();
+
+            if ($alreadySubmitted) {
+                throw ValidationException::withMessages([
+                    'update_date' => __('A performance update has already been submitted for this athlete and date.'),
+                ]);
+            }
+
+            ExternalCoachPerformanceUpdate::withoutGlobalScope(BelongsToOrganization::class)->create([
+                ...$payload,
+                'organization_id' => $assignment->organization_id,
+                'external_coaching_assignment_id' => $assignment->id,
+                'member_id' => $assignment->member_id,
+                'external_coach_id' => $coach->id,
+                'sport_id' => $assignment->sport_id,
+                'update_date' => $updateDate,
+                'review_status' => 'pending',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+        });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Performance update submitted.')]);
 

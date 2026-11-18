@@ -18,15 +18,17 @@ class DashboardController extends Controller
     {
         /** @var ExternalCoach $coach */
         $coach = $request->user('external_coach');
-        $pno = trim((string) $request->query('pno', ''));
+        $pno = $request->query('pno');
+        $pno = is_string($pno) ? mb_substr(trim($pno), 0, 30) : '';
+        $likePno = addcslashes($pno, '%_\\');
 
         $baseQuery = ExternalCoachingAssignment::withoutGlobalScope(BelongsToOrganization::class)
             ->with(['member:id,pno,full_name,current_status', 'trainingVenue:id,name', 'sport:id,name'])
             ->where('organization_id', $coach->organization_id)
             ->where('external_coach_id', $coach->id)
             ->where('status', 'active')
-            ->when($pno !== '', function ($query) use ($pno): void {
-                $query->whereHas('member', fn ($memberQuery) => $memberQuery->where('pno', 'like', "%{$pno}%"));
+            ->when($pno !== '', function ($query) use ($likePno): void {
+                $query->whereHas('member', fn ($memberQuery) => $memberQuery->where('pno', 'like', "%{$likePno}%"));
             });
 
         $assignments = (clone $baseQuery)
