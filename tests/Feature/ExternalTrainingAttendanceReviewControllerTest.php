@@ -443,3 +443,46 @@ test('example', function () {
 
     $response->assertStatus(200);
 });
+
+test('review page offers the next pending attendance and Save & next jumps to it', function (): void {
+    Storage::fake('local');
+    $fixture = reviewAttendanceFixture(['attendance_date' => today()->toDateString()]);
+    $user = $fixture['user'];
+    $current = $fixture['attendance'];
+    $make = fn (string $date, string $status = 'pending') => ExternalTrainingAttendance::factory()->create([
+        'organization_id' => $user->organization_id,
+        'external_coaching_assignment_id' => $fixture['assignment']->id,
+        'member_id' => $fixture['member']->id,
+        'external_coach_id' => $fixture['coach']->id,
+        'training_venue_id' => $fixture['venue']->id,
+        'attendance_date' => $date,
+        'review_status' => $status,
+    ]);
+    $older = $make(today()->subDays(2)->toDateString());
+    $oldest = $make(today()->subDays(5)->toDateString());
+    $make(today()->subDay()->toDateString(), 'accepted');
+
+    // Next is the next pending record after this one in listing order (newest first).
+    $this->actingAs($user)->get(route('external-training-attendances.show', $current))
+        ->assertInertia(fn ($page) => $page
+            ->where('queue.next_id', $older->id)
+            ->where('queue.pending_count', 2));
+
+    // From the last pending record it wraps around to the first one.
+    $this->actingAs($user)->get(route('external-training-attendances.show', $oldest))
+        ->assertInertia(fn ($page) => $page->where('queue.next_id', $current->id));
+
+    $this->actingAs($user)
+        ->patch(route('external-training-attendances.review', $current), ['action' => 'accept', 'review_remarks' => 'Verified.', 'next' => '1'])
+        ->assertRedirect(route('external-training-attendances.show', $older));
+
+    // Without "next" the user stays on the reviewed record.
+    $this->actingAs($user)
+        ->patch(route('external-training-attendances.review', $older), ['action' => 'accept', 'review_remarks' => 'Verified.'])
+        ->assertRedirect(route('external-training-attendances.show', $older));
+
+    // No pending records left after the last review: back to the list.
+    $this->actingAs($user)
+        ->patch(route('external-training-attendances.review', $oldest), ['action' => 'accept', 'review_remarks' => 'Verified.', 'next' => '1'])
+        ->assertRedirect(route('external-training-attendances.index'));
+});

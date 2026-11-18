@@ -270,6 +270,10 @@ class ExternalTrainingAttendanceController extends Controller
 
         return Inertia::render('external-training-attendances/show', [
             'attendance' => $this->attendancePayload($externalTrainingAttendance),
+            'queue' => [
+                'next_id' => $this->nextPendingAttendance($externalTrainingAttendance)?->id,
+                'pending_count' => $this->pendingQueue($externalTrainingAttendance)->count(),
+            ],
             'reviewActions' => $this->allowedReviewActions($request, $externalTrainingAttendance),
             'attendanceStatuses' => ['present', 'absent', 'late', 'excused', 'not_marked'],
         ]);
@@ -290,7 +294,46 @@ class ExternalTrainingAttendanceController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Attendance review saved.')]);
 
+        if ($request->boolean('next')) {
+            $next = $this->nextPendingAttendance($externalTrainingAttendance);
+
+            return $next !== null
+                ? to_route('external-training-attendances.show', $next)
+                : to_route('external-training-attendances.index');
+        }
+
         return to_route('external-training-attendances.show', $externalTrainingAttendance);
+    }
+
+    /**
+     * Attendance still waiting for review, other than the one being viewed.
+     *
+     * @return Builder<ExternalTrainingAttendance>
+     */
+    private function pendingQueue(ExternalTrainingAttendance $current): Builder
+    {
+        return ExternalTrainingAttendance::query()
+            ->where('review_status', 'pending')
+            ->whereKeyNot($current->id);
+    }
+
+    /**
+     * The next pending record in listing order (newest first) after the current
+     * one, wrapping around to the first pending record when none follows.
+     */
+    private function nextPendingAttendance(ExternalTrainingAttendance $current): ?ExternalTrainingAttendance
+    {
+        $date = $current->attendance_date?->toDateString();
+
+        $after = $this->pendingQueue($current)
+            ->where(fn (Builder $query) => $query
+                ->whereDate('attendance_date', '<', $date)
+                ->orWhere(fn (Builder $same) => $same->whereDate('attendance_date', $date)->where('id', '<', $current->id)))
+            ->orderByDesc('attendance_date')
+            ->orderByDesc('id')
+            ->first(['id']);
+
+        return $after ?? $this->pendingQueue($current)->orderByDesc('attendance_date')->orderByDesc('id')->first(['id']);
     }
 
     public function photo(ExternalTrainingAttendance $externalTrainingAttendance): StreamedResponse
