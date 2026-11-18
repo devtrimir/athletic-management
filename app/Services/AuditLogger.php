@@ -22,4 +22,22 @@ class AuditLogger
             'diff' => $diff,
         ]);
     }
+
+    /**
+     * Record a many-to-many sync (attached/detached ids) against the owning model.
+     *
+     * @param  array{attached: array<int, mixed>, detached: array<int, mixed>, updated: array<int, mixed>}  $changes  Result of BelongsToMany::sync()
+     */
+    public function logSync(Model $model, string $relation, array $changes): void
+    {
+        if ($changes['attached'] === [] && $changes['detached'] === []) {
+            return;
+        }
+
+        $this->log('relation_synced', $model, [
+            'relation' => $relation,
+            'attached' => array_values($changes['attached']),
+            'detached' => array_values($changes['detached']),
+        ]);
+    }
 }

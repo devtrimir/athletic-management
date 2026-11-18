@@ -52,6 +52,9 @@ return [
         ['code' => 'coaches.manageRewards', 'group' => 'coaches', 'name_hi' => 'कोच पुरस्कार प्रबंधित करें', 'name_en' => 'Manage coach rewards'],
         ['code' => 'coaches.viewAuditLog', 'group' => 'coaches', 'name_hi' => 'कोच ऑडिट लॉग देखें', 'name_en' => 'View coach audit log'],
 
+        // ── Audit ────────────────────────────────────────────────────────────
+        ['code' => 'audit-logs.view', 'group' => 'audit', 'name_hi' => 'ऑडिट लॉग देखें', 'name_en' => 'View audit logs'],
+
         // ── External coaches ────────────────────────────────────────────────
         ['code' => 'external-coaches.view', 'group' => 'external_coaches', 'name_hi' => 'बाहरी कोच देखें', 'name_en' => 'View external coaches'],
         ['code' => 'external-coaches.create', 'group' => 'external_coaches', 'name_hi' => 'बाहरी कोच जोड़ें', 'name_en' => 'Create external coaches'],

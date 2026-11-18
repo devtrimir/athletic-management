@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     LayoutGrid,
     CalendarDays,
+    ScrollText,
     Settings2,
     Shield,
     Trophy,
@@ -88,9 +89,15 @@ export function AppSidebar() {
         },
     ].filter((item) => can(item.permission));
 
-    const adminNavItems: NavItem[] = [
+    const adminNavItems: Array<NavItem & { permission?: string }> = [
+        {
+            title: t('Audit logs'),
+            href: '/audit-logs',
+            icon: ScrollText,
+            permission: 'audit-logs.view',
+        },
         { title: t('Settings'), href: editProfile(), icon: Settings2 },
-    ];
+    ].filter((item) => can(item.permission));
 
     return (
         <Sidebar collapsible="offcanvas" variant="inset">

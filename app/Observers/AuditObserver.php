@@ -46,10 +46,15 @@ class AuditObserver
     public function deleted(Model $model): void
     {
         app(AuditLogger::class)->log(
-            'deleted',
+            method_exists($model, 'isForceDeleting') && $model->isForceDeleting() ? 'force_deleted' : 'deleted',
             $model,
             $this->filterAttributes($model->getOriginal()),
         );
+    }
+
+    public function restored(Model $model): void
+    {
+        app(AuditLogger::class)->log('restored', $model);
     }
 
     /**
