@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AchievementBenefitController;
 use App\Http\Controllers\Api\V1\MemberAuditLogController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CoachAliasController;
 use App\Http\Controllers\CoachCertificationController;
 use App\Http\Controllers\CoachController;
@@ -86,6 +87,7 @@ Route::prefix('external-coach')->name('external-coach.')->group(function (): voi
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('external-coaches/{externalCoach}/assignments', [ExternalCoachController::class, 'assignments'])->name('external-coaches.assignments');
     Route::get('external-coaches/{externalCoach}/members/{member}/assignments', [ExternalCoachController::class, 'playerAssignments'])->name('external-coaches.player-assignments');
     Route::resource('external-coaches', ExternalCoachController::class);
