@@ -1,11 +1,9 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import { WelcomeSignIn } from '@/components/auth/welcome-sign-in';
 import { LocaleSwitcher } from '@/components/locale-switcher';
-import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useTranslation } from '@/hooks/use-translation';
-import { dashboard, login } from '@/routes';
-import externalCoach from '@/routes/external-coach';
 
 type HomeBackgroundPreset = 'tennis' | 'multi-sport';
 
@@ -28,8 +26,15 @@ const PRESETS: Record<
     },
 };
 
-export default function Welcome() {
-    const { auth } = usePage().props;
+export default function Welcome({
+    panel = null,
+    status = null,
+    signedInAs = null,
+}: {
+    panel?: 'user' | 'coach' | null;
+    status?: string | null;
+    signedInAs?: 'user' | 'coach' | null;
+}) {
     const { t } = useTranslation();
     const [preset, setPreset] = useState<HomeBackgroundPreset>(() => {
         if (typeof window === 'undefined') {
@@ -97,7 +102,7 @@ export default function Welcome() {
 
                     {/* Content card */}
                     <div
-                        className={`relative z-10 w-full max-w-xs transition-transform duration-700 ease-in-out motion-safe:animate-in motion-safe:duration-1000 motion-safe:slide-in-from-bottom-10 motion-safe:zoom-in-95 motion-safe:fade-in sm:max-w-sm lg:max-w-md xl:max-w-lg ${
+                        className={`relative z-10 w-full max-w-xs transition-transform duration-700 ease-in-out motion-safe:animate-apple-rise sm:max-w-sm lg:max-w-md xl:max-w-lg ${
                             isTennis
                                 ? 'lg:translate-x-[8vw] xl:translate-x-[12vw] 2xl:translate-x-[16vw]'
                                 : 'translate-x-0'
@@ -113,75 +118,11 @@ export default function Welcome() {
                             </div>
                         </div>
 
-                        <div className="relative max-h-[85svh] overflow-y-auto rounded-[1rem] bg-white p-4 pb-6 shadow-2xl sm:rounded-[1.25rem] sm:p-5 sm:pb-7 lg:rounded-[1.5rem] lg:p-6 lg:pb-8 xl:rounded-[2rem] xl:p-8 xl:pb-10">
-                            <div className="flex flex-col items-center pt-8 text-center sm:pt-10 lg:pt-12 xl:pt-14">
-                                <p className="text-xs font-medium text-[#0b1e6b] motion-safe:animate-in motion-safe:delay-200 motion-safe:fade-in motion-safe:slide-in-from-bottom-3 sm:text-sm lg:text-base">
-                                    {t(
-                                        'UP Police Sports Control Board (UPPSCB)',
-                                    )}
-                                </p>
-
-                                <h1 className="mt-1 text-base font-bold tracking-tight text-neutral-900 motion-safe:animate-in motion-safe:delay-300 motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:mt-1.5 sm:text-lg lg:text-xl xl:text-2xl">
-                                    {t(
-                                        'Sports records, teams, and performance in one secure system.',
-                                    )}
-                                </h1>
-
-                                <p className="mt-1.5 text-xs text-neutral-600 motion-safe:animate-in motion-safe:delay-400 motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:mt-2 sm:text-sm">
-                                    {t(
-                                        'Choose the sign-in area for your role.',
-                                    )}
-                                </p>
-
-                                <div className="mt-2.5 grid w-full gap-2 motion-safe:animate-in motion-safe:delay-500 motion-safe:fade-in motion-safe:slide-in-from-bottom-6 sm:mt-3 sm:gap-2.5 lg:mt-4 lg:gap-3">
-                                    {auth.user ? (
-                                        <Button
-                                            asChild
-                                            className="h-9 w-full rounded-lg bg-[#0b1e6b] text-xs hover:bg-[#0b1e6b]/90 sm:h-10 lg:h-11"
-                                            size="lg"
-                                        >
-                                            <Link href={dashboard()}>
-                                                {t('Go to Dashboard')}
-                                            </Link>
-                                        </Button>
-                                    ) : (
-                                        <>
-                                            <Button
-                                                asChild
-                                                className="h-9 w-full rounded-lg bg-[#0b1e6b] text-xs hover:bg-[#0b1e6b]/90 sm:h-10 lg:h-11"
-                                                size="lg"
-                                            >
-                                                <Link href={login()}>
-                                                    {t('Log in to continue')}
-                                                </Link>
-                                            </Button>
-                                            <Button
-                                                asChild
-                                                className="h-9 w-full rounded-lg border-2 border-[#0b1e6b] bg-white text-xs text-[#0b1e6b] hover:bg-[#0b1e6b]/5 sm:h-10 lg:h-11"
-                                                size="lg"
-                                                variant="outline"
-                                            >
-                                                <Link
-                                                    href={externalCoach.login()}
-                                                >
-                                                    {t('External coach login')}
-                                                </Link>
-                                            </Button>
-                                        </>
-                                    )}
-                                </div>
-
-                                <div className="mt-4 w-full motion-safe:animate-in motion-safe:delay-600 motion-safe:fade-in sm:mt-5 lg:mt-6">
-                                    <div className="border-t border-neutral-200" />
-                                </div>
-
-                                <p className="mt-2.5 max-w-xs text-xs leading-relaxed text-neutral-500 motion-safe:animate-in motion-safe:delay-700 motion-safe:fade-in sm:mt-3 lg:mt-4">
-                                    {t(
-                                        'Use this portal to manage members, coaches, teams, tournaments, attendance, and reports.',
-                                    )}
-                                </p>
-                            </div>
-                        </div>
+                        <WelcomeSignIn
+                            initialView={panel ?? 'choose'}
+                            status={status}
+                            signedInAs={signedInAs}
+                        />
 
                         {/* Background selector */}
                         <div className="mt-6 flex flex-col items-center gap-4 motion-safe:animate-in motion-safe:delay-700 motion-safe:fade-in">

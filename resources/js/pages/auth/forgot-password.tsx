@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useTranslation } from '@/hooks/use-translation';
-import { login } from '@/routes';
+import { home } from '@/routes';
 import { email } from '@/routes/password';
 
 export default function ForgotPassword({ status }: { status?: string }) {
@@ -62,7 +62,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
             <div className="text-center text-sm text-muted-foreground">
                 <span>{t('Or, return to')} </span>
-                <TextLink href={login()}>{t('log in')}</TextLink>
+                <TextLink href={home()}>{t('log in')}</TextLink>
             </div>
         </>
     );

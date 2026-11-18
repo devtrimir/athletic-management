@@ -88,10 +88,13 @@ test('external coach model reports login eligibility from status', function () {
 
 test('external coach login page is separate from admin login', function () {
     $this->get(route('external-coach.login'))
+        ->assertRedirect(route('home', ['panel' => 'coach']));
+
+    $this->get(route('home', ['panel' => 'coach']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('external-coach/auth/login')
-            ->etc());
+            ->component('welcome')
+            ->where('panel', 'coach'));
 });
 
 test('external coach protected pages redirect guests to external coach login', function () {
@@ -517,9 +520,32 @@ test('external coaches can login only through the external coach portal', functi
     $this->assertGuest('web');
 
     $this->post(route('external-coach.logout'))
-        ->assertRedirect(route('external-coach.login'));
+        ->assertRedirect(route('home'));
 
     $this->assertGuest('external_coach');
+});
+
+test('a stale admin url never hijacks the coach login redirect', function () {
+    $externalCoach = ExternalCoach::factory()->create(['email' => 'stale.coach@example.test', 'status' => 'active']);
+
+    $this->withSession(['url.intended' => url('/members')])
+        ->post(route('external-coach.login.store'), ['email' => $externalCoach->email, 'password' => 'password'])
+        ->assertRedirect(route('external-coach.dashboard'));
+});
+
+test('a deactivated coach with an open session lands on the welcome page with the reason shown', function () {
+    $externalCoach = ExternalCoach::factory()->create(['status' => 'active']);
+
+    $this->actingAs($externalCoach, 'external_coach');
+    $externalCoach->update(['status' => 'inactive']);
+
+    $this->get(route('external-coach.dashboard'))
+        ->assertRedirect(route('external-coach.login'));
+
+    $this->followingRedirects()
+        ->get(route('external-coach.login'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('welcome'));
 });
 
 test('inactive external coaches cannot login', function () {

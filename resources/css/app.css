@@ -76,6 +76,23 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
+    /* iOS-style spring-like ease used by the welcome sign-in motion. */
+    --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
+    --animate-apple-rise: apple-rise 900ms var(--ease-apple) both;
+
+    @keyframes apple-rise {
+        from {
+            opacity: 0;
+            transform: translateY(24px) scale(0.94);
+            filter: blur(14px);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+            filter: blur(0);
+        }
+    }
+
     --font-sans:
         'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
         'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';

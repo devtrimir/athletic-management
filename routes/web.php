@@ -61,11 +61,25 @@ use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentExportController;
 use App\Http\Controllers\TournamentProfileTabController;
 use App\Http\Controllers\TrainingVenueController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::patch('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
-Route::inertia('/', 'welcome')->name('home');
+Route::get('/', function (Request $request) {
+    // Someone already signed in never sees a login form, whatever ?panel says.
+    $signedInAs = Auth::guard('web')->check() ? 'user' : (Auth::guard('external_coach')->check() ? 'coach' : null);
+
+    return Inertia::render('welcome', [
+        'panel' => $signedInAs === null && in_array($request->query('panel'), ['user', 'coach'], true)
+            ? $request->query('panel')
+            : null,
+        'status' => $request->session()->get('status'),
+        'signedInAs' => $signedInAs,
+    ]);
+})->name('home');
 
 Route::prefix('external-coach')->name('external-coach.')->group(function (): void {
     Route::middleware('guest:external_coach')->group(function (): void {
