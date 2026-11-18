@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
+import { genderLabel } from '@/lib/coach';
 import { formatDate, formatDateRange } from '@/lib/dates';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
@@ -507,7 +508,6 @@ function parseDateValue(value: string): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-
 function formatTimelineTime(value: string, locale: string): string {
     // Dates are always displayed in plain DD/MM/YYYY, regardless of locale.
     void locale;
@@ -780,24 +780,6 @@ function genderClassLabel(
     };
 
     return t(labels[value.toUpperCase()] ?? humanizeCode(value));
-}
-
-function genderLabel(value: string | null | undefined): string | null {
-    if (!value) {
-        return null;
-    }
-
-    const code = value.toUpperCase();
-
-    if (code === 'M' || code === 'MALE') {
-        return 'Male';
-    }
-
-    if (code === 'F' || code === 'FEMALE') {
-        return 'Female';
-    }
-
-    return code;
 }
 
 function postingLocation(member: Member): string | null {
@@ -1603,18 +1585,18 @@ export default function PrintPreview({
                                             },
                                             {
                                                 label: uiText('Gender', locale),
-                                                value: genderLabel(
-                                                    member.gender,
-                                                ),
+                                                value:
+                                                    genderLabel(
+                                                        member.gender,
+                                                        t,
+                                                    ) || null,
                                             },
                                             {
                                                 label: uiText(
                                                     'Date of birth',
                                                     locale,
                                                 ),
-                                                value: formatDate(
-                                                    member.dob,
-                                                ),
+                                                value: formatDate(member.dob),
                                             },
                                             {
                                                 label: uiText(
@@ -1683,9 +1665,7 @@ export default function PrintPreview({
                                 rows={[
                                     {
                                         label: uiText('Joining date', locale),
-                                        value: formatDate(
-                                            member.joining_date,
-                                        ),
+                                        value: formatDate(member.joining_date),
                                     },
                                     {
                                         label: uiText('Promotion date', locale),
@@ -1713,9 +1693,7 @@ export default function PrintPreview({
                                     },
                                     {
                                         label: uiText('Team since', locale),
-                                        value: formatDate(
-                                            member.team_since,
-                                        ),
+                                        value: formatDate(member.team_since),
                                     },
                                     {
                                         label: uiText('Initial rank', locale),

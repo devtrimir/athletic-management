@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useTranslation } from '@/hooks/use-translation';
+import { genderLabel } from '@/lib/coach';
 import { dashboard } from '@/routes';
 
 type StatMetric = {
@@ -114,12 +115,6 @@ const LEVEL_LABELS: Record<string, string> = {
     AIPSC: 'AIPSC',
 };
 
-const GENDER_LABELS: Record<string, string> = {
-    M: 'पुरुष',
-    F: 'महिला',
-    O: 'अन्य',
-};
-
 const LEVEL_COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd'];
 const GENDER_COLORS = ['#3b82f6', '#ec4899', '#10b981'];
 const ROSTER_COLORS = { active: '#10b981', inactive: '#94a3b8' };
@@ -152,7 +147,7 @@ function MetricValue({ metric }: { metric: StatMetric }) {
         return (
             <Link
                 href={metric.href}
-                className="rounded-md outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="rounded-md ring-offset-2 ring-offset-background outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
                 {inner}
             </Link>
@@ -348,7 +343,7 @@ export default function Dashboard({
     // -- Gender chart data
     const memberGenderData = Object.entries(stats.members?.by_gender ?? {}).map(
         ([key, cnt], i) => ({
-            name: GENDER_LABELS[key] ?? key,
+            name: genderLabel(key, t),
             value: cnt,
             color: GENDER_COLORS[i % GENDER_COLORS.length],
         }),
@@ -578,7 +573,9 @@ export default function Dashboard({
                                 {
                                     label: t('Total'),
                                     value: stats.teams.total,
-                                    href: TeamController.index.url(teamSessionFilter),
+                                    href: TeamController.index.url(
+                                        teamSessionFilter,
+                                    ),
                                     tone: 'total',
                                 },
                                 {
@@ -595,7 +592,8 @@ export default function Dashboard({
                                     href: TeamController.index.url({
                                         query: {
                                             filter: {
-                                                ...teamSessionFilter?.query.filter,
+                                                ...teamSessionFilter?.query
+                                                    .filter,
                                                 is_active: '0',
                                             },
                                         },

@@ -1,4 +1,5 @@
-import { formatDate, genderLabel, humanize, rankLabel } from '../helpers';
+import { genderLabel } from '@/lib/coach';
+import { formatDate, humanize, rankLabel } from '../helpers';
 import { DetailsTable, Section } from '../shared';
 import type { Coach } from '../types';
 
@@ -35,7 +36,7 @@ export function CoachProfileSection({
                             },
                             {
                                 label: t('Gender'),
-                                value: genderLabel(coach.gender),
+                                value: genderLabel(coach.gender, t),
                             },
                             {
                                 label: t('Date of birth'),

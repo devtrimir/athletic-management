@@ -32,22 +32,6 @@ export function formatTournamentDateRange(tournament: {
     return formatDateRange(tournament.date_from, tournament.date_to, ' - ', '');
 }
 
-export function genderLabel(value: string | null | undefined): string {
-    if (value === 'M') {
-        return 'Male';
-    }
-
-    if (value === 'F') {
-        return 'Female';
-    }
-
-    if (value === 'O') {
-        return 'Other';
-    }
-
-    return value ?? '';
-}
-
 export function rankLabel(coach: Coach): string {
     return (
         coach.rank_master?.name ??

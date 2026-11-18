@@ -24,6 +24,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { genderLabel } from '@/lib/coach';
 import { formatDate } from '@/lib/dates';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
@@ -144,7 +145,6 @@ function InfoRow({
     );
 }
 
-
 function postingLocation(data: MemberPreview): string | null {
     return data.posting_district?.name ?? data.current_unit?.name ?? null;
 }
@@ -218,7 +218,7 @@ function buildPrintHtml(
     <h2>${t('Personal')}</h2>
     ${row(t("Father's name"), data.father_name)}
     ${row(t('Date of birth'), formatDate(data.dob))}
-    ${row(t('Gender'), data.gender ? t(data.gender) : null)}
+    ${row(t('Gender'), genderLabel(data.gender, t) || null)}
     ${row(t('Blood group'), data.blood_group)}
     ${row(t('Caste'), data.caste)}
     ${row(t('Mobile'), data.mobile)}
@@ -402,7 +402,7 @@ export function MemberQuickView({
                                 />
                                 <InfoRow
                                     label={t('Gender')}
-                                    value={data.gender ? t(data.gender) : null}
+                                    value={genderLabel(data.gender, t) || null}
                                 />
                                 <InfoRow
                                     label={t('Blood group')}
@@ -433,9 +433,7 @@ export function MemberQuickView({
                                 />
                                 <InfoRow
                                     label={t('Promotion date')}
-                                    value={formatDate(
-                                        data.promotion_date,
-                                    )}
+                                    value={formatDate(data.promotion_date)}
                                 />
                                 <InfoRow
                                     label={t('Initial rank')}

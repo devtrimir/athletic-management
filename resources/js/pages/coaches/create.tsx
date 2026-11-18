@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { genderLabel } from '@/lib/coach';
 
 type NisMasterOption = {
     id: number;
@@ -45,12 +46,6 @@ type TierOption = {
     label?: string;
 };
 type ComboboxItem = { value: string; label: string };
-const GENDER_OPTIONS: ComboboxItem[] = [
-    { value: 'M', label: 'Male' },
-    { value: 'F', label: 'Female' },
-    { value: 'O', label: 'Other gender' },
-];
-
 type PrefillMember = {
     member_id: number;
     member_code: string;
@@ -207,8 +202,10 @@ export default function CoachesCreate({
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                     {prefill.full_name}
-                                    {prefill.pno ? ` · ${t('PNO')}: ${prefill.pno}` : ''}
-                                    {' '}—{' '}
+                                    {prefill.pno
+                                        ? ` · ${t('PNO')}: ${prefill.pno}`
+                                        : ''}{' '}
+                                    —{' '}
                                     {t(
                                         'Service details and PNO have been prefilled and linked.',
                                     )}
@@ -546,11 +543,7 @@ export default function CoachesCreate({
                                                     key={value}
                                                     value={value}
                                                 >
-                                                    {GENDER_OPTIONS.find(
-                                                        (option) =>
-                                                            option.value ===
-                                                            value,
-                                                    )?.label ?? value}
+                                                    {genderLabel(value, t)}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
