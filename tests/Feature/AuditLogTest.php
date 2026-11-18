@@ -87,3 +87,18 @@ test('audit log viewer requires permission, filters and is organization scoped',
             ->where('logs.data.0.entity_id', 7)
             ->where('entities', fn ($entities) => collect($entities)->contains('Member') && collect($entities)->contains('Sport')));
 });
+
+test('audit log viewer loads entries in pages of 50 for infinite scroll', function () {
+    $viewer = rcUser('audit-logs.view');
+    AuditLog::query()->delete();
+
+    foreach (range(1, 60) as $i) {
+        AuditLog::create(['organization_id' => $viewer->organization_id, 'entity' => 'Member', 'entity_id' => $i, 'action' => 'created']);
+    }
+
+    $this->actingAs($viewer)->get(route('audit-logs.index'))
+        ->assertInertia(fn (Assert $page) => $page->has('logs.data', 50)->where('logs.total', 60));
+
+    $this->actingAs($viewer)->get(route('audit-logs.index', ['page' => 2]))
+        ->assertInertia(fn (Assert $page) => $page->has('logs.data', 10));
+});

@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, InfiniteScroll, router } from '@inertiajs/react';
 import { ChevronDown, ChevronRight, Search, X } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
 import { DiffView } from '@/components/audit/diff-view';
@@ -9,7 +9,6 @@ import {
     listingTableClass,
 } from '@/components/data-table/table-primitives';
 import Heading from '@/components/heading';
-import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
@@ -53,15 +52,9 @@ type Filters = {
 type Props = {
     logs: {
         data: Log[];
-        links: { url: string | null; label: string; active: boolean }[];
-        current_page: number;
-        last_page: number;
-        total: number;
-        from: number | null;
-        to: number | null;
+        total?: number;
     };
     filters: Filters;
-    perPage: number;
     entities: string[];
     actions: string[];
 };
@@ -76,7 +69,6 @@ function humanize(value: string): string {
 export default function AuditLogsIndex({
     logs,
     filters,
-    perPage,
     entities,
     actions,
 }: Props) {
@@ -85,16 +77,16 @@ export default function AuditLogsIndex({
     const [expanded, setExpanded] = useState<number | null>(null);
     const hasFilters = Object.values(filters).some(Boolean);
 
-    function apply(overrides: Partial<Filters> & { per_page?: number } = {}) {
-        const next = { ...filters, per_page: perPage, ...overrides };
+    function apply(overrides: Partial<Filters> = {}) {
+        const next = { ...filters, ...overrides };
         const params = Object.fromEntries(
             Object.entries(next).filter(([, value]) => value),
         );
 
         router.get('/audit-logs', params, {
             replace: true,
-            preserveScroll: true,
             preserveState: true,
+            reset: ['logs'],
         });
     }
 
@@ -230,8 +222,12 @@ export default function AuditLogsIndex({
                                 setSearch('');
                                 router.get(
                                     '/audit-logs',
-                                    { per_page: perPage },
-                                    { replace: true, preserveState: true },
+                                    {},
+                                    {
+                                        replace: true,
+                                        preserveState: true,
+                                        reset: ['logs'],
+                                    },
                                 );
                             }}
                         >
@@ -242,218 +238,251 @@ export default function AuditLogsIndex({
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-hidden">
-                    <div className="h-full min-h-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
-                        <Table
-                            className={`${listingTableClass} min-w-[1000px]`}
+                    <div
+                        scroll-region=""
+                        style={{ height: '100%' }}
+                        className="h-full min-h-0 overflow-auto rounded-xl border bg-card [&_[data-slot=table-container]]:overflow-visible"
+                    >
+                        <InfiniteScroll
+                            data="logs"
+                            buffer={400}
+                            itemsElement="#audit-log-rows"
+                            preserveUrl
+                            loading={
+                                <p className="py-3 text-center text-xs text-muted-foreground">
+                                    {t('Loading…')}
+                                </p>
+                            }
                         >
-                            <colgroup>
-                                <col className="w-8" />
-                                <col className="w-[150px]" />
-                                <col className="w-[200px]" />
-                                <col className="w-[140px]" />
-                                <col className="w-[160px]" />
-                                <col className="w-[110px]" />
-                                <col className="w-[130px]" />
-                                <col />
-                            </colgroup>
-                            <TableHeader className="sticky top-0 z-20">
-                                <TableRow className="hover:bg-transparent">
-                                    <TableHead
-                                        className={listingHeadCellClass}
-                                    />
-                                    {[
-                                        'When',
-                                        'Actor',
-                                        'Action',
-                                        'Record',
-                                        'Source',
-                                        'IP address',
-                                        'Request',
-                                    ].map((label) => (
+                            <Table
+                                className={`${listingTableClass} min-w-[1000px]`}
+                            >
+                                <colgroup>
+                                    <col className="w-8" />
+                                    <col className="w-[150px]" />
+                                    <col className="w-[200px]" />
+                                    <col className="w-[140px]" />
+                                    <col className="w-[160px]" />
+                                    <col className="w-[110px]" />
+                                    <col className="w-[130px]" />
+                                    <col />
+                                </colgroup>
+                                <TableHeader className="sticky top-0 z-20">
+                                    <TableRow className="hover:bg-transparent">
                                         <TableHead
-                                            key={label}
                                             className={listingHeadCellClass}
-                                        >
-                                            {t(label)}
-                                        </TableHead>
-                                    ))}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {logs.data.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={8}
-                                            className="py-12 text-center text-muted-foreground"
-                                        >
-                                            {t('No audit entries found.')}
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    logs.data.map((log) => (
-                                        <Fragment key={log.id}>
-                                            <TableRow
-                                                className="cursor-pointer hover:bg-muted/30"
-                                                onClick={() =>
-                                                    setExpanded(
-                                                        expanded === log.id
-                                                            ? null
-                                                            : log.id,
-                                                    )
-                                                }
+                                        />
+                                        {[
+                                            'When',
+                                            'Actor',
+                                            'Action',
+                                            'Record',
+                                            'Source',
+                                            'IP address',
+                                            'Request',
+                                        ].map((label) => (
+                                            <TableHead
+                                                key={label}
+                                                className={listingHeadCellClass}
                                             >
-                                                <TableCell
-                                                    className={listingCellClass}
+                                                {t(label)}
+                                            </TableHead>
+                                        ))}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody id="audit-log-rows">
+                                    {logs.data.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={8}
+                                                className="py-12 text-center text-muted-foreground"
+                                            >
+                                                {t('No audit entries found.')}
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        logs.data.map((log) => (
+                                            <Fragment key={log.id}>
+                                                <TableRow
+                                                    className="cursor-pointer hover:bg-muted/30"
+                                                    onClick={() =>
+                                                        setExpanded(
+                                                            expanded === log.id
+                                                                ? null
+                                                                : log.id,
+                                                        )
+                                                    }
                                                 >
-                                                    {expanded === log.id ? (
-                                                        <ChevronDown className="size-3.5" />
-                                                    ) : (
-                                                        <ChevronRight className="size-3.5" />
-                                                    )}
-                                                </TableCell>
-                                                <TableCell
-                                                    className={listingCellClass}
-                                                >
-                                                    {formatDate(log.at, '-')}{' '}
-                                                    <span className="text-muted-foreground">
-                                                        {new Date(
-                                                            log.at,
-                                                        ).toLocaleTimeString()}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell
-                                                    className={listingCellClass}
-                                                >
-                                                    <span className="font-medium">
-                                                        {log.actor_name ??
-                                                            humanize(
-                                                                log.actor_type ??
-                                                                    '-',
-                                                            )}
-                                                    </span>{' '}
-                                                    <span className="text-muted-foreground">
-                                                        {log.actor_name &&
-                                                            humanize(
-                                                                log.actor_type ??
-                                                                    '',
-                                                            )}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell
-                                                    className={listingCellClass}
-                                                >
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="px-1.5 py-0 text-[10px]"
-                                                    >
-                                                        {humanize(log.action)}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell
-                                                    className={listingCellClass}
-                                                >
-                                                    {log.entity}
-                                                    {log.entity_id
-                                                        ? ` #${log.entity_id}`
-                                                        : ''}
-                                                </TableCell>
-                                                <TableCell
-                                                    className={listingCellClass}
-                                                >
-                                                    {log.source ?? '-'}
-                                                </TableCell>
-                                                <TableCell
-                                                    className={listingCellClass}
-                                                >
-                                                    {log.ip_address ?? '-'}
-                                                </TableCell>
-                                                <TableCell
-                                                    className={listingCellClass}
-                                                >
-                                                    {log.request_id ? (
-                                                        <button
-                                                            type="button"
-                                                            title={t(
-                                                                'Show everything from this request',
-                                                            )}
-                                                            className="font-mono text-primary hover:underline"
-                                                            onClick={(
-                                                                event,
-                                                            ) => {
-                                                                event.stopPropagation();
-                                                                setSearch(
-                                                                    log.request_id ??
-                                                                        '',
-                                                                );
-                                                            }}
-                                                        >
-                                                            {log.request_id.slice(
-                                                                0,
-                                                                8,
-                                                            )}
-                                                        </button>
-                                                    ) : (
-                                                        '-'
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                            {expanded === log.id && (
-                                                <TableRow className="hover:bg-transparent">
                                                     <TableCell
-                                                        colSpan={8}
-                                                        className="border-b bg-muted/20 p-3 text-xs"
+                                                        className={
+                                                            listingCellClass
+                                                        }
                                                     >
-                                                        <dl className="mb-2 grid gap-1 sm:grid-cols-2">
-                                                            <div>
-                                                                <dt className="inline text-muted-foreground">
-                                                                    {t('URL')}
-                                                                    :{' '}
-                                                                </dt>
-                                                                <dd className="inline break-all">
-                                                                    {
-                                                                        log.http_method
-                                                                    }{' '}
-                                                                    {log.url ??
-                                                                        '-'}
-                                                                </dd>
-                                                            </div>
-                                                            <div>
-                                                                <dt className="inline text-muted-foreground">
-                                                                    {t(
-                                                                        'Device',
-                                                                    )}
-                                                                    :{' '}
-                                                                </dt>
-                                                                <dd className="inline break-all">
-                                                                    {log.user_agent ??
-                                                                        '-'}
-                                                                </dd>
-                                                            </div>
-                                                        </dl>
-                                                        <DiffView
-                                                            diff={log.diff}
-                                                        />
+                                                        {expanded === log.id ? (
+                                                            <ChevronDown className="size-3.5" />
+                                                        ) : (
+                                                            <ChevronRight className="size-3.5" />
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell
+                                                        className={
+                                                            listingCellClass
+                                                        }
+                                                    >
+                                                        {formatDate(
+                                                            log.at,
+                                                            '-',
+                                                        )}{' '}
+                                                        <span className="text-muted-foreground">
+                                                            {new Date(
+                                                                log.at,
+                                                            ).toLocaleTimeString()}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell
+                                                        className={
+                                                            listingCellClass
+                                                        }
+                                                    >
+                                                        <span className="font-medium">
+                                                            {log.actor_name ??
+                                                                humanize(
+                                                                    log.actor_type ??
+                                                                        '-',
+                                                                )}
+                                                        </span>{' '}
+                                                        <span className="text-muted-foreground">
+                                                            {log.actor_name &&
+                                                                humanize(
+                                                                    log.actor_type ??
+                                                                        '',
+                                                                )}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell
+                                                        className={
+                                                            listingCellClass
+                                                        }
+                                                    >
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="px-1.5 py-0 text-[10px]"
+                                                        >
+                                                            {humanize(
+                                                                log.action,
+                                                            )}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell
+                                                        className={
+                                                            listingCellClass
+                                                        }
+                                                    >
+                                                        {log.entity}
+                                                        {log.entity_id
+                                                            ? ` #${log.entity_id}`
+                                                            : ''}
+                                                    </TableCell>
+                                                    <TableCell
+                                                        className={
+                                                            listingCellClass
+                                                        }
+                                                    >
+                                                        {log.source ?? '-'}
+                                                    </TableCell>
+                                                    <TableCell
+                                                        className={
+                                                            listingCellClass
+                                                        }
+                                                    >
+                                                        {log.ip_address ?? '-'}
+                                                    </TableCell>
+                                                    <TableCell
+                                                        className={
+                                                            listingCellClass
+                                                        }
+                                                    >
+                                                        {log.request_id ? (
+                                                            <button
+                                                                type="button"
+                                                                title={t(
+                                                                    'Show everything from this request',
+                                                                )}
+                                                                className="font-mono text-primary hover:underline"
+                                                                onClick={(
+                                                                    event,
+                                                                ) => {
+                                                                    event.stopPropagation();
+                                                                    setSearch(
+                                                                        log.request_id ??
+                                                                            '',
+                                                                    );
+                                                                }}
+                                                            >
+                                                                {log.request_id.slice(
+                                                                    0,
+                                                                    8,
+                                                                )}
+                                                            </button>
+                                                        ) : (
+                                                            '-'
+                                                        )}
                                                     </TableCell>
                                                 </TableRow>
-                                            )}
-                                        </Fragment>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
+                                                {expanded === log.id && (
+                                                    <TableRow className="hover:bg-transparent">
+                                                        <TableCell
+                                                            colSpan={8}
+                                                            className="border-b bg-muted/20 p-3 text-xs"
+                                                        >
+                                                            <dl className="mb-2 grid gap-1 sm:grid-cols-2">
+                                                                <div>
+                                                                    <dt className="inline text-muted-foreground">
+                                                                        {t(
+                                                                            'URL',
+                                                                        )}
+                                                                        :{' '}
+                                                                    </dt>
+                                                                    <dd className="inline break-all">
+                                                                        {
+                                                                            log.http_method
+                                                                        }{' '}
+                                                                        {log.url ??
+                                                                            '-'}
+                                                                    </dd>
+                                                                </div>
+                                                                <div>
+                                                                    <dt className="inline text-muted-foreground">
+                                                                        {t(
+                                                                            'Device',
+                                                                        )}
+                                                                        :{' '}
+                                                                    </dt>
+                                                                    <dd className="inline break-all">
+                                                                        {log.user_agent ??
+                                                                            '-'}
+                                                                    </dd>
+                                                                </div>
+                                                            </dl>
+                                                            <DiffView
+                                                                diff={log.diff}
+                                                            />
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </Fragment>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </InfiniteScroll>
                     </div>
                 </div>
 
-                <ListingPagination
-                    paginator={logs}
-                    itemLabel={t('entries')}
-                    rowsPerPage={{
-                        value: perPage,
-                        options: [10, 25, 50, 100],
-                        onChange: (value) => apply({ per_page: value }),
-                    }}
-                    className="shrink-0 shadow-sm"
-                />
+                <p className="shrink-0 text-xs text-muted-foreground">
+                    {logs.data.length} {t('of')}{' '}
+                    {logs.total ?? logs.data.length} {t('entries')}
+                </p>
             </div>
         </>
     );

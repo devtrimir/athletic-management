@@ -23,7 +23,7 @@ class AuditLogController extends Controller
         $filters = collect(self::FILTERS)
             ->mapWithKeys(fn (string $key): array => [$key => trim((string) $request->query($key, '')) ?: null])
             ->all();
-        $perPage = min(max((int) $request->query('per_page', 25), 10), 100);
+        $perPage = 50;
 
         $logs = AuditLog::query()
             ->where('organization_id', $orgId)
@@ -50,9 +50,8 @@ class AuditLogController extends Controller
         $scope = AuditLog::query()->where('organization_id', $orgId);
 
         return Inertia::render('audit-logs/index', [
-            'logs' => $logs,
+            'logs' => Inertia::scroll($logs),
             'filters' => $filters,
-            'perPage' => $perPage,
             'entities' => (clone $scope)->distinct()->orderBy('entity')->pluck('entity'),
             'actions' => (clone $scope)->distinct()->orderBy('action')->pluck('action'),
         ]);
