@@ -46,7 +46,7 @@ import {
     useListingFilters,
 } from '@/hooks/use-listing-filters';
 import { useTranslation } from '@/hooks/use-translation';
-import { formatDate } from '@/lib/dates';
+import { formatDate, formatTimeRange } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 type Assignment = {
@@ -98,10 +98,11 @@ function scheduleLabel(assignment: Assignment): string {
     const days = (assignment.training_days ?? [])
         .map((day) => DAY_LABELS[day] ?? day)
         .join(', ');
-    const time =
-        assignment.training_start_time && assignment.training_end_time
-            ? `${assignment.training_start_time.slice(0, 5)}–${assignment.training_end_time.slice(0, 5)}`
-            : '';
+    const time = formatTimeRange(
+        assignment.training_start_time,
+        assignment.training_end_time,
+        '–',
+    );
 
     return [days, time].filter(Boolean).join(' · ') || '-';
 }
