@@ -861,14 +861,14 @@ export default function ExternalTrainingAttendanceIndex({
                 }
             >
                 <div id="external-training-attendance-print" className="h-full">
-                    <ListingTable minWidth={1790}>
+                    <ListingTable minWidth={1600} className="table-auto">
                         <colgroup>
                             <col className="w-9" />
                             <col className="w-[52px]" />
                             <col className="w-[96px]" />
                             <col className="w-[112px]" />
                             <col className="w-[56px]" />
-                            <col className="w-[220px]" />
+                            <col />
                             <col className="w-[180px]" />
                             <col className="min-w-[200px]" />
                             <col className="w-[130px]" />
@@ -1069,7 +1069,10 @@ export default function ExternalTrainingAttendanceIndex({
                                                     }
                                                 />
                                             </SpanCell>
-                                            <SpanCell meta={spans.member}>
+                                            <SpanCell
+                                                meta={spans.member}
+                                                className="max-w-[320px] whitespace-nowrap"
+                                            >
                                                 <Link
                                                     href={`/members/${attendance.member.id}`}
                                                     className="block truncate font-semibold hover:text-primary hover:underline"
