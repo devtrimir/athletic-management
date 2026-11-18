@@ -31,6 +31,7 @@ use Illuminate\Support\Collection;
  * @property Carbon $start_date
  * @property Carbon $end_date
  * @property array<int, string>|null $training_days
+ * @property bool $coach_history_access
  * @property string $attendance_mode
  * @property string $status
  * @property string|null $permission_document_path
@@ -54,6 +55,7 @@ use Illuminate\Support\Collection;
     'training_start_time',
     'training_end_time',
     'attendance_mode',
+    'coach_history_access',
     'permission_reference_number',
     'permission_document_path',
     'permission_document_original_name',
@@ -71,6 +73,9 @@ use Illuminate\Support\Collection;
 #[ObservedBy([AuditObserver::class])]
 class ExternalCoachingAssignment extends Model
 {
+    /** Statuses that mean the player is no longer training under this assignment. */
+    public const FINISHED_STATUSES = ['completed', 'cancelled', 'expired'];
+
     /** @use HasFactory<ExternalCoachingAssignmentFactory> */
     use Auditable, HasFactory, SoftDeletes, Tenanted;
 
@@ -83,6 +88,7 @@ class ExternalCoachingAssignment extends Model
             'start_date' => 'date:Y-m-d',
             'end_date' => 'date:Y-m-d',
             'training_days' => 'array',
+            'coach_history_access' => 'boolean',
             'approved_at' => 'datetime',
             'permission_document_size_bytes' => 'integer',
             'deleted_at' => 'datetime',
@@ -123,6 +129,23 @@ class ExternalCoachingAssignment extends Model
     public function sportEvent(): BelongsTo
     {
         return $this->belongsTo(SportEvent::class);
+    }
+
+    /**
+     * Assignments an external coach may open: the active ones, plus finished
+     * ones (completed, cancelled, expired) the admin has allowed read-only
+     * history access to.
+     *
+     * @param  Builder<ExternalCoachingAssignment>  $query
+     */
+    #[Scope]
+    protected function visibleToCoach(Builder $query): void
+    {
+        $query->where(fn (Builder $visible) => $visible
+            ->where('status', 'active')
+            ->orWhere(fn (Builder $finished) => $finished
+                ->whereIn('status', self::FINISHED_STATUSES)
+                ->where('coach_history_access', true)));
     }
 
     /**
