@@ -1,15 +1,9 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, Medal, ShieldCheck } from 'lucide-react';
+import { Head, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { InlineLoginForm } from '@/components/auth/inline-login-form';
+import { WelcomeSignIn } from '@/components/auth/welcome-sign-in';
 import { LocaleSwitcher } from '@/components/locale-switcher';
-import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useTranslation } from '@/hooks/use-translation';
-import { dashboard } from '@/routes';
-import { store as coachLoginStore } from '@/routes/external-coach/login';
-import { store as loginStore } from '@/routes/login';
-import { request } from '@/routes/password';
 
 type HomeBackgroundPreset = 'tennis' | 'multi-sport';
 
@@ -32,8 +26,6 @@ const PRESETS: Record<
     },
 };
 
-type View = 'choose' | 'user' | 'coach';
-
 export default function Welcome({
     panel = null,
     status = null,
@@ -42,12 +34,6 @@ export default function Welcome({
     status?: string | null;
 }) {
     const { auth } = usePage().props;
-    const [view, setView] = useState<View>(panel ?? 'choose');
-    const [direction, setDirection] = useState<'forward' | 'back'>('forward');
-    const show = (next: View) => {
-        setDirection(next === 'choose' ? 'back' : 'forward');
-        setView(next);
-    };
     const { t } = useTranslation();
     const [preset, setPreset] = useState<HomeBackgroundPreset>(() => {
         if (typeof window === 'undefined') {
@@ -115,7 +101,7 @@ export default function Welcome({
 
                     {/* Content card */}
                     <div
-                        className={`relative z-10 w-full max-w-xs transition-transform duration-700 ease-in-out motion-safe:animate-in motion-safe:duration-1000 motion-safe:slide-in-from-bottom-10 motion-safe:zoom-in-95 motion-safe:fade-in sm:max-w-sm lg:max-w-md xl:max-w-lg ${
+                        className={`relative z-10 w-full max-w-xs transition-transform duration-700 ease-in-out motion-safe:animate-apple-rise sm:max-w-sm lg:max-w-md xl:max-w-lg ${
                             isTennis
                                 ? 'lg:translate-x-[8vw] xl:translate-x-[12vw] 2xl:translate-x-[16vw]'
                                 : 'translate-x-0'
@@ -131,114 +117,11 @@ export default function Welcome({
                             </div>
                         </div>
 
-                        <div className="relative max-h-[85svh] overflow-y-auto rounded-[1rem] bg-white p-4 pb-6 shadow-2xl sm:rounded-[1.25rem] sm:p-5 sm:pb-7 lg:rounded-[1.5rem] lg:p-6 lg:pb-8 xl:rounded-[2rem] xl:p-8 xl:pb-10">
-                            <div className="flex flex-col items-center pt-8 text-center sm:pt-10 lg:pt-12 xl:pt-14">
-                                <p className="text-xs font-medium text-[#0b1e6b] motion-safe:animate-in motion-safe:delay-200 motion-safe:fade-in motion-safe:slide-in-from-bottom-3 sm:text-sm lg:text-base">
-                                    {t(
-                                        'UP Police Sports Control Board (UPPSCB)',
-                                    )}
-                                </p>
-
-                                <h1 className="mt-1 text-base font-bold tracking-tight text-neutral-900 motion-safe:animate-in motion-safe:delay-300 motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:mt-1.5 sm:text-lg lg:text-xl xl:text-2xl">
-                                    {t(
-                                        'Sports records, teams, and performance in one secure system.',
-                                    )}
-                                </h1>
-
-                                <div
-                                    key={view}
-                                    className={`mt-2.5 w-full duration-500 motion-safe:animate-in motion-safe:fade-in sm:mt-3 lg:mt-4 ${
-                                        direction === 'forward'
-                                            ? 'motion-safe:slide-in-from-right-10'
-                                            : 'motion-safe:slide-in-from-left-10'
-                                    }`}
-                                >
-                                    {auth.user ? (
-                                        <Button
-                                            asChild
-                                            className="h-9 w-full rounded-lg bg-[#0b1e6b] text-xs hover:bg-[#0b1e6b]/90 sm:h-10 lg:h-11"
-                                            size="lg"
-                                        >
-                                            <Link href={dashboard()}>
-                                                {t('Go to Dashboard')}
-                                            </Link>
-                                        </Button>
-                                    ) : view === 'choose' ? (
-                                        <>
-                                            <p className="mb-2.5 text-xs text-neutral-600 sm:text-sm">
-                                                {t(
-                                                    'Choose the sign-in area for your role.',
-                                                )}
-                                            </p>
-                                            <div className="grid gap-2 sm:gap-2.5 lg:gap-3">
-                                                <Button
-                                                    className="h-9 w-full rounded-lg bg-[#0b1e6b] text-xs transition-transform duration-200 hover:scale-[1.02] hover:bg-[#0b1e6b]/90 active:scale-[0.99] sm:h-10 lg:h-11"
-                                                    size="lg"
-                                                    onClick={() => show('user')}
-                                                >
-                                                    <ShieldCheck className="size-4" />
-                                                    {t('Log in to continue')}
-                                                </Button>
-                                                <Button
-                                                    className="h-9 w-full rounded-lg border-2 border-[#0b1e6b] bg-white text-xs text-[#0b1e6b] transition-transform duration-200 hover:scale-[1.02] hover:bg-[#0b1e6b]/5 active:scale-[0.99] sm:h-10 lg:h-11"
-                                                    size="lg"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        show('coach')
-                                                    }
-                                                >
-                                                    <Medal className="size-4" />
-                                                    {t('External coach login')}
-                                                </Button>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button
-                                                type="button"
-                                                className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-[#0b1e6b] hover:underline"
-                                                onClick={() => show('choose')}
-                                            >
-                                                <ArrowLeft className="size-3.5" />
-                                                {t('Back')}
-                                            </button>
-                                            <p className="mb-3 text-sm font-semibold text-neutral-900">
-                                                {view === 'user'
-                                                    ? t(
-                                                          'Log in to your account',
-                                                      )
-                                                    : t('External coach login')}
-                                            </p>
-                                            {view === 'user' ? (
-                                                <InlineLoginForm
-                                                    form={loginStore.form()}
-                                                    emailPlaceholder="email@example.com"
-                                                    forgotPasswordHref={
-                                                        request().url
-                                                    }
-                                                    status={status}
-                                                />
-                                            ) : (
-                                                <InlineLoginForm
-                                                    form={coachLoginStore.form()}
-                                                    emailPlaceholder="coach@example.com"
-                                                />
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-
-                                <div className="mt-4 w-full motion-safe:animate-in motion-safe:delay-600 motion-safe:fade-in sm:mt-5 lg:mt-6">
-                                    <div className="border-t border-neutral-200" />
-                                </div>
-
-                                <p className="mt-2.5 max-w-xs text-xs leading-relaxed text-neutral-500 motion-safe:animate-in motion-safe:delay-700 motion-safe:fade-in sm:mt-3 lg:mt-4">
-                                    {t(
-                                        'Use this portal to manage members, coaches, teams, tournaments, attendance, and reports.',
-                                    )}
-                                </p>
-                            </div>
-                        </div>
+                        <WelcomeSignIn
+                            initialView={panel ?? 'choose'}
+                            status={status}
+                            signedIn={!!auth.user}
+                        />
 
                         {/* Background selector */}
                         <div className="mt-6 flex flex-col items-center gap-4 motion-safe:animate-in motion-safe:delay-700 motion-safe:fade-in">
