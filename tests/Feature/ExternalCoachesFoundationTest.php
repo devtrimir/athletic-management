@@ -625,3 +625,44 @@ test('file compressor shrinks oversized images in place and skips unknown files'
         ->and($compressor->compressInPlace('local', 't/note.txt'))->toBe(0)
         ->and($compressor->compressInPlace('local', 't/missing.pdf'))->toBe(0);
 });
+
+test('external coach assignments page filters by activity and player search', function () {
+    $user = rcUser('external-coaches.view');
+    $org = $user->organization_id;
+    $coach = ExternalCoach::factory()->create(['organization_id' => $org]);
+    $running = Member::factory()->create(['organization_id' => $org, 'full_name' => 'Running Rina']);
+    $ended = Member::factory()->create(['organization_id' => $org, 'full_name' => 'Ended Esha']);
+
+    $make = fn (Member $member, string $start, string $end) => ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $org,
+        'external_coach_id' => $coach->id,
+        'member_id' => $member->id,
+        'status' => 'active',
+        'start_date' => $start,
+        'end_date' => $end,
+    ]);
+    $make($running, now()->subWeek()->toDateString(), now()->addMonth()->toDateString());
+    $make($ended, now()->subMonths(2)->toDateString(), now()->subMonth()->toDateString());
+
+    $names = fn (array $query) => collect(
+        $this->actingAs($user)
+            ->get(route('external-coaches.assignments', [$coach, ...$query]))
+            ->assertOk()
+            ->viewData('page')['props']['assignments']['data'],
+    )->pluck('member.full_name')->all();
+
+    expect($names([]))->toHaveCount(2)
+        ->and($names(['active' => 'active']))->toBe(['Running Rina'])
+        ->and($names(['active' => 'inactive']))->toBe(['Ended Esha'])
+        ->and($names(['search' => 'esha']))->toBe(['Ended Esha']);
+
+    $this->actingAs($user)
+        ->get(route('external-coaches.assignments', $coach))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activeAssignmentsCount', 1)
+            ->where('activeAssignmentMemberIds', [$running->id]));
+
+    $this->actingAs($user)
+        ->get(route('external-coaches.player-assignments', [$coach, $running, 'month' => now()->format('Y-m')]))
+        ->assertOk();
+});
