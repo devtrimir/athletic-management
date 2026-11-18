@@ -525,6 +525,14 @@ test('external coaches can login only through the external coach portal', functi
     $this->assertGuest('external_coach');
 });
 
+test('a stale admin url never hijacks the coach login redirect', function () {
+    $externalCoach = ExternalCoach::factory()->create(['email' => 'stale.coach@example.test', 'status' => 'active']);
+
+    $this->withSession(['url.intended' => url('/members')])
+        ->post(route('external-coach.login.store'), ['email' => $externalCoach->email, 'password' => 'password'])
+        ->assertRedirect(route('external-coach.dashboard'));
+});
+
 test('inactive external coaches cannot login', function () {
     $externalCoach = ExternalCoach::factory()->inactive()->create([
         'email' => 'inactive.coach@example.test',
