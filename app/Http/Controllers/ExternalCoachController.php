@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\ExternalCoaches\SaveExternalCoach;
 use App\Http\Requests\ExternalCoaches\StoreExternalCoachRequest;
 use App\Http\Requests\ExternalCoaches\UpdateExternalCoachRequest;
 use App\Models\ExternalCoach;
@@ -14,10 +15,8 @@ use App\Models\TrainingVenue;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -36,26 +35,8 @@ class ExternalCoachController extends Controller
 
         $externalCoaches = ExternalCoach::query()
             ->where('organization_id', $orgId)
-            ->when($statusFilter !== null, fn ($query) => $query->where('status', $statusFilter))
-            ->when($search !== null, function ($query) use ($search): void {
-                $like = '%'.mb_strtolower($search).'%';
-
-                $query->where(function ($builder) use ($like): void {
-                    $builder->whereRaw('LOWER(name) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(email) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$like]);
-                });
-            })
-            ->withCount([
-                'externalCoachingAssignments as active_coached_players_count' => function ($query): void {
-                    $query->where('status', 'active')
-                        ->whereDate('start_date', '<=', now())
-                        ->where(function ($dateQuery): void {
-                            $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-                        })
-                        ->selectRaw('COUNT(DISTINCT member_id)');
-                },
-            ])
+            ->filter($statusFilter, $search)
+            ->withActivePlayersCount()
             ->latest('id')
             ->paginate($perPage)
             ->withQueryString();
@@ -92,23 +73,11 @@ class ExternalCoachController extends Controller
         return $value === '' || $value === 'all' ? null : $value;
     }
 
-    public function store(StoreExternalCoachRequest $request): RedirectResponse
+    public function store(StoreExternalCoachRequest $request, SaveExternalCoach $saveExternalCoach): RedirectResponse
     {
         Gate::authorize('create', ExternalCoach::class);
 
-        $payload = $request->validated();
-        $statusReason = Arr::pull($payload, 'status_reason');
-        $payload = Arr::except($payload, ['photo', 'remove_photo', 'sport_ids', 'training_venue_ids', 'documents']);
-
-        $externalCoach = ExternalCoach::create([
-            ...$payload,
-            'organization_id' => (int) $request->user()->organization_id,
-            'created_by' => $request->user()->id,
-            'updated_by' => $request->user()->id,
-        ]);
-
-        $this->recordStatus($externalCoach, $externalCoach->status, $request->user()->id, $statusReason);
-        $this->saveExtras($externalCoach, $request);
+        $externalCoach = $saveExternalCoach(null, $request->validated(), $request->user());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('External coach created.')]);
 
@@ -354,33 +323,15 @@ class ExternalCoachController extends Controller
         ]);
     }
 
-    public function update(UpdateExternalCoachRequest $request, ExternalCoach $externalCoach): RedirectResponse
+    public function update(UpdateExternalCoachRequest $request, ExternalCoach $externalCoach, SaveExternalCoach $saveExternalCoach): RedirectResponse
     {
         Gate::authorize('update', $externalCoach);
 
-        $payload = $request->validated();
-        $statusReason = Arr::pull($payload, 'status_reason');
-        $payload = Arr::except($payload, ['photo', 'remove_photo', 'sport_ids', 'training_venue_ids', 'documents']);
-        $oldStatus = $externalCoach->status;
-
-        if (($payload['password'] ?? null) === null) {
-            unset($payload['password']);
-        }
-
-        if ($oldStatus !== $payload['status']) {
+        if ($externalCoach->status !== $request->validated('status')) {
             Gate::authorize('manageStatus', $externalCoach);
         }
 
-        $externalCoach->update([
-            ...$payload,
-            'updated_by' => $request->user()->id,
-        ]);
-
-        if ($oldStatus !== $externalCoach->status) {
-            $this->recordStatus($externalCoach, $externalCoach->status, $request->user()->id, $statusReason);
-        }
-
-        $this->saveExtras($externalCoach, $request);
+        $saveExternalCoach($externalCoach, $request->validated(), $request->user());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('External coach updated.')]);
 
@@ -411,50 +362,11 @@ class ExternalCoachController extends Controller
         ];
     }
 
-    private function saveExtras(ExternalCoach $externalCoach, Request $request): void
-    {
-        $externalCoach->sports()->sync($request->input('sport_ids', []));
-        $externalCoach->trainingVenues()->sync($request->input('training_venue_ids', []));
-
-        if ($request->hasFile('photo') || $request->boolean('remove_photo')) {
-            if ($externalCoach->photo_path !== null) {
-                Storage::disk('public')->delete($externalCoach->photo_path);
-            }
-
-            $externalCoach->update([
-                'photo_path' => $request->file('photo')?->store("external-coach-photos/{$externalCoach->organization_id}", 'public'),
-            ]);
-        }
-
-        foreach ((array) $request->file('documents', []) as $index => $row) {
-            $file = $row['file'];
-
-            $externalCoach->documents()->create([
-                'type' => $request->input("documents.{$index}.type"),
-                'path' => $file->store("external-coach-documents/{$externalCoach->id}", 'local'),
-                'original_name' => $file->getClientOriginalName(),
-                'mime_type' => (string) $file->getMimeType(),
-                'size_bytes' => $file->getSize(),
-                'uploaded_by' => $request->user()->id,
-            ]);
-        }
-    }
-
     /**
      * @return list<string>
      */
     private function statuses(): array
     {
         return ['pending_invite', 'active', 'inactive', 'suspended', 'blacklisted'];
-    }
-
-    private function recordStatus(ExternalCoach $externalCoach, string $status, ?int $recordedBy, ?string $reason): void
-    {
-        $externalCoach->statusHistory()->create([
-            'status' => $status,
-            'reason' => $reason,
-            'recorded_by' => $recordedBy,
-            'recorded_at' => now(),
-        ]);
     }
 }

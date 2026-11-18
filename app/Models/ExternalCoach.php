@@ -10,6 +10,8 @@ use Database\Factories\ExternalCoachFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -118,6 +120,43 @@ class ExternalCoach extends Authenticatable
     public function externalCoachingAssignments(): HasMany
     {
         return $this->hasMany(ExternalCoachingAssignment::class);
+    }
+
+    /**
+     * @param  Builder<ExternalCoach>  $query
+     */
+    #[Scope]
+    protected function filter(Builder $query, ?string $status, ?string $search): void
+    {
+        $query
+            ->when($status !== null, fn (Builder $query) => $query->where('status', $status))
+            ->when($search !== null, function (Builder $query) use ($search): void {
+                $like = '%'.mb_strtolower((string) $search).'%';
+
+                $query->where(function (Builder $builder) use ($like): void {
+                    $builder->whereRaw('LOWER(name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(email) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$like]);
+                });
+            });
+    }
+
+    /**
+     * @param  Builder<ExternalCoach>  $query
+     */
+    #[Scope]
+    protected function withActivePlayersCount(Builder $query): void
+    {
+        $query->withCount([
+            'externalCoachingAssignments as active_coached_players_count' => function ($query): void {
+                $query->where('status', 'active')
+                    ->whereDate('start_date', '<=', now())
+                    ->where(function ($dateQuery): void {
+                        $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
+                    })
+                    ->selectRaw('COUNT(DISTINCT member_id)');
+            },
+        ]);
     }
 
     public function isActiveForLogin(): bool
