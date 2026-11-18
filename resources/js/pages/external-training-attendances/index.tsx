@@ -1,19 +1,28 @@
-import { Head, Link, router } from '@inertiajs/react';
-import {
-    Download,
-    Eye,
-    Printer,
-    Search,
-    SlidersHorizontal,
-    X,
-} from 'lucide-react';
-import type { FormEvent } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { Head, Link } from '@inertiajs/react';
+import { Download, Eye, Printer } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 
-import type { ComboboxItem } from '@/components/combobox';
-import { Combobox } from '@/components/combobox';
-import { DatePicker } from '@/components/date-picker';
-import Heading from '@/components/heading';
+import {
+    DateRangePill,
+    FilterPill,
+    OptionList,
+    SearchableOptionList,
+    TextFilterPill,
+    isoDate,
+} from '@/components/data-table/filter-pill';
+import {
+    ListingLayout,
+    ListingTable,
+} from '@/components/data-table/listing-layout';
+import {
+    SelectionHeaderCheckbox,
+    SelectionRowCheckbox,
+    listingCellClass,
+    listingHeadCellClass,
+    stickyLeftBodyCellClass,
+    stickyLeftHeadCellClass,
+} from '@/components/data-table/table-primitives';
 import { ListingPagination } from '@/components/listing-pagination';
 import type { PaginatedListing } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
@@ -27,25 +36,20 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    useDebouncedSearch,
+    useListingFilters,
+} from '@/hooks/use-listing-filters';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate } from '@/lib/dates';
+import { cn } from '@/lib/utils';
 
 type Attendance = {
     id: number;
@@ -331,6 +335,44 @@ function computeRowSpans(attendances: Attendance[]): RowSpanMeta[] {
     return result;
 }
 
+const PATH = '/external-training-attendances';
+
+/** Review-queue shortcuts map onto one filter each; 'pending' is a review_status. */
+const QUEUE_FILTER: Record<string, string> = {
+    flagged: 'flagged_only',
+    outside_radius: 'outside_radius_only',
+    missing_location: 'missing_location_only',
+    low_accuracy: 'low_accuracy_only',
+};
+
+const QUEUE_LABELS: Record<string, string> = {
+    pending: 'Pending review',
+    flagged: 'Geo flagged',
+    outside_radius: 'Outside radius',
+    missing_location: 'Missing location',
+    low_accuracy: 'Low accuracy',
+};
+
+/** Merged cell that only renders on the first row of its group. */
+function SpanCell({
+    meta,
+    className,
+    children,
+}: {
+    meta: SpanMeta;
+    className?: string;
+    children: ReactNode;
+}) {
+    return meta.start ? (
+        <TableCell
+            rowSpan={meta.span}
+            className={cn(listingCellClass, className)}
+        >
+            {children}
+        </TableCell>
+    ) : null;
+}
+
 export default function ExternalTrainingAttendanceIndex({
     attendances,
     filters,
@@ -343,42 +385,13 @@ export default function ExternalTrainingAttendanceIndex({
     trainingVenues = [],
 }: Props) {
     const { t } = useTranslation();
-    const [query, setQuery] = useState<string>(filters.q ?? '');
-    const [memberQuery, setMemberQuery] = useState<string>(
-        filters.member_query ?? '',
+    const perPage = attendances.per_page ?? 25;
+    const { apply, clear } = useListingFilters(PATH, {
+        per_page: String(perPage),
+    });
+    const [search, setSearch] = useDebouncedSearch(filters.q, (q) =>
+        apply(filters, { q }),
     );
-    const [coachQuery, setCoachQuery] = useState<string>(
-        filters.coach_query ?? '',
-    );
-    const [venueQuery, setVenueQuery] = useState<string>(
-        filters.venue_query ?? '',
-    );
-    const [sportQuery, setSportQuery] = useState<string>(
-        filters.sport_query ?? '',
-    );
-    const [sportFilter, setSportFilter] = useState<string>(
-        filters.sport_id ?? 'all',
-    );
-    const [coachFilter, setCoachFilter] = useState<string>(
-        filters.external_coach_id ?? 'all',
-    );
-    const [venueFilter, setVenueFilter] = useState<string>(
-        filters.training_venue_id ?? 'all',
-    );
-    const [dateFrom, setDateFrom] = useState<string>(filters.date_from ?? '');
-    const [dateTo, setDateTo] = useState<string>(filters.date_to ?? '');
-    const [attendanceStatusFilter, setAttendanceStatusFilter] =
-        useState<string>(filters.attendance_status ?? 'all');
-    const [geoStatusFilter, setGeoStatusFilter] = useState<string>(
-        filters.geo_status ?? 'all',
-    );
-    const [reviewStatusFilter, setReviewStatusFilter] = useState<string>(
-        filters.review_status ?? 'all',
-    );
-    const [reviewQueue, setReviewQueue] = useState<string>(
-        reviewQueueFromFilters(filters),
-    );
-    const [filtersOpen, setFiltersOpen] = useState(false);
     const [outputOpen, setOutputOpen] = useState(false);
     const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<
         number[]
@@ -389,45 +402,8 @@ export default function ExternalTrainingAttendanceIndex({
         () => computeRowSpans(attendances.data),
         [attendances.data],
     );
-    const sportItems: ComboboxItem[] = sports.map((sport) => ({
-        value: String(sport.id),
-        label: sport.name,
-    }));
-    const coachItems: ComboboxItem[] = externalCoaches.map((coach) => ({
-        value: String(coach.id),
-        label: coach.name,
-    }));
-    const venueItems: ComboboxItem[] = trainingVenues.map((venue) => ({
-        value: String(venue.id),
-        label: venue.name,
-    }));
-    const advancedFilterCount = [
-        memberQuery.trim() !== '',
-        coachQuery.trim() !== '',
-        venueQuery.trim() !== '',
-        sportQuery.trim() !== '',
-        sportFilter !== 'all',
-        coachFilter !== 'all',
-        venueFilter !== 'all',
-        geoStatusFilter !== 'all',
-        reviewStatusFilter !== 'all' && reviewQueue !== 'pending',
-    ].filter(Boolean).length;
-    const hasFilters =
-        query.trim() !== '' ||
-        memberQuery.trim() !== '' ||
-        coachQuery.trim() !== '' ||
-        venueQuery.trim() !== '' ||
-        sportQuery.trim() !== '' ||
-        sportFilter !== 'all' ||
-        coachFilter !== 'all' ||
-        venueFilter !== 'all' ||
-        reviewQueue !== 'all' ||
-        dateFrom !== '' ||
-        dateTo !== '' ||
-        attendanceStatusFilter !== 'all' ||
-        geoStatusFilter !== 'all' ||
-        reviewStatusFilter !== 'all';
-    const hasDateError = dateFrom !== '' && dateTo !== '' && dateFrom > dateTo;
+    const hasFilters = Object.values(filters).some(Boolean);
+    const reviewQueue = reviewQueueFromFilters(filters);
     const pageAttendanceIds = attendances.data.map(
         (attendance) => attendance.id,
     );
@@ -441,248 +417,54 @@ export default function ExternalTrainingAttendanceIndex({
         selectedOutputColumns,
         selectedAttendanceIds,
     );
-    const paginationSummary =
-        attendances.from !== null
-            ? `${t('Showing')} ${attendances.from}-${attendances.to ?? attendances.from} ${t('of')} ${attendances.total} ${t('attendances')}`
-            : `${t('Showing')} 0 ${t('of')} ${attendances.total} ${t('attendances')}`;
+    const nameOf = (list: { id: number; name: string }[], id: string | null) =>
+        list.find((item) => String(item.id) === id)?.name;
+    const options = (list: { id: number; name: string }[]) =>
+        list.map((item) => ({ value: String(item.id), label: item.name }));
+    const statusOptions = (list: string[]) =>
+        list.map((value) => ({ value, label: t(value) }));
 
-    useEffect(() => {
-        // Keep form inputs in sync with URL filters when they change externally.
-        /* eslint-disable react-hooks/set-state-in-effect */
-        setQuery(filters.q ?? '');
-        setMemberQuery(filters.member_query ?? '');
-        setCoachQuery(filters.coach_query ?? '');
-        setVenueQuery(filters.venue_query ?? '');
-        setSportQuery(filters.sport_query ?? '');
-        setSportFilter(filters.sport_id ?? 'all');
-        setCoachFilter(filters.external_coach_id ?? 'all');
-        setVenueFilter(filters.training_venue_id ?? 'all');
-        setDateFrom(filters.date_from ?? '');
-        setDateTo(filters.date_to ?? '');
-        setAttendanceStatusFilter(filters.attendance_status ?? 'all');
-        setGeoStatusFilter(filters.geo_status ?? 'all');
-        setReviewStatusFilter(filters.review_status ?? 'all');
-        setReviewQueue(reviewQueueFromFilters(filters));
-        /* eslint-enable react-hooks/set-state-in-effect */
-    }, [filters]);
-
-    function applyFilters(event?: FormEvent<HTMLFormElement>) {
-        event?.preventDefault();
-
-        if (hasDateError) {
-            return;
-        }
-
-        const params: Record<string, string> = {};
-
-        if (query.trim() !== '') {
-            params['filter[q]'] = query.trim();
-        }
-
-        if (memberQuery.trim() !== '') {
-            params['filter[member_query]'] = memberQuery.trim();
-        }
-
-        if (coachQuery.trim() !== '') {
-            params['filter[coach_query]'] = coachQuery.trim();
-        }
-
-        if (coachFilter !== 'all') {
-            params['filter[external_coach_id]'] = coachFilter;
-        }
-
-        if (venueFilter !== 'all') {
-            params['filter[training_venue_id]'] = venueFilter;
-        }
-
-        if (venueQuery.trim() !== '') {
-            params['filter[venue_query]'] = venueQuery.trim();
-        }
-
-        if (sportQuery.trim() !== '') {
-            params['filter[sport_query]'] = sportQuery.trim();
-        }
-
-        if (sportFilter !== 'all') {
-            params['filter[sport_id]'] = sportFilter;
-        }
-
-        if (dateFrom !== '') {
-            params['filter[date_from]'] = dateFrom;
-        }
-
-        if (dateTo !== '') {
-            params['filter[date_to]'] = dateTo;
-        }
-
-        if (attendanceStatusFilter !== 'all') {
-            params['filter[attendance_status]'] = attendanceStatusFilter;
-        }
-
-        if (geoStatusFilter !== 'all') {
-            params['filter[geo_status]'] = geoStatusFilter;
-        }
-
-        if (reviewStatusFilter !== 'all') {
-            params['filter[review_status]'] = reviewStatusFilter;
-        }
-
-        applyReviewQueueParams(params);
-
-        router.get('/external-training-attendances', params, {
-            replace: true,
-            preserveScroll: true,
-            preserveState: true,
+    function applyQueue(queue: string | undefined) {
+        apply(filters, {
+            flagged_only: null,
+            outside_radius_only: null,
+            missing_location_only: null,
+            low_accuracy_only: null,
+            review_status:
+                queue === 'pending' ? 'pending' : filters.review_status,
+            ...(queue && QUEUE_FILTER[queue]
+                ? { [QUEUE_FILTER[queue]]: '1' }
+                : {}),
         });
     }
 
-    function changeRowsPerPage(value: number) {
-        const params = buildFilterParams();
-        params.per_page = String(value);
+    const datePresets = [
+        {
+            label: t('Today'),
+            range: (): [string, string] => [
+                isoDate(new Date()),
+                isoDate(new Date()),
+            ],
+        },
+        {
+            label: t('This week'),
+            range: (): [string, string] => {
+                const start = new Date();
+                start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
 
-        router.get('/external-training-attendances', params, {
-            replace: true,
-            preserveScroll: true,
-            preserveState: true,
-        });
-    }
+                return [isoDate(start), isoDate(new Date())];
+            },
+        },
+        {
+            label: t('This month'),
+            range: (): [string, string] => {
+                const start = new Date();
+                start.setDate(1);
 
-    function buildFilterParams(
-        overrides: {
-            dateFromOverride?: string;
-            dateToOverride?: string;
-        } = {},
-    ): Record<string, string> {
-        const params: Record<string, string> = {};
-        const nextDateFrom = overrides.dateFromOverride ?? dateFrom;
-        const nextDateTo = overrides.dateToOverride ?? dateTo;
-
-        if (query.trim() !== '') {
-            params['filter[q]'] = query.trim();
-        }
-
-        if (memberQuery.trim() !== '') {
-            params['filter[member_query]'] = memberQuery.trim();
-        }
-
-        if (coachQuery.trim() !== '') {
-            params['filter[coach_query]'] = coachQuery.trim();
-        }
-
-        if (coachFilter !== 'all') {
-            params['filter[external_coach_id]'] = coachFilter;
-        }
-
-        if (venueFilter !== 'all') {
-            params['filter[training_venue_id]'] = venueFilter;
-        }
-
-        if (venueQuery.trim() !== '') {
-            params['filter[venue_query]'] = venueQuery.trim();
-        }
-
-        if (sportQuery.trim() !== '') {
-            params['filter[sport_query]'] = sportQuery.trim();
-        }
-
-        if (sportFilter !== 'all') {
-            params['filter[sport_id]'] = sportFilter;
-        }
-
-        if (nextDateFrom !== '') {
-            params['filter[date_from]'] = nextDateFrom;
-        }
-
-        if (nextDateTo !== '') {
-            params['filter[date_to]'] = nextDateTo;
-        }
-
-        if (attendanceStatusFilter !== 'all') {
-            params['filter[attendance_status]'] = attendanceStatusFilter;
-        }
-
-        if (geoStatusFilter !== 'all') {
-            params['filter[geo_status]'] = geoStatusFilter;
-        }
-
-        if (reviewStatusFilter !== 'all') {
-            params['filter[review_status]'] = reviewStatusFilter;
-        }
-
-        applyReviewQueueParams(params);
-
-        return params;
-    }
-
-    function applyReviewQueueParams(params: Record<string, string>) {
-        if (reviewQueue === 'pending') {
-            params['filter[review_status]'] = 'pending';
-        }
-
-        if (reviewQueue === 'flagged') {
-            params['filter[flagged_only]'] = '1';
-        }
-
-        if (reviewQueue === 'outside_radius') {
-            params['filter[outside_radius_only]'] = '1';
-        }
-
-        if (reviewQueue === 'missing_location') {
-            params['filter[missing_location_only]'] = '1';
-        }
-
-        if (reviewQueue === 'low_accuracy') {
-            params['filter[low_accuracy_only]'] = '1';
-        }
-    }
-
-    function setDatePreset(preset: 'today' | 'week' | 'month') {
-        const today = new Date();
-        const start = new Date(today);
-
-        if (preset === 'week') {
-            const day = start.getDay();
-            const mondayOffset = day === 0 ? -6 : 1 - day;
-            start.setDate(start.getDate() + mondayOffset);
-        }
-
-        if (preset === 'month') {
-            start.setDate(1);
-        }
-
-        const presetDateFrom = formatDateInput(start);
-        const presetDateTo = formatDateInput(today);
-
-        setDateFrom(presetDateFrom);
-        setDateTo(presetDateTo);
-        visitWithFilters({
-            dateFromOverride: presetDateFrom,
-            dateToOverride: presetDateTo,
-        });
-    }
-
-    function clearFilters() {
-        setQuery('');
-        setMemberQuery('');
-        setCoachQuery('');
-        setVenueQuery('');
-        setSportQuery('');
-        setSportFilter('all');
-        setCoachFilter('all');
-        setVenueFilter('all');
-        setDateFrom('');
-        setDateTo('');
-        setAttendanceStatusFilter('all');
-        setGeoStatusFilter('all');
-        setReviewStatusFilter('all');
-        setReviewQueue('all');
-
-        router.get(
-            '/external-training-attendances',
-            {},
-            { replace: true, preserveScroll: true, preserveState: true },
-        );
-    }
+                return [isoDate(start), isoDate(new Date())];
+            },
+        },
+    ];
 
     function toggleOutputColumn(column: string, checked: boolean): void {
         setSelectedOutputColumns((current) => {
@@ -693,21 +475,6 @@ export default function ExternalTrainingAttendanceIndex({
             return current.length === 1
                 ? current
                 : current.filter((item) => item !== column);
-        });
-    }
-
-    function visitWithFilters(
-        overrides: {
-            dateFromOverride?: string;
-            dateToOverride?: string;
-        } = {},
-    ) {
-        const params = buildFilterParams(overrides);
-
-        router.get('/external-training-attendances', params, {
-            replace: true,
-            preserveScroll: true,
-            preserveState: true,
         });
     }
 
@@ -747,1239 +514,688 @@ export default function ExternalTrainingAttendanceIndex({
         <>
             <Head title={t('External training attendance')} />
 
-            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
-                <div className="flex shrink-0 items-start justify-between gap-4">
-                    <Heading
-                        variant="small"
-                        title={t('External training attendance')}
-                        description={t(
-                            'Review submitted external training proof and geo flags.',
+            <ListingLayout
+                title={t('External training attendance')}
+                description={t(
+                    'Review submitted external training proof and geo flags.',
+                )}
+                search={{
+                    value: search,
+                    onChange: setSearch,
+                    placeholder: t('Member, PNO, coach, venue, sport...'),
+                }}
+                actions={
+                    <>
+                        {selectedAttendanceIds.length > 0 && (
+                            <Badge variant="secondary" className="rounded-full">
+                                {selectedAttendanceIds.length} {t('selected')}
+                            </Badge>
                         )}
-                    />
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => setDatePreset('today')}
-                        >
-                            {t('Today')}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => setDatePreset('week')}
-                        >
-                            {t('This week')}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => setDatePreset('month')}
-                        >
-                            {t('This month')}
-                        </Button>
-                    </div>
-                </div>
-
-                <form
-                    className="shrink-0 rounded-xl border bg-card shadow-sm"
-                    onSubmit={applyFilters}
-                >
-                    <div className="grid gap-2 p-3">
-                        <div className="flex flex-wrap items-end gap-2">
-                            <div className="grid min-w-0 flex-1 gap-2 xl:grid-cols-[200px_190px_190px_145px_145px_170px] xl:items-end">
-                                <div className="space-y-0.5">
-                                    <Label
-                                        htmlFor="attendance_query"
-                                        className="text-xs font-medium text-muted-foreground"
-                                    >
-                                        {t('Search')}
-                                    </Label>
-                                    <div className="relative">
-                                        <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                        <Input
-                                            id="attendance_query"
-                                            name="attendance_query"
-                                            value={query}
-                                            onChange={(event) =>
-                                                setQuery(event.target.value)
-                                            }
-                                            placeholder={t(
-                                                'Member, PNO, coach, venue, sport...',
-                                            )}
-                                            className="h-8 pl-9"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-0.5">
-                                    <Label
-                                        htmlFor="coach_filter"
-                                        className="text-xs font-medium text-muted-foreground"
-                                    >
-                                        {t('Coach')}
-                                    </Label>
-                                    <Combobox
-                                        id="coach_filter"
-                                        value={
-                                            coachFilter === 'all'
-                                                ? ''
-                                                : coachFilter
-                                        }
-                                        onValueChange={(value) =>
-                                            setCoachFilter(value || 'all')
-                                        }
-                                        items={coachItems}
-                                        placeholder={t('All coaches')}
-                                        searchPlaceholder={t('Search coach')}
-                                        emptyMessage={t('No coach found.')}
-                                        className="h-8"
-                                    />
-                                </div>
-
-                                <div className="space-y-0.5">
-                                    <Label
-                                        htmlFor="venue_filter"
-                                        className="text-xs font-medium text-muted-foreground"
-                                    >
-                                        {t('Venue')}
-                                    </Label>
-                                    <Combobox
-                                        id="venue_filter"
-                                        value={
-                                            venueFilter === 'all'
-                                                ? ''
-                                                : venueFilter
-                                        }
-                                        onValueChange={(value) =>
-                                            setVenueFilter(value || 'all')
-                                        }
-                                        items={venueItems}
-                                        placeholder={t('All venues')}
-                                        searchPlaceholder={t('Search venue')}
-                                        emptyMessage={t('No venue found.')}
-                                        className="h-8"
-                                    />
-                                </div>
-
-                                <div className="space-y-0.5">
-                                    <Label
-                                        htmlFor="date_from"
-                                        className="text-xs font-medium text-muted-foreground"
-                                    >
-                                        {t('From date')}
-                                    </Label>
-                                    <DatePicker
-                                        id="date_from"
-                                        value={dateFrom}
-                                        onChange={setDateFrom}
-                                        placeholder={t('Start date')}
-                                    />
-                                </div>
-
-                                <div className="space-y-0.5">
-                                    <Label
-                                        htmlFor="date_to"
-                                        className="text-xs font-medium text-muted-foreground"
-                                    >
-                                        {t('To date')}
-                                    </Label>
-                                    <DatePicker
-                                        id="date_to"
-                                        value={dateTo}
-                                        onChange={setDateTo}
-                                        placeholder={t('End date')}
-                                        aria-invalid={hasDateError}
-                                    />
-                                </div>
-
-                                <div className="space-y-0.5">
-                                    <Label
-                                        htmlFor="review_queue"
-                                        className="text-xs font-medium text-muted-foreground"
-                                    >
-                                        {t('Review queue')}
-                                    </Label>
-                                    <Select
-                                        value={reviewQueue}
-                                        onValueChange={setReviewQueue}
-                                    >
-                                        <SelectTrigger
-                                            id="review_queue"
-                                            className="h-8"
-                                        >
-                                            <SelectValue
-                                                placeholder={t('All')}
-                                            />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">
-                                                {t('All')}
-                                            </SelectItem>
-                                            <SelectItem value="pending">
-                                                {t('Pending review')}
-                                            </SelectItem>
-                                            <SelectItem value="flagged">
-                                                {t('Geo flagged')}
-                                            </SelectItem>
-                                            <SelectItem value="outside_radius">
-                                                {t('Outside radius')}
-                                            </SelectItem>
-                                            <SelectItem value="missing_location">
-                                                {t('Missing location')}
-                                            </SelectItem>
-                                            <SelectItem value="low_accuracy">
-                                                {t('Low accuracy')}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <div className="flex shrink-0 gap-2">
+                        <Dialog open={outputOpen} onOpenChange={setOutputOpen}>
+                            <DialogTrigger asChild>
                                 <Button
-                                    type="submit"
-                                    disabled={hasDateError}
-                                    className="h-8 text-xs"
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8"
                                 >
-                                    {t('Apply')}
+                                    <Download className="size-4" />
+                                    {t('Export / Print')}
                                 </Button>
-                                <Dialog
-                                    open={filtersOpen}
-                                    onOpenChange={setFiltersOpen}
-                                >
-                                    <DialogTrigger asChild>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="h-8 text-xs"
-                                        >
-                                            <SlidersHorizontal className="size-4" />
-                                            {t('More filters')}
-                                            {advancedFilterCount > 0 ? (
-                                                <Badge
-                                                    variant="secondary"
-                                                    className="ml-1 px-1.5 py-0 text-[10px]"
-                                                >
-                                                    {advancedFilterCount}
-                                                </Badge>
-                                            ) : null}
-                                        </Button>
-                                    </DialogTrigger>
-                                </Dialog>
-                            </div>
-                        </div>
+                            </DialogTrigger>
+                            <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-4xl">
+                                <DialogHeader>
+                                    <DialogTitle>
+                                        {t('Choose columns')}
+                                    </DialogTitle>
+                                </DialogHeader>
 
-                        {hasDateError ? (
-                            <p className="text-xs text-destructive">
-                                {t('Date from cannot be after date to.')}
-                            </p>
-                        ) : null}
-
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                    {paginationSummary}
-                                </span>
-                                {hasFilters ? (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={clearFilters}
-                                        className="h-7 text-xs"
-                                    >
-                                        <X className="size-4" />
-                                        {t('Clear filters')}
-                                    </Button>
-                                ) : null}
-                                <Dialog
-                                    open={filtersOpen}
-                                    onOpenChange={setFiltersOpen}
-                                >
-                                    <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl">
-                                        <DialogHeader>
-                                            <DialogTitle>
-                                                {t('Advanced filters')}
-                                            </DialogTitle>
-                                        </DialogHeader>
-
-                                        <div className="grid gap-3 py-2 sm:grid-cols-2 lg:grid-cols-3">
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="member_query"
-                                                    className="text-sm font-medium"
-                                                >
-                                                    {t('Member only')}
-                                                </Label>
-                                                <Input
-                                                    id="member_query"
-                                                    value={memberQuery}
-                                                    onChange={(event) =>
-                                                        setMemberQuery(
-                                                            event.target.value,
-                                                        )
-                                                    }
-                                                    placeholder={t(
-                                                        'Name, code, or PNO',
-                                                    )}
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="coach_query"
-                                                    className="text-sm font-medium"
-                                                >
-                                                    {t('Coach only')}
-                                                </Label>
-                                                <Input
-                                                    id="coach_query"
-                                                    value={coachQuery}
-                                                    onChange={(event) =>
-                                                        setCoachQuery(
-                                                            event.target.value,
-                                                        )
-                                                    }
-                                                    placeholder={t(
-                                                        'Name, phone, or email',
-                                                    )}
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="venue_query"
-                                                    className="text-sm font-medium"
-                                                >
-                                                    {t('Venue only')}
-                                                </Label>
-                                                <Input
-                                                    id="venue_query"
-                                                    value={venueQuery}
-                                                    onChange={(event) =>
-                                                        setVenueQuery(
-                                                            event.target.value,
-                                                        )
-                                                    }
-                                                    placeholder={t(
-                                                        'Venue name',
-                                                    )}
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="sport_query"
-                                                    className="text-sm font-medium"
-                                                >
-                                                    {t('Sport text')}
-                                                </Label>
-                                                <Input
-                                                    id="sport_query"
-                                                    value={sportQuery}
-                                                    onChange={(event) =>
-                                                        setSportQuery(
-                                                            event.target.value,
-                                                        )
-                                                    }
-                                                    placeholder={t(
-                                                        'Sport name',
-                                                    )}
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="attendance_status"
-                                                    className="text-sm font-medium"
-                                                >
-                                                    {t('Attendance status')}
-                                                </Label>
-                                                <Select
-                                                    value={
-                                                        attendanceStatusFilter
-                                                    }
-                                                    onValueChange={
-                                                        setAttendanceStatusFilter
-                                                    }
-                                                >
-                                                    <SelectTrigger id="attendance_status">
-                                                        <SelectValue
-                                                            placeholder={t(
-                                                                'All',
-                                                            )}
-                                                        />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">
-                                                            {t('All')}
-                                                        </SelectItem>
-                                                        {attendanceStatuses.map(
-                                                            (status) => (
-                                                                <SelectItem
-                                                                    key={status}
-                                                                    value={
-                                                                        status
-                                                                    }
-                                                                >
-                                                                    {t(status)}
-                                                                </SelectItem>
-                                                            ),
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="sport_filter"
-                                                    className="text-sm font-medium"
-                                                >
-                                                    {t('Sport (from list)')}
-                                                </Label>
-                                                <Combobox
-                                                    id="sport_filter"
-                                                    value={
-                                                        sportFilter === 'all'
-                                                            ? ''
-                                                            : sportFilter
-                                                    }
-                                                    onValueChange={(value) =>
-                                                        setSportFilter(
-                                                            value || 'all',
-                                                        )
-                                                    }
-                                                    items={sportItems}
-                                                    placeholder={t(
-                                                        'All sports',
-                                                    )}
-                                                    searchPlaceholder={t(
-                                                        'Search sport',
-                                                    )}
-                                                    emptyMessage={t(
-                                                        'No sport found.',
-                                                    )}
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="geo_status"
-                                                    className="text-sm font-medium"
-                                                >
-                                                    {t('Geo status')}
-                                                </Label>
-                                                <Select
-                                                    value={geoStatusFilter}
-                                                    onValueChange={
-                                                        setGeoStatusFilter
-                                                    }
-                                                >
-                                                    <SelectTrigger id="geo_status">
-                                                        <SelectValue
-                                                            placeholder={t(
-                                                                'All',
-                                                            )}
-                                                        />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">
-                                                            {t('All')}
-                                                        </SelectItem>
-                                                        {geoStatuses.map(
-                                                            (status) => (
-                                                                <SelectItem
-                                                                    key={status}
-                                                                    value={
-                                                                        status
-                                                                    }
-                                                                >
-                                                                    {t(status)}
-                                                                </SelectItem>
-                                                            ),
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <Label
-                                                    htmlFor="review_status"
-                                                    className="text-sm font-medium"
-                                                >
-                                                    {t('Review status')}
-                                                </Label>
-                                                <Select
-                                                    value={reviewStatusFilter}
-                                                    onValueChange={
-                                                        setReviewStatusFilter
-                                                    }
-                                                >
-                                                    <SelectTrigger id="review_status">
-                                                        <SelectValue
-                                                            placeholder={t(
-                                                                'All',
-                                                            )}
-                                                        />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">
-                                                            {t('All')}
-                                                        </SelectItem>
-                                                        {reviewStatuses.map(
-                                                            (status) => (
-                                                                <SelectItem
-                                                                    key={status}
-                                                                    value={
-                                                                        status
-                                                                    }
-                                                                >
-                                                                    {t(status)}
-                                                                </SelectItem>
-                                                            ),
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-
-                                        <DialogFooter className="gap-2 sm:gap-0">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={clearFilters}
-                                            >
-                                                <X className="size-4" />
-                                                {t('Clear filters')}
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                disabled={hasDateError}
-                                                onClick={() => {
-                                                    applyFilters();
-                                                    setFiltersOpen(false);
-                                                }}
-                                            >
-                                                {t('Apply filters')}
-                                            </Button>
-                                        </DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-                <div
-                    id="external-training-attendance-print"
-                    className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm print:border-0 print:shadow-none"
-                >
-                    <div className="flex shrink-0 flex-col gap-2 border-b bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between print:hidden">
-                        <div>
-                            <div className="text-sm font-semibold">
-                                {t('Attendance records')}
-                            </div>
-                            <div className="text-[11px] font-medium text-muted-foreground">
-                                {paginationSummary}
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            {selectedAttendanceIds.length > 0 ? (
-                                <Badge
-                                    variant="secondary"
-                                    className="rounded-full"
-                                >
-                                    {selectedAttendanceIds.length}{' '}
-                                    {t('selected')}
-                                </Badge>
-                            ) : null}
-                            <Dialog
-                                open={outputOpen}
-                                onOpenChange={setOutputOpen}
-                            >
-                                <DialogTrigger asChild>
+                                <div className="flex flex-wrap items-center gap-2 border-b pb-3">
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        className="h-8"
+                                        onClick={() =>
+                                            setSelectedOutputColumns(
+                                                allOutputColumns(),
+                                            )
+                                        }
                                     >
-                                        <Download className="size-4" />
-                                        {t('Export / Print')}
+                                        {t('Select all')}
                                     </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-4xl">
-                                    <DialogHeader>
-                                        <DialogTitle>
-                                            {t('Choose columns')}
-                                        </DialogTitle>
-                                    </DialogHeader>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            setSelectedOutputColumns(
+                                                defaultExportColumns,
+                                            )
+                                        }
+                                    >
+                                        {t('Default')}
+                                    </Button>
+                                    <span className="text-xs text-muted-foreground">
+                                        {selectedOutputColumns.length}{' '}
+                                        {t('columns selected')}
+                                    </span>
+                                </div>
 
-                                    <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                                setSelectedOutputColumns(
-                                                    allOutputColumns(),
-                                                )
-                                            }
-                                        >
-                                            {t('Select all')}
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                                setSelectedOutputColumns(
-                                                    defaultExportColumns,
-                                                )
-                                            }
-                                        >
-                                            {t('Default')}
-                                        </Button>
-                                        <span className="text-xs text-muted-foreground">
-                                            {selectedOutputColumns.length}{' '}
-                                            {t('columns selected')}
-                                        </span>
-                                    </div>
+                                <div className="grid gap-3 py-3 sm:grid-cols-2 xl:grid-cols-3">
+                                    {exportColumnGroups.map((group) => {
+                                        const groupColumns = group.columns.map(
+                                            (column) => column.key,
+                                        );
+                                        const allChecked = groupColumns.every(
+                                            (column) =>
+                                                selectedOutputColumns.includes(
+                                                    column,
+                                                ),
+                                        );
 
-                                    <div className="grid gap-3 py-3 sm:grid-cols-2 xl:grid-cols-3">
-                                        {exportColumnGroups.map((group) => {
-                                            const groupColumns =
-                                                group.columns.map(
-                                                    (column) => column.key,
-                                                );
-                                            const allChecked =
-                                                groupColumns.every((column) =>
-                                                    selectedOutputColumns.includes(
-                                                        column,
-                                                    ),
-                                                );
-
-                                            return (
-                                                <section
-                                                    key={group.label}
-                                                    className="rounded-lg border bg-muted/10 p-3"
-                                                >
-                                                    <label className="flex items-center gap-2 text-sm font-semibold">
-                                                        <Checkbox
-                                                            checked={allChecked}
-                                                            onCheckedChange={(
-                                                                checked,
-                                                            ) =>
-                                                                setOutputGroup(
-                                                                    groupColumns,
-                                                                    checked ===
-                                                                        true,
-                                                                )
-                                                            }
-                                                        />
-                                                        {t(group.label)}
-                                                    </label>
-                                                    <div className="mt-3 grid gap-2">
-                                                        {group.columns.map(
-                                                            (column) => (
-                                                                <label
-                                                                    key={
-                                                                        column.key
-                                                                    }
-                                                                    className="flex items-center gap-2 text-xs text-muted-foreground"
-                                                                >
-                                                                    <Checkbox
-                                                                        checked={selectedOutputColumns.includes(
-                                                                            column.key,
-                                                                        )}
-                                                                        onCheckedChange={(
-                                                                            checked,
-                                                                        ) =>
-                                                                            toggleOutputColumn(
-                                                                                column.key,
-                                                                                checked ===
-                                                                                    true,
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                    {t(
-                                                                        column.label,
-                                                                    )}
-                                                                </label>
-                                                            ),
-                                                        )}
-                                                    </div>
-                                                </section>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <DialogFooter className="gap-2 sm:gap-0">
-                                        <Button asChild variant="outline">
-                                            <a href={exportUrl}>
-                                                <Download className="size-4" />
-                                                {t('Export selected')}
-                                            </a>
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            onClick={() =>
-                                                printSelectedAttendanceColumns(
-                                                    t(
-                                                        'External training attendance',
-                                                    ),
-                                                    selectedOutputColumns,
-                                                    selectedAttendanceIds,
-                                                )
-                                            }
-                                        >
-                                            <Printer className="size-4" />
-                                            {t('Print selected')}
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
-                        </div>
-                    </div>
-                    <div className="min-h-0 flex-1 overflow-auto">
-                        {/* Desktop table */}
-                        <div className="hidden h-full lg:block">
-                            <Table className="min-w-[980px] text-[12px]">
-                                <TableHeader className="sticky top-0 z-10">
-                                    <TableRow className="border-b bg-muted hover:bg-muted">
-                                        <TableHead className="sticky left-0 z-20 h-8 w-10 border-r bg-muted px-2 text-[11px] print:hidden">
-                                            <Checkbox
-                                                checked={allPageRowsSelected}
-                                                onCheckedChange={(checked) =>
-                                                    togglePageSelection(
-                                                        checked === true,
-                                                    )
-                                                }
-                                                aria-label={t(
-                                                    'Select all visible attendances',
-                                                )}
-                                            />
-                                        </TableHead>
-                                        <TableHead className="sticky left-10 z-20 h-8 w-12 border-r bg-muted px-2 text-[11px]">
-                                            {t('S.No.')}
-                                        </TableHead>
-                                        <TableHead className="sticky left-22 z-20 h-8 w-20 border-r bg-muted px-2 text-[11px] shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)]">
-                                            {t('Review')}
-                                        </TableHead>
-                                        <TableHead className="h-8 w-24 px-2 text-[11px]">
-                                            {t('Date')}
-                                        </TableHead>
-                                        <TableHead className="h-8 w-20 px-2 text-[11px]">
-                                            {t('Entry source')}
-                                        </TableHead>
-                                        <TableHead className="h-8 min-w-40 px-2 text-[11px]">
-                                            {t('Member')}
-                                        </TableHead>
-                                        <TableHead className="h-8 min-w-36 px-2 text-[11px]">
-                                            {t('External coach')}
-                                        </TableHead>
-                                        <TableHead className="h-8 min-w-28 px-2 text-[11px]">
-                                            {t('Venue')}
-                                        </TableHead>
-                                        <TableHead className="h-8 min-w-24 px-2 text-[11px]">
-                                            {t('Sport')}
-                                        </TableHead>
-                                        <TableHead className="h-8 w-24 px-2 text-[11px]">
-                                            {t('Attendance')}
-                                        </TableHead>
-                                        <TableHead className="h-8 w-28 px-2 text-[11px]">
-                                            {t('Corrected status')}
-                                        </TableHead>
-                                        <TableHead className="h-8 w-24 px-2 text-[11px]">
-                                            {t('Geo status')}
-                                        </TableHead>
-                                        <TableHead className="h-8 w-28 px-2 text-[11px]">
-                                            {t('Review action')}
-                                        </TableHead>
-                                        <TableHead className="h-8 w-20 px-2 text-right text-[11px]">
-                                            {t('Distance')}
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {attendances.data.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={14}
-                                                className="h-24 text-center text-sm text-muted-foreground"
+                                        return (
+                                            <section
+                                                key={group.label}
+                                                className="rounded-lg border bg-muted/10 p-3"
                                             >
-                                                {t(
-                                                    'No attendance records found.',
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : null}
-                                    {attendances.data.map(
-                                        (attendance, index) => (
-                                            <TableRow
-                                                key={attendance.id}
-                                                data-attendance-id={
-                                                    attendance.id
-                                                }
-                                                className="group bg-card hover:bg-muted/30"
-                                            >
-                                                <TableCell className="sticky left-0 z-10 border-r bg-card px-2 py-1.5 group-hover:bg-muted/30 print:hidden">
+                                                <label className="flex items-center gap-2 text-sm font-semibold">
                                                     <Checkbox
-                                                        checked={selectedAttendanceIds.includes(
-                                                            attendance.id,
-                                                        )}
+                                                        checked={allChecked}
                                                         onCheckedChange={(
                                                             checked,
                                                         ) =>
-                                                            toggleAttendanceSelection(
-                                                                attendance.id,
+                                                            setOutputGroup(
+                                                                groupColumns,
                                                                 checked ===
                                                                     true,
                                                             )
                                                         }
-                                                        aria-label={t(
-                                                            'Select attendance',
-                                                        )}
                                                     />
-                                                </TableCell>
-                                                <TableCell className="sticky left-10 z-10 border-r bg-card px-2 py-1.5 text-muted-foreground group-hover:bg-muted/30">
-                                                    {(attendances.from ?? 1) +
-                                                        index}
-                                                </TableCell>
-                                                <TableCell className="sticky left-22 z-10 border-r bg-card px-2 py-1.5 shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-muted/30">
-                                                    {canReviewAttendanceDetails ? (
-                                                        <Button
-                                                            asChild
-                                                            size="sm"
-                                                            className="h-6 px-1.5 text-[12px]"
-                                                        >
-                                                            <Link
-                                                                href={`/external-training-attendances/${attendance.id}`}
+                                                    {t(group.label)}
+                                                </label>
+                                                <div className="mt-3 grid gap-2">
+                                                    {group.columns.map(
+                                                        (column) => (
+                                                            <label
+                                                                key={column.key}
+                                                                className="flex items-center gap-2 text-xs text-muted-foreground"
                                                             >
-                                                                <Eye className="size-3.5" />
-                                                                {t('Review')}
-                                                            </Link>
-                                                        </Button>
-                                                    ) : (
-                                                        <span className="text-[12px] text-muted-foreground">
-                                                            {t('No access')}
-                                                        </span>
-                                                    )}
-                                                </TableCell>
-                                                {rowSpanMeta[index].date
-                                                    .start ? (
-                                                    <TableCell
-                                                        rowSpan={
-                                                            rowSpanMeta[index]
-                                                                .date.span
-                                                        }
-                                                        className="px-2 py-1.5 align-middle font-medium whitespace-nowrap"
-                                                    >
-                                                        {formatDate(
-                                                            attendance.attendance_date,
-                                                        )}
-                                                    </TableCell>
-                                                ) : null}
-                                                {rowSpanMeta[index].source
-                                                    .start ? (
-                                                    <TableCell
-                                                        rowSpan={
-                                                            rowSpanMeta[index]
-                                                                .source.span
-                                                        }
-                                                        className="px-2 py-1.5 align-middle whitespace-nowrap"
-                                                    >
-                                                        <Badge
-                                                            variant={
-                                                                attendance.flag_reason ===
-                                                                AUTO_MARKED_ATTENDANCE_REASON
-                                                                    ? 'default'
-                                                                    : 'outline'
-                                                            }
-                                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendance.flag_reason === AUTO_MARKED_ATTENDANCE_REASON ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : ''}`}
-                                                        >
-                                                            {attendanceMarkingSource(
-                                                                attendance.flag_reason,
-                                                                t,
-                                                            )}
-                                                        </Badge>
-                                                    </TableCell>
-                                                ) : null}
-                                                {rowSpanMeta[index].member
-                                                    .start ? (
-                                                    <TableCell
-                                                        rowSpan={
-                                                            rowSpanMeta[index]
-                                                                .member.span
-                                                        }
-                                                        className="min-w-40 px-2 py-1.5 align-middle"
-                                                    >
-                                                        <Link
-                                                            href={`/members/${attendance.member.id}`}
-                                                            className="font-semibold text-foreground hover:text-primary hover:underline"
-                                                        >
-                                                            {
-                                                                attendance
-                                                                    .member
-                                                                    .full_name
-                                                            }
-                                                        </Link>
-                                                        {attendance.member
-                                                            .pno ? (
-                                                            <div className="text-[11px] text-muted-foreground">
-                                                                {
-                                                                    attendance
-                                                                        .member
-                                                                        .pno
-                                                                }
-                                                            </div>
-                                                        ) : null}
-                                                    </TableCell>
-                                                ) : null}
-                                                {rowSpanMeta[index].coach
-                                                    .start ? (
-                                                    <TableCell
-                                                        rowSpan={
-                                                            rowSpanMeta[index]
-                                                                .coach.span
-                                                        }
-                                                        className="min-w-36 px-2 py-1.5 align-middle"
-                                                    >
-                                                        <Link
-                                                            href={`/external-coaches/${attendance.external_coach.id}`}
-                                                            className="font-medium text-primary hover:underline"
-                                                        >
-                                                            {
-                                                                attendance
-                                                                    .external_coach
-                                                                    .name
-                                                            }
-                                                        </Link>
-                                                    </TableCell>
-                                                ) : null}
-                                                {rowSpanMeta[index].venue
-                                                    .start ? (
-                                                    <TableCell
-                                                        rowSpan={
-                                                            rowSpanMeta[index]
-                                                                .venue.span
-                                                        }
-                                                        className="max-w-32 truncate px-2 py-1.5 align-middle"
-                                                    >
-                                                        {
-                                                            attendance
-                                                                .training_venue
-                                                                .name
-                                                        }
-                                                    </TableCell>
-                                                ) : null}
-                                                {rowSpanMeta[index].sport
-                                                    .start ? (
-                                                    <TableCell
-                                                        rowSpan={
-                                                            rowSpanMeta[index]
-                                                                .sport.span
-                                                        }
-                                                        className="max-w-28 truncate px-2 py-1.5 align-middle"
-                                                    >
-                                                        {attendance.assignment
-                                                            ?.sport?.name ??
-                                                            '-'}
-                                                    </TableCell>
-                                                ) : null}
-                                                {rowSpanMeta[index].attendance
-                                                    .start ? (
-                                                    <TableCell
-                                                        rowSpan={
-                                                            rowSpanMeta[index]
-                                                                .attendance.span
-                                                        }
-                                                        className="px-2 py-1.5 align-middle whitespace-nowrap"
-                                                    >
-                                                        <div className="flex flex-col items-start gap-1">
-                                                            <Badge
-                                                                variant="outline"
-                                                                className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}
-                                                            >
+                                                                <Checkbox
+                                                                    checked={selectedOutputColumns.includes(
+                                                                        column.key,
+                                                                    )}
+                                                                    onCheckedChange={(
+                                                                        checked,
+                                                                    ) =>
+                                                                        toggleOutputColumn(
+                                                                            column.key,
+                                                                            checked ===
+                                                                                true,
+                                                                        )
+                                                                    }
+                                                                />
                                                                 {t(
-                                                                    attendance.attendance_status,
+                                                                    column.label,
                                                                 )}
-                                                            </Badge>
-                                                        </div>
-                                                    </TableCell>
-                                                ) : null}
-                                                <TableCell className="px-2 py-1.5 whitespace-nowrap">
-                                                    {attendance.review_status ===
-                                                        'corrected' &&
-                                                    attendance.corrected_attendance_status ? (
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendanceStatusBadgeClass(attendance.corrected_attendance_status)}`}
-                                                        >
-                                                            {t(
-                                                                attendance.corrected_attendance_status,
-                                                            )}
-                                                        </Badge>
-                                                    ) : (
-                                                        <span className="text-[12px] text-muted-foreground">
-                                                            -
-                                                        </span>
+                                                            </label>
+                                                        ),
                                                     )}
-                                                </TableCell>
-                                                {rowSpanMeta[index].geoStatus
-                                                    .start ? (
-                                                    <TableCell
-                                                        rowSpan={
-                                                            rowSpanMeta[index]
-                                                                .geoStatus.span
-                                                        }
-                                                        className="px-2 py-1.5 align-middle whitespace-nowrap"
-                                                    >
-                                                        <Badge
-                                                            variant={
-                                                                attendance.geo_status ===
-                                                                'valid'
-                                                                    ? 'secondary'
-                                                                    : 'destructive'
-                                                            }
-                                                            className="rounded-full px-1.5 py-0 text-[11px] font-semibold"
-                                                        >
-                                                            {t(
-                                                                attendance.geo_status,
-                                                            )}
-                                                        </Badge>
-                                                    </TableCell>
-                                                ) : null}
-                                                {rowSpanMeta[index].reviewAction
-                                                    .start ? (
-                                                    <TableCell
-                                                        rowSpan={
-                                                            rowSpanMeta[index]
-                                                                .reviewAction
-                                                                .span
-                                                        }
-                                                        className="px-2 py-1.5 align-middle whitespace-nowrap"
-                                                    >
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${reviewActionBadgeClass(attendance.review_status)}`}
-                                                        >
-                                                            {reviewActionLabel(
-                                                                attendance.review_status,
-                                                                t,
-                                                            )}
-                                                        </Badge>
-                                                    </TableCell>
-                                                ) : null}
-                                                <TableCell className="px-2 py-1.5 text-right whitespace-nowrap tabular-nums">
-                                                    {attendance.distance_from_venue_meters ??
-                                                        '-'}{' '}
-                                                    m
-                                                </TableCell>
-                                            </TableRow>
-                                        ),
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        {/* Mobile card list */}
-                        <div className="space-y-3 p-3 lg:hidden">
-                            {attendances.data.length === 0 ? (
-                                <div className="rounded-lg border bg-card py-12 text-center text-sm text-muted-foreground">
-                                    {t('No attendance records found.')}
+                                                </div>
+                                            </section>
+                                        );
+                                    })}
                                 </div>
-                            ) : null}
-                            {attendances.data.map((attendance, index) => (
-                                <div
-                                    key={attendance.id}
-                                    className="space-y-3 rounded-lg border bg-card p-3"
+
+                                <DialogFooter className="gap-2 sm:gap-0">
+                                    <Button asChild variant="outline">
+                                        <a href={exportUrl}>
+                                            <Download className="size-4" />
+                                            {t('Export selected')}
+                                        </a>
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        onClick={() =>
+                                            printSelectedAttendanceColumns(
+                                                t(
+                                                    'External training attendance',
+                                                ),
+                                                selectedOutputColumns,
+                                                selectedAttendanceIds,
+                                            )
+                                        }
+                                    >
+                                        <Printer className="size-4" />
+                                        {t('Print selected')}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </>
+                }
+                filters={
+                    <>
+                        <FilterPill
+                            label={t('Review queue')}
+                            activeLabel={
+                                reviewQueue !== 'all'
+                                    ? t(QUEUE_LABELS[reviewQueue])
+                                    : undefined
+                            }
+                            onClear={() => applyQueue(undefined)}
+                        >
+                            <OptionList
+                                options={Object.entries(QUEUE_LABELS).map(
+                                    ([value, label]) => ({
+                                        value,
+                                        label: t(label),
+                                    }),
+                                )}
+                                value={
+                                    reviewQueue === 'all'
+                                        ? undefined
+                                        : reviewQueue
+                                }
+                                onSelect={applyQueue}
+                            />
+                        </FilterPill>
+                        <DateRangePill
+                            label={t('Date')}
+                            from={filters.date_from ?? ''}
+                            to={filters.date_to ?? ''}
+                            presets={datePresets}
+                            onChange={(date_from, date_to) =>
+                                apply(filters, { date_from, date_to })
+                            }
+                        />
+                        <FilterPill
+                            label={t('Coach')}
+                            activeLabel={nameOf(
+                                externalCoaches,
+                                filters.external_coach_id,
+                            )}
+                            onClear={() =>
+                                apply(filters, { external_coach_id: null })
+                            }
+                        >
+                            <SearchableOptionList
+                                options={options(externalCoaches)}
+                                value={filters.external_coach_id ?? undefined}
+                                onSelect={(id) =>
+                                    apply(filters, {
+                                        external_coach_id: id ?? null,
+                                    })
+                                }
+                                searchPlaceholder={t('Search coach')}
+                            />
+                        </FilterPill>
+                        <FilterPill
+                            label={t('Venue')}
+                            activeLabel={nameOf(
+                                trainingVenues,
+                                filters.training_venue_id,
+                            )}
+                            onClear={() =>
+                                apply(filters, { training_venue_id: null })
+                            }
+                        >
+                            <SearchableOptionList
+                                options={options(trainingVenues)}
+                                value={filters.training_venue_id ?? undefined}
+                                onSelect={(id) =>
+                                    apply(filters, {
+                                        training_venue_id: id ?? null,
+                                    })
+                                }
+                                searchPlaceholder={t('Search venue')}
+                            />
+                        </FilterPill>
+                        <FilterPill
+                            label={t('Sport')}
+                            activeLabel={nameOf(sports, filters.sport_id)}
+                            onClear={() => apply(filters, { sport_id: null })}
+                        >
+                            <SearchableOptionList
+                                options={options(sports)}
+                                value={filters.sport_id ?? undefined}
+                                onSelect={(id) =>
+                                    apply(filters, { sport_id: id ?? null })
+                                }
+                                searchPlaceholder={t('Search by sport')}
+                            />
+                        </FilterPill>
+                        <TextFilterPill
+                            label={t('Member')}
+                            value={filters.member_query ?? ''}
+                            placeholder={t('Name, code, or PNO')}
+                            onApply={(member_query) =>
+                                apply(filters, { member_query })
+                            }
+                        />
+                        <FilterPill
+                            label={t('Attendance')}
+                            activeLabel={
+                                filters.attendance_status
+                                    ? t(filters.attendance_status)
+                                    : undefined
+                            }
+                            onClear={() =>
+                                apply(filters, { attendance_status: null })
+                            }
+                        >
+                            <OptionList
+                                options={statusOptions(attendanceStatuses)}
+                                value={filters.attendance_status ?? undefined}
+                                onSelect={(value) =>
+                                    apply(filters, {
+                                        attendance_status: value ?? null,
+                                    })
+                                }
+                            />
+                        </FilterPill>
+                        <FilterPill
+                            label={t('Geo status')}
+                            activeLabel={
+                                filters.geo_status
+                                    ? t(filters.geo_status)
+                                    : undefined
+                            }
+                            onClear={() => apply(filters, { geo_status: null })}
+                        >
+                            <OptionList
+                                options={statusOptions(geoStatuses)}
+                                value={filters.geo_status ?? undefined}
+                                onSelect={(value) =>
+                                    apply(filters, {
+                                        geo_status: value ?? null,
+                                    })
+                                }
+                            />
+                        </FilterPill>
+                        <FilterPill
+                            label={t('Review status')}
+                            activeLabel={
+                                filters.review_status
+                                    ? t(filters.review_status)
+                                    : undefined
+                            }
+                            onClear={() =>
+                                apply(filters, { review_status: null })
+                            }
+                        >
+                            <OptionList
+                                options={statusOptions(reviewStatuses)}
+                                value={filters.review_status ?? undefined}
+                                onSelect={(value) =>
+                                    apply(filters, {
+                                        review_status: value ?? null,
+                                    })
+                                }
+                            />
+                        </FilterPill>
+                    </>
+                }
+                hasFilters={hasFilters}
+                onClearFilters={clear}
+                resultCount={attendances.total}
+                footer={
+                    <ListingPagination
+                        paginator={attendances}
+                        itemLabel={t('attendances')}
+                        rowsPerPage={{
+                            value: perPage,
+                            options: [10, 25, 50, 100],
+                            onChange: (value) => {
+                                const params = new URLSearchParams(
+                                    window.location.search,
+                                );
+                                params.set('per_page', String(value));
+                                params.delete('page');
+                                window.location.assign(
+                                    `${PATH}?${params.toString()}`,
+                                );
+                            },
+                        }}
+                        className="shrink-0 shadow-sm"
+                    />
+                }
+            >
+                <div id="external-training-attendance-print" className="h-full">
+                    <ListingTable minWidth={1250}>
+                        <colgroup>
+                            <col className="w-9" />
+                            <col className="w-11" />
+                            <col className="w-[88px]" />
+                            <col className="w-[96px]" />
+                            <col className="w-[96px]" />
+                            <col />
+                            <col className="w-[160px]" />
+                            <col className="w-[150px]" />
+                            <col className="w-[120px]" />
+                            <col className="w-[100px]" />
+                            <col className="w-[110px]" />
+                            <col className="w-[90px]" />
+                            <col className="w-[110px]" />
+                            <col className="w-[80px]" />
+                        </colgroup>
+                        <TableHeader className="sticky top-0 z-20">
+                            <TableRow className="hover:bg-transparent">
+                                <TableHead
+                                    style={{ left: 0 }}
+                                    className={cn(
+                                        listingHeadCellClass,
+                                        stickyLeftHeadCellClass,
+                                        'print:hidden',
+                                    )}
                                 >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-center gap-2">
-                                            <Checkbox
-                                                checked={selectedAttendanceIds.includes(
-                                                    attendance.id,
+                                    <SelectionHeaderCheckbox
+                                        checked={allPageRowsSelected}
+                                        indeterminate={
+                                            !allPageRowsSelected &&
+                                            selectedOnPageCount > 0
+                                        }
+                                        onCheckedChange={togglePageSelection}
+                                        label={t(
+                                            'Select all visible attendances',
+                                        )}
+                                    />
+                                </TableHead>
+                                <TableHead
+                                    style={{ left: 36 }}
+                                    className={cn(
+                                        listingHeadCellClass,
+                                        stickyLeftHeadCellClass,
+                                        'text-center',
+                                    )}
+                                >
+                                    {t('S.No.')}
+                                </TableHead>
+                                <TableHead
+                                    style={{ left: 80 }}
+                                    className={cn(
+                                        listingHeadCellClass,
+                                        stickyLeftHeadCellClass,
+                                    )}
+                                >
+                                    {t('Review')}
+                                </TableHead>
+                                {[
+                                    'Date',
+                                    'Entry source',
+                                    'Member',
+                                    'External coach',
+                                    'Venue',
+                                    'Sport',
+                                    'Attendance',
+                                    'Corrected status',
+                                    'Geo status',
+                                    'Review action',
+                                ].map((label) => (
+                                    <TableHead
+                                        key={label}
+                                        className={listingHeadCellClass}
+                                    >
+                                        {t(label)}
+                                    </TableHead>
+                                ))}
+                                <TableHead
+                                    className={cn(
+                                        listingHeadCellClass,
+                                        'text-right',
+                                    )}
+                                >
+                                    {t('Distance')}
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {attendances.data.length === 0 ? (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={14}
+                                        className="py-12 text-center text-muted-foreground"
+                                    >
+                                        {t('No attendance records found.')}
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                attendances.data.map((attendance, index) => {
+                                    const spans = rowSpanMeta[index];
+                                    const selected =
+                                        selectedAttendanceIds.includes(
+                                            attendance.id,
+                                        );
+                                    const autoMarked =
+                                        attendance.flag_reason ===
+                                        AUTO_MARKED_ATTENDANCE_REASON;
+                                    const pill =
+                                        'rounded-full px-1.5 py-0 text-[10px] font-semibold';
+
+                                    return (
+                                        <TableRow
+                                            key={attendance.id}
+                                            data-attendance-id={attendance.id}
+                                            data-state={
+                                                selected
+                                                    ? 'selected'
+                                                    : undefined
+                                            }
+                                            className="hover:bg-muted/30 data-[state=selected]:bg-primary/5"
+                                        >
+                                            <TableCell
+                                                style={{ left: 0 }}
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyLeftBodyCellClass,
+                                                    'print:hidden',
                                                 )}
-                                                onCheckedChange={(checked) =>
-                                                    toggleAttendanceSelection(
-                                                        attendance.id,
-                                                        checked === true,
-                                                    )
-                                                }
-                                                aria-label={t(
-                                                    'Select attendance',
+                                            >
+                                                <SelectionRowCheckbox
+                                                    checked={selected}
+                                                    onCheckedChange={(
+                                                        checked,
+                                                    ) =>
+                                                        toggleAttendanceSelection(
+                                                            attendance.id,
+                                                            checked,
+                                                        )
+                                                    }
+                                                    label={t(
+                                                        'Select attendance',
+                                                    )}
+                                                />
+                                            </TableCell>
+                                            <TableCell
+                                                style={{ left: 36 }}
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyLeftBodyCellClass,
+                                                    'text-center font-mono text-muted-foreground tabular-nums',
                                                 )}
-                                            />
-                                            <span className="text-xs text-muted-foreground">
-                                                #
+                                            >
                                                 {(attendances.from ?? 1) +
                                                     index}
-                                            </span>
-                                            <span className="text-sm font-medium">
+                                            </TableCell>
+                                            <TableCell
+                                                style={{ left: 80 }}
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyLeftBodyCellClass,
+                                                )}
+                                            >
+                                                {canReviewAttendanceDetails ? (
+                                                    <Button
+                                                        asChild
+                                                        size="sm"
+                                                        className="h-5 px-1.5 text-[11px]"
+                                                    >
+                                                        <Link
+                                                            href={`${PATH}/${attendance.id}`}
+                                                        >
+                                                            <Eye className="size-3" />
+                                                            {t('Review')}
+                                                        </Link>
+                                                    </Button>
+                                                ) : (
+                                                    <span className="text-muted-foreground">
+                                                        {t('No access')}
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <SpanCell
+                                                meta={spans.date}
+                                                className="font-medium whitespace-nowrap"
+                                            >
                                                 {formatDate(
                                                     attendance.attendance_date,
                                                 )}
-                                            </span>
-                                        </div>
-                                        {canReviewAttendanceDetails ? (
-                                            <Button
-                                                asChild
-                                                size="sm"
-                                                className="h-7 px-2 text-xs"
-                                            >
-                                                <Link
-                                                    href={`/external-training-attendances/${attendance.id}`}
+                                            </SpanCell>
+                                            <SpanCell meta={spans.source}>
+                                                <Badge
+                                                    variant={
+                                                        autoMarked
+                                                            ? 'default'
+                                                            : 'outline'
+                                                    }
+                                                    className={cn(
+                                                        pill,
+                                                        autoMarked &&
+                                                            'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100',
+                                                    )}
                                                 >
-                                                    <Eye className="size-3.5" />
-                                                    {t('Review')}
-                                                </Link>
-                                            </Button>
-                                        ) : null}
-                                    </div>
-
-                                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                        <div className="min-w-0">
-                                            <dt className="text-[11px] font-medium text-muted-foreground">
-                                                {t('Member')}
-                                            </dt>
-                                            <dd className="truncate font-medium text-foreground">
+                                                    {attendanceMarkingSource(
+                                                        attendance.flag_reason,
+                                                        t,
+                                                    )}
+                                                </Badge>
+                                            </SpanCell>
+                                            <SpanCell meta={spans.member}>
                                                 <Link
                                                     href={`/members/${attendance.member.id}`}
-                                                    className="hover:text-primary hover:underline"
+                                                    className="block truncate font-semibold hover:text-primary hover:underline"
                                                 >
                                                     {
                                                         attendance.member
                                                             .full_name
                                                     }
                                                 </Link>
-                                            </dd>
-                                            {attendance.member.pno ? (
-                                                <dd className="text-[11px] text-muted-foreground">
-                                                    {attendance.member.pno}
-                                                </dd>
-                                            ) : null}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <dt className="text-[11px] font-medium text-muted-foreground">
-                                                {t('External coach')}
-                                            </dt>
-                                            <dd className="truncate">
+                                                {attendance.member.pno && (
+                                                    <div className="text-[11px] text-muted-foreground">
+                                                        {attendance.member.pno}
+                                                    </div>
+                                                )}
+                                            </SpanCell>
+                                            <SpanCell meta={spans.coach}>
                                                 <Link
                                                     href={`/external-coaches/${attendance.external_coach.id}`}
-                                                    className="text-primary hover:underline"
+                                                    className="block truncate font-medium text-primary hover:underline"
                                                 >
                                                     {
                                                         attendance
                                                             .external_coach.name
                                                     }
                                                 </Link>
-                                            </dd>
-                                        </div>
-                                        <div className="min-w-0">
-                                            <dt className="text-[11px] font-medium text-muted-foreground">
-                                                {t('Venue')}
-                                            </dt>
-                                            <dd className="truncate text-foreground">
+                                            </SpanCell>
+                                            <SpanCell
+                                                meta={spans.venue}
+                                                className="truncate"
+                                            >
                                                 {attendance.training_venue.name}
-                                            </dd>
-                                        </div>
-                                        <div className="min-w-0">
-                                            <dt className="text-[11px] font-medium text-muted-foreground">
-                                                {t('Sport')}
-                                            </dt>
-                                            <dd className="truncate text-foreground">
+                                            </SpanCell>
+                                            <SpanCell
+                                                meta={spans.sport}
+                                                className="truncate"
+                                            >
                                                 {attendance.assignment?.sport
                                                     ?.name ?? '-'}
-                                            </dd>
-                                        </div>
-                                    </dl>
-
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Badge
-                                            variant={
-                                                attendance.flag_reason ===
-                                                AUTO_MARKED_ATTENDANCE_REASON
-                                                    ? 'default'
-                                                    : 'outline'
-                                            }
-                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendance.flag_reason === AUTO_MARKED_ATTENDANCE_REASON ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : ''}`}
-                                        >
-                                            {attendanceMarkingSource(
-                                                attendance.flag_reason,
-                                                t,
-                                            )}
-                                        </Badge>
-                                        <Badge
-                                            variant="outline"
-                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendanceStatusBadgeClass(attendance.attendance_status)}`}
-                                        >
-                                            {t(attendance.attendance_status)}
-                                        </Badge>
-                                        {attendance.review_status ===
-                                            'corrected' &&
-                                        attendance.corrected_attendance_status ? (
-                                            <Badge
-                                                variant="outline"
-                                                className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${attendanceStatusBadgeClass(attendance.corrected_attendance_status)}`}
+                                            </SpanCell>
+                                            <SpanCell meta={spans.attendance}>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={cn(
+                                                        pill,
+                                                        attendanceStatusBadgeClass(
+                                                            attendance.attendance_status,
+                                                        ),
+                                                    )}
+                                                >
+                                                    {t(
+                                                        attendance.attendance_status,
+                                                    )}
+                                                </Badge>
+                                            </SpanCell>
+                                            <TableCell
+                                                className={listingCellClass}
                                             >
-                                                {t(
-                                                    attendance.corrected_attendance_status,
+                                                {attendance.review_status ===
+                                                    'corrected' &&
+                                                attendance.corrected_attendance_status ? (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={cn(
+                                                            pill,
+                                                            attendanceStatusBadgeClass(
+                                                                attendance.corrected_attendance_status,
+                                                            ),
+                                                        )}
+                                                    >
+                                                        {t(
+                                                            attendance.corrected_attendance_status,
+                                                        )}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-muted-foreground">
+                                                        -
+                                                    </span>
                                                 )}
-                                            </Badge>
-                                        ) : null}
-                                        <Badge
-                                            variant={
-                                                attendance.geo_status ===
-                                                'valid'
-                                                    ? 'secondary'
-                                                    : 'destructive'
-                                            }
-                                            className="rounded-full px-1.5 py-0 text-[11px] font-semibold"
-                                        >
-                                            {t(attendance.geo_status)}
-                                        </Badge>
-                                        <Badge
-                                            variant="outline"
-                                            className={`rounded-full px-1.5 py-0 text-[11px] font-semibold ${reviewActionBadgeClass(attendance.review_status)}`}
-                                        >
-                                            {reviewActionLabel(
-                                                attendance.review_status,
-                                                t,
-                                            )}
-                                        </Badge>
-                                        {attendance.distance_from_venue_meters ? (
-                                            <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-                                                {
-                                                    attendance.distance_from_venue_meters
-                                                }{' '}
+                                            </TableCell>
+                                            <SpanCell meta={spans.geoStatus}>
+                                                <Badge
+                                                    variant={
+                                                        attendance.geo_status ===
+                                                        'valid'
+                                                            ? 'secondary'
+                                                            : 'destructive'
+                                                    }
+                                                    className={pill}
+                                                >
+                                                    {t(attendance.geo_status)}
+                                                </Badge>
+                                            </SpanCell>
+                                            <SpanCell meta={spans.reviewAction}>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={cn(
+                                                        pill,
+                                                        reviewActionBadgeClass(
+                                                            attendance.review_status,
+                                                        ),
+                                                    )}
+                                                >
+                                                    {reviewActionLabel(
+                                                        attendance.review_status,
+                                                        t,
+                                                    )}
+                                                </Badge>
+                                            </SpanCell>
+                                            <TableCell
+                                                className={cn(
+                                                    listingCellClass,
+                                                    'text-right tabular-nums',
+                                                )}
+                                            >
+                                                {attendance.distance_from_venue_meters ??
+                                                    '-'}{' '}
                                                 m
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </ListingTable>
                 </div>
-
-                <ListingPagination
-                    paginator={attendances}
-                    itemLabel={t('attendances')}
-                    rowsPerPage={{
-                        value: attendances.per_page ?? 25,
-                        options: [10, 25, 50, 100],
-                        onChange: changeRowsPerPage,
-                    }}
-                    className="shrink-0 shadow-sm"
-                />
-            </div>
+            </ListingLayout>
         </>
     );
 }
@@ -2006,14 +1222,6 @@ function reviewQueueFromFilters(filters: Filters): string {
     }
 
     return 'all';
-}
-
-function formatDateInput(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
 }
 
 function allOutputColumns(): string[] {
