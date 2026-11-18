@@ -2,6 +2,15 @@ import { Check, ChevronDown, X } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
+import { Input } from '@/components/ui/input';
+import {
     Popover,
     PopoverContent,
     PopoverTrigger,
@@ -104,4 +113,184 @@ export function OptionList({
             ))}
         </div>
     );
+}
+
+export function SearchableOptionList({
+    options,
+    value,
+    onSelect,
+    searchPlaceholder,
+}: {
+    options: { value: string; label: string }[];
+    value: string | undefined;
+    onSelect: (v: string | undefined) => void;
+    searchPlaceholder: string;
+}) {
+    return (
+        <Command className="w-56">
+            <CommandInput
+                placeholder={searchPlaceholder}
+                className="h-8 text-sm"
+            />
+            <CommandList className="max-h-52">
+                <CommandEmpty>—</CommandEmpty>
+                <CommandGroup>
+                    {options.map((opt) => (
+                        <CommandItem
+                            key={opt.value}
+                            value={opt.label}
+                            onSelect={() =>
+                                onSelect(
+                                    value === opt.value ? undefined : opt.value,
+                                )
+                            }
+                            className="gap-2"
+                        >
+                            <Check
+                                className={[
+                                    'size-3.5 shrink-0',
+                                    value === opt.value
+                                        ? 'opacity-100'
+                                        : 'opacity-0',
+                                ].join(' ')}
+                            />
+                            {opt.label}
+                        </CommandItem>
+                    ))}
+                </CommandGroup>
+            </CommandList>
+        </Command>
+    );
+}
+
+/** Pill with a free-text input inside; applies on Enter or blur. */
+export function TextFilterPill({
+    label,
+    value,
+    placeholder,
+    onApply,
+}: {
+    label: string;
+    value: string;
+    placeholder: string;
+    onApply: (value: string) => void;
+}) {
+    const [draft, setDraft] = useState(value);
+
+    return (
+        <FilterPill
+            label={label}
+            activeLabel={value || undefined}
+            onClear={() => {
+                setDraft('');
+                onApply('');
+            }}
+        >
+            <div className="p-3">
+                <Input
+                    value={draft}
+                    placeholder={placeholder}
+                    className="h-8 w-52 text-sm"
+                    onChange={(event) => setDraft(event.target.value)}
+                    onBlur={() => draft !== value && onApply(draft)}
+                    onKeyDown={(event) =>
+                        event.key === 'Enter' && onApply(draft)
+                    }
+                />
+            </div>
+        </FilterPill>
+    );
+}
+
+/** Date range pill with optional quick presets (inclusive ISO dates). */
+export function DateRangePill({
+    label,
+    from,
+    to,
+    onChange,
+    presets = [],
+}: {
+    label: string;
+    from: string;
+    to: string;
+    onChange: (from: string, to: string) => void;
+    presets?: { label: string; range: () => [string, string] }[];
+}) {
+    return (
+        <FilterPill
+            label={label}
+            activeLabel={
+                from || to ? `${from || '…'} – ${to || '…'}` : undefined
+            }
+            onClear={() => onChange('', '')}
+        >
+            <div className="space-y-2 p-3">
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="date"
+                        className="h-8 w-36 text-sm"
+                        value={from}
+                        max={to || undefined}
+                        onChange={(event) => onChange(event.target.value, to)}
+                    />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input
+                        type="date"
+                        className="h-8 w-36 text-sm"
+                        value={to}
+                        min={from || undefined}
+                        onChange={(event) => onChange(from, event.target.value)}
+                    />
+                </div>
+                {presets.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                        {presets.map((preset) => (
+                            <button
+                                key={preset.label}
+                                type="button"
+                                className="rounded-md border px-2 py-0.5 text-xs hover:bg-accent"
+                                onClick={() => onChange(...preset.range())}
+                            >
+                                {preset.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </FilterPill>
+    );
+}
+
+/** YYYY-MM-DD in local time (toISOString would shift the day for IST). */
+export function isoDate(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${date.getFullYear()}-${month}-${day}`;
+}
+
+export function dateRangePresets(t: (key: string) => string) {
+    const daysBack = (days: number): [string, string] => {
+        const start = new Date();
+        start.setDate(start.getDate() - days);
+
+        return [isoDate(start), isoDate(new Date())];
+    };
+
+    return [
+        { label: t('Today'), range: () => daysBack(0) },
+        { label: t('Last 7 days'), range: () => daysBack(6) },
+        { label: t('Last 30 days'), range: () => daysBack(29) },
+        {
+            label: t('This month'),
+            range: (): [string, string] => {
+                const now = new Date();
+
+                return [
+                    isoDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+                    isoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+                ];
+            },
+        },
+    ];
 }
