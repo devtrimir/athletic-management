@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { ChevronDown, ChevronRight, Search, X } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
+import { DiffView } from '@/components/audit/diff-view';
 import { FilterPill, OptionList } from '@/components/data-table/filter-pill';
 import {
     listingCellClass,
@@ -429,17 +430,9 @@ export default function AuditLogsIndex({
                                                                 </dd>
                                                             </div>
                                                         </dl>
-                                                        <pre className="max-h-64 overflow-auto rounded-md border bg-background p-2 break-words whitespace-pre-wrap">
-                                                            {log.diff
-                                                                ? JSON.stringify(
-                                                                      log.diff,
-                                                                      null,
-                                                                      2,
-                                                                  )
-                                                                : t(
-                                                                      'No details',
-                                                                  )}
-                                                        </pre>
+                                                        <DiffView
+                                                            diff={log.diff}
+                                                        />
                                                     </TableCell>
                                                 </TableRow>
                                             )}
