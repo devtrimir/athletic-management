@@ -4,6 +4,7 @@ import { useLayoutEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { InlineLoginForm } from '@/components/auth/inline-login-form';
 import { Reveal } from '@/components/auth/reveal';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -64,6 +65,7 @@ const SECONDARY =
 
 export function WelcomeSignIn({ initialView, status, signedInAs }: Props) {
     const { t } = useTranslation();
+    const organisationName = useOrganisationName();
     const [view, setView] = useState<SignInView>(initialView);
     const [panes, setPanes] = useState<
         Partial<Record<SignInView, HTMLDivElement | null>>
@@ -97,7 +99,7 @@ export function WelcomeSignIn({ initialView, status, signedInAs }: Props) {
         <div className="relative overflow-hidden rounded-[28px] bg-white/70 p-5 pt-12 shadow-[0_40px_90px_-30px_rgba(0,0,0,0.55)] ring-1 ring-white/70 backdrop-blur-2xl backdrop-saturate-150 sm:p-6 sm:pt-14 lg:p-8 lg:pt-16">
             <div className="text-center">
                 <p className="text-xs font-medium text-[#0b1e6b] sm:text-sm">
-                    {t('UP Police Sports Control Board (UPPSCB)')}
+                    {organisationName}
                 </p>
                 <h1 className="mt-1.5 text-sm font-semibold tracking-tight text-balance text-neutral-900 sm:text-base lg:text-[17px]">
                     {t(
