@@ -16,6 +16,7 @@ import {
 } from '@/components/data-table/table-primitives';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
+import { MemberAvatar } from '@/components/members/member-table-cells';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,7 @@ type ExternalCoach = {
     name: string;
     email: string;
     phone: string | null;
+    photo_path: string | null;
     status: string;
     experience_years: number | null;
     active_coached_players_count: number;
@@ -406,11 +408,12 @@ export default function ExternalCoachesIndex({
                 <div className="min-h-0 flex-1 overflow-hidden">
                     <div className="h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
                         <Table
-                            className={`${listingTableClass} min-w-[1000px]`}
+                            className={`${listingTableClass} min-w-[1050px]`}
                         >
                             <colgroup>
                                 <col className="w-9" />
                                 <col className="w-11" />
+                                <col className="w-[52px]" />
                                 <col className="w-[220px]" />
                                 <col className="w-[260px]" />
                                 <col className="w-[140px]" />
@@ -459,6 +462,15 @@ export default function ExternalCoachesIndex({
                                             stickyLeftHeadCellClass,
                                         )}
                                     >
+                                        {t('Photo')}
+                                    </TableHead>
+                                    <TableHead
+                                        style={{ left: 132 }}
+                                        className={cn(
+                                            listingHeadCellClass,
+                                            stickyLeftHeadCellClass,
+                                        )}
+                                    >
                                         {t('Coach')}
                                     </TableHead>
                                     <TableHead className={listingHeadCellClass}>
@@ -491,7 +503,7 @@ export default function ExternalCoachesIndex({
                                 {externalCoaches.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={9}
+                                            colSpan={10}
                                             className="py-12 text-center text-muted-foreground"
                                         >
                                             {hasFilters
@@ -553,6 +565,18 @@ export default function ExternalCoachesIndex({
                                             </TableCell>
                                             <TableCell
                                                 style={{ left: 80 }}
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyLeftBodyCellClass,
+                                                )}
+                                            >
+                                                <MemberAvatar
+                                                    photoPath={coach.photo_path}
+                                                    name={coach.name}
+                                                />
+                                            </TableCell>
+                                            <TableCell
+                                                style={{ left: 132 }}
                                                 className={cn(
                                                     listingCellClass,
                                                     stickyLeftBodyCellClass,
