@@ -148,14 +148,9 @@ class ExternalCoach extends Authenticatable
     protected function withActivePlayersCount(Builder $query): void
     {
         $query->withCount([
-            'externalCoachingAssignments as active_coached_players_count' => function ($query): void {
-                $query->where('status', 'active')
-                    ->whereDate('start_date', '<=', now())
-                    ->where(function ($dateQuery): void {
-                        $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-                    })
-                    ->selectRaw('COUNT(DISTINCT member_id)');
-            },
+            'externalCoachingAssignments as active_coached_players_count' => fn (Builder $query) => $query
+                ->currentlyActive()
+                ->selectRaw('COUNT(DISTINCT member_id)'),
         ]);
     }
 

@@ -95,14 +95,9 @@ class ExternalCoachController extends Controller
             'trainingVenues:id,name',
             'documents:id,external_coach_id,type,original_name,size_bytes',
         ])->loadCount([
-            'externalCoachingAssignments as active_assignments_count' => function ($query): void {
-                $query->where('status', 'active')
-                    ->whereDate('start_date', '<=', now())
-                    ->where(function ($dateQuery): void {
-                        $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-                    })
-                    ->selectRaw('COUNT(DISTINCT member_id)');
-            },
+            'externalCoachingAssignments as active_assignments_count' => fn ($query) => $query
+                ->currentlyActive()
+                ->selectRaw('COUNT(DISTINCT member_id)'),
         ]);
 
         return Inertia::render('external-coaches/show', [
@@ -128,11 +123,7 @@ class ExternalCoachController extends Controller
         $perPage = (int) ($validated['per_page'] ?? 25);
 
         $activeMemberIds = $externalCoach->externalCoachingAssignments()
-            ->where('status', 'active')
-            ->whereDate('start_date', '<=', now())
-            ->where(function ($dateQuery): void {
-                $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-            })
+            ->currentlyActive()
             ->pluck('member_id')
             ->unique()
             ->values();
@@ -143,30 +134,7 @@ class ExternalCoachController extends Controller
                 'sport:id,name',
                 'trainingVenue:id,name',
             ])
-            ->when($status !== '', fn ($query) => $query->where('status', $status))
-            ->when($active === 'active', fn ($query) => $query->whereIn('member_id', $activeMemberIds))
-            ->when($active === 'inactive', function ($query) use ($activeMemberIds): void {
-                if ($activeMemberIds->isNotEmpty()) {
-                    $query->whereNotIn('member_id', $activeMemberIds);
-                }
-            })
-            ->when(
-                $search !== '',
-                function ($query) use ($search): void {
-                    $lowerSearch = mb_strtolower($search);
-
-                    $query->where(function ($memberQuery) use ($lowerSearch): void {
-                        $memberQuery->whereHas('member', function ($member) use ($lowerSearch): void {
-                            $like = "%{$lowerSearch}%";
-
-                            $member
-                                ->whereRaw('LOWER(full_name) LIKE ?', [$like])
-                                ->orWhereRaw('LOWER(pno) LIKE ?', [$like])
-                                ->orWhereRaw('LOWER(mobile) LIKE ?', [$like]);
-                        });
-                    });
-                },
-            )
+            ->filterListing($status, $active, $search, $activeMemberIds)
             ->select([
                 'id',
                 'member_id',
@@ -190,23 +158,8 @@ class ExternalCoachController extends Controller
         return Inertia::render('external-coaches/assignments', [
             'externalCoach' => $externalCoach->only(['id', 'name', 'email', 'phone']),
             'assignments' => $assignments,
-            'activeAssignmentMemberIds' => $externalCoach->externalCoachingAssignments()
-                ->where('status', 'active')
-                ->whereDate('start_date', '<=', now())
-                ->where(function ($dateQuery): void {
-                    $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-                })
-                ->pluck('member_id')
-                ->unique()
-                ->values(),
-            'activeAssignmentsCount' => $externalCoach->externalCoachingAssignments()
-                ->where('status', 'active')
-                ->whereDate('start_date', '<=', now())
-                ->where(function ($dateQuery): void {
-                    $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-                })
-                ->distinct('member_id')
-                ->count('member_id'),
+            'activeAssignmentMemberIds' => $activeMemberIds,
+            'activeAssignmentsCount' => $activeMemberIds->count(),
             'filters' => [
                 'search' => $search,
                 'status' => $status,
@@ -262,10 +215,7 @@ class ExternalCoachController extends Controller
             })
             ->where('external_coach_id', $externalCoach->id)
             ->where('member_id', $member->id)
-            ->whereBetween('attendance_date', [
-                $selectedMonth->copy()->startOfMonth()->toDateString(),
-                $selectedMonth->copy()->endOfMonth()->toDateString(),
-            ])
+            ->inMonth($selectedMonth)
             ->latest('attendance_date')
             ->get([
                 'id',
