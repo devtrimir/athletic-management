@@ -88,10 +88,13 @@ test('external coach model reports login eligibility from status', function () {
 
 test('external coach login page is separate from admin login', function () {
     $this->get(route('external-coach.login'))
+        ->assertRedirect(route('home', ['panel' => 'coach']));
+
+    $this->get(route('home', ['panel' => 'coach']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('external-coach/auth/login')
-            ->etc());
+            ->component('welcome')
+            ->where('panel', 'coach'));
 });
 
 test('external coach protected pages redirect guests to external coach login', function () {

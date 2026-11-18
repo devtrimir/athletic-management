@@ -4,10 +4,25 @@ use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 
-test('login screen can be rendered', function () {
-    $response = $this->get(route('login'));
+test('login screen points to the inline form on the welcome page', function () {
+    $this->get(route('login'))
+        ->assertRedirect(route('home', ['panel' => 'user']));
 
-    $response->assertOk();
+    $this->get(route('home', ['panel' => 'user']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('welcome')->where('panel', 'user'));
+
+    $this->get(route('home', ['panel' => 'bogus']))
+        ->assertInertia(fn ($page) => $page->where('panel', null));
+});
+
+test('a failed login from the welcome page returns there with the error', function () {
+    $user = User::factory()->create();
+
+    $this->from(route('home', ['panel' => 'user']))
+        ->post(route('login.store'), ['email' => $user->email, 'password' => 'wrong-password'])
+        ->assertRedirect(route('home', ['panel' => 'user']))
+        ->assertSessionHasErrors('email');
 });
 
 test('users can authenticate using the login screen', function () {

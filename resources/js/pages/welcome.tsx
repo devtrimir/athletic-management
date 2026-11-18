@@ -1,11 +1,15 @@
 import { Head, Link, usePage } from '@inertiajs/react';
+import { ArrowLeft, Medal, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { InlineLoginForm } from '@/components/auth/inline-login-form';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useTranslation } from '@/hooks/use-translation';
-import { dashboard, login } from '@/routes';
-import externalCoach from '@/routes/external-coach';
+import { dashboard } from '@/routes';
+import { store as coachLoginStore } from '@/routes/external-coach/login';
+import { store as loginStore } from '@/routes/login';
+import { request } from '@/routes/password';
 
 type HomeBackgroundPreset = 'tennis' | 'multi-sport';
 
@@ -28,8 +32,22 @@ const PRESETS: Record<
     },
 };
 
-export default function Welcome() {
+type View = 'choose' | 'user' | 'coach';
+
+export default function Welcome({
+    panel = null,
+    status = null,
+}: {
+    panel?: 'user' | 'coach' | null;
+    status?: string | null;
+}) {
     const { auth } = usePage().props;
+    const [view, setView] = useState<View>(panel ?? 'choose');
+    const [direction, setDirection] = useState<'forward' | 'back'>('forward');
+    const show = (next: View) => {
+        setDirection(next === 'choose' ? 'back' : 'forward');
+        setView(next);
+    };
     const { t } = useTranslation();
     const [preset, setPreset] = useState<HomeBackgroundPreset>(() => {
         if (typeof window === 'undefined') {
@@ -127,13 +145,14 @@ export default function Welcome() {
                                     )}
                                 </h1>
 
-                                <p className="mt-1.5 text-xs text-neutral-600 motion-safe:animate-in motion-safe:delay-400 motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:mt-2 sm:text-sm">
-                                    {t(
-                                        'Choose the sign-in area for your role.',
-                                    )}
-                                </p>
-
-                                <div className="mt-2.5 grid w-full gap-2 motion-safe:animate-in motion-safe:delay-500 motion-safe:fade-in motion-safe:slide-in-from-bottom-6 sm:mt-3 sm:gap-2.5 lg:mt-4 lg:gap-3">
+                                <div
+                                    key={view}
+                                    className={`mt-2.5 w-full duration-500 motion-safe:animate-in motion-safe:fade-in sm:mt-3 lg:mt-4 ${
+                                        direction === 'forward'
+                                            ? 'motion-safe:slide-in-from-right-10'
+                                            : 'motion-safe:slide-in-from-left-10'
+                                    }`}
+                                >
                                     {auth.user ? (
                                         <Button
                                             asChild
@@ -144,29 +163,67 @@ export default function Welcome() {
                                                 {t('Go to Dashboard')}
                                             </Link>
                                         </Button>
+                                    ) : view === 'choose' ? (
+                                        <>
+                                            <p className="mb-2.5 text-xs text-neutral-600 sm:text-sm">
+                                                {t(
+                                                    'Choose the sign-in area for your role.',
+                                                )}
+                                            </p>
+                                            <div className="grid gap-2 sm:gap-2.5 lg:gap-3">
+                                                <Button
+                                                    className="h-9 w-full rounded-lg bg-[#0b1e6b] text-xs transition-transform duration-200 hover:scale-[1.02] hover:bg-[#0b1e6b]/90 active:scale-[0.99] sm:h-10 lg:h-11"
+                                                    size="lg"
+                                                    onClick={() => show('user')}
+                                                >
+                                                    <ShieldCheck className="size-4" />
+                                                    {t('Log in to continue')}
+                                                </Button>
+                                                <Button
+                                                    className="h-9 w-full rounded-lg border-2 border-[#0b1e6b] bg-white text-xs text-[#0b1e6b] transition-transform duration-200 hover:scale-[1.02] hover:bg-[#0b1e6b]/5 active:scale-[0.99] sm:h-10 lg:h-11"
+                                                    size="lg"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        show('coach')
+                                                    }
+                                                >
+                                                    <Medal className="size-4" />
+                                                    {t('External coach login')}
+                                                </Button>
+                                            </div>
+                                        </>
                                     ) : (
                                         <>
-                                            <Button
-                                                asChild
-                                                className="h-9 w-full rounded-lg bg-[#0b1e6b] text-xs hover:bg-[#0b1e6b]/90 sm:h-10 lg:h-11"
-                                                size="lg"
+                                            <button
+                                                type="button"
+                                                className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-[#0b1e6b] hover:underline"
+                                                onClick={() => show('choose')}
                                             >
-                                                <Link href={login()}>
-                                                    {t('Log in to continue')}
-                                                </Link>
-                                            </Button>
-                                            <Button
-                                                asChild
-                                                className="h-9 w-full rounded-lg border-2 border-[#0b1e6b] bg-white text-xs text-[#0b1e6b] hover:bg-[#0b1e6b]/5 sm:h-10 lg:h-11"
-                                                size="lg"
-                                                variant="outline"
-                                            >
-                                                <Link
-                                                    href={externalCoach.login()}
-                                                >
-                                                    {t('External coach login')}
-                                                </Link>
-                                            </Button>
+                                                <ArrowLeft className="size-3.5" />
+                                                {t('Back')}
+                                            </button>
+                                            <p className="mb-3 text-sm font-semibold text-neutral-900">
+                                                {view === 'user'
+                                                    ? t(
+                                                          'Log in to your account',
+                                                      )
+                                                    : t('External coach login')}
+                                            </p>
+                                            {view === 'user' ? (
+                                                <InlineLoginForm
+                                                    form={loginStore.form()}
+                                                    emailPlaceholder="email@example.com"
+                                                    forgotPasswordHref={
+                                                        request().url
+                                                    }
+                                                    status={status}
+                                                />
+                                            ) : (
+                                                <InlineLoginForm
+                                                    form={coachLoginStore.form()}
+                                                    emailPlaceholder="coach@example.com"
+                                                />
+                                            )}
                                         </>
                                     )}
                                 </div>
