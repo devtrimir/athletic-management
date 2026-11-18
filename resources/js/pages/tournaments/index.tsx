@@ -1,17 +1,6 @@
 import { Head, Link, router, setLayoutProps } from '@inertiajs/react';
-import {
-    Download,
-    Eye,
-    Info,
-    Medal,
-    FileDown,
-    Plus,
-    Search,
-    Printer,
-    Trophy,
-    X,
-} from 'lucide-react';
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Download, Eye, Info, FileDown, Plus, Printer } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     create as createTournament,
     index as tournamentsIndex,
@@ -22,8 +11,20 @@ import {
     eventsReport,
     index as exportTournamentsUrl,
 } from '@/actions/App/Http/Controllers/TournamentExportController';
-import { Combobox } from '@/components/combobox';
-import Heading from '@/components/heading';
+import {
+    FilterPill,
+    SearchableOptionList,
+} from '@/components/data-table/filter-pill';
+import {
+    ListingLayout,
+    ListingTable,
+} from '@/components/data-table/listing-layout';
+import {
+    listingCellClass,
+    listingHeadCellClass,
+    stickyRightBodyCellClass,
+    stickyRightHeadCellClass,
+} from '@/components/data-table/table-primitives';
 import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,9 +37,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -467,41 +466,56 @@ export default function TournamentsIndex({
         filters.sport_id ||
         (filters.session_id && filters.session_id !== defaultSessionFilter)
     );
-    const sessionItems = [
-        { value: 'all', label: t('All sessions') },
-        ...sessions.map((session) => ({
-            value: String(session.id),
-            label: session.name,
-        })),
-    ];
-    const tierItems = [
-        { value: 'all', label: t('All tiers') },
-        ...tiers.map((tier) => ({
-            value: String(tier.id),
-            label: tier.label,
-            description: tier.code,
-        })),
-    ];
-    const sportItems = [
-        { value: 'all', label: t('All sports') },
-        ...sports.map((sport) => ({
-            value: String(sport.id),
-            label: sport.name,
-        })),
-    ];
+    const sessionIsDefault =
+        !filters.session_id || filters.session_id === defaultSessionFilter;
+    const selectedSessionName = sessions.find(
+        (session) =>
+            String(session.id) === (filters.session_id ?? sessionDefaultValue),
+    )?.name;
+    const clearAll = () => {
+        setQuery('');
+        router.get(
+            tournamentsIndex.url(),
+            {},
+            { preserveState: false, replace: true },
+        );
+    };
+    const single = (
+        key: 'tier_id' | 'sport_id',
+        label: string,
+        items: { value: string; label: string }[],
+    ) => (
+        <FilterPill
+            label={label}
+            activeLabel={
+                items.find((item) => item.value === filters[key])?.label
+            }
+            onClear={() => applyFilters({ [key]: undefined })}
+        >
+            <SearchableOptionList
+                options={items}
+                value={filters[key]}
+                searchPlaceholder={t('Search…')}
+                onSelect={(value) => applyFilters({ [key]: value })}
+            />
+        </FilterPill>
+    );
+    const dash = <span className="text-muted-foreground">—</span>;
 
     return (
         <>
             <Head title={t('Tournaments')} />
 
-            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
-                <div className="flex shrink-0 items-start justify-between gap-4">
-                    <Heading
-                        variant="small"
-                        title={t('Tournaments')}
-                        description={t('Manage tournaments')}
-                    />
-                    <div className="flex gap-2">
+            <ListingLayout
+                title={t('Tournaments')}
+                description={t('Manage tournaments')}
+                search={{
+                    value: query,
+                    onChange: setQuery,
+                    placeholder: t('Search tournaments…'),
+                }}
+                actions={
+                    <>
                         <Button
                             variant="outline"
                             size="sm"
@@ -534,450 +548,351 @@ export default function TournamentsIndex({
                                 {t('New tournament')}
                             </Link>
                         </Button>
-                    </div>
-                </div>
-
-                {/* Filter bar */}
-                <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
-                    <div className="relative max-w-xs flex-1">
-                        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder={t('Search tournaments…')}
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            className="pl-8"
-                        />
-                    </div>
-                    <Combobox
-                        value={filters.session_id ?? sessionDefaultValue}
-                        onValueChange={(v) =>
-                            applyFilters({
-                                session_id: !v || v === 'all' ? undefined : v,
-                            })
-                        }
-                        items={sessionItems}
-                        placeholder={t('All sessions')}
-                        searchPlaceholder={t('Search sessions…')}
-                        emptyMessage={t('No sessions found.')}
-                        className="w-44"
-                    />
-                    <Combobox
-                        value={filters.tier_id ?? 'all'}
-                        onValueChange={(v) =>
-                            applyFilters({
-                                tier_id: !v || v === 'all' ? undefined : v,
-                            })
-                        }
-                        items={tierItems}
-                        placeholder={t('All tiers')}
-                        searchPlaceholder={t('Search tiers…')}
-                        emptyMessage={t('No tiers found.')}
-                        className="w-40"
-                    />
-                    <Combobox
-                        value={filters.sport_id ?? 'all'}
-                        onValueChange={(v) =>
-                            applyFilters({
-                                sport_id: !v || v === 'all' ? undefined : v,
-                            })
-                        }
-                        items={sportItems}
-                        placeholder={t('All sports')}
-                        searchPlaceholder={t('Search sports…')}
-                        emptyMessage={t('No sports found.')}
-                        className="w-44"
-                    />
-                    {hasActive && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                setQuery('');
-                                router.get(
-                                    tournamentsIndex.url(),
-                                    {},
-                                    { preserveState: false, replace: true },
-                                );
-                            }}
+                    </>
+                }
+                filters={
+                    <>
+                        <FilterPill
+                            label={
+                                sessionIsDefault && selectedSessionName
+                                    ? `${t('Session')} · ${selectedSessionName}`
+                                    : t('Session')
+                            }
+                            activeLabel={
+                                sessionIsDefault
+                                    ? undefined
+                                    : selectedSessionName
+                            }
+                            onClear={() =>
+                                applyFilters({ session_id: undefined })
+                            }
                         >
-                            <X className="mr-1.5 h-4 w-4" />
-                            {t('Clear filters')}
-                        </Button>
-                    )}
-                </div>
-
-                {/* Table */}
-                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm [&>[data-slot=table-container]]:h-full">
-                    <Table className="min-w-[1700px] table-fixed text-[12px] leading-tight [&_td]:px-2 [&_td]:py-2 [&_th]:h-9 [&_th]:px-2 [&_th]:text-[11px] [&_th]:tracking-wide [&_th]:whitespace-nowrap">
-                        <TableHeader className="sticky top-0 z-10">
-                            <TableRow className="bg-muted hover:bg-muted">
-                                <TableHead className="w-10">
-                                    <Checkbox
-                                        checked={
-                                            tournaments.data.length > 0 &&
-                                            tournaments.data.every((t_) =>
-                                                selectedIds.has(t_.id),
-                                            )
-                                                ? true
-                                                : tournaments.data.some((t_) =>
-                                                        selectedIds.has(t_.id),
-                                                    )
-                                                  ? 'indeterminate'
-                                                  : false
-                                        }
-                                        onCheckedChange={togglePage}
-                                        aria-label={t('Select all on page')}
-                                    />
-                                </TableHead>
-                                <TableHead className="w-12">
-                                    {t('S.No.')}
-                                </TableHead>
-                                <TableHead className="w-[260px]">
-                                    {t('Name')}
-                                </TableHead>
-                                <TableHead className="w-[110px]">
-                                    {t('Tier')}
-                                </TableHead>
-                                <TableHead className="w-[170px]">
-                                    {t('Sport')}
-                                </TableHead>
-                                <TableHead className="w-[240px]">
-                                    {t('Venue / Date / Status')}
-                                </TableHead>
-                                <TableHead className="w-[150px]">
-                                    {t('Activity')}
-                                </TableHead>
-                                <TableHead className="w-14 text-right">
-                                    {t('Gold')}
-                                </TableHead>
-                                <TableHead className="w-14 text-right">
-                                    {t('Silver')}
-                                </TableHead>
-                                <TableHead className="w-14 text-right">
-                                    {t('Bronze')}
-                                </TableHead>
-                                <TableHead className="w-14 text-right">
-                                    {t('Merit')}
-                                </TableHead>
-                                <TableHead className="w-16 text-right">
-                                    {t('Medals')}
-                                </TableHead>
-                                <TableHead className="w-[110px]">
-                                    {t('Created')}
-                                </TableHead>
-                                <TableHead className="sticky right-0 z-20 w-[136px] bg-card text-right">
-                                    {t('Actions')}
-                                </TableHead>
+                            <SearchableOptionList
+                                options={sessions.map((session) => ({
+                                    value: String(session.id),
+                                    label: session.name,
+                                }))}
+                                value={
+                                    filters.session_id ?? sessionDefaultValue
+                                }
+                                searchPlaceholder={t('Search sessions…')}
+                                onSelect={(value) =>
+                                    applyFilters({ session_id: value })
+                                }
+                            />
+                        </FilterPill>
+                        {single(
+                            'tier_id',
+                            t('Tier'),
+                            tiers.map((tier) => ({
+                                value: String(tier.id),
+                                label: tier.label,
+                            })),
+                        )}
+                        {single(
+                            'sport_id',
+                            t('Sport'),
+                            sports.map((sport) => ({
+                                value: String(sport.id),
+                                label: sport.name,
+                            })),
+                        )}
+                    </>
+                }
+                hasFilters={hasActive}
+                onClearFilters={clearAll}
+                resultCount={tournaments.total}
+                footer={
+                    <ListingPagination
+                        paginator={tournaments}
+                        itemLabel={t('tournaments')}
+                    />
+                }
+            >
+                <ListingTable minWidth={1700} centered>
+                    <colgroup>
+                        <col style={{ width: 40 }} />
+                        <col style={{ width: 48 }} />
+                        <col />
+                        <col style={{ width: 90 }} />
+                        <col style={{ width: 160 }} />
+                        <col style={{ width: 170 }} />
+                        <col style={{ width: 150 }} />
+                        <col style={{ width: 100 }} />
+                        <col style={{ width: 76 }} />
+                        <col style={{ width: 112 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 72 }} />
+                        <col style={{ width: 68 }} />
+                        <col style={{ width: 100 }} />
+                        <col style={{ width: 136 }} />
+                    </colgroup>
+                    <TableHeader className="sticky top-0 z-10">
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className={listingHeadCellClass}>
+                                <Checkbox
+                                    checked={
+                                        tournaments.data.length > 0 &&
+                                        tournaments.data.every((t_) =>
+                                            selectedIds.has(t_.id),
+                                        )
+                                            ? true
+                                            : tournaments.data.some((t_) =>
+                                                    selectedIds.has(t_.id),
+                                                )
+                                              ? 'indeterminate'
+                                              : false
+                                    }
+                                    onCheckedChange={togglePage}
+                                    aria-label={t('Select all on page')}
+                                />
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('S.No.')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Name')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Tier')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Sport')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Venue')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Date')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Status')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Events')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Participants')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Gold')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Silver')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Bronze')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Merit')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Medals')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Created')}
+                            </TableHead>
+                            <TableHead
+                                className={`${listingHeadCellClass} ${stickyRightHeadCellClass}`}
+                            >
+                                {t('Actions')}
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {tournaments.data.length === 0 ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={17}
+                                    className="py-12 text-center text-muted-foreground"
+                                >
+                                    {hasActive
+                                        ? t(
+                                              'No tournaments match your filters.',
+                                          )
+                                        : t('No tournaments yet.')}
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {tournaments.data.length === 0 ? (
-                                <TableRow>
+                        ) : (
+                            tournaments.data.map((t_, index) => (
+                                <TableRow
+                                    key={t_.id}
+                                    className="hover:bg-muted/30"
+                                >
+                                    <TableCell className={listingCellClass}>
+                                        <Checkbox
+                                            checked={selectedIds.has(t_.id)}
+                                            onCheckedChange={() =>
+                                                toggleRow(t_.id)
+                                            }
+                                            aria-label={t('Select row')}
+                                        />
+                                    </TableCell>
                                     <TableCell
-                                        colSpan={14}
-                                        className="py-12 text-center text-muted-foreground"
+                                        className={`${listingCellClass} text-muted-foreground tabular-nums`}
                                     >
-                                        {hasActive
-                                            ? t(
-                                                  'No tournaments match your filters.',
-                                              )
-                                            : t('No tournaments yet.')}
+                                        {(typeof tournaments.from === 'number'
+                                            ? tournaments.from
+                                            : 1) + index}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        <Link
+                                            href={showTournament.url(t_.id)}
+                                            className="font-medium hover:underline"
+                                        >
+                                            {t_.name}
+                                        </Link>
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {t_.tier ? (
+                                            <Badge
+                                                variant="secondary"
+                                                className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                            >
+                                                {t_.tier.label}
+                                            </Badge>
+                                        ) : (
+                                            dash
+                                        )}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {tournamentSports(t_).length > 0 ? (
+                                            <div className="flex flex-wrap justify-center gap-1">
+                                                {tournamentSports(t_).map(
+                                                    (sport) => (
+                                                        <Badge
+                                                            key={sport.id}
+                                                            variant="outline"
+                                                            className="font-normal"
+                                                        >
+                                                            {sport.name}
+                                                        </Badge>
+                                                    ),
+                                                )}
+                                            </div>
+                                        ) : (
+                                            dash
+                                        )}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {t_.venue ?? dash}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {dateRange(t_)}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        <Badge variant="outline">
+                                            {tournamentStatus(t_)}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} tabular-nums`}
+                                    >
+                                        {t_.events_count}
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} tabular-nums`}
+                                    >
+                                        {t_.participants_count}
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} font-medium text-amber-700 tabular-nums dark:text-amber-300`}
+                                    >
+                                        {t_.gold_medals_count}
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} font-medium text-slate-600 tabular-nums dark:text-slate-300`}
+                                    >
+                                        {t_.silver_medals_count}
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} font-medium text-orange-700 tabular-nums dark:text-orange-300`}
+                                    >
+                                        {t_.bronze_medals_count}
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} font-medium text-emerald-700 tabular-nums dark:text-emerald-300`}
+                                    >
+                                        {t_.merit_medals_count}
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} font-semibold tabular-nums`}
+                                    >
+                                        {t_.medals_count}
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} text-muted-foreground`}
+                                    >
+                                        {formatDate(t_.created_at)}
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} ${stickyRightBodyCellClass}`}
+                                    >
+                                        <div className="flex justify-center gap-0.5">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                title={t('Print report')}
+                                                onClick={() =>
+                                                    handleTournamentReportPrint(
+                                                        t_.id,
+                                                    )
+                                                }
+                                            >
+                                                <Printer className="h-4 w-4 text-emerald-600" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                title={t('Excel export')}
+                                                onClick={() =>
+                                                    handleTournamentReportExport(
+                                                        t_.id,
+                                                    )
+                                                }
+                                            >
+                                                <FileDown className="h-4 w-4 text-blue-600" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                title={t('Quick overview')}
+                                                onClick={() =>
+                                                    setQuickOverviewTournament(
+                                                        t_,
+                                                    )
+                                                }
+                                            >
+                                                <Info className="h-4 w-4 text-amber-600" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                title={t('View')}
+                                                asChild
+                                            >
+                                                <Link
+                                                    href={showTournament.url(
+                                                        t_.id,
+                                                    )}
+                                                >
+                                                    <Eye className="h-4 w-4 text-sky-600" />
+                                                </Link>
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
-                            ) : (
-                                tournaments.data.map((t_, index) => (
-                                    <TableRow key={t_.id}>
-                                        <TableCell className="w-10">
-                                            <Checkbox
-                                                checked={selectedIds.has(t_.id)}
-                                                onCheckedChange={() =>
-                                                    toggleRow(t_.id)
-                                                }
-                                                aria-label={t('Select row')}
-                                            />
-                                        </TableCell>
-                                        <TableCell className="w-12 text-xs text-muted-foreground tabular-nums">
-                                            {(typeof tournaments.from ===
-                                            'number'
-                                                ? tournaments.from
-                                                : 1) + index}
-                                        </TableCell>
-                                        <TableCell className="w-[260px] max-w-[260px] overflow-hidden">
-                                            <Link
-                                                href={showTournament.url(t_.id)}
-                                                className="flex w-full min-w-0 items-center gap-2 font-medium hover:underline"
-                                                title={t_.name}
-                                            >
-                                                <Trophy className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-                                                <span className="truncate">
-                                                    {t_.name}
-                                                </span>
-                                            </Link>
-                                        </TableCell>
-                                        <TableCell>
-                                            {t_.tier ? (
-                                                <Badge
-                                                    variant="secondary"
-                                                    className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                                >
-                                                    {t_.tier.label}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-border select-none">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="max-w-[300px] text-muted-foreground">
-                                            {(() => {
-                                                const sportsList =
-                                                    tournamentSports(t_);
-                                                const sportPairs: Sport[][] =
-                                                    [];
-
-                                                for (
-                                                    let sportIndex = 0;
-                                                    sportIndex <
-                                                    sportsList.length;
-                                                    sportIndex += 2
-                                                ) {
-                                                    sportPairs.push(
-                                                        sportsList.slice(
-                                                            sportIndex,
-                                                            sportIndex + 2,
-                                                        ),
-                                                    );
-                                                }
-
-                                                return sportsList.length ===
-                                                    1 ? (
-                                                    <div className="px-2 py-1 text-[11px] font-medium text-foreground">
-                                                        {sportsList[0].name}
-                                                    </div>
-                                                ) : sportsList.length > 0 ? (
-                                                    <div className="overflow-hidden rounded-md border border-border">
-                                                        <table className="w-full text-[11px]">
-                                                            <tbody>
-                                                                {sportPairs.map(
-                                                                    (
-                                                                        pair,
-                                                                        pairIndex,
-                                                                    ) => (
-                                                                        <tr
-                                                                            key={`sport-row-${pairIndex}`}
-                                                                            className="border-b border-sky-100 last:border-b-0 dark:border-sky-900/60"
-                                                                        >
-                                                                            {pair.map(
-                                                                                (
-                                                                                    sport,
-                                                                                    sportOffset,
-                                                                                ) => (
-                                                                                    <Fragment
-                                                                                        key={
-                                                                                            sport.id
-                                                                                        }
-                                                                                    >
-                                                                                        <td className="w-8 border-r border-border px-2 py-1 text-center font-medium text-muted-foreground tabular-nums">
-                                                                                            {pairIndex *
-                                                                                                2 +
-                                                                                                sportOffset +
-                                                                                                1}
-                                                                                        </td>
-                                                                                        <td className="w-1/2 border-r border-border px-2 py-1 font-medium text-foreground">
-                                                                                            {
-                                                                                                sport.name
-                                                                                            }
-                                                                                        </td>
-                                                                                    </Fragment>
-                                                                                ),
-                                                                            )}
-                                                                            {pair.length ===
-                                                                                1 && (
-                                                                                <>
-                                                                                    <td className="w-8 border-r border-border px-2 py-1" />
-                                                                                    <td className="w-1/2 px-2 py-1" />
-                                                                                </>
-                                                                            )}
-                                                                        </tr>
-                                                                    ),
-                                                                )}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-border select-none">
-                                                        —
-                                                    </span>
-                                                );
-                                            })()}
-                                        </TableCell>
-                                        <TableCell className="max-w-[240px] text-muted-foreground">
-                                            <div className="overflow-hidden rounded-md border border-border">
-                                                <table className="w-full text-[11px]">
-                                                    <tbody>
-                                                        <tr className="border-b border-border">
-                                                            <td className="w-20 border-r border-border px-2 py-1 font-medium text-muted-foreground">
-                                                                {t('Venue')}
-                                                            </td>
-                                                            <td
-                                                                className="px-2 py-1 font-medium text-foreground"
-                                                                title={
-                                                                    t_.venue ??
-                                                                    undefined
-                                                                }
-                                                            >
-                                                                <span className="line-clamp-2">
-                                                                    {t_.venue ??
-                                                                        '—'}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                        <tr className="border-b border-border">
-                                                            <td className="w-20 border-r border-border px-2 py-1 font-medium text-muted-foreground">
-                                                                {t('Date')}
-                                                            </td>
-                                                            <td className="px-2 py-1 font-medium text-foreground">
-                                                                {dateRange(t_)}
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td className="w-20 border-r border-border px-2 py-1 font-medium text-muted-foreground">
-                                                                {t('Status')}
-                                                            </td>
-                                                            <td className="px-2 py-1">
-                                                                <Badge variant="outline">
-                                                                    {tournamentStatus(
-                                                                        t_,
-                                                                    )}
-                                                                </Badge>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="max-w-[150px]">
-                                            <div className="overflow-hidden rounded-md border border-border">
-                                                <table className="w-full text-[11px]">
-                                                    <tbody>
-                                                        <tr className="border-b border-border">
-                                                            <td className="w-24 border-r border-border px-2 py-1 font-medium text-muted-foreground">
-                                                                {t('Events')}
-                                                            </td>
-                                                            <td className="px-2 py-1 text-center font-medium text-foreground tabular-nums">
-                                                                {
-                                                                    t_.events_count
-                                                                }
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td className="w-24 border-r border-border px-2 py-1 font-medium text-muted-foreground">
-                                                                {t(
-                                                                    'Participants',
-                                                                )}
-                                                            </td>
-                                                            <td className="px-2 py-1 text-center font-medium text-foreground tabular-nums">
-                                                                {
-                                                                    t_.participants_count
-                                                                }
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium text-amber-700 tabular-nums dark:text-amber-300">
-                                            {t_.gold_medals_count}
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium text-slate-600 tabular-nums dark:text-slate-300">
-                                            {t_.silver_medals_count}
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium text-orange-700 tabular-nums dark:text-orange-300">
-                                            {t_.bronze_medals_count}
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium text-emerald-700 tabular-nums dark:text-emerald-300">
-                                            {t_.merit_medals_count}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            <span className="inline-flex items-center justify-end gap-1">
-                                                <Medal className="h-3.5 w-3.5 text-amber-500" />
-                                                {t_.medals_count}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {formatDate(t_.created_at)}
-                                        </TableCell>
-                                        <TableCell className="sticky right-0 z-10 w-[136px] bg-card">
-                                            <div className="flex justify-end gap-0.5">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    title={t('Print report')}
-                                                    onClick={() =>
-                                                        handleTournamentReportPrint(
-                                                            t_.id,
-                                                        )
-                                                    }
-                                                >
-                                                    <Printer className="h-4 w-4 text-emerald-600" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    title={t('Excel export')}
-                                                    onClick={() =>
-                                                        handleTournamentReportExport(
-                                                            t_.id,
-                                                        )
-                                                    }
-                                                >
-                                                    <FileDown className="h-4 w-4 text-blue-600" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    title={t('Quick overview')}
-                                                    onClick={() =>
-                                                        setQuickOverviewTournament(
-                                                            t_,
-                                                        )
-                                                    }
-                                                >
-                                                    <Info className="h-4 w-4 text-amber-600" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    title={t('View')}
-                                                    asChild
-                                                >
-                                                    <Link
-                                                        href={showTournament.url(
-                                                            t_.id,
-                                                        )}
-                                                    >
-                                                        <Eye className="h-4 w-4 text-sky-600" />
-                                                    </Link>
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                <ListingPagination
-                    paginator={tournaments}
-                    itemLabel={t('tournaments')}
-                    className="shrink-0 shadow-sm"
-                />
-            </div>
+                            ))
+                        )}
+                    </TableBody>
+                </ListingTable>
+            </ListingLayout>
 
             <ExportDialog
                 open={exportOpen}

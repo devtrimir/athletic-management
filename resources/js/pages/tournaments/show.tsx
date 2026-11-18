@@ -44,6 +44,12 @@ import {
 import { events as tournamentEvents } from '@/actions/App/Http/Controllers/TournamentProfileTabController';
 import { Combobox } from '@/components/combobox';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
+import {
+    FilterPill,
+    OptionList,
+    SearchableOptionList,
+    TextFilterPill,
+} from '@/components/data-table/filter-pill';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -1382,15 +1388,6 @@ export default function TournamentsShow({
         );
     }
 
-    function submitEventSearch(event: React.FormEvent<HTMLFormElement>) {
-        event.preventDefault();
-
-        const formData = new FormData(event.currentTarget);
-        applyEventFilters({
-            q: String(formData.get('q') ?? '').trim() || null,
-        });
-    }
-
     function handleEventsReportPrint(
         reportType: 'detail' | 'summary' | 'medal_log' | 'sport_medal_log',
     ) {
@@ -1551,85 +1548,6 @@ export default function TournamentsShow({
             right.events_count - left.events_count ||
             left.name.localeCompare(right.name),
     );
-    const totalSportParticipants = compactSports.reduce(
-        (total, sport) => total + sport.participants_count,
-        0,
-    );
-    const topSportByParticipants = compactSports[0] ?? null;
-    const topSportByEvents =
-        [...compactSports].sort(
-            (left, right) =>
-                right.events_count - left.events_count ||
-                right.participants_count - left.participants_count ||
-                left.name.localeCompare(right.name),
-        )[0] ?? null;
-    const dominantEventModeLabel =
-        summary.team_events === 0 && summary.individual_events === 0
-            ? t('No events yet.')
-            : summary.team_events === summary.individual_events
-              ? t('Balanced split')
-              : summary.team_events > summary.individual_events
-                ? t('Mostly team')
-                : t('Mostly individual');
-    const dominantMedalModeLabel =
-        summary.team_medals === 0 && summary.individual_medals === 0
-            ? t('No medals yet.')
-            : summary.team_medals === summary.individual_medals
-              ? t('Balanced medals')
-              : summary.team_medals > summary.individual_medals
-                ? t('Mostly team medals')
-                : t('Mostly individual medals');
-    const detailEventItems = [
-        {
-            label: t('Team events'),
-            value: summary.team_events,
-        },
-        {
-            label: t('Individual events'),
-            value: summary.individual_events,
-        },
-        ...(summary.total_events !== tournament.events_count
-            ? [
-                  {
-                      label: t('Detailed events'),
-                      value: summary.total_events,
-                  },
-              ]
-            : []),
-    ];
-    const detailParticipationItems = [
-        {
-            label: t('Sports'),
-            value: compactSports.length,
-        },
-        ...(totalSportParticipants !== tournament.participants_count
-            ? [
-                  {
-                      label: t('Detailed participants'),
-                      value: totalSportParticipants,
-                  },
-              ]
-            : []),
-    ];
-    const detailMedalItems = [
-        {
-            label: t('Individual medals'),
-            value: summary.individual_medals,
-        },
-        {
-            label: t('Team medals'),
-            value: summary.team_medals,
-        },
-        ...(summary.individual_medals + summary.team_medals !==
-        tournament.medals_count
-            ? [
-                  {
-                      label: t('Detailed medals'),
-                      value: summary.individual_medals + summary.team_medals,
-                  },
-              ]
-            : []),
-    ];
     const eventOverviewCards = [
         {
             label: t('Events'),
@@ -1846,28 +1764,48 @@ export default function TournamentsShow({
                 </div>
 
                 <Tabs value={activeTab}>
-                    <TabsList>
-                        <TabsTrigger value="overview" asChild>
-                            <Link
-                                href={showTournament.url(tournament.id, {
-                                    query: tournamentContextQuery(),
-                                })}
-                                prefetch
-                            >
-                                {t('Overview')}
-                            </Link>
-                        </TabsTrigger>
-                        <TabsTrigger value="events" asChild>
-                            <Link
-                                href={tournamentEvents.url(tournament.id, {
-                                    query: buildEventFilterQuery(),
-                                })}
-                                prefetch
-                            >
-                                {t('Events')}
-                            </Link>
-                        </TabsTrigger>
-                    </TabsList>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <TabsList>
+                            <TabsTrigger value="overview" asChild>
+                                <Link
+                                    href={showTournament.url(tournament.id, {
+                                        query: tournamentContextQuery(),
+                                    })}
+                                    prefetch
+                                >
+                                    {t('Overview')}
+                                </Link>
+                            </TabsTrigger>
+                            <TabsTrigger value="events" asChild>
+                                <Link
+                                    href={tournamentEvents.url(tournament.id, {
+                                        query: buildEventFilterQuery(),
+                                    })}
+                                    prefetch
+                                >
+                                    {t('Events')}
+                                </Link>
+                            </TabsTrigger>
+                        </TabsList>
+                        {activeTab === 'events' && (
+                            <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                                {eventOverviewCards.map((item) => (
+                                    <div
+                                        key={item.label}
+                                        className="flex items-center gap-1.5 rounded-lg border bg-card px-2 py-1 text-xs"
+                                    >
+                                        <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                                        <span className="text-muted-foreground">
+                                            {item.label}
+                                        </span>
+                                        <span className="font-semibold tabular-nums">
+                                            {item.value}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     {/* Overview */}
                     <TabsContent value="overview">
@@ -1880,7 +1818,7 @@ export default function TournamentsShow({
                                     />
                                     <p className="mt-1 text-xs text-muted-foreground">
                                         {t(
-                                            'Plain operational summary with facts, counts, medal split, and sport activity.',
+                                            'Plain summary with facts, counts, medal split, and sport activity.',
                                         )}
                                     </p>
                                 </div>
@@ -1976,155 +1914,6 @@ export default function TournamentsShow({
                                                             </td>
                                                         ),
                                                     )}
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
-                                <div className="overflow-hidden rounded-lg border">
-                                    <div className="border-b bg-muted/15 px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                        {t('Operational breakdown')}
-                                    </div>
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full text-sm">
-                                            <thead className="bg-muted/20">
-                                                <tr>
-                                                    <th className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                                                        {t('Area')}
-                                                    </th>
-                                                    <th className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                                                        {t('Summary')}
-                                                    </th>
-                                                    <th className="px-2.5 py-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                                                        {t('Insight')}
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y">
-                                                <tr className="align-top">
-                                                    <th className="px-2.5 py-2 text-left font-medium">
-                                                        {t('Event breakdown')}
-                                                    </th>
-                                                    <td className="px-2.5 py-2">
-                                                        <div className="space-y-1">
-                                                            {detailEventItems.map(
-                                                                (item) => (
-                                                                    <div
-                                                                        key={
-                                                                            item.label
-                                                                        }
-                                                                        className="flex flex-wrap items-center justify-between gap-2"
-                                                                    >
-                                                                        <span className="text-muted-foreground">
-                                                                            {
-                                                                                item.label
-                                                                            }
-                                                                        </span>
-                                                                        <span className="font-semibold tabular-nums">
-                                                                            {
-                                                                                item.value
-                                                                            }
-                                                                        </span>
-                                                                    </div>
-                                                                ),
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-2.5 py-2 text-sm">
-                                                        {dominantEventModeLabel}
-                                                    </td>
-                                                </tr>
-                                                <tr className="align-top">
-                                                    <th className="px-2.5 py-2 text-left font-medium">
-                                                        {t(
-                                                            'Participation breakdown',
-                                                        )}
-                                                    </th>
-                                                    <td className="px-2.5 py-2">
-                                                        <div className="space-y-1">
-                                                            {detailParticipationItems.map(
-                                                                (item) => (
-                                                                    <div
-                                                                        key={
-                                                                            item.label
-                                                                        }
-                                                                        className="flex flex-wrap items-center justify-between gap-2"
-                                                                    >
-                                                                        <span className="text-muted-foreground">
-                                                                            {
-                                                                                item.label
-                                                                            }
-                                                                        </span>
-                                                                        <span className="font-semibold tabular-nums">
-                                                                            {
-                                                                                item.value
-                                                                            }
-                                                                        </span>
-                                                                    </div>
-                                                                ),
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-2.5 py-2">
-                                                        <div className="space-y-1 text-sm">
-                                                            <div>
-                                                                <span className="font-medium">
-                                                                    {t(
-                                                                        'Top sport by participants',
-                                                                    )}
-                                                                    :
-                                                                </span>{' '}
-                                                                {topSportByParticipants
-                                                                    ? `${topSportByParticipants.name} (${topSportByParticipants.participants_count})`
-                                                                    : '—'}
-                                                            </div>
-                                                            <div>
-                                                                <span className="font-medium">
-                                                                    {t(
-                                                                        'Top sport by events',
-                                                                    )}
-                                                                    :
-                                                                </span>{' '}
-                                                                {topSportByEvents
-                                                                    ? `${topSportByEvents.name} (${topSportByEvents.events_count})`
-                                                                    : '—'}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                <tr className="align-top">
-                                                    <th className="px-2.5 py-2 text-left font-medium">
-                                                        {t('Medal breakdown')}
-                                                    </th>
-                                                    <td className="px-2.5 py-2">
-                                                        <div className="space-y-1">
-                                                            {detailMedalItems.map(
-                                                                (item) => (
-                                                                    <div
-                                                                        key={
-                                                                            item.label
-                                                                        }
-                                                                        className="flex flex-wrap items-center justify-between gap-2"
-                                                                    >
-                                                                        <span className="text-muted-foreground">
-                                                                            {
-                                                                                item.label
-                                                                            }
-                                                                        </span>
-                                                                        <span className="font-semibold tabular-nums">
-                                                                            {
-                                                                                item.value
-                                                                            }
-                                                                        </span>
-                                                                    </div>
-                                                                ),
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-2.5 py-2 text-sm">
-                                                        {dominantMedalModeLabel}
-                                                    </td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -2233,24 +2022,6 @@ export default function TournamentsShow({
                     <TabsContent value="events" className="space-y-4">
                         {activeTab === 'events' ? (
                             <>
-                                <section className="overflow-x-auto">
-                                    <div className="flex min-w-max gap-2 pb-1">
-                                        {eventOverviewCards.map((item) => (
-                                            <div
-                                                key={item.label}
-                                                className="rounded-lg border bg-card p-2"
-                                            >
-                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                    <item.icon className="h-3.5 w-3.5" />
-                                                    <span>{item.label}</span>
-                                                </div>
-                                                <p className="mt-1 text-xs font-semibold">
-                                                    {item.value}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
                                 <section className="overflow-hidden rounded-xl border bg-card">
                                     <div className="border-b bg-muted/30 px-4 py-3">
                                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2386,182 +2157,192 @@ export default function TournamentsShow({
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="grid gap-3 border-b p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                                        <form
-                                            onSubmit={submitEventSearch}
-                                            className="relative min-w-60 flex-1"
+                                    <div className="flex flex-wrap items-center gap-2 border-b p-2">
+                                        <TextFilterPill
+                                            label={t('Search')}
+                                            value={eventFilters.q ?? ''}
+                                            placeholder={t('Search events…')}
+                                            onApply={(value) =>
+                                                applyEventFilters({
+                                                    q: value || null,
+                                                })
+                                            }
+                                        />
+                                        <FilterPill
+                                            label={t('Sport')}
+                                            activeLabel={
+                                                sports.find(
+                                                    (sport) =>
+                                                        String(sport.id) ===
+                                                        eventFilters.sport_id,
+                                                )?.name
+                                            }
+                                            onClear={() =>
+                                                applyEventFilters({
+                                                    sport_id: null,
+                                                })
+                                            }
                                         >
-                                            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input
-                                                name="q"
-                                                defaultValue={
-                                                    eventFilters.q ?? ''
-                                                }
-                                                placeholder={t(
-                                                    'Search events…',
-                                                )}
-                                                className="pl-8"
-                                            />
-                                        </form>
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <Combobox
-                                                value={
-                                                    eventFilters.sport_id ??
-                                                    'all'
-                                                }
-                                                onValueChange={(value) =>
-                                                    applyEventFilters({
-                                                        sport_id:
-                                                            value === 'all' ||
-                                                            value === ''
-                                                                ? null
-                                                                : value,
-                                                    })
-                                                }
-                                                items={[
-                                                    {
-                                                        value: 'all',
-                                                        label: t('All sports'),
-                                                    },
-                                                    ...sports.map((sport) => ({
+                                            <SearchableOptionList
+                                                options={sports.map(
+                                                    (sport) => ({
                                                         value: String(sport.id),
                                                         label: sport.name,
-                                                    })),
-                                                ]}
-                                                placeholder={t('All sports')}
+                                                    }),
+                                                )}
+                                                value={
+                                                    eventFilters.sport_id ??
+                                                    undefined
+                                                }
                                                 searchPlaceholder={t(
                                                     'Search sports…',
                                                 )}
-                                                className="w-44"
-                                                emptyMessage={t(
-                                                    'No sports found.',
-                                                )}
-                                            />
-                                            <Select
-                                                value={
-                                                    eventFilters.gender ?? 'all'
-                                                }
-                                                onValueChange={(value) =>
+                                                onSelect={(value) =>
                                                     applyEventFilters({
-                                                        gender:
-                                                            value === 'all'
-                                                                ? null
-                                                                : value,
+                                                        sport_id: value ?? null,
                                                     })
                                                 }
-                                            >
-                                                <SelectTrigger className="w-40">
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'All genders',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="all">
-                                                        {t('All genders')}
-                                                    </SelectItem>
-                                                    {GENDER_CLASSES.map(
-                                                        (genderClass) => (
-                                                            <SelectItem
-                                                                key={
-                                                                    genderClass
-                                                                }
-                                                                value={
-                                                                    genderClass
-                                                                }
-                                                            >
-                                                                {genderClassLabel(
-                                                                    genderClass,
-                                                                    t,
-                                                                )}
-                                                            </SelectItem>
+                                            />
+                                        </FilterPill>
+                                        <FilterPill
+                                            label={t('Gender')}
+                                            activeLabel={
+                                                eventFilters.gender
+                                                    ? genderClassLabel(
+                                                          eventFilters.gender,
+                                                          t,
+                                                      )
+                                                    : undefined
+                                            }
+                                            onClear={() =>
+                                                applyEventFilters({
+                                                    gender: null,
+                                                })
+                                            }
+                                        >
+                                            <OptionList
+                                                options={GENDER_CLASSES.map(
+                                                    (genderClass) => ({
+                                                        value: genderClass,
+                                                        label: genderClassLabel(
+                                                            genderClass,
+                                                            t,
                                                         ),
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <Select
+                                                    }),
+                                                )}
+                                                value={
+                                                    eventFilters.gender ??
+                                                    undefined
+                                                }
+                                                onSelect={(value) =>
+                                                    applyEventFilters({
+                                                        gender: value ?? null,
+                                                    })
+                                                }
+                                            />
+                                        </FilterPill>
+                                        <FilterPill
+                                            label={t('Participation')}
+                                            activeLabel={
+                                                eventFilters.participation_status ===
+                                                'with'
+                                                    ? t('With participants')
+                                                    : eventFilters.participation_status ===
+                                                        'without'
+                                                      ? t(
+                                                            'Without participants',
+                                                        )
+                                                      : undefined
+                                            }
+                                            onClear={() =>
+                                                applyEventFilters({
+                                                    participation_status: null,
+                                                })
+                                            }
+                                        >
+                                            <OptionList
+                                                options={[
+                                                    {
+                                                        value: 'with',
+                                                        label: t(
+                                                            'With participants',
+                                                        ),
+                                                    },
+                                                    {
+                                                        value: 'without',
+                                                        label: t(
+                                                            'Without participants',
+                                                        ),
+                                                    },
+                                                ]}
                                                 value={
                                                     eventFilters.participation_status ??
-                                                    'all'
+                                                    undefined
                                                 }
-                                                onValueChange={(value) =>
+                                                onSelect={(value) =>
                                                     applyEventFilters({
                                                         participation_status:
-                                                            value === 'all'
-                                                                ? null
-                                                                : value,
+                                                            value ?? null,
                                                     })
                                                 }
-                                            >
-                                                <SelectTrigger className="w-48">
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'Participation',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="all">
-                                                        {t('All events')}
-                                                    </SelectItem>
-                                                    <SelectItem value="with">
-                                                        {t('With participants')}
-                                                    </SelectItem>
-                                                    <SelectItem value="without">
-                                                        {t(
-                                                            'Without participants',
-                                                        )}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <Select
+                                            />
+                                        </FilterPill>
+                                        <FilterPill
+                                            label={t('Type')}
+                                            activeLabel={
+                                                eventFilters.event_type
+                                                    ? t(
+                                                          eventFilters.event_type ===
+                                                              'team'
+                                                              ? 'Team'
+                                                              : 'Individual',
+                                                      )
+                                                    : undefined
+                                            }
+                                            onClear={() =>
+                                                applyEventFilters({
+                                                    event_type: null,
+                                                })
+                                            }
+                                        >
+                                            <OptionList
+                                                options={[
+                                                    {
+                                                        value: 'individual',
+                                                        label: t('Individual'),
+                                                    },
+                                                    {
+                                                        value: 'team',
+                                                        label: t('Team'),
+                                                    },
+                                                ]}
                                                 value={
                                                     eventFilters.event_type ??
-                                                    'all'
+                                                    undefined
                                                 }
-                                                onValueChange={(value) =>
+                                                onSelect={(value) =>
                                                     applyEventFilters({
                                                         event_type:
-                                                            value === 'all'
-                                                                ? null
-                                                                : (value as
-                                                                      | 'individual'
-                                                                      | 'team'),
+                                                            (value as
+                                                                | 'individual'
+                                                                | 'team'
+                                                                | undefined) ??
+                                                            null,
                                                     })
                                                 }
+                                            />
+                                        </FilterPill>
+                                        <div className="min-w-0 flex-1" />
+                                        {hasEventFilters ? (
+                                            <button
+                                                type="button"
+                                                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                                onClick={clearEventFilters}
                                             >
-                                                <SelectTrigger className="w-40">
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            'All event types',
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="all">
-                                                        {t('All event types')}
-                                                    </SelectItem>
-                                                    <SelectItem value="individual">
-                                                        {t('Individual')}
-                                                    </SelectItem>
-                                                    <SelectItem value="team">
-                                                        {t('Team')}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {hasEventFilters ? (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={clearEventFilters}
-                                                >
-                                                    <X className="mr-1.5 h-4 w-4" />
-                                                    {t('Clear filters')}
-                                                </Button>
-                                            ) : null}
-                                        </div>
+                                                <X className="mr-1 inline size-3" />
+                                                {t('Clear filters')}
+                                            </button>
+                                        ) : null}
                                     </div>
                                     <div className="px-4 py-3 text-xs text-muted-foreground">
                                         {(events ?? []).length}{' '}
