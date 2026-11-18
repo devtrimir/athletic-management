@@ -1,6 +1,15 @@
-import { Search, X } from 'lucide-react';
+import {
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Search,
+    X,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Heading from '@/components/heading';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
@@ -101,7 +110,18 @@ export function ListingLayout({
     );
 }
 
-/** The bordered, full-height table frame (sticky head, horizontal scroll). */
+const PAN_IGNORE =
+    'a,button,input,select,textarea,label,[role=button],[role=checkbox],[role=combobox],[data-no-pan]';
+
+/**
+ * The bordered, full-height table frame (sticky head, horizontal scroll).
+ *
+ * For wide tables it adds scroll helpers for mice without a horizontal wheel:
+ * icon buttons (start / left / right / end), shown only while the pointer is
+ * over the table and it actually overflows, and drag-to-pan. A press on plain
+ * cell space that moves more than a few pixels is treated as a pan and the
+ * click that follows is swallowed, so row clicks still work.
+ */
 export function ListingTable({
     minWidth = 1000,
     className,
@@ -111,14 +131,190 @@ export function ListingTable({
     className?: string;
     children: ReactNode;
 }) {
+    const { t } = useTranslation();
+    const frameRef = useRef<HTMLDivElement>(null);
+    const [edge, setEdge] = useState({
+        overflow: false,
+        atStart: true,
+        atEnd: true,
+    });
+
+    const scroller = () =>
+        frameRef.current?.querySelector<HTMLElement>(
+            '[data-slot=table-container]',
+        ) ?? null;
+
+    useEffect(() => {
+        const el = scroller();
+
+        if (!el) {
+            return;
+        }
+
+        const update = () =>
+            setEdge({
+                overflow: el.scrollWidth > el.clientWidth + 1,
+                atStart: el.scrollLeft <= 1,
+                atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1,
+            });
+        const observer = new ResizeObserver(update);
+
+        update();
+        el.addEventListener('scroll', update, { passive: true });
+        observer.observe(el);
+
+        if (el.firstElementChild) {
+            observer.observe(el.firstElementChild);
+        }
+
+        let origin: { x: number; y: number; left: number; top: number } | null =
+            null;
+        let panning = false;
+
+        const onDown = (event: PointerEvent) => {
+            if (
+                event.pointerType !== 'mouse' ||
+                event.button !== 0 ||
+                (event.target as HTMLElement).closest(PAN_IGNORE)
+            ) {
+                return;
+            }
+
+            origin = {
+                x: event.clientX,
+                y: event.clientY,
+                left: el.scrollLeft,
+                top: el.scrollTop,
+            };
+        };
+        const onMove = (event: PointerEvent) => {
+            if (!origin) {
+                return;
+            }
+
+            const dx = event.clientX - origin.x;
+            const dy = event.clientY - origin.y;
+
+            if (!panning && Math.hypot(dx, dy) > 6) {
+                panning = true;
+                el.style.cursor = 'grabbing';
+                el.style.userSelect = 'none';
+            }
+
+            if (panning) {
+                el.scrollLeft = origin.left - dx;
+                el.scrollTop = origin.top - dy;
+            }
+        };
+        const onUp = () => {
+            if (panning) {
+                const swallow = (event: Event) => event.stopPropagation();
+
+                el.addEventListener('click', swallow, {
+                    capture: true,
+                    once: true,
+                });
+                setTimeout(
+                    () => el.removeEventListener('click', swallow, true),
+                    0,
+                );
+                el.style.cursor = '';
+                el.style.userSelect = '';
+            }
+
+            origin = null;
+            panning = false;
+        };
+
+        el.addEventListener('pointerdown', onDown);
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+
+        return () => {
+            observer.disconnect();
+            el.removeEventListener('scroll', update);
+            el.removeEventListener('pointerdown', onDown);
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+        };
+    }, []);
+
+    function scrollTo(position: 'start' | 'left' | 'right' | 'end') {
+        const el = scroller();
+
+        if (!el) {
+            return;
+        }
+
+        const step = el.clientWidth * 0.6;
+        const left = {
+            start: 0,
+            left: el.scrollLeft - step,
+            right: el.scrollLeft + step,
+            end: el.scrollWidth,
+        }[position];
+
+        el.scrollTo({ left, behavior: 'smooth' });
+    }
+
+    const controls = [
+        {
+            key: 'start',
+            label: 'Scroll to start',
+            icon: ChevronsLeft,
+            off: edge.atStart,
+        },
+        {
+            key: 'left',
+            label: 'Scroll left',
+            icon: ChevronLeft,
+            off: edge.atStart,
+        },
+        {
+            key: 'right',
+            label: 'Scroll right',
+            icon: ChevronRight,
+            off: edge.atEnd,
+        },
+        {
+            key: 'end',
+            label: 'Scroll to end',
+            icon: ChevronsRight,
+            off: edge.atEnd,
+        },
+    ] as const;
+
     return (
-        <div className="h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
+        <div
+            ref={frameRef}
+            className="group/table relative h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full"
+        >
             <Table
                 className={cn(listingTableClass, className)}
                 style={{ minWidth }}
             >
                 {children}
             </Table>
+
+            {edge.overflow && (
+                <div className="pointer-events-none absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 gap-0.5 rounded-lg border bg-background/95 p-0.5 opacity-0 shadow-md backdrop-blur transition-opacity group-focus-within/table:pointer-events-auto group-focus-within/table:opacity-100 group-hover/table:pointer-events-auto group-hover/table:opacity-100">
+                    {controls.map(({ key, label, icon: Icon, off }) => (
+                        <Button
+                            key={key}
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            title={t(label)}
+                            aria-label={t(label)}
+                            disabled={off}
+                            onClick={() => scrollTo(key)}
+                        >
+                            <Icon className="size-4" />
+                        </Button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

@@ -1736,5 +1736,13 @@
     "Training time": "प्रशिक्षण समय",
     "Attendance mode": "उपस्थिति का तरीका",
     "Permission reference": "अनुमति संदर्भ",
-    "Schedule": "समय-सारणी"
+    "Schedule": "समय-सारणी",
+    "View photo": "फोटो देखें",
+    "Photo not available": "फोटो उपलब्ध नहीं है",
+    "Scroll to start": "शुरुआत पर जाएँ",
+    "Scroll left": "बाएँ स्क्रॉल करें",
+    "Scroll right": "दाएँ स्क्रॉल करें",
+    "Scroll to end": "अंत पर जाएँ",
+    "Review": "समीक्षा",
+    "No access": "पहुँच नहीं"
 }

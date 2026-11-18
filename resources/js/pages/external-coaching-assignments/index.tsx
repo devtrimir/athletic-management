@@ -31,7 +31,7 @@ import { AssignmentQuickView } from '@/components/external-coaching/assignment-q
 import type { AssignmentQuickViewData } from '@/components/external-coaching/assignment-quick-view';
 import { ListingPagination } from '@/components/listing-pagination';
 import type { PaginatedListing } from '@/components/listing-pagination';
-import { MemberAvatar } from '@/components/members/member-table-cells';
+import { MemberPhotoPreview } from '@/components/members/member-photo-preview';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -333,7 +333,7 @@ export default function ExternalCoachingAssignmentsIndex({
                                             stickyLeftBodyCellClass,
                                         )}
                                     >
-                                        <MemberAvatar
+                                        <MemberPhotoPreview
                                             photoPath={
                                                 assignment.member?.photo_path
                                             }

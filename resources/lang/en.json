@@ -643,5 +643,13 @@
     "Permission reference": "Permission reference",
     "Schedule": "Schedule",
     "Photo": "Photo",
-    "Member": "Member"
+    "Member": "Member",
+    "View photo": "View photo",
+    "Photo not available": "Photo not available",
+    "Scroll to start": "Scroll to start",
+    "Scroll left": "Scroll left",
+    "Scroll right": "Scroll right",
+    "Scroll to end": "Scroll to end",
+    "Review": "Review",
+    "No access": "No access"
 }

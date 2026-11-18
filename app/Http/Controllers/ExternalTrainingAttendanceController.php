@@ -456,7 +456,7 @@ class ExternalTrainingAttendanceController extends Controller
     {
         return ExternalTrainingAttendance::query()
             ->with([
-                'member:id,member_code,pno,full_name',
+                'member:id,member_code,pno,full_name,photo_path',
                 'externalCoach:id,name,email,phone',
                 'trainingVenue:id,name',
                 'assignment:id,sport_id,status,start_date,end_date,training_start_time,training_end_time,attendance_mode',

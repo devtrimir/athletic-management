@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Download, Eye, Printer } from 'lucide-react';
+import { ClipboardCheck, Download, Lock, Printer } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 
@@ -22,9 +22,12 @@ import {
     listingHeadCellClass,
     stickyLeftBodyCellClass,
     stickyLeftHeadCellClass,
+    stickyRightBodyCellClass,
+    stickyRightHeadCellClass,
 } from '@/components/data-table/table-primitives';
 import { ListingPagination } from '@/components/listing-pagination';
 import type { PaginatedListing } from '@/components/listing-pagination';
+import { MemberPhotoPreview } from '@/components/members/member-photo-preview';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -64,6 +67,7 @@ type Attendance = {
     submitted_at: string;
     member: {
         id: number;
+        photo_path: string | null;
         full_name: string;
         member_code: string | null;
         pno: string | null;
@@ -864,9 +868,9 @@ export default function ExternalTrainingAttendanceIndex({
                         <colgroup>
                             <col className="w-9" />
                             <col className="w-11" />
-                            <col className="w-[88px]" />
                             <col className="w-[96px]" />
                             <col className="w-[96px]" />
+                            <col className="w-[56px]" />
                             <col />
                             <col className="w-[160px]" />
                             <col className="w-[150px]" />
@@ -876,6 +880,7 @@ export default function ExternalTrainingAttendanceIndex({
                             <col className="w-[90px]" />
                             <col className="w-[110px]" />
                             <col className="w-[80px]" />
+                            <col className="w-[56px]" />
                         </colgroup>
                         <TableHeader className="sticky top-0 z-20">
                             <TableRow className="hover:bg-transparent">
@@ -909,18 +914,10 @@ export default function ExternalTrainingAttendanceIndex({
                                 >
                                     {t('S.No.')}
                                 </TableHead>
-                                <TableHead
-                                    style={{ left: 80 }}
-                                    className={cn(
-                                        listingHeadCellClass,
-                                        stickyLeftHeadCellClass,
-                                    )}
-                                >
-                                    {t('Review')}
-                                </TableHead>
                                 {[
                                     'Date',
                                     'Entry source',
+                                    'Photo',
                                     'Member',
                                     'External coach',
                                     'Venue',
@@ -945,13 +942,22 @@ export default function ExternalTrainingAttendanceIndex({
                                 >
                                     {t('Distance')}
                                 </TableHead>
+                                <TableHead
+                                    className={cn(
+                                        listingHeadCellClass,
+                                        stickyRightHeadCellClass,
+                                        'text-right',
+                                    )}
+                                >
+                                    {t('Actions')}
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {attendances.data.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={14}
+                                        colSpan={15}
                                         className="py-12 text-center text-muted-foreground"
                                     >
                                         {t('No attendance records found.')}
@@ -1015,32 +1021,6 @@ export default function ExternalTrainingAttendanceIndex({
                                                 {(attendances.from ?? 1) +
                                                     index}
                                             </TableCell>
-                                            <TableCell
-                                                style={{ left: 80 }}
-                                                className={cn(
-                                                    listingCellClass,
-                                                    stickyLeftBodyCellClass,
-                                                )}
-                                            >
-                                                {canReviewAttendanceDetails ? (
-                                                    <Button
-                                                        asChild
-                                                        size="sm"
-                                                        className="h-5 px-1.5 text-[11px]"
-                                                    >
-                                                        <Link
-                                                            href={`${PATH}/${attendance.id}`}
-                                                        >
-                                                            <Eye className="size-3" />
-                                                            {t('Review')}
-                                                        </Link>
-                                                    </Button>
-                                                ) : (
-                                                    <span className="text-muted-foreground">
-                                                        {t('No access')}
-                                                    </span>
-                                                )}
-                                            </TableCell>
                                             <SpanCell
                                                 meta={spans.date}
                                                 className="font-medium whitespace-nowrap"
@@ -1067,6 +1047,18 @@ export default function ExternalTrainingAttendanceIndex({
                                                         t,
                                                     )}
                                                 </Badge>
+                                            </SpanCell>
+                                            <SpanCell meta={spans.member}>
+                                                <MemberPhotoPreview
+                                                    photoPath={
+                                                        attendance.member
+                                                            .photo_path
+                                                    }
+                                                    name={
+                                                        attendance.member
+                                                            .full_name
+                                                    }
+                                                />
                                             </SpanCell>
                                             <SpanCell meta={spans.member}>
                                                 <Link
@@ -1186,6 +1178,37 @@ export default function ExternalTrainingAttendanceIndex({
                                                 {attendance.distance_from_venue_meters ??
                                                     '-'}{' '}
                                                 m
+                                            </TableCell>
+                                            <TableCell
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyRightBodyCellClass,
+                                                )}
+                                            >
+                                                <div className="flex justify-end">
+                                                    {canReviewAttendanceDetails ? (
+                                                        <Button
+                                                            asChild
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            title={t('Review')}
+                                                        >
+                                                            <Link
+                                                                href={`${PATH}/${attendance.id}`}
+                                                            >
+                                                                <ClipboardCheck className="size-4" />
+                                                            </Link>
+                                                        </Button>
+                                                    ) : (
+                                                        <span
+                                                            title={t(
+                                                                'No access',
+                                                            )}
+                                                        >
+                                                            <Lock className="size-4 text-muted-foreground" />
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     );
