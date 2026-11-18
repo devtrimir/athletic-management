@@ -126,10 +126,12 @@ class ExternalCoach extends Authenticatable
      * @param  Builder<ExternalCoach>  $query
      */
     #[Scope]
-    protected function filter(Builder $query, ?string $status, ?string $search): void
+    protected function filter(Builder $query, ?string $status, ?string $search, ?int $sportId = null, ?int $trainingVenueId = null): void
     {
         $query
             ->when($status !== null, fn (Builder $query) => $query->where('status', $status))
+            ->when($sportId !== null, fn (Builder $query) => $query->whereHas('sports', fn (Builder $sports) => $sports->whereKey($sportId)))
+            ->when($trainingVenueId !== null, fn (Builder $query) => $query->whereHas('trainingVenues', fn (Builder $venues) => $venues->whereKey($trainingVenueId)))
             ->when($search !== null, function (Builder $query) use ($search): void {
                 $like = '%'.mb_strtolower((string) $search).'%';
 

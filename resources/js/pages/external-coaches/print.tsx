@@ -21,7 +21,13 @@ type Coach = {
 
 type Props = {
     coaches: Coach[];
-    filters: { q: string | null; status: string | null; selected: number };
+    filters: {
+        q: string | null;
+        status: string | null;
+        sport: string | null;
+        training_venue: string | null;
+        selected: number;
+    };
     printedAt: string;
 };
 
@@ -130,6 +136,10 @@ export default function ExternalCoachesPrint({
                         : null,
                     filters.status
                         ? `${t('Status')}: ${t(filters.status)}`
+                        : null,
+                    filters.sport ? `${t('Sport')}: ${filters.sport}` : null,
+                    filters.training_venue
+                        ? `${t('Training venue')}: ${filters.training_venue}`
                         : null,
                     filters.q ? `${t('Search')}: ${filters.q}` : null,
                 ]}

@@ -26,16 +26,13 @@ class ExternalCoachController extends Controller
     {
         Gate::authorize('viewAny', ExternalCoach::class);
 
-        $filters = $request->query('filter', []);
-        $filters = is_array($filters) ? $filters : [];
         $orgId = (int) $request->user()->organization_id;
-        $statusFilter = $this->filterString($filters['status'] ?? null);
-        $search = $this->filterString($filters['q'] ?? null);
+        ['status' => $statusFilter, 'q' => $search, 'sport_id' => $sportId, 'training_venue_id' => $venueId] = $this->listingFilters($request);
         $perPage = min(max((int) $request->query('per_page', 25), 10), 100);
 
         $externalCoaches = ExternalCoach::query()
             ->where('organization_id', $orgId)
-            ->filter($statusFilter, $search)
+            ->filter($statusFilter, $search, $sportId, $venueId)
             ->with(['sports:id,name', 'trainingVenues:id,name'])
             ->withActivePlayersCount()
             ->latest('id')
@@ -47,8 +44,11 @@ class ExternalCoachController extends Controller
             'filters' => [
                 'q' => $search,
                 'status' => $statusFilter,
+                'sport_id' => $sportId === null ? null : (string) $sportId,
+                'training_venue_id' => $venueId === null ? null : (string) $venueId,
             ],
             'statuses' => $this->statuses(),
+            ...$this->formOptions(),
             'perPage' => $perPage,
         ]);
     }
@@ -62,15 +62,12 @@ class ExternalCoachController extends Controller
         Gate::authorize('viewAny', ExternalCoach::class);
         abort_unless($request->user()->can('coaches.print'), 403);
 
-        $filters = $request->query('filter', []);
-        $filters = is_array($filters) ? $filters : [];
-        $statusFilter = $this->filterString($filters['status'] ?? null);
-        $search = $this->filterString($filters['q'] ?? null);
+        ['status' => $statusFilter, 'q' => $search, 'sport_id' => $sportId, 'training_venue_id' => $venueId] = $this->listingFilters($request);
         $ids = collect((array) $request->query('ids', []))->map(fn ($id): int => (int) $id)->filter()->values();
 
         $coaches = ExternalCoach::query()
             ->where('organization_id', (int) $request->user()->organization_id)
-            ->filter($statusFilter, $search)
+            ->filter($statusFilter, $search, $sportId, $venueId)
             ->when($ids->isNotEmpty(), fn ($query) => $query->whereKey($ids))
             ->with(['sports:id,name', 'trainingVenues:id,name'])
             ->withActivePlayersCount()
@@ -80,7 +77,13 @@ class ExternalCoachController extends Controller
 
         return Inertia::render('external-coaches/print', [
             'coaches' => $coaches,
-            'filters' => ['q' => $search, 'status' => $statusFilter, 'selected' => $ids->count()],
+            'filters' => [
+                'q' => $search,
+                'status' => $statusFilter,
+                'sport' => $sportId === null ? null : Sport::query()->where('organization_id', (int) $request->user()->organization_id)->whereKey($sportId)->value('name'),
+                'training_venue' => $venueId === null ? null : TrainingVenue::query()->where('organization_id', (int) $request->user()->organization_id)->whereKey($venueId)->value('name'),
+                'selected' => $ids->count(),
+            ],
             'printedAt' => now()->timezone('Asia/Kolkata')->format('d M Y, h:i A').' IST',
         ]);
     }
@@ -93,6 +96,23 @@ class ExternalCoachController extends Controller
             'statuses' => $this->statuses(),
             ...$this->formOptions(),
         ]);
+    }
+
+    /**
+     * @return array{status: ?string, q: ?string, sport_id: ?int, training_venue_id: ?int}
+     */
+    private function listingFilters(Request $request): array
+    {
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+        $id = static fn (mixed $value): ?int => is_string($value) && ctype_digit($value) && (int) $value > 0 ? (int) $value : null;
+
+        return [
+            'status' => $this->filterString($filters['status'] ?? null),
+            'q' => $this->filterString($filters['q'] ?? null),
+            'sport_id' => $id($filters['sport_id'] ?? null),
+            'training_venue_id' => $id($filters['training_venue_id'] ?? null),
+        ];
     }
 
     private function filterString(mixed $value): ?string
