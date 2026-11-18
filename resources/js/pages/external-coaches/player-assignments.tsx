@@ -51,6 +51,7 @@ type Attendance = {
     external_coaching_assignment_id: number;
     attendance_date: string;
     attendance_status: string;
+    final_attendance_status: string;
     review_status: string;
     geo_status: string;
     distance_from_venue_meters: string | number | null;
@@ -219,7 +220,12 @@ export default function ExternalCoachPlayerAssignments({
                                     attendances.map((attendance) => (
                                         <TableRow key={attendance.id}>
                                             <TableCell>{formatDate(attendance.attendance_date)}</TableCell>
-                                            <TableCell>{t(attendance.attendance_status)}</TableCell>
+                                            <TableCell>
+                                                {t(attendance.final_attendance_status)}
+                                                {attendance.final_attendance_status !== attendance.attendance_status && (
+                                                    <span className="ml-1 text-xs text-muted-foreground">({t('Submitted as')} {t(attendance.attendance_status)})</span>
+                                                )}
+                                            </TableCell>
                                             <TableCell>
                                                 <Badge variant="outline">{t(attendance.review_status)}</Badge>
                                             </TableCell>

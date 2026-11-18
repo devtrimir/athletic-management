@@ -52,6 +52,8 @@ type Attendance = {
     id: number;
     attendance_date: string;
     attendance_status: string;
+    corrected_attendance_status: string | null;
+    final_attendance_status: string;
     review_status: string;
     review_remarks: string | null;
     reviewed_at: string | null;
@@ -68,6 +70,7 @@ type PerformanceUpdate = {
     training_summary: string;
     improvement_notes: string | null;
     review_status: string;
+    review_remarks: string | null;
     sport: { name: string };
 };
 
@@ -739,6 +742,11 @@ export default function ExternalCoachAthleteShow({
                                                     {update.improvement_notes}
                                                 </p>
                                             ) : null}
+                                            {update.review_remarks ? (
+                                                <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-100">
+                                                    {update.review_remarks}
+                                                </p>
+                                            ) : null}
                                         </article>
                                     ))}
                                 </HistoryPanel>
@@ -798,10 +806,13 @@ function AttendanceRecord({
                     <Badge
                         variant="outline"
                         className={attendanceStatusBadgeClass(
-                            attendance.attendance_status,
+                            attendance.final_attendance_status,
                         )}
                     >
-                        {attendanceStatusLabel(attendance.attendance_status, t)}
+                        {attendanceStatusLabel(
+                            attendance.final_attendance_status,
+                            t,
+                        )}
                     </Badge>
                     <Badge
                         variant="outline"
@@ -811,19 +822,15 @@ function AttendanceRecord({
                     >
                         {reviewStatusLabel(attendance.review_status, t)}
                     </Badge>
-                    {attendance.review_status === 'corrected' ? (
-                        <Badge
-                            variant="outline"
-                            className={attendanceStatusBadgeClass(
-                                attendance.attendance_status,
-                            )}
-                        >
-                            {t('Corrected to')}{' '}
+                    {attendance.final_attendance_status !==
+                    attendance.attendance_status ? (
+                        <span className="text-xs text-muted-foreground">
+                            {t('Submitted as')}{' '}
                             {attendanceStatusLabel(
                                 attendance.attendance_status,
                                 t,
                             )}
-                        </Badge>
+                        </span>
                     ) : null}
                     <Badge
                         variant="outline"
@@ -840,8 +847,7 @@ function AttendanceRecord({
                                 {attendance.coach_remarks}
                             </p>
                         ) : null}
-                        {attendance.review_status === 'corrected' &&
-                        attendance.review_remarks ? (
+                        {attendance.review_remarks ? (
                             <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-100">
                                 {attendance.review_remarks}
                             </p>
@@ -977,7 +983,7 @@ function buildAttendanceSummary(attendances: Attendance[]): {
     return {
         total: attendances.length,
         present: attendances.filter(
-            (attendance) => attendance.attendance_status === 'present',
+            (attendance) => attendance.final_attendance_status === 'present',
         ).length,
         pending: attendances.filter(
             (attendance) => attendance.review_status === 'pending',
