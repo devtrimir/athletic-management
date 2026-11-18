@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\ExternalCoaches;
 
+use App\Models\ExternalCoachDocument;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
 
 class StoreExternalCoachRequest extends FormRequest
@@ -27,6 +30,7 @@ class StoreExternalCoachRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...self::extraRules(),
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'regex:/^[6-9]\d{9}$/', Rule::unique('external_coaches', 'phone')],
             'email' => ['required', 'email', 'max:255', Rule::unique('external_coaches', 'email')],
@@ -42,6 +46,38 @@ class StoreExternalCoachRequest extends FormRequest
             'remarks' => ['nullable', 'string', 'max:4000'],
             'status' => ['required', Rule::in(['pending_invite', 'active', 'inactive', 'suspended', 'blacklisted'])],
             'status_reason' => ['nullable', 'string', 'max:4000', Rule::requiredIf(fn (): bool => in_array($this->string('status')->toString(), ['suspended', 'blacklisted'], true))],
+        ];
+    }
+
+    /**
+     * Rules for the photo, sports, venues and documents shared by store and update.
+     *
+     * @return array<string, mixed>
+     */
+    public static function extraRules(): array
+    {
+        $orgId = (int) auth()->user()?->organization_id;
+
+        return [
+            'photo' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
+            'remove_photo' => ['nullable', 'boolean'],
+            'sport_ids' => ['nullable', 'array'],
+            'sport_ids.*' => ['integer', Rule::exists('sports', 'id')->where('organization_id', $orgId)],
+            'training_venue_ids' => ['nullable', 'array'],
+            'training_venue_ids.*' => ['integer', Rule::exists('training_venues', 'id')->where('organization_id', $orgId)],
+            'documents' => ['nullable', 'array', 'max:10'],
+            'documents.*.type' => ['required', Rule::in(ExternalCoachDocument::TYPES)],
+            'documents.*.file' => [
+                'required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:20480',
+                // A "combined" document is every proof merged into one PDF.
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    $type = request()->input(str_replace('.file', '.type', $attribute));
+
+                    if ($type === 'combined' && $value instanceof UploadedFile && $value->getMimeType() !== 'application/pdf') {
+                        $fail(__('A combined document must be a PDF.'));
+                    }
+                },
+            ],
         ];
     }
 

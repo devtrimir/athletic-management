@@ -13,9 +13,12 @@ use App\Models\Organization;
 use App\Models\Sport;
 use App\Models\TrainingVenue;
 use App\Models\User;
+use App\Services\FileCompressor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
@@ -530,4 +533,164 @@ test('inactive external coaches cannot login', function () {
         ->assertSessionHasErrors(['email']);
 
     $this->assertGuest('external_coach');
+});
+
+test('external coach profile saves photo, sports, venues and documents', function () {
+    Storage::fake('public');
+    Storage::fake('local');
+
+    $user = rcUser('external-coaches.view', 'external-coaches.create', 'external-coaches.update');
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $venue = TrainingVenue::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), [
+            'name' => 'Photo Coach',
+            'email' => 'photo.coach@example.test',
+            'password' => 'password',
+            'status' => 'active',
+            'photo' => UploadedFile::fake()->image('me.jpg'),
+            'sport_ids' => [$sport->id],
+            'training_venue_ids' => [$venue->id],
+            'documents' => [['type' => 'aadhaar', 'file' => UploadedFile::fake()->create('aadhaar.pdf', 100, 'application/pdf')]],
+        ])
+        ->assertSessionHasNoErrors();
+
+    $coach = ExternalCoach::query()->where('email', 'photo.coach@example.test')->firstOrFail();
+
+    Storage::disk('public')->assertExists($coach->photo_path);
+    expect($coach->sports()->pluck('sports.id')->all())->toBe([$sport->id])
+        ->and($coach->trainingVenues()->pluck('training_venues.id')->all())->toBe([$venue->id])
+        ->and($coach->documents)->toHaveCount(1);
+
+    $document = $coach->documents->first();
+    Storage::disk('local')->assertExists($document->path);
+
+    $this->actingAs($user)
+        ->get(route('external-coaches.documents.show', [$coach, $document]))
+        ->assertOk()
+        ->assertHeader('Cache-Control', 'no-store, private');
+
+    $this->actingAs($user)
+        ->get(route('external-coaches.documents.show', [$coach, $document, 'download' => 1]))
+        ->assertDownload('aadhaar.pdf');
+
+    expect(AuditLog::query()->where('entity', 'ExternalCoach')->where('entity_id', $coach->id)->pluck('action')->all())
+        ->toContain('document_uploaded', 'document_viewed', 'document_downloaded');
+
+    // Clearing: empty selections and remove_photo detach/clear everything.
+    $this->actingAs($user)
+        ->patch(route('external-coaches.update', $coach), [
+            'name' => 'Photo Coach',
+            'email' => 'photo.coach@example.test',
+            'status' => 'active',
+            'remove_photo' => '1',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($coach->refresh()->photo_path)->toBeNull()
+        ->and($coach->sports()->count())->toBe(0)
+        ->and($coach->trainingVenues()->count())->toBe(0);
+
+    $this->actingAs($user)
+        ->delete(route('external-coaches.documents.destroy', [$coach, $document]))
+        ->assertRedirect();
+
+    expect($coach->documents()->count())->toBe(0)
+        ->and(AuditLog::query()->where('entity_id', $coach->id)->where('action', 'document_deleted')->exists())->toBeTrue();
+    Storage::disk('local')->assertMissing($document->path);
+});
+
+test('external coach sports must belong to the same organization', function () {
+    $user = rcUser('external-coaches.view', 'external-coaches.create');
+    $foreignSport = Sport::factory()->create(['organization_id' => Organization::factory()->create()->id]);
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), [
+            'name' => 'X',
+            'email' => 'x.coach@example.test',
+            'password' => 'password',
+            'status' => 'active',
+            'sport_ids' => [$foreignSport->id],
+        ])
+        ->assertSessionHasErrors('sport_ids.0');
+});
+
+test('file compressor shrinks oversized images in place and skips unknown files', function () {
+    Storage::fake('local');
+
+    $image = new Imagick;
+    $image->newPseudoImage(3000, 2000, 'gradient:red-blue');
+    $image->setImageFormat('png');
+    Storage::disk('local')->put('t/big.png', $image->getImagesBlob());
+    Storage::disk('local')->put('t/note.txt', 'hello');
+    $before = Storage::disk('local')->size('t/big.png');
+
+    $compressor = app(FileCompressor::class);
+
+    expect($compressor->compressInPlace('local', 't/big.png'))->toBeGreaterThan(0)
+        ->and(Storage::disk('local')->size('t/big.png'))->toBeLessThan($before)
+        ->and(getimagesize(Storage::disk('local')->path('t/big.png'))[0])->toBe(2000)
+        ->and($compressor->compressInPlace('local', 't/note.txt'))->toBe(0)
+        ->and($compressor->compressInPlace('local', 't/missing.pdf'))->toBe(0);
+});
+
+test('external coach assignments page filters by activity and player search', function () {
+    $user = rcUser('external-coaches.view');
+    $org = $user->organization_id;
+    $coach = ExternalCoach::factory()->create(['organization_id' => $org]);
+    $running = Member::factory()->create(['organization_id' => $org, 'full_name' => 'Running Rina']);
+    $ended = Member::factory()->create(['organization_id' => $org, 'full_name' => 'Ended Esha']);
+
+    $make = fn (Member $member, string $start, string $end) => ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $org,
+        'external_coach_id' => $coach->id,
+        'member_id' => $member->id,
+        'status' => 'active',
+        'start_date' => $start,
+        'end_date' => $end,
+    ]);
+    $make($running, now()->subWeek()->toDateString(), now()->addMonth()->toDateString());
+    $make($ended, now()->subMonths(2)->toDateString(), now()->subMonth()->toDateString());
+
+    $names = fn (array $query) => collect(
+        $this->actingAs($user)
+            ->get(route('external-coaches.assignments', [$coach, ...$query]))
+            ->assertOk()
+            ->viewData('page')['props']['assignments']['data'],
+    )->pluck('member.full_name')->all();
+
+    expect($names([]))->toHaveCount(2)
+        ->and($names(['active' => 'active']))->toBe(['Running Rina'])
+        ->and($names(['active' => 'inactive']))->toBe(['Ended Esha'])
+        ->and($names(['search' => 'esha']))->toBe(['Ended Esha']);
+
+    $this->actingAs($user)
+        ->get(route('external-coaches.assignments', $coach))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activeAssignmentsCount', 1)
+            ->where('activeAssignmentMemberIds', [$running->id]));
+
+    $this->actingAs($user)
+        ->get(route('external-coaches.player-assignments', [$coach, $running, 'month' => now()->format('Y-m')]))
+        ->assertOk();
+});
+
+test('a combined document must be a pdf', function () {
+    $user = rcUser('external-coaches.view', 'external-coaches.create');
+    $payload = fn (string $type, UploadedFile $file) => [
+        'name' => 'C',
+        'email' => 'combined.coach@example.test',
+        'password' => 'password',
+        'status' => 'active',
+        'documents' => [['type' => $type, 'file' => $file]],
+    ];
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), $payload('combined', UploadedFile::fake()->image('scan.jpg')))
+        ->assertSessionHasErrors('documents.0.file');
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), $payload('combined', UploadedFile::fake()->create('all.pdf', 100, 'application/pdf')))
+        ->assertSessionHasNoErrors();
 });

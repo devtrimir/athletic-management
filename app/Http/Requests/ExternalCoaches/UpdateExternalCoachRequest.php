@@ -30,6 +30,7 @@ class UpdateExternalCoachRequest extends FormRequest
         $externalCoachId = is_object($externalCoach) && method_exists($externalCoach, 'getKey') ? $externalCoach->getKey() : null;
 
         return [
+            ...StoreExternalCoachRequest::extraRules(),
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'regex:/^[6-9]\d{9}$/', Rule::unique('external_coaches', 'phone')->ignore($externalCoachId)],
             'email' => ['required', 'email', 'max:255', Rule::unique('external_coaches', 'email')->ignore($externalCoachId)],

@@ -10,12 +10,15 @@ use App\Observers\AuditObserver;
 use Database\Factories\ExternalCoachingAssignmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * @property int $id
@@ -120,6 +123,43 @@ class ExternalCoachingAssignment extends Model
     public function sportEvent(): BelongsTo
     {
         return $this->belongsTo(SportEvent::class);
+    }
+
+    /**
+     * Assignments that are active and running today.
+     *
+     * @param  Builder<ExternalCoachingAssignment>  $query
+     */
+    #[Scope]
+    protected function currentlyActive(Builder $query): void
+    {
+        $query->where('status', 'active')
+            ->whereDate('start_date', '<=', now())
+            ->where(fn (Builder $dates) => $dates->whereNull('end_date')->orWhereDate('end_date', '>=', now()));
+    }
+
+    /**
+     * Assignments list filters: status, currently-active/inactive players, and a player search.
+     *
+     * @param  Builder<ExternalCoachingAssignment>  $query
+     * @param  Collection<int, int>  $activeMemberIds
+     */
+    #[Scope]
+    protected function filterListing(Builder $query, string $status, string $active, string $search, Collection $activeMemberIds): void
+    {
+        $query
+            ->when($status !== '', fn (Builder $query) => $query->where('status', $status))
+            ->when($active === 'active', fn (Builder $query) => $query->whereIn('member_id', $activeMemberIds))
+            ->when($active === 'inactive' && $activeMemberIds->isNotEmpty(), fn (Builder $query) => $query->whereNotIn('member_id', $activeMemberIds))
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $like = '%'.mb_strtolower($search).'%';
+
+                $query->whereHas('member', function ($member) use ($like): void {
+                    $member->whereRaw('LOWER(full_name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(pno) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(mobile) LIKE ?', [$like]);
+                });
+            });
     }
 
     /** @return HasMany<ExternalTrainingAttendance, $this> */

@@ -1,32 +1,24 @@
 import { Head, Link, router } from '@inertiajs/react';
-import {
-    Download,
-    Eye,
-    Mail,
-    Phone,
-    Plus,
-    Printer,
-    Search,
-    Users,
-    X,
-} from 'lucide-react';
-import type { FormEvent } from 'react';
+import { Download, Eye, Plus, Printer, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { FilterPill, OptionList } from '@/components/data-table/filter-pill';
+import {
+    SelectionHeaderCheckbox,
+    SelectionRowCheckbox,
+    listingCellClass,
+    listingHeadCellClass,
+    listingTableClass,
+    stickyLeftBodyCellClass,
+    stickyLeftHeadCellClass,
+    stickyRightBodyCellClass,
+    stickyRightHeadCellClass,
+} from '@/components/data-table/table-primitives';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -37,6 +29,7 @@ import {
 } from '@/components/ui/table';
 import { useAuthorization } from '@/hooks/use-authorization';
 import { useTranslation } from '@/hooks/use-translation';
+import { cn } from '@/lib/utils';
 
 type ExternalCoach = {
     id: number;
@@ -84,7 +77,7 @@ export default function ExternalCoachesIndex({
     const canExportExternalCoaches = can('coaches.export');
     const canPrintExternalCoaches = can('coaches.print');
     const [search, setSearch] = useState(filters.q ?? '');
-    const [status, setStatus] = useState(filters.status ?? 'all');
+    const status = filters.status ?? 'all';
     const [selectedCoachIds, setSelectedCoachIds] = useState<number[]>([]);
     const hasFilters = search.trim() !== '' || status !== 'all';
     const currentPageCoachIds = externalCoaches.data.map((coach) => coach.id);
@@ -100,8 +93,19 @@ export default function ExternalCoachesIndex({
         // Keep form inputs in sync with URL filters when they change externally.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSearch(filters.q ?? '');
-        setStatus(filters.status ?? 'all');
-    }, [filters.q, filters.status]);
+    }, [filters.q]);
+
+    useEffect(() => {
+        // Debounced live search, same behaviour as the members listing.
+        if (search.trim() === (filters.q ?? '')) {
+            return;
+        }
+
+        const timer = setTimeout(() => applyFilters({ q: search }), 400);
+
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [search]);
 
     useEffect(() => {
         // Clear cross-page selections whenever the listing context changes.
@@ -129,26 +133,29 @@ export default function ExternalCoachesIndex({
         });
     }
 
-    function filterParams(nextPerPage = perPage): Record<string, string> {
+    function filterParams(
+        overrides: { q?: string; status?: string; perPage?: number } = {},
+    ): Record<string, string> {
+        const q = (overrides.q ?? search).trim();
+        const nextStatus =
+            'status' in overrides ? overrides.status : filters.status;
         const params: Record<string, string> = {
-            per_page: String(nextPerPage),
+            per_page: String(overrides.perPage ?? perPage),
         };
 
-        if (search.trim() !== '') {
-            params['filter[q]'] = search.trim();
+        if (q !== '') {
+            params['filter[q]'] = q;
         }
 
-        if (status !== 'all') {
-            params['filter[status]'] = status;
+        if (nextStatus && nextStatus !== 'all') {
+            params['filter[status]'] = nextStatus;
         }
 
         return params;
     }
 
-    function applyFilters(event?: FormEvent<HTMLFormElement>) {
-        event?.preventDefault();
-
-        router.get('/external-coaches', filterParams(), {
+    function applyFilters(overrides: { q?: string; status?: string } = {}) {
+        router.get('/external-coaches', filterParams(overrides), {
             replace: true,
             preserveScroll: true,
             preserveState: true,
@@ -157,21 +164,15 @@ export default function ExternalCoachesIndex({
 
     function clearFilters() {
         setSearch('');
-        setStatus('all');
-
         router.get(
             '/external-coaches',
             { per_page: String(perPage) },
-            {
-                replace: true,
-                preserveScroll: true,
-                preserveState: true,
-            },
+            { replace: true, preserveScroll: true, preserveState: true },
         );
     }
 
     function changePerPage(value: number) {
-        router.get('/external-coaches', filterParams(value), {
+        router.get('/external-coaches', filterParams({ perPage: value }), {
             replace: true,
             preserveScroll: true,
             preserveState: true,
@@ -310,7 +311,7 @@ export default function ExternalCoachesIndex({
         <>
             <Head title={t('External coaches')} />
 
-            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
+            <div className="flex h-[calc(100svh-3rem)] flex-col gap-3 overflow-hidden">
                 <div className="flex shrink-0 items-start justify-between gap-4">
                     <Heading
                         variant="small"
@@ -319,7 +320,18 @@ export default function ExternalCoachesIndex({
                             'Manage external coaches and portal access.',
                         )}
                     />
-                    <div className="flex gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
+                        <div className="relative w-56 shrink-0">
+                            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder={t('Search name, email, or phone')}
+                                value={search}
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
+                                }
+                                className="h-8 pl-8 text-sm"
+                            />
+                        </div>
                         {canPrintExternalCoaches ? (
                             <Button
                                 type="button"
@@ -339,7 +351,9 @@ export default function ExternalCoachesIndex({
                                 onClick={exportCsv}
                             >
                                 <Download className="mr-1.5 h-4 w-4" />
-                                {t('Export CSV')}
+                                {selectedCoachIds.length > 0
+                                    ? `${t('Export CSV')} (${selectedCoachIds.length})`
+                                    : t('Export CSV')}
                             </Button>
                         ) : null}
                         {canCreateExternalCoach ? (
@@ -353,129 +367,122 @@ export default function ExternalCoachesIndex({
                     </div>
                 </div>
 
-                <form
-                    onSubmit={applyFilters}
-                    className="shrink-0 rounded-xl border bg-card p-3 shadow-sm"
-                >
-                    <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end">
-                        <div className="grid min-w-0 gap-2">
-                            <Label htmlFor="coach-search">{t('Search')}</Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    id="coach-search"
-                                    value={search}
-                                    onChange={(event) =>
-                                        setSearch(event.target.value)
-                                    }
-                                    placeholder={t(
-                                        'Search name, email, or phone',
-                                    )}
-                                    className="pl-9"
-                                />
-                            </div>
-                        </div>
+                <div className="flex shrink-0 flex-nowrap items-center gap-2 overflow-hidden rounded-xl border bg-card p-1">
+                    <FilterPill
+                        label={t('Status')}
+                        activeLabel={status !== 'all' ? t(status) : undefined}
+                        onClear={() => applyFilters({ status: undefined })}
+                    >
+                        <OptionList
+                            options={statuses.map((option) => ({
+                                value: option,
+                                label: t(option),
+                            }))}
+                            value={filters.status ?? undefined}
+                            onSelect={(value) =>
+                                applyFilters({ status: value })
+                            }
+                        />
+                    </FilterPill>
+                    <div className="min-w-0 flex-1" />
+                    {hasFilters && (
+                        <button
+                            type="button"
+                            className="h-8 shrink-0 animate-in px-2 text-xs text-muted-foreground duration-150 fade-in-0 hover:text-foreground"
+                            onClick={clearFilters}
+                        >
+                            <X className="mr-1 inline size-3" />
+                            {t('Clear filters')}
+                        </button>
+                    )}
+                </div>
 
-                        <div className="grid min-w-0 gap-2">
-                            <Label htmlFor="coach-status">{t('Status')}</Label>
-                            <Select value={status} onValueChange={setStatus}>
-                                <SelectTrigger
-                                    id="coach-status"
-                                    className="w-full"
-                                >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        {t('All statuses')}
-                                    </SelectItem>
-                                    {statuses.map((option) => (
-                                        <SelectItem key={option} value={option}>
-                                            {t(option)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                {hasFilters && (
+                    <p className="shrink-0 animate-in text-xs text-muted-foreground duration-150 fade-in-0">
+                        {externalCoaches.total} {t('results')}
+                    </p>
+                )}
 
-                        <div className="flex flex-wrap gap-2">
-                            <Button type="submit">
-                                <Search className="size-4" />
-                                {t('Filter')}
-                            </Button>
-                            {hasFilters ? (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={clearFilters}
-                                >
-                                    <X className="size-4" />
-                                    {t('Clear')}
-                                </Button>
-                            ) : null}
-                        </div>
-                    </div>
-                </form>
-
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
-                    {selectedCoachIds.length > 0 ? (
-                        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2 text-sm">
-                            <span className="font-medium">
-                                {selectedCoachIds.length}{' '}
-                                {t('external coaches selected')}
-                            </span>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSelectedCoachIds([])}
-                            >
-                                <X className="size-4" />
-                                {t('Clear selection')}
-                            </Button>
-                        </div>
-                    ) : null}
-                    <div className="min-h-0 flex-1 overflow-auto [&>[data-slot=table-container]]:h-full">
-                        <Table className="border-separate border-spacing-0 text-sm">
-                            <TableHeader className="sticky top-0 z-10">
-                                <TableRow className="bg-muted hover:bg-muted">
-                                    <TableHead className="w-12 border-r border-b px-3 py-2 text-center font-semibold">
-                                        <Checkbox
-                                            checked={
-                                                allCurrentPageSelected
-                                                    ? true
-                                                    : someCurrentPageSelected
-                                                      ? 'indeterminate'
-                                                      : false
+                <div className="min-h-0 flex-1 overflow-hidden">
+                    <div className="h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
+                        <Table
+                            className={`${listingTableClass} min-w-[1000px]`}
+                        >
+                            <colgroup>
+                                <col className="w-9" />
+                                <col className="w-11" />
+                                <col className="w-[220px]" />
+                                <col className="w-[260px]" />
+                                <col className="w-[140px]" />
+                                <col className="w-[100px]" />
+                                <col className="w-[120px]" />
+                                <col />
+                                <col className="w-[80px]" />
+                            </colgroup>
+                            <TableHeader className="sticky top-0 z-20">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead
+                                        style={{ left: 0 }}
+                                        className={cn(
+                                            listingHeadCellClass,
+                                            stickyLeftHeadCellClass,
+                                        )}
+                                    >
+                                        <SelectionHeaderCheckbox
+                                            checked={allCurrentPageSelected}
+                                            indeterminate={
+                                                !allCurrentPageSelected &&
+                                                someCurrentPageSelected
                                             }
-                                            disabled={!hasRows}
                                             onCheckedChange={
                                                 toggleCurrentPageSelection
                                             }
-                                            aria-label={t(
+                                            label={t(
                                                 'Select all external coaches on this page',
                                             )}
                                         />
                                     </TableHead>
-                                    <TableHead className="w-16 border-r border-b px-3 py-2 text-center font-semibold">
+                                    <TableHead
+                                        style={{ left: 36 }}
+                                        className={cn(
+                                            listingHeadCellClass,
+                                            stickyLeftHeadCellClass,
+                                            'text-center',
+                                        )}
+                                    >
                                         {t('S.No.')}
                                     </TableHead>
-                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                    <TableHead
+                                        style={{ left: 80 }}
+                                        className={cn(
+                                            listingHeadCellClass,
+                                            stickyLeftHeadCellClass,
+                                        )}
+                                    >
                                         {t('Coach')}
                                     </TableHead>
-                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                    <TableHead className={listingHeadCellClass}>
                                         {t('Email')}
                                     </TableHead>
-                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
+                                    <TableHead className={listingHeadCellClass}>
                                         {t('Phone')}
                                     </TableHead>
-                                    <TableHead className="border-r border-b px-3 py-2 font-semibold">
-                                        {t('Coaching')}
+                                    <TableHead className={listingHeadCellClass}>
+                                        {t('Experience')}
                                     </TableHead>
-                                    <TableHead className="w-32 border-r border-b px-3 py-2 text-center font-semibold">
+                                    <TableHead className={listingHeadCellClass}>
+                                        {t('Active players')}
+                                    </TableHead>
+                                    <TableHead className={listingHeadCellClass}>
                                         {t('Status')}
                                     </TableHead>
-                                    <TableHead className="w-28 border-b px-3 py-2 text-right font-semibold">
+                                    <TableHead
+                                        className={cn(
+                                            listingHeadCellClass,
+                                            stickyRightHeadCellClass,
+                                            'text-right',
+                                        )}
+                                    >
                                         {t('Actions')}
                                     </TableHead>
                                 </TableRow>
@@ -484,20 +491,44 @@ export default function ExternalCoachesIndex({
                                 {externalCoaches.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={8}
+                                            colSpan={9}
                                             className="py-12 text-center text-muted-foreground"
                                         >
-                                            {t('No external coaches found.')}
+                                            {hasFilters
+                                                ? t(
+                                                      'No external coaches match your filters.',
+                                                  )
+                                                : t(
+                                                      'No external coaches found.',
+                                                  )}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     externalCoaches.data.map((coach, index) => (
                                         <TableRow
                                             key={coach.id}
-                                            className="odd:bg-background even:bg-muted/20 hover:bg-sky-50/70 dark:hover:bg-sky-950/20"
+                                            data-state={
+                                                selectedCoachIds.includes(
+                                                    coach.id,
+                                                )
+                                                    ? 'selected'
+                                                    : undefined
+                                            }
+                                            className="cursor-pointer hover:bg-muted/30 data-[state=selected]:bg-primary/5"
+                                            onClick={() =>
+                                                router.visit(
+                                                    `/external-coaches/${coach.id}`,
+                                                )
+                                            }
                                         >
-                                            <TableCell className="border-r border-b px-3 py-2 text-center align-top">
-                                                <Checkbox
+                                            <TableCell
+                                                style={{ left: 0 }}
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyLeftBodyCellClass,
+                                                )}
+                                            >
+                                                <SelectionRowCheckbox
                                                     checked={selectedCoachIds.includes(
                                                         coach.id,
                                                     )}
@@ -506,83 +537,94 @@ export default function ExternalCoachesIndex({
                                                             coach.id,
                                                         )
                                                     }
-                                                    aria-label={`${t('Select external coach')} ${coach.name}`}
+                                                    label={`${t('Select external coach')} ${coach.name}`}
                                                 />
                                             </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 text-center font-semibold text-muted-foreground tabular-nums">
+                                            <TableCell
+                                                style={{ left: 36 }}
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyLeftBodyCellClass,
+                                                    'text-center font-mono text-muted-foreground tabular-nums',
+                                                )}
+                                            >
                                                 {(externalCoaches.from ?? 1) +
                                                     index}
                                             </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <div className="min-w-56">
-                                                    <Link
-                                                        href={`/external-coaches/${coach.id}`}
-                                                        className="font-semibold text-primary hover:underline"
-                                                    >
-                                                        {coach.name}
-                                                    </Link>
-                                                </div>
+                                            <TableCell
+                                                style={{ left: 80 }}
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyLeftBodyCellClass,
+                                                )}
+                                            >
+                                                <span className="block truncate font-medium">
+                                                    {coach.name}
+                                                </span>
                                             </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <div className="flex min-w-64 items-center gap-2">
-                                                    <Mail className="h-3.5 w-3.5 text-sky-600" />
-                                                    <span className="text-sm break-all">
-                                                        {coach.email}
-                                                    </span>
-                                                </div>
+                                            <TableCell
+                                                className={listingCellClass}
+                                            >
+                                                <span className="block truncate">
+                                                    {coach.email}
+                                                </span>
                                             </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <div className="flex min-w-36 items-center gap-2">
-                                                    <Phone className="h-3.5 w-3.5 text-emerald-600" />
-                                                    <span className="text-sm">
-                                                        {coach.phone ?? '-'}
-                                                    </span>
-                                                </div>
+                                            <TableCell
+                                                className={listingCellClass}
+                                            >
+                                                {coach.phone ?? '-'}
                                             </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 align-top">
-                                                <div className="grid min-w-52 gap-1 text-xs sm:grid-cols-2">
-                                                    <div className="rounded-md border px-2 py-1">
-                                                        <div className="text-muted-foreground">
-                                                            {t('Experience')}
-                                                        </div>
-                                                        <div className="font-semibold tabular-nums">
-                                                            {coach.experience_years ??
-                                                                '-'}
-                                                        </div>
-                                                    </div>
-                                                    <div className="rounded-md border px-2 py-1">
-                                                        <div className="flex items-center gap-1 text-muted-foreground">
-                                                            <Users className="h-3.5 w-3.5" />
-                                                            {t(
-                                                                'Active players',
-                                                            )}
-                                                        </div>
-                                                        <div className="font-semibold tabular-nums">
-                                                            {
-                                                                coach.active_coached_players_count
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                            <TableCell
+                                                className={cn(
+                                                    listingCellClass,
+                                                    'tabular-nums',
+                                                )}
+                                            >
+                                                {coach.experience_years ?? '-'}
                                             </TableCell>
-                                            <TableCell className="border-r border-b px-3 py-2 text-center align-top">
-                                                <Badge variant="outline">
+                                            <TableCell
+                                                className={cn(
+                                                    listingCellClass,
+                                                    'tabular-nums',
+                                                )}
+                                            >
+                                                {
+                                                    coach.active_coached_players_count
+                                                }
+                                            </TableCell>
+                                            <TableCell
+                                                className={listingCellClass}
+                                            >
+                                                <Badge
+                                                    variant="outline"
+                                                    className="px-1.5 py-0 text-[10px]"
+                                                >
                                                     {t(coach.status)}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="border-b px-3 py-2 text-right align-top">
-                                                <Button
-                                                    asChild
-                                                    size="sm"
-                                                    variant="outline"
-                                                >
-                                                    <Link
-                                                        href={`/external-coaches/${coach.id}`}
+                                            <TableCell
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyRightBodyCellClass,
+                                                )}
+                                            >
+                                                <div className="flex items-center justify-end gap-0.5">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title={t('View')}
+                                                        asChild
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
                                                     >
-                                                        <Eye className="mr-1.5 size-3.5" />
-                                                        {t('View')}
-                                                    </Link>
-                                                </Button>
+                                                        <Link
+                                                            href={`/external-coaches/${coach.id}`}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Link>
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))

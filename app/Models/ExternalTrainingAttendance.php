@@ -10,6 +10,8 @@ use App\Observers\AuditObserver;
 use Database\Factories\ExternalTrainingAttendanceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -133,6 +135,18 @@ class ExternalTrainingAttendance extends Model
             'device_info' => 'array',
             'deleted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @param  Builder<ExternalTrainingAttendance>  $query
+     */
+    #[Scope]
+    protected function inMonth(Builder $query, Carbon $month): void
+    {
+        $query->whereBetween('attendance_date', [
+            $month->copy()->startOfMonth()->toDateString(),
+            $month->copy()->endOfMonth()->toDateString(),
+        ]);
     }
 
     /** @return BelongsTo<Organization, $this> */

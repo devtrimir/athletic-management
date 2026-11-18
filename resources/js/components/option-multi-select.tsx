@@ -29,6 +29,8 @@ type Props = {
     placeholder: string;
     searchPlaceholder?: string;
     className?: string;
+    /** Show a "Clear all" row while something is selected. */
+    clearable?: boolean;
 };
 
 export function OptionMultiSelect({
@@ -38,6 +40,7 @@ export function OptionMultiSelect({
     placeholder,
     searchPlaceholder,
     className,
+    clearable = false,
 }: Props) {
     const { t } = useTranslation();
     const selectedOptions = options.filter((option) =>
@@ -101,6 +104,16 @@ export function OptionMultiSelect({
                     <CommandList className="max-h-64">
                         <CommandEmpty>{t('No results.')}</CommandEmpty>
                         <CommandGroup>
+                            {clearable && selectedOptions.length > 0 && (
+                                <CommandItem
+                                    value="__clear__"
+                                    onSelect={() => onValueChange([])}
+                                    className="text-muted-foreground"
+                                >
+                                    <XIcon className="mr-2 size-4" />
+                                    {t('Clear all')}
+                                </CommandItem>
+                            )}
                             {selectedOptions.length > 0 && (
                                 <div className="flex flex-wrap gap-1 border-b p-2">
                                     {selectedOptions.map((option) => (

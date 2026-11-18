@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\ExternalCoaches\SaveExternalCoach;
 use App\Http\Requests\ExternalCoaches\StoreExternalCoachRequest;
 use App\Http\Requests\ExternalCoaches\UpdateExternalCoachRequest;
 use App\Models\ExternalCoach;
 use App\Models\ExternalTrainingAttendance;
 use App\Models\Member;
+use App\Models\Sport;
+use App\Models\TrainingVenue;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -32,26 +35,8 @@ class ExternalCoachController extends Controller
 
         $externalCoaches = ExternalCoach::query()
             ->where('organization_id', $orgId)
-            ->when($statusFilter !== null, fn ($query) => $query->where('status', $statusFilter))
-            ->when($search !== null, function ($query) use ($search): void {
-                $like = '%'.mb_strtolower($search).'%';
-
-                $query->where(function ($builder) use ($like): void {
-                    $builder->whereRaw('LOWER(name) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(email) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$like]);
-                });
-            })
-            ->withCount([
-                'externalCoachingAssignments as active_coached_players_count' => function ($query): void {
-                    $query->where('status', 'active')
-                        ->whereDate('start_date', '<=', now())
-                        ->where(function ($dateQuery): void {
-                            $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-                        })
-                        ->selectRaw('COUNT(DISTINCT member_id)');
-                },
-            ])
+            ->filter($statusFilter, $search)
+            ->withActivePlayersCount()
             ->latest('id')
             ->paginate($perPage)
             ->withQueryString();
@@ -73,6 +58,7 @@ class ExternalCoachController extends Controller
 
         return Inertia::render('external-coaches/create', [
             'statuses' => $this->statuses(),
+            ...$this->formOptions(),
         ]);
     }
 
@@ -87,21 +73,11 @@ class ExternalCoachController extends Controller
         return $value === '' || $value === 'all' ? null : $value;
     }
 
-    public function store(StoreExternalCoachRequest $request): RedirectResponse
+    public function store(StoreExternalCoachRequest $request, SaveExternalCoach $saveExternalCoach): RedirectResponse
     {
         Gate::authorize('create', ExternalCoach::class);
 
-        $payload = $request->validated();
-        $statusReason = Arr::pull($payload, 'status_reason');
-
-        $externalCoach = ExternalCoach::create([
-            ...$payload,
-            'organization_id' => (int) $request->user()->organization_id,
-            'created_by' => $request->user()->id,
-            'updated_by' => $request->user()->id,
-        ]);
-
-        $this->recordStatus($externalCoach, $externalCoach->status, $request->user()->id, $statusReason);
+        $externalCoach = $saveExternalCoach(null, $request->validated(), $request->user());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('External coach created.')]);
 
@@ -115,15 +91,13 @@ class ExternalCoachController extends Controller
         $externalCoach->load([
             'district:id,name',
             'statusHistory.recordedBy:id,name',
+            'sports:id,name',
+            'trainingVenues:id,name',
+            'documents:id,external_coach_id,type,original_name,size_bytes',
         ])->loadCount([
-            'externalCoachingAssignments as active_assignments_count' => function ($query): void {
-                $query->where('status', 'active')
-                    ->whereDate('start_date', '<=', now())
-                    ->where(function ($dateQuery): void {
-                        $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-                    })
-                    ->selectRaw('COUNT(DISTINCT member_id)');
-            },
+            'externalCoachingAssignments as active_assignments_count' => fn ($query) => $query
+                ->currentlyActive()
+                ->selectRaw('COUNT(DISTINCT member_id)'),
         ]);
 
         return Inertia::render('external-coaches/show', [
@@ -149,11 +123,7 @@ class ExternalCoachController extends Controller
         $perPage = (int) ($validated['per_page'] ?? 25);
 
         $activeMemberIds = $externalCoach->externalCoachingAssignments()
-            ->where('status', 'active')
-            ->whereDate('start_date', '<=', now())
-            ->where(function ($dateQuery): void {
-                $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-            })
+            ->currentlyActive()
             ->pluck('member_id')
             ->unique()
             ->values();
@@ -164,30 +134,7 @@ class ExternalCoachController extends Controller
                 'sport:id,name',
                 'trainingVenue:id,name',
             ])
-            ->when($status !== '', fn ($query) => $query->where('status', $status))
-            ->when($active === 'active', fn ($query) => $query->whereIn('member_id', $activeMemberIds))
-            ->when($active === 'inactive', function ($query) use ($activeMemberIds): void {
-                if ($activeMemberIds->isNotEmpty()) {
-                    $query->whereNotIn('member_id', $activeMemberIds);
-                }
-            })
-            ->when(
-                $search !== '',
-                function ($query) use ($search): void {
-                    $lowerSearch = mb_strtolower($search);
-
-                    $query->where(function ($memberQuery) use ($lowerSearch): void {
-                        $memberQuery->whereHas('member', function ($member) use ($lowerSearch): void {
-                            $like = "%{$lowerSearch}%";
-
-                            $member
-                                ->whereRaw('LOWER(full_name) LIKE ?', [$like])
-                                ->orWhereRaw('LOWER(pno) LIKE ?', [$like])
-                                ->orWhereRaw('LOWER(mobile) LIKE ?', [$like]);
-                        });
-                    });
-                },
-            )
+            ->filterListing($status, $active, $search, $activeMemberIds)
             ->select([
                 'id',
                 'member_id',
@@ -211,23 +158,8 @@ class ExternalCoachController extends Controller
         return Inertia::render('external-coaches/assignments', [
             'externalCoach' => $externalCoach->only(['id', 'name', 'email', 'phone']),
             'assignments' => $assignments,
-            'activeAssignmentMemberIds' => $externalCoach->externalCoachingAssignments()
-                ->where('status', 'active')
-                ->whereDate('start_date', '<=', now())
-                ->where(function ($dateQuery): void {
-                    $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-                })
-                ->pluck('member_id')
-                ->unique()
-                ->values(),
-            'activeAssignmentsCount' => $externalCoach->externalCoachingAssignments()
-                ->where('status', 'active')
-                ->whereDate('start_date', '<=', now())
-                ->where(function ($dateQuery): void {
-                    $dateQuery->whereNull('end_date')->orWhereDate('end_date', '>=', now());
-                })
-                ->distinct('member_id')
-                ->count('member_id'),
+            'activeAssignmentMemberIds' => $activeMemberIds,
+            'activeAssignmentsCount' => $activeMemberIds->count(),
             'filters' => [
                 'search' => $search,
                 'status' => $status,
@@ -283,10 +215,7 @@ class ExternalCoachController extends Controller
             })
             ->where('external_coach_id', $externalCoach->id)
             ->where('member_id', $member->id)
-            ->whereBetween('attendance_date', [
-                $selectedMonth->copy()->startOfMonth()->toDateString(),
-                $selectedMonth->copy()->endOfMonth()->toDateString(),
-            ])
+            ->inMonth($selectedMonth)
             ->latest('attendance_date')
             ->get([
                 'id',
@@ -331,36 +260,28 @@ class ExternalCoachController extends Controller
     {
         Gate::authorize('update', $externalCoach);
 
+        $externalCoach->load('documents:id,external_coach_id,type,original_name,size_bytes');
+
         return Inertia::render('external-coaches/edit', [
-            'externalCoach' => $externalCoach,
+            'externalCoach' => [
+                ...$externalCoach->toArray(),
+                'sport_ids' => $externalCoach->sports()->pluck('sports.id')->map(fn ($id): string => (string) $id)->all(),
+                'training_venue_ids' => $externalCoach->trainingVenues()->pluck('training_venues.id')->map(fn ($id): string => (string) $id)->all(),
+            ],
             'statuses' => $this->statuses(),
+            ...$this->formOptions(),
         ]);
     }
 
-    public function update(UpdateExternalCoachRequest $request, ExternalCoach $externalCoach): RedirectResponse
+    public function update(UpdateExternalCoachRequest $request, ExternalCoach $externalCoach, SaveExternalCoach $saveExternalCoach): RedirectResponse
     {
         Gate::authorize('update', $externalCoach);
 
-        $payload = $request->validated();
-        $statusReason = Arr::pull($payload, 'status_reason');
-        $oldStatus = $externalCoach->status;
-
-        if (($payload['password'] ?? null) === null) {
-            unset($payload['password']);
-        }
-
-        if ($oldStatus !== $payload['status']) {
+        if ($externalCoach->status !== $request->validated('status')) {
             Gate::authorize('manageStatus', $externalCoach);
         }
 
-        $externalCoach->update([
-            ...$payload,
-            'updated_by' => $request->user()->id,
-        ]);
-
-        if ($oldStatus !== $externalCoach->status) {
-            $this->recordStatus($externalCoach, $externalCoach->status, $request->user()->id, $statusReason);
-        }
+        $saveExternalCoach($externalCoach, $request->validated(), $request->user());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('External coach updated.')]);
 
@@ -379,20 +300,23 @@ class ExternalCoachController extends Controller
     }
 
     /**
+     * @return array{sports: Collection<int, Sport>, trainingVenues: Collection<int, TrainingVenue>}
+     */
+    private function formOptions(): array
+    {
+        $orgId = (int) auth()->user()->organization_id;
+
+        return [
+            'sports' => Sport::query()->where('organization_id', $orgId)->orderBy('name')->get(['id', 'name']),
+            'trainingVenues' => TrainingVenue::query()->where('organization_id', $orgId)->orderBy('name')->get(['id', 'name']),
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     private function statuses(): array
     {
         return ['pending_invite', 'active', 'inactive', 'suspended', 'blacklisted'];
-    }
-
-    private function recordStatus(ExternalCoach $externalCoach, string $status, ?int $recordedBy, ?string $reason): void
-    {
-        $externalCoach->statusHistory()->create([
-            'status' => $status,
-            'reason' => $reason,
-            'recorded_by' => $recordedBy,
-            'recorded_at' => now(),
-        ]);
     }
 }

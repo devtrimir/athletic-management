@@ -13,16 +13,24 @@ type ExternalCoach = {
     experience_years: number | null;
     city: string | null;
     remarks: string | null;
+    photo_path: string | null;
+    sport_ids: string[];
+    training_venue_ids: string[];
+    documents: { id: number; type: string; original_name: string }[];
 };
 
 type Props = {
     externalCoach: ExternalCoach;
     statuses: string[];
+    sports: { id: number; name: string }[];
+    trainingVenues: { id: number; name: string }[];
 };
 
 export default function ExternalCoachesEdit({
     externalCoach,
     statuses,
+    sports,
+    trainingVenues,
 }: Props) {
     const { t } = useTranslation();
 
@@ -36,6 +44,8 @@ export default function ExternalCoachesEdit({
                 )}
                 action={update(externalCoach)}
                 statuses={statuses}
+                sports={sports}
+                trainingVenues={trainingVenues}
                 coach={externalCoach}
             />
         </>

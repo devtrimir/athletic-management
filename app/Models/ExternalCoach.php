@@ -10,9 +10,12 @@ use Database\Factories\ExternalCoachFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -89,6 +92,24 @@ class ExternalCoach extends Authenticatable
         return $this->belongsTo(District::class);
     }
 
+    /** @return BelongsToMany<Sport, $this> */
+    public function sports(): BelongsToMany
+    {
+        return $this->belongsToMany(Sport::class, 'external_coach_sport')->withTimestamps();
+    }
+
+    /** @return BelongsToMany<TrainingVenue, $this> */
+    public function trainingVenues(): BelongsToMany
+    {
+        return $this->belongsToMany(TrainingVenue::class, 'external_coach_training_venue')->withTimestamps();
+    }
+
+    /** @return HasMany<ExternalCoachDocument, $this> */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ExternalCoachDocument::class);
+    }
+
     /** @return HasMany<ExternalCoachStatusHistory, $this> */
     public function statusHistory(): HasMany
     {
@@ -99,6 +120,38 @@ class ExternalCoach extends Authenticatable
     public function externalCoachingAssignments(): HasMany
     {
         return $this->hasMany(ExternalCoachingAssignment::class);
+    }
+
+    /**
+     * @param  Builder<ExternalCoach>  $query
+     */
+    #[Scope]
+    protected function filter(Builder $query, ?string $status, ?string $search): void
+    {
+        $query
+            ->when($status !== null, fn (Builder $query) => $query->where('status', $status))
+            ->when($search !== null, function (Builder $query) use ($search): void {
+                $like = '%'.mb_strtolower((string) $search).'%';
+
+                $query->where(function (Builder $builder) use ($like): void {
+                    $builder->whereRaw('LOWER(name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(email) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$like]);
+                });
+            });
+    }
+
+    /**
+     * @param  Builder<ExternalCoach>  $query
+     */
+    #[Scope]
+    protected function withActivePlayersCount(Builder $query): void
+    {
+        $query->withCount([
+            'externalCoachingAssignments as active_coached_players_count' => fn (Builder $query) => $query
+                ->currentlyActive()
+                ->selectRaw('COUNT(DISTINCT member_id)'),
+        ]);
     }
 
     public function isActiveForLogin(): bool
