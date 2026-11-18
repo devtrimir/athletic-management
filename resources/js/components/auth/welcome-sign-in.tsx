@@ -7,6 +7,7 @@ import { Reveal } from '@/components/auth/reveal';
 import { useTranslation } from '@/hooks/use-translation';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
+import { dashboard as coachDashboard } from '@/routes/external-coach';
 import { store as coachLoginStore } from '@/routes/external-coach/login';
 import { store as loginStore } from '@/routes/login';
 import { request } from '@/routes/password';
@@ -16,7 +17,7 @@ export type SignInView = 'choose' | 'user' | 'coach';
 type Props = {
     initialView: SignInView;
     status: string | null;
-    signedIn: boolean;
+    signedInAs: 'user' | 'coach' | null;
 };
 
 const EASE = 'ease-apple motion-reduce:transition-none';
@@ -61,7 +62,7 @@ const PRIMARY =
 const SECONDARY =
     'group flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl bg-white/80 px-4 text-[15px] font-semibold text-[#0b1e6b] shadow-sm ring-1 ring-black/[0.06] transition-[transform,box-shadow,background-color] duration-300 ease-apple hover:-translate-y-0.5 hover:bg-white hover:shadow-md active:translate-y-0 active:scale-[0.97]';
 
-export function WelcomeSignIn({ initialView, status, signedIn }: Props) {
+export function WelcomeSignIn({ initialView, status, signedInAs }: Props) {
     const { t } = useTranslation();
     const [view, setView] = useState<SignInView>(initialView);
     const [panes, setPanes] = useState<
@@ -118,8 +119,15 @@ export function WelcomeSignIn({ initialView, status, signedIn }: Props) {
                     paneRef={pane('choose')}
                 >
                     <div className="grid gap-3 pb-4">
-                        {signedIn ? (
-                            <Link href={dashboard()} className={PRIMARY}>
+                        {signedInAs ? (
+                            <Link
+                                href={
+                                    signedInAs === 'coach'
+                                        ? coachDashboard().url
+                                        : dashboard()
+                                }
+                                className={PRIMARY}
+                            >
                                 {t('Go to Dashboard')}
                             </Link>
                         ) : (

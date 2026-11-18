@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ExternalCoach;
 use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
@@ -14,6 +15,28 @@ test('login screen points to the inline form on the welcome page', function () {
 
     $this->get(route('home', ['panel' => 'bogus']))
         ->assertInertia(fn ($page) => $page->where('panel', null));
+});
+
+test('signed-in users never get a login form on the welcome page', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('home', ['panel' => 'user']))
+        ->assertInertia(fn ($page) => $page->where('panel', null)->where('signedInAs', 'user'));
+
+    $this->actingAs($user)->get(route('login'))->assertRedirect(route('dashboard'));
+});
+
+test('a signed-in external coach is pointed to the coach dashboard instead of a form', function () {
+    $coach = ExternalCoach::factory()->create(['status' => 'active']);
+
+    $this->actingAs($coach, 'external_coach')
+        ->get(route('home', ['panel' => 'coach']))
+        ->assertInertia(fn ($page) => $page->where('panel', null)->where('signedInAs', 'coach'));
+
+    $this->actingAs($coach, 'external_coach')
+        ->get(route('external-coach.login'))
+        ->assertRedirect(route('external-coach.dashboard'));
 });
 
 test('a failed login from the welcome page returns there with the error', function () {

@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { WelcomeSignIn } from '@/components/auth/welcome-sign-in';
 import { LocaleSwitcher } from '@/components/locale-switcher';
@@ -29,11 +29,12 @@ const PRESETS: Record<
 export default function Welcome({
     panel = null,
     status = null,
+    signedInAs = null,
 }: {
     panel?: 'user' | 'coach' | null;
     status?: string | null;
+    signedInAs?: 'user' | 'coach' | null;
 }) {
-    const { auth } = usePage().props;
     const { t } = useTranslation();
     const [preset, setPreset] = useState<HomeBackgroundPreset>(() => {
         if (typeof window === 'undefined') {
@@ -120,7 +121,7 @@ export default function Welcome({
                         <WelcomeSignIn
                             initialView={panel ?? 'choose'}
                             status={status}
-                            signedIn={!!auth.user}
+                            signedInAs={signedInAs}
                         />
 
                         {/* Background selector */}
