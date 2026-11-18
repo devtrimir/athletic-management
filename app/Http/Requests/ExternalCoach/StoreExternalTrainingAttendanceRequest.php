@@ -52,10 +52,11 @@ class StoreExternalTrainingAttendanceRequest extends FormRequest
             'submitted_latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'submitted_longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'submitted_gps_accuracy' => ['nullable', 'integer', 'min:0', 'max:100000'],
-            'device_info' => ['nullable', 'array'],
+            'device_info' => ['nullable', 'array', 'max:10'],
+            'device_info.*' => ['nullable', 'string', 'max:255'],
             'browser_timezone' => ['nullable', 'string', 'max:100'],
             'submitted_photo' => [
-                Rule::requiredIf(fn (): bool => in_array($this->string('attendance_status')->toString(), ['present', 'late'], true)),
+                Rule::requiredIf(fn (): bool => in_array($this->input('attendance_status'), ['present', 'late'], true)),
                 'nullable',
                 'image',
                 'mimes:jpg,jpeg,png,webp',

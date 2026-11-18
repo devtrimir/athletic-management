@@ -13,9 +13,11 @@ use App\Models\Scopes\BelongsToOrganization;
 use App\Models\TrainingVenue;
 use App\Services\ExternalCoaching\ExternalTrainingAttendanceFlaggingService;
 use App\Services\ExternalCoaching\GeoDistanceService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -84,41 +86,52 @@ class ExternalTrainingAttendanceController extends Controller
         $imageSize = $realPath === false || $realPath === null ? false : getimagesize($realPath);
         $path = $file?->store("external-training-attendance/org_{$coach->organization_id}/assignment_{$assignment->id}", 'local');
 
-        ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)->create([
-            'organization_id' => $assignment->organization_id,
-            'external_coaching_assignment_id' => $assignment->id,
-            'member_id' => $assignment->member_id,
-            'external_coach_id' => $coach->id,
-            'training_venue_id' => $assignment->training_venue_id,
-            'attendance_date' => $attendanceDate,
-            'attendance_status' => $validated['attendance_status'],
-            'review_status' => 'pending',
-            'geo_status' => $flag['geo_status'],
-            'flag_reason' => $flag['flag_reason'],
-            'coach_remarks' => $validated['coach_remarks'] ?? null,
-            'submitted_at' => $submittedAt,
-            'submitted_latitude' => $latitude,
-            'submitted_longitude' => $longitude,
-            'submitted_gps_accuracy' => $validated['submitted_gps_accuracy'] ?? null,
-            'distance_from_venue_meters' => $distanceMeters,
-            'submitted_photo_path' => $path,
-            'submitted_photo_original_name' => $file?->getClientOriginalName(),
-            'submitted_photo_mime_type' => $file?->getMimeType(),
-            'submitted_photo_size_bytes' => $file?->getSize(),
-            'submitted_photo_uploaded_at' => $file === null ? null : $submittedAt,
-            'submitted_photo_width' => $imageSize === false ? null : $imageSize[0],
-            'submitted_photo_height' => $imageSize === false ? null : $imageSize[1],
-            'submitted_photo_source' => $file === null ? null : 'camera',
-            'venue_latitude_snapshot' => $venue->latitude,
-            'venue_longitude_snapshot' => $venue->longitude,
-            'allowed_radius_meters_snapshot' => $venue->allowed_radius_meters,
-            'venue_name_snapshot' => $venue->name,
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'device_info' => $validated['device_info'] ?? null,
-            'browser_timezone' => $validated['browser_timezone'] ?? null,
-            'submitted_source' => 'external_coach_portal',
-        ]);
+        try {
+            ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)->create([
+                'organization_id' => $assignment->organization_id,
+                'external_coaching_assignment_id' => $assignment->id,
+                'member_id' => $assignment->member_id,
+                'external_coach_id' => $coach->id,
+                'training_venue_id' => $assignment->training_venue_id,
+                'attendance_date' => $attendanceDate,
+                'attendance_status' => $validated['attendance_status'],
+                'review_status' => 'pending',
+                'geo_status' => $flag['geo_status'],
+                'flag_reason' => $flag['flag_reason'],
+                'coach_remarks' => $validated['coach_remarks'] ?? null,
+                'submitted_at' => $submittedAt,
+                'submitted_latitude' => $latitude,
+                'submitted_longitude' => $longitude,
+                'submitted_gps_accuracy' => $validated['submitted_gps_accuracy'] ?? null,
+                'distance_from_venue_meters' => $distanceMeters,
+                'submitted_photo_path' => $path,
+                'submitted_photo_original_name' => $file?->getClientOriginalName(),
+                'submitted_photo_mime_type' => $file?->getMimeType(),
+                'submitted_photo_size_bytes' => $file?->getSize(),
+                'submitted_photo_uploaded_at' => $file === null ? null : $submittedAt,
+                'submitted_photo_width' => $imageSize === false ? null : $imageSize[0],
+                'submitted_photo_height' => $imageSize === false ? null : $imageSize[1],
+                'submitted_photo_source' => $file === null ? null : 'camera',
+                'venue_latitude_snapshot' => $venue->latitude,
+                'venue_longitude_snapshot' => $venue->longitude,
+                'allowed_radius_meters_snapshot' => $venue->allowed_radius_meters,
+                'venue_name_snapshot' => $venue->name,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'device_info' => $validated['device_info'] ?? null,
+                'browser_timezone' => $validated['browser_timezone'] ?? null,
+                'submitted_source' => 'external_coach_portal',
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            // Two parallel submissions raced past the check above; the unique index won.
+            if ($path !== null) {
+                Storage::disk('local')->delete($path);
+            }
+
+            throw ValidationException::withMessages([
+                'attendance_date' => __('Attendance has already been submitted for this athlete and date.'),
+            ]);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Training attendance submitted.')]);
 

@@ -9,6 +9,8 @@ use App\Http\Requests\ExternalCoaches\LoginExternalCoachRequest;
 use App\Models\ExternalCoach;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,24 +25,51 @@ class ExternalCoachLoginController extends Controller
     public function store(LoginExternalCoachRequest $request): RedirectResponse
     {
         $credentials = $request->safe()->only(['email', 'password']);
-        $coach = ExternalCoach::query()->where('email', $credentials['email'])->first();
+        $throttleKey = 'external-coach-login:'.Str::lower($credentials['email']).'|'.$request->ip();
 
-        if (! $coach?->isActiveForLogin()) {
-            throw ValidationException::withMessages([
-                'email' => __('Your coach account is inactive. Please contact the administrator.'),
-            ]);
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            abort(429, __('Too many login attempts. Please try again in :seconds seconds.', [
+                'seconds' => RateLimiter::availableIn($throttleKey),
+            ]));
         }
 
+        // Check the password first so a wrong guess never reveals whether the
+        // account exists or is inactive.
         if (! Auth::guard('external_coach')->attempt($credentials, $request->boolean('remember'))) {
+            RateLimiter::hit($throttleKey);
+
             throw ValidationException::withMessages([
                 'email' => __('These credentials do not match our records.'),
             ]);
         }
 
+        /** @var ExternalCoach $coach */
+        $coach = Auth::guard('external_coach')->user();
+
+        if (! $coach->isActiveForLogin()) {
+            Auth::guard('external_coach')->logout();
+
+            throw ValidationException::withMessages([
+                'email' => __('Your coach account is inactive. Please contact the administrator.'),
+            ]);
+        }
+
+        RateLimiter::clear($throttleKey);
         $request->session()->regenerate();
         $coach->forceFill(['last_login_at' => now()])->save();
 
-        return redirect()->intended(route('external-coach.dashboard'));
+        // Only honour a remembered URL inside the coach portal on this host; a
+        // stale admin URL or an off-site address must never decide where we go.
+        $intended = (string) $request->session()->pull('url.intended', '');
+        $parts = parse_url($intended) ?: [];
+        $path = (string) ($parts['path'] ?? '');
+        $sameHost = ! isset($parts['host']) || $parts['host'] === $request->getHost();
+
+        return redirect()->to(
+            $sameHost && str_starts_with($path, '/external-coach') && ! str_starts_with($path, '/external-coach/login')
+                ? $intended
+                : route('external-coach.dashboard'),
+        );
     }
 
     public function destroy(): RedirectResponse
