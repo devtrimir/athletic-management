@@ -276,77 +276,22 @@ export default function ExternalCoachesIndex({
     }
 
     function printTable() {
-        const headers = [
-            t('S.No.'),
-            t('Coach'),
-            t('Email'),
-            t('Phone'),
-            t('Sports'),
-            t('Training venues'),
-            t('Coaching'),
-            t('Status'),
-        ];
+        const params = new URLSearchParams();
 
-        const printWindow = window.open('', '_blank', 'width=1100,height=800');
-
-        if (!printWindow) {
-            return;
+        if (filters.q) {
+            params.set('filter[q]', filters.q);
         }
 
-        const coachesToPrint = selectedOrVisibleCoaches();
+        if (filters.status) {
+            params.set('filter[status]', filters.status);
+        }
 
-        printWindow.document.write(`
-            <!doctype html>
-            <html>
-                <head>
-                    <meta charset="utf-8">
-                    <title>${t('External coaches')}</title>
-                    <style>
-                        body{font-family:Arial,sans-serif;padding:16px;font-size:12px}
-                        h2{font-size:18px;margin:0 0 12px}
-                        table{width:100%;border-collapse:collapse}
-                        th,td{border:1px solid #ccc;padding:6px 8px;text-align:center;vertical-align:middle}
-                        th{background:#1f2937;color:#fff}
-                    </style>
-                </head>
-                <body>
-                    <h2>${t('External coaches')}</h2>
-                    <table>
-                        <thead>
-                            <tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr>
-                        </thead>
-                        <tbody>
-                            ${coachesToPrint
-                                .map((coach) => {
-                                    const cells = [
-                                        rowNumber(coach),
-                                        coach.name,
-                                        coach.email,
-                                        coach.phone ?? '-',
-                                        joinNames(coach.sports) || '-',
-                                        joinNames(coach.training_venues) || '-',
-                                        [
-                                            `${t('Experience')}: ${coach.experience_years ?? '-'}`,
-                                            `${t('Active players')}: ${coach.active_coached_players_count}`,
-                                        ].join(' / '),
-                                        t(coach.status),
-                                    ];
-
-                                    return `<tr>${cells
-                                        .map(
-                                            (cell) =>
-                                                `<td>${String(cell)}</td>`,
-                                        )
-                                        .join('')}</tr>`;
-                                })
-                                .join('')}
-                        </tbody>
-                    </table>
-                    <script>window.onload=()=>{window.print();window.close()};</script>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
+        selectedCoachIds.forEach((id) => params.append('ids[]', String(id)));
+        window.open(
+            `/external-coaches/print?${params.toString()}`,
+            '_blank',
+            'noopener',
+        );
     }
 
     return (

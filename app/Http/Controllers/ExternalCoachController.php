@@ -53,6 +53,38 @@ class ExternalCoachController extends Controller
         ]);
     }
 
+    /**
+     * Printable listing (letterhead + table) for the current filters, or for the
+     * selected `ids` when given.
+     */
+    public function print(Request $request): Response
+    {
+        Gate::authorize('viewAny', ExternalCoach::class);
+        abort_unless($request->user()->can('coaches.print'), 403);
+
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+        $statusFilter = $this->filterString($filters['status'] ?? null);
+        $search = $this->filterString($filters['q'] ?? null);
+        $ids = collect((array) $request->query('ids', []))->map(fn ($id): int => (int) $id)->filter()->values();
+
+        $coaches = ExternalCoach::query()
+            ->where('organization_id', (int) $request->user()->organization_id)
+            ->filter($statusFilter, $search)
+            ->when($ids->isNotEmpty(), fn ($query) => $query->whereKey($ids))
+            ->with(['sports:id,name', 'trainingVenues:id,name'])
+            ->withActivePlayersCount()
+            ->orderBy('name')
+            ->limit(2000)
+            ->get(['id', 'name', 'email', 'phone', 'photo_path', 'status', 'experience_years', 'city']);
+
+        return Inertia::render('external-coaches/print', [
+            'coaches' => $coaches,
+            'filters' => ['q' => $search, 'status' => $statusFilter, 'selected' => $ids->count()],
+            'printedAt' => now()->timezone('Asia/Kolkata')->format('d M Y, h:i A').' IST',
+        ]);
+    }
+
     public function create(): Response
     {
         Gate::authorize('create', ExternalCoach::class);

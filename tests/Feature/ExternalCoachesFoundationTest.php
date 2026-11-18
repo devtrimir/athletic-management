@@ -729,3 +729,24 @@ test('external coaches index includes each coach sports and photo path', functio
             ->where('externalCoaches.data.0.training_venues.0.name', 'Main Ground')
             ->where('externalCoaches.data.0.photo_path', 'external-coach-photos/1/x.jpg'));
 });
+
+test('external coach print page honors permission, filters and selected ids', function () {
+    $user = rcUser('external-coaches.view', 'coaches.print');
+    $org = $user->organization_id;
+    $active = ExternalCoach::factory()->create(['organization_id' => $org, 'name' => 'Active Coach', 'status' => 'active']);
+    $inactive = ExternalCoach::factory()->create(['organization_id' => $org, 'name' => 'Inactive Coach', 'status' => 'inactive']);
+    ExternalCoach::factory()->create(['name' => 'Other Org Coach']);
+
+    $names = fn (array $query) => collect(
+        $this->actingAs($user)->get(route('external-coaches.print', $query))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('external-coaches/print'))
+            ->viewData('page')['props']['coaches'],
+    )->pluck('name')->all();
+
+    expect($names([]))->toBe(['Active Coach', 'Inactive Coach'])
+        ->and($names(['filter' => ['status' => 'inactive']]))->toBe(['Inactive Coach'])
+        ->and($names(['ids' => [$active->id]]))->toBe(['Active Coach']);
+
+    $this->actingAs(rcUser('external-coaches.view'))->get(route('external-coaches.print'))->assertForbidden();
+});

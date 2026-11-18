@@ -93,6 +93,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('external-coaches/{externalCoach}/members/{member}/assignments', [ExternalCoachController::class, 'playerAssignments'])->name('external-coaches.player-assignments');
     Route::get('external-coaches/{externalCoach}/documents/{document}', [ExternalCoachDocumentController::class, 'show'])->name('external-coaches.documents.show');
     Route::delete('external-coaches/{externalCoach}/documents/{document}', [ExternalCoachDocumentController::class, 'destroy'])->name('external-coaches.documents.destroy');
+    Route::get('external-coaches/print', [ExternalCoachController::class, 'print'])->name('external-coaches.print');
     Route::resource('external-coaches', ExternalCoachController::class);
     Route::resource('training-venues', TrainingVenueController::class);
     Route::get('external-coaching-assignments/{external_coaching_assignment}/permission-document', [ExternalCoachingAssignmentController::class, 'permissionDocument'])->name('external-coaching-assignments.permission-document');

@@ -60,6 +60,8 @@ createInertiaApp({
                 return null;
             case name === 'members/print':
                 return null;
+            case name === 'external-coaches/print':
+                return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('external-coach/auth/'):
