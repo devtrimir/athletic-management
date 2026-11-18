@@ -37,8 +37,7 @@
     @endif
 
     <div class="letterhead">
-        <div class="letterhead-title">UP Police Sports Control Board (UPPSCB)</div>
-        <div class="letterhead-subtitle">Uttar Pradesh Police Sports Control Board</div>
+        <div class="letterhead-title">{{ \App\Support\Organisation::name() }}</div>
     </div>
 
     <h1>{{ $title }}</h1>

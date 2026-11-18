@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from '@/hooks/use-translation';
+import { ORGANISATION_NAME } from '@/lib/organisation';
 
 export type PrintOrientation = 'portrait' | 'landscape';
 
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
-const ORGANISATION = 'UP Police Sports Control Board (UPPSCB)';
 
 /**
  * Official A4 print frame shared by standalone print pages: a screen-only
@@ -120,14 +120,11 @@ export function PrintSheet({
                     <img
                         className="letterhead-logo"
                         src={LETTERHEAD_LOGO_SRC}
-                        alt={t(ORGANISATION)}
+                        alt={t(ORGANISATION_NAME)}
                     />
                     <div>
                         <div className="letterhead-title">
-                            {t(ORGANISATION)}
-                        </div>
-                        <div className="letterhead-subtitle">
-                            {t('UP Police Sports Control Board')}
+                            {t(ORGANISATION_NAME)}
                         </div>
                     </div>
                 </div>

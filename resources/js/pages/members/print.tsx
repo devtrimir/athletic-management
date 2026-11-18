@@ -1,5 +1,6 @@
 import { PrintDocument } from '@/components/print/print-document';
 import { useTranslation } from '@/hooks/use-translation';
+import { ORGANISATION_NAME } from '@/lib/organisation';
 
 type ReportMeta = {
     title: string;
@@ -23,7 +24,7 @@ export default function MembersPrint({
 
     return (
         <PrintDocument
-            organization={t('UP Police Sports Control Board')}
+            organization={t(ORGANISATION_NAME)}
             title={t(reportMeta.title)}
             printedAt={reportMeta.printedAt}
             columns={columns}

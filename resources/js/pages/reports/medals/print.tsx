@@ -6,6 +6,7 @@ import {
 } from '@/actions/App/Http/Controllers/MedalsReportExportController';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate } from '@/lib/dates';
+import { ORGANISATION_NAME } from '@/lib/organisation';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
 
@@ -90,7 +91,6 @@ type ExportStatus = {
 };
 
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
-const PAGE_TITLE = 'UP Police Sports Control Board (UPPSCB)';
 const MAX_BROWSER_PRINT_ROWS = 1000;
 
 const defaultSectionState = (
@@ -980,11 +980,10 @@ export default function MedalsPrint({
                     <img
                         className="letterhead-logo"
                         src={LETTERHEAD_LOGO_SRC}
-                        alt={t(PAGE_TITLE)}
+                        alt={t(ORGANISATION_NAME)}
                     />
                     <div>
-                        <div className="letterhead-title">{t(PAGE_TITLE)}</div>
-                        <div className="letterhead-subtitle">{t('UP Police Sports Control Board')}</div>
+                        <div className="letterhead-title">{t(ORGANISATION_NAME)}</div>
                     </div>
                 </div>
 

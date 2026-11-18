@@ -10,6 +10,7 @@ use App\Models\Participation;
 use App\Models\Rank;
 use App\Models\SportSession;
 use App\Models\Tournament;
+use App\Support\Organisation;
 use App\Support\Tournaments\TournamentProfileData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -174,7 +175,7 @@ class TournamentExportController extends Controller
         $columnCount = count(self::COLUMN_LABELS);
 
         return [
-            array_pad([__('UP Police Sports Control Board (UPPSCB)')], $columnCount, ''),
+            array_pad([Organisation::name()], $columnCount, ''),
             array_pad([__('Tournament Listing')], $columnCount, ''),
             array_pad([__('Generated on').' '.now()->format('d M Y')], $columnCount, ''),
             [
@@ -1646,7 +1647,7 @@ class TournamentExportController extends Controller
             .'<style>@page{size:A4 '.$printOrientation.';margin:5mm}html,body{margin:0}body{font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.35;padding:6px;color:#111}.letterhead{text-align:center;border-bottom:2px solid #111;margin:0 0 8px;padding:0 0 7px}.letterhead-title{font-size:18px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}.letterhead-subtitle{font-size:11px;font-weight:600;margin-top:2px}.letterhead-meta{font-size:9px;color:#555;margin-top:2px}h1{font-size:18px;margin:0 0 6px;text-align:center}h2{font-size:13px;margin:10px 0 5px}table{width:100%;border-collapse:collapse;margin:0 0 8px}th,td{border:1px solid #bbb;padding:4px 5px;vertical-align:middle;text-align:center}td{word-break:break-word}th{background:#f1f1f1;font-weight:600;white-space:nowrap;word-break:normal}.sport-row th{background:#e9eef5;font-weight:700}.sport-row .num{width:1%;text-align:center}.sport-medals{float:right;font-weight:600;white-space:nowrap}.total-row th{background:#e7e7e7;font-weight:700}.num{text-align:center;white-space:nowrap}.summary-table th:nth-child(2),.summary-table td:nth-child(2),.summary-table th:nth-child(3),.summary-table td:nth-child(3){text-align:center;white-space:nowrap}.event-table{font-size:8.8px;table-layout:auto}p{margin:2px 0}.muted{color:#666}@media print{body{padding:0}.letterhead{margin-bottom:6px;padding-bottom:5px}.letterhead-title{font-size:16px}.event-table{font-size:8.2px}th,td{padding:3px 4px}h1{font-size:16px}h2{font-size:12px;margin:7px 0 4px}table{margin-bottom:6px}}</style>'
             .'</head><body>'
             .'<div class="letterhead">'
-            .'<div class="letterhead-title">'.__('UP Police Sports Control Board (UPPSCB)').'</div>'
+            .'<div class="letterhead-title">'.Organisation::name().'</div>'
             .'<div class="letterhead-subtitle">'.__('Tournament Events Report').'</div>'
             .'<div class="letterhead-meta">'.__('Official Sports Unit Record').'</div>'
             .'</div>'

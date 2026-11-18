@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate, formatDateRange } from '@/lib/dates';
+import { ORGANISATION_NAME } from '@/lib/organisation';
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
@@ -416,9 +417,9 @@ export default function TournamentsIndex({
             <img class="watermark" src="/logo.jpg" alt="">
             <div class="print-content">
             <div class="letterhead">
-                <img class="letterhead-logo" src="/logo.jpg" alt="${escapePrintValue(t('UP Police Sports Control Board (UPPSCB)'))}">
+                <img class="letterhead-logo" src="/logo.jpg" alt="${escapePrintValue(t(ORGANISATION_NAME))}">
                 <div class="letterhead-body">
-                    <h1>${escapePrintValue(t('UP Police Sports Control Board (UPPSCB)'))}</h1>
+                    <h1>${escapePrintValue(t(ORGANISATION_NAME))}</h1>
                     <p>${escapePrintValue(t('Tournament Listing'))}</p>
                     <p>${escapePrintValue(t('Official print preview'))}</p>
                 </div>
