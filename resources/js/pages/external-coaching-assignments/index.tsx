@@ -1,7 +1,5 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Eye, Pencil, Plus, Search, X } from 'lucide-react';
-import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
+import { Eye, Pencil, Plus } from 'lucide-react';
 
 import {
     create,
@@ -9,24 +7,29 @@ import {
     index,
     show,
 } from '@/actions/App/Http/Controllers/ExternalCoachingAssignmentController';
-import type { ComboboxItem } from '@/components/combobox';
-import { Combobox } from '@/components/combobox';
-import { DatePicker } from '@/components/date-picker';
-import Heading from '@/components/heading';
+import {
+    DateRangePill,
+    FilterPill,
+    OptionList,
+    SearchableOptionList,
+    TextFilterPill,
+    dateRangePresets,
+} from '@/components/data-table/filter-pill';
+import {
+    ListingLayout,
+    ListingTable,
+} from '@/components/data-table/listing-layout';
+import {
+    listingCellClass,
+    listingHeadCellClass,
+    stickyRightBodyCellClass,
+    stickyRightHeadCellClass,
+} from '@/components/data-table/table-primitives';
 import { ListingPagination } from '@/components/listing-pagination';
+import type { PaginatedListing } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -34,8 +37,13 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useAuthorization } from '@/hooks/use-authorization';
+import {
+    useDebouncedSearch,
+    useListingFilters,
+} from '@/hooks/use-listing-filters';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate } from '@/lib/dates';
+import { cn } from '@/lib/utils';
 
 type Assignment = {
     id: number;
@@ -48,21 +56,6 @@ type Assignment = {
     sport?: { name: string } | null;
 };
 
-type Sport = {
-    id: number;
-    name: string;
-};
-
-type PaginatedAssignments = {
-    data: Assignment[];
-    links: { url: string | null; label: string; active: boolean }[];
-    current_page: number;
-    last_page: number;
-    total: number;
-    from: number | null;
-    to: number | null;
-};
-
 type Filters = {
     member_query?: string;
     coach_query?: string;
@@ -73,10 +66,10 @@ type Filters = {
 };
 
 type Props = {
-    assignments: PaginatedAssignments;
+    assignments: PaginatedListing & { data: Assignment[] };
     filters: Filters;
     statuses: string[];
-    sports: Sport[];
+    sports: { id: number; name: string }[];
 };
 
 export default function ExternalCoachingAssignmentsIndex({
@@ -87,496 +80,274 @@ export default function ExternalCoachingAssignmentsIndex({
 }: Props) {
     const { t } = useTranslation();
     const { can } = useAuthorization();
-    const canCreateAssignment = can('external-coaching-assignments.create');
-    const canUpdateAssignment = can('external-coaching-assignments.update');
-    const page = usePage();
-    const { url } = page;
-
-    const [memberQuery, setMemberQuery] = useState<string>(
-        filters.member_query ?? '',
+    const canUpdate = can('external-coaching-assignments.update');
+    const { apply, clear } = useListingFilters(index.url());
+    const [search, setSearch] = useDebouncedSearch(
+        filters.member_query,
+        (member_query) => apply(filters, { member_query }),
     );
-    const [coachQuery, setCoachQuery] = useState<string>(
-        filters.coach_query ?? '',
-    );
-    const [statusFilter, setStatusFilter] = useState<string>(
-        filters.status ?? 'all',
-    );
-    const [sportFilter, setSportFilter] = useState<string>(
-        filters.sport_id ?? 'all',
-    );
-    const [fromDate, setFromDate] = useState<string>(
-        filters.start_date_from ?? '',
-    );
-    const [toDate, setToDate] = useState<string>(filters.start_date_to ?? '');
-    const sportItems: ComboboxItem[] = sports.map((sport) => ({
-        value: String(sport.id),
-        label: sport.name,
-    }));
-
-    const hasDateError = fromDate !== '' && toDate !== '' && fromDate > toDate;
-
-    useEffect(() => {
-        // Keep form inputs in sync with URL filters when they change externally.
-        const query = new URLSearchParams(window.location.search);
-
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setMemberQuery(filters.member_query ?? '');
-        setCoachQuery(filters.coach_query ?? '');
-        setStatusFilter(filters.status ?? 'all');
-        setSportFilter(filters.sport_id ?? 'all');
-        setFromDate(
-            query.get('filter[start_date_from]') ??
-                filters.start_date_from ??
-                '',
-        );
-        setToDate(
-            query.get('filter[start_date_to]') ?? filters.start_date_to ?? '',
-        );
-    }, [filters, url]);
-
-    function dateToValue(value: Date): string {
-        const year = value.getFullYear();
-        const month = String(value.getMonth() + 1).padStart(2, '0');
-        const day = String(value.getDate()).padStart(2, '0');
-
-        return `${year}-${month}-${day}`;
-    }
-
-    function applyFiltersWithRange(startDate: string, endDate: string) {
-        const params: Record<string, string> = {};
-        const hasRangeError =
-            startDate !== '' && endDate !== '' && startDate > endDate;
-
-        if (memberQuery.trim() !== '') {
-            params['filter[member_query]'] = memberQuery.trim();
-        }
-
-        if (coachQuery.trim() !== '') {
-            params['filter[coach_query]'] = coachQuery.trim();
-        }
-
-        if (statusFilter !== 'all') {
-            params['filter[status]'] = statusFilter;
-        }
-
-        if (sportFilter !== 'all') {
-            params['filter[sport_id]'] = sportFilter;
-        }
-
-        if (startDate !== '') {
-            params['filter[start_date_from]'] = startDate;
-        }
-
-        if (endDate !== '') {
-            params['filter[start_date_to]'] = endDate;
-        }
-
-        if (hasRangeError) {
-            return;
-        }
-
-        router.get(index.url(), params, {
-            replace: true,
-            preserveScroll: true,
-            preserveState: true,
-        });
-    }
-
-    function applyPreset(daysBack: number) {
-        const to = new Date();
-        const from = new Date();
-
-        from.setDate(from.getDate() - daysBack);
-        const fromValue = dateToValue(from);
-        const toValue = dateToValue(to);
-
-        setFromDate(fromValue);
-        setToDate(toValue);
-        applyFiltersWithRange(fromValue, toValue);
-    }
-
-    function applyMonthPreset() {
-        const from = new Date();
-        const to = new Date();
-
-        from.setDate(1);
-        to.setMonth(to.getMonth() + 1);
-        to.setDate(0);
-
-        const fromValue = dateToValue(from);
-        const toValue = dateToValue(to);
-
-        setFromDate(fromValue);
-        setToDate(toValue);
-        applyFiltersWithRange(fromValue, toValue);
-    }
-
-    const hasFilters =
-        memberQuery.trim() !== '' ||
-        coachQuery.trim() !== '' ||
-        statusFilter !== 'all' ||
-        sportFilter !== 'all' ||
-        fromDate !== '' ||
-        toDate !== '';
-
-    function applyFilters(event?: FormEvent<HTMLFormElement>) {
-        event?.preventDefault();
-
-        applyFiltersWithRange(fromDate, toDate);
-    }
-
-    function clearFilters() {
-        setMemberQuery('');
-        setCoachQuery('');
-        setStatusFilter('all');
-        setSportFilter('all');
-        setFromDate('');
-        setToDate('');
-
-        router.get(
-            index.url(),
-            {},
-            { replace: true, preserveScroll: true, preserveState: true },
-        );
-    }
+    const hasFilters = Object.values(filters).some(Boolean);
+    const sportName = sports.find(
+        (sport) => String(sport.id) === filters.sport_id,
+    )?.name;
 
     return (
         <>
             <Head title={t('External coaching assignments')} />
-            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
-                <div className="flex shrink-0 items-start justify-between gap-4">
-                    <Heading
-                        variant="small"
-                        title={t('External coaching assignments')}
-                        description={t(
-                            'Manage member assignments to external coaches and venues.',
-                        )}
-                    />
-                    {canCreateAssignment ? (
+            <ListingLayout
+                title={t('External coaching assignments')}
+                description={t(
+                    'Manage member assignments to external coaches and venues.',
+                )}
+                search={{
+                    value: search,
+                    onChange: setSearch,
+                    placeholder: t('Search member by name or PNO'),
+                }}
+                actions={
+                    can('external-coaching-assignments.create') && (
                         <Button asChild size="sm">
                             <Link href={create.url()}>
                                 <Plus className="mr-1.5 h-4 w-4" />
                                 {t('Add assignment')}
                             </Link>
                         </Button>
-                    ) : null}
-                </div>
-
-                <form
-                    className="shrink-0 rounded-xl border bg-card p-3 shadow-sm"
-                    onSubmit={applyFilters}
-                >
-                    <div className="flex flex-wrap items-end gap-3">
-                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
-                            <Label
-                                htmlFor="member_query"
-                                className="text-sm font-medium"
-                            >
-                                {t('Member')} ({t('name / PNO')})
-                            </Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="member_query"
-                                    name="member_query"
-                                    value={memberQuery}
-                                    onChange={(event) =>
-                                        setMemberQuery(event.target.value)
-                                    }
-                                    placeholder={t(
-                                        'Search member by name or PNO',
-                                    )}
-                                    className="pl-9"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
-                            <Label
-                                htmlFor="coach_query"
-                                className="text-sm font-medium"
-                            >
-                                {t('Coach')} ({t('name / phone')})
-                            </Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="coach_query"
-                                    name="coach_query"
-                                    value={coachQuery}
-                                    onChange={(event) =>
-                                        setCoachQuery(event.target.value)
-                                    }
-                                    placeholder={t(
-                                        'Search coach by name or phone',
-                                    )}
-                                    className="pl-9"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
-                            <Label
-                                htmlFor="start_date_from"
-                                className="text-sm font-medium"
-                            >
-                                {t('Start date from')}
-                            </Label>
-                            <DatePicker
-                                id="start_date_from"
-                                value={fromDate}
-                                onChange={setFromDate}
-                                placeholder={t('Select start date')}
-                            />
-                        </div>
-
-                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
-                            <Label
-                                htmlFor="start_date_to"
-                                className="text-sm font-medium"
-                            >
-                                {t('Start date to')}
-                            </Label>
-                            <DatePicker
-                                id="start_date_to"
-                                value={toDate}
-                                onChange={setToDate}
-                                placeholder={t('Select end date')}
-                            />
-                            {hasDateError ? (
-                                <p className="text-xs text-destructive">
-                                    {t('Date from cannot be after date to.')}
-                                </p>
-                            ) : null}
-                        </div>
-
-                        <div className="flex min-w-[17rem] flex-1 flex-wrap gap-2">
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => applyPreset(6)}
-                            >
-                                {t('Last 7 days')}
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => applyPreset(29)}
-                            >
-                                {t('Last 30 days')}
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => applyMonthPreset()}
-                            >
-                                {t('This month')}
-                            </Button>
-                        </div>
-
-                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
-                            <Label
-                                htmlFor="status_filter"
-                                className="text-sm font-medium"
-                            >
-                                {t('Status')}
-                            </Label>
-                            <Select
-                                value={statusFilter}
-                                onValueChange={setStatusFilter}
-                            >
-                                <SelectTrigger
-                                    id="status_filter"
-                                    className="h-9 w-full"
-                                >
-                                    <SelectValue
-                                        placeholder={t('All status')}
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        {t('All status')}
-                                    </SelectItem>
-                                    {statuses.map((status) => (
-                                        <SelectItem key={status} value={status}>
-                                            {t(status)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex min-w-[11rem] flex-1 flex-col gap-1">
-                            <Label
-                                htmlFor="sport_filter"
-                                className="text-sm font-medium"
-                            >
-                                {t('Sport')}
-                            </Label>
-                            <Combobox
-                                id="sport_filter"
-                                value={sportFilter === 'all' ? '' : sportFilter}
-                                onValueChange={(value) =>
-                                    setSportFilter(value || 'all')
+                    )
+                }
+                filters={
+                    <>
+                        <TextFilterPill
+                            label={t('Coach')}
+                            value={filters.coach_query ?? ''}
+                            placeholder={t('Coach name or phone')}
+                            onApply={(coach_query) =>
+                                apply(filters, { coach_query })
+                            }
+                        />
+                        <FilterPill
+                            label={t('Status')}
+                            activeLabel={
+                                filters.status ? t(filters.status) : undefined
+                            }
+                            onClear={() => apply(filters, { status: null })}
+                        >
+                            <OptionList
+                                options={statuses.map((value) => ({
+                                    value,
+                                    label: t(value),
+                                }))}
+                                value={filters.status}
+                                onSelect={(status) =>
+                                    apply(filters, { status: status ?? null })
                                 }
-                                items={sportItems}
-                                placeholder={t('All sports')}
-                                searchPlaceholder={t('Search by sport')}
-                                emptyMessage={t('No sport found.')}
                             />
-                        </div>
-
-                        <div className="ml-auto flex flex-none items-end gap-2">
-                            <div className="flex items-center gap-2">
-                                {hasFilters ? (
-                                    <Button
-                                        variant="outline"
-                                        type="button"
-                                        onClick={clearFilters}
-                                        className="h-9"
-                                    >
-                                        <X className="size-4" />
-                                        {t('Clear filters')}
-                                    </Button>
-                                ) : null}
-                                <Button
-                                    type="submit"
-                                    className="h-9"
-                                    disabled={hasDateError}
+                        </FilterPill>
+                        <FilterPill
+                            label={t('Sport')}
+                            activeLabel={sportName}
+                            onClear={() => apply(filters, { sport_id: null })}
+                        >
+                            <SearchableOptionList
+                                options={sports.map((sport) => ({
+                                    value: String(sport.id),
+                                    label: sport.name,
+                                }))}
+                                value={filters.sport_id}
+                                onSelect={(sport_id) =>
+                                    apply(filters, {
+                                        sport_id: sport_id ?? null,
+                                    })
+                                }
+                                searchPlaceholder={t('Search by sport')}
+                            />
+                        </FilterPill>
+                        <DateRangePill
+                            label={t('Start date')}
+                            from={filters.start_date_from ?? ''}
+                            to={filters.start_date_to ?? ''}
+                            presets={dateRangePresets(t)}
+                            onChange={(start_date_from, start_date_to) =>
+                                apply(filters, {
+                                    start_date_from,
+                                    start_date_to,
+                                })
+                            }
+                        />
+                    </>
+                }
+                hasFilters={hasFilters}
+                onClearFilters={clear}
+                resultCount={assignments.total}
+                footer={
+                    <ListingPagination
+                        paginator={assignments}
+                        itemLabel={t('assignments')}
+                        className="shrink-0 shadow-sm"
+                    />
+                }
+            >
+                <ListingTable minWidth={1050}>
+                    <colgroup>
+                        <col className="w-11" />
+                        <col />
+                        <col className="w-[190px]" />
+                        <col className="w-[200px]" />
+                        <col className="w-[130px]" />
+                        <col className="w-[100px]" />
+                        <col className="w-[100px]" />
+                        <col className="w-[100px]" />
+                        <col className="w-[84px]" />
+                    </colgroup>
+                    <TableHeader className="sticky top-0 z-20">
+                        <TableRow className="hover:bg-transparent">
+                            {[
+                                'S.No.',
+                                'Member',
+                                'Coach',
+                                'Venue',
+                                'Sport',
+                                'Start',
+                                'End',
+                                'Status',
+                            ].map((label, position) => (
+                                <TableHead
+                                    key={label}
+                                    className={cn(
+                                        listingHeadCellClass,
+                                        position === 0 && 'text-center',
+                                    )}
                                 >
-                                    {t('Apply filters')}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm [&>[data-slot=table-container]]:h-full">
-                    <Table>
-                        <TableHeader className="sticky top-0 z-10">
-                            <TableRow className="bg-muted hover:bg-muted">
-                                <TableHead className="w-20">
-                                    {t('S.No.')}
+                                    {t(label)}
                                 </TableHead>
-                                <TableHead>{t('Member')}</TableHead>
-                                <TableHead>{t('Coach / venue')}</TableHead>
-                                <TableHead>{t('Sport')}</TableHead>
-                                <TableHead>{t('Period')}</TableHead>
-                                <TableHead>{t('Status')}</TableHead>
-                                <TableHead className="w-28 text-right">
-                                    {t('Actions')}
-                                </TableHead>
+                            ))}
+                            <TableHead
+                                className={cn(
+                                    listingHeadCellClass,
+                                    stickyRightHeadCellClass,
+                                    'text-right',
+                                )}
+                            >
+                                {t('Actions')}
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {assignments.data.length === 0 ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={9}
+                                    className="py-12 text-center text-muted-foreground"
+                                >
+                                    {t(
+                                        'No external coaching assignments found.',
+                                    )}
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {assignments.data.map((assignment, index) => (
-                                <TableRow key={assignment.id}>
-                                    <TableCell>
-                                        {(assignments.from ?? 1) + index}
+                        ) : (
+                            assignments.data.map((assignment, position) => (
+                                <TableRow
+                                    key={assignment.id}
+                                    className="cursor-pointer hover:bg-muted/30"
+                                    onClick={() =>
+                                        router.visit(show.url(assignment))
+                                    }
+                                >
+                                    <TableCell
+                                        className={cn(
+                                            listingCellClass,
+                                            'text-center font-mono text-muted-foreground tabular-nums',
+                                        )}
+                                    >
+                                        {(assignments.from ?? 1) + position}
                                     </TableCell>
-                                    <TableCell>
-                                        <div className="font-medium">
-                                            {assignment.member?.full_name ??
-                                                t('Unknown member')}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {assignment.member?.pno ??
-                                                t('No PNO')}
-                                        </div>
+                                    <TableCell className={listingCellClass}>
+                                        <span className="block truncate">
+                                            <span className="font-medium">
+                                                {assignment.member?.full_name ??
+                                                    t('Unknown member')}
+                                            </span>
+                                            {assignment.member?.pno && (
+                                                <span className="ml-1.5 text-muted-foreground">
+                                                    {assignment.member.pno}
+                                                </span>
+                                            )}
+                                        </span>
                                     </TableCell>
-                                    <TableCell>
-                                        <div>
-                                            {assignment.external_coach?.name ??
-                                                t('No coach')}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {assignment.training_venue?.name ??
-                                                t('No venue')}
-                                        </div>
+                                    <TableCell className={listingCellClass}>
+                                        {assignment.external_coach?.name ?? '-'}
                                     </TableCell>
-                                    <TableCell>
-                                        {assignment.sport?.name ??
-                                            t('No sport')}
+                                    <TableCell className={listingCellClass}>
+                                        {assignment.training_venue?.name ?? '-'}
                                     </TableCell>
-                                    <TableCell>
-                                        <div className="text-sm">
-                                            {formatDate(assignment.start_date)}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {formatDate(assignment.end_date)}
-                                        </div>
+                                    <TableCell className={listingCellClass}>
+                                        {assignment.sport?.name ?? '-'}
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {formatDate(assignment.start_date)}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {formatDate(assignment.end_date)}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
                                         <Badge
                                             variant={
                                                 assignment.status === 'active'
                                                     ? 'default'
                                                     : 'secondary'
                                             }
+                                            className="px-1.5 py-0 text-[10px]"
                                         >
                                             {t(assignment.status)}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell>
-                                        <div className="flex justify-end gap-2">
+                                    <TableCell
+                                        className={cn(
+                                            listingCellClass,
+                                            stickyRightBodyCellClass,
+                                        )}
+                                    >
+                                        <div
+                                            className="flex items-center justify-end gap-0.5"
+                                            onClick={(event) =>
+                                                event.stopPropagation()
+                                            }
+                                        >
                                             <Button
                                                 asChild
                                                 size="icon"
                                                 variant="ghost"
+                                                title={t('View')}
                                             >
                                                 <Link
                                                     href={show.url(assignment)}
-                                                    aria-label={t('View')}
                                                 >
                                                     <Eye className="size-4" />
                                                 </Link>
                                             </Button>
-                                            {canUpdateAssignment ? (
+                                            {canUpdate && (
                                                 <Button
                                                     asChild
                                                     size="icon"
                                                     variant="ghost"
+                                                    title={t('Edit')}
                                                 >
                                                     <Link
                                                         href={edit.url(
                                                             assignment,
                                                         )}
-                                                        aria-label={t('Edit')}
                                                     >
                                                         <Pencil className="size-4" />
                                                     </Link>
                                                 </Button>
-                                            ) : null}
+                                            )}
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ))}
-                            {assignments.data.length === 0 ? (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={7}
-                                        className="h-24 text-center text-sm text-muted-foreground"
-                                    >
-                                        {t(
-                                            'No external coaching assignments found.',
-                                        )}
-                                    </TableCell>
-                                </TableRow>
-                            ) : null}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                <ListingPagination
-                    paginator={assignments}
-                    itemLabel={t('assignments')}
-                    className="shrink-0 shadow-sm"
-                />
-            </div>
+                            ))
+                        )}
+                    </TableBody>
+                </ListingTable>
+            </ListingLayout>
         </>
     );
 }
-
