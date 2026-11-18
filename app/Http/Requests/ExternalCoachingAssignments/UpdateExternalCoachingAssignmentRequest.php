@@ -95,8 +95,8 @@ class UpdateExternalCoachingAssignmentRequest extends FormRequest
             return false;
         }
 
-        return $assignment->start_date?->toDateString() !== $this->date('start_date')
-            || $assignment->end_date?->toDateString() !== $this->date('end_date');
+        return $assignment->start_date?->toDateString() !== $this->date('start_date')?->toDateString()
+            || $assignment->end_date?->toDateString() !== $this->date('end_date')?->toDateString();
     }
 
     private function hasOverlappingAssignment(?int $ignoreId): bool
