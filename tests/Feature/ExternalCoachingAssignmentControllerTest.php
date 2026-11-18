@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\AuditLog;
 use App\Models\ExternalCoach;
 use App\Models\ExternalCoachingAssignment;
+use App\Models\ExternalTrainingAttendance;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Sport;
@@ -431,4 +432,48 @@ test('external coaching assignments index filters by status, member, coach, and 
         ]]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('assignments.total', 2));
+});
+
+test('an assignment with posted attendance can still be edited when the dates are unchanged, but not when they move', function (): void {
+    $user = rcUser('external-coaching-assignments.view', 'external-coaching-assignments.update');
+    $fixture = externalAssignmentFixture((int) $user->organization_id);
+    $assignment = ExternalCoachingAssignment::factory()->create([
+        'organization_id' => $user->organization_id,
+        'member_id' => $fixture['member']->id,
+        'external_coach_id' => $fixture['externalCoach']->id,
+        'training_venue_id' => $fixture['trainingVenue']->id,
+        'sport_id' => $fixture['sport']->id,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-09-30',
+        'status' => 'active',
+    ]);
+    ExternalTrainingAttendance::factory()->create([
+        'organization_id' => $user->organization_id,
+        'external_coaching_assignment_id' => $assignment->id,
+        'member_id' => $fixture['member']->id,
+        'external_coach_id' => $fixture['externalCoach']->id,
+        'training_venue_id' => $fixture['trainingVenue']->id,
+        'attendance_date' => '2026-07-10',
+    ]);
+    $payload = fn (array $overrides = []): array => [
+        '_method' => 'patch',
+        ...externalAssignmentPayload([
+            'member_id' => $fixture['member']->id,
+            'external_coach_id' => $fixture['externalCoach']->id,
+            'training_venue_id' => $fixture['trainingVenue']->id,
+            'sport_id' => $fixture['sport']->id,
+            'status' => 'completed',
+            ...$overrides,
+        ]),
+    ];
+
+    // The form always sends the (locked) dates; unchanged dates must not block finishing the assignment.
+    $this->actingAs($user)->post(route('external-coaching-assignments.update', $assignment), $payload())
+        ->assertSessionHasNoErrors();
+    expect($assignment->fresh()->status)->toBe('completed');
+
+    // Moving the dates after attendance exists is still refused.
+    $this->actingAs($user)->post(route('external-coaching-assignments.update', $assignment), $payload(['end_date' => '2026-12-31']))
+        ->assertSessionHasErrors();
+    expect($assignment->fresh()->end_date->toDateString())->toBe('2026-09-30');
 });
