@@ -25,6 +25,7 @@ import { MemberPicker } from '@/components/member-picker';
 import type { MemberOption } from '@/components/member-picker';
 import { ConfidentialDocumentPreview } from '@/components/shared/confidential-document-preview';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -67,6 +68,7 @@ export type Assignment = {
     status: string;
     cancellation_reason: string | null;
     completion_remarks: string | null;
+    coach_history_access: boolean;
     remarks: string | null;
     member?: MemberOption | null;
     permission_document?: {
@@ -108,6 +110,7 @@ type AssignmentFormData = {
     status: string;
     cancellation_reason: string;
     completion_remarks: string;
+    coach_history_access: boolean;
     remarks: string;
 };
 
@@ -327,6 +330,7 @@ export function AssignmentForm({
         status: assignment?.status ?? 'draft',
         cancellation_reason: assignment?.cancellation_reason ?? '',
         completion_remarks: assignment?.completion_remarks ?? '',
+        coach_history_access: assignment?.coach_history_access ?? false,
         remarks: assignment?.remarks ?? '',
     });
     const canEditDates = assignment?.has_attendances !== true;
@@ -978,6 +982,31 @@ export function AssignmentForm({
                                 />
                             </div>
                         </div>
+
+                        <label className="flex items-start gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+                            <Checkbox
+                                checked={form.data.coach_history_access}
+                                onCheckedChange={(checked) =>
+                                    form.setData(
+                                        'coach_history_access',
+                                        checked === true,
+                                    )
+                                }
+                                className="mt-0.5"
+                            />
+                            <span className="grid gap-0.5">
+                                <span className="text-sm font-medium">
+                                    {t(
+                                        'Let the coach view this history after training ends',
+                                    )}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Once the assignment is completed, cancelled or expired, the coach can still open the attendance and performance history, read-only. Off by default.',
+                                    )}
+                                </span>
+                            </span>
+                        </label>
 
                         <div className="grid min-w-0 gap-2">
                             <Label htmlFor="remarks">{t('Remarks')}</Label>

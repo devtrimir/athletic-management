@@ -46,6 +46,7 @@ class UpdateExternalCoachingAssignmentRequest extends FormRequest
             'training_start_time' => ['nullable', 'required_with:training_end_time', 'date_format:H:i'],
             'training_end_time' => ['nullable', 'required_with:training_start_time', 'date_format:H:i', 'after:training_start_time'],
             'attendance_mode' => ['required', Rule::in(['single_mark', 'check_in_check_out'])],
+            'coach_history_access' => ['sometimes', 'boolean'],
             'permission_reference_number' => ['nullable', 'string', 'max:100'],
             'permission_document' => ['nullable', 'file', 'mimes:pdf,jpeg,jpg,png,webp', 'max:5120'],
             'status' => ['required', Rule::in(['draft', 'pending_approval', 'approved', 'active', 'paused', 'completed', 'cancelled', 'rejected', 'expired'])],

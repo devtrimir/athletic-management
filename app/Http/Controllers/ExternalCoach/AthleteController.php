@@ -60,7 +60,7 @@ class AthleteController extends Controller
         return Inertia::render('external-coach/athletes/show', [
             ...$this->shellPayload($context['athlete'], $context['assignments'], 'attendance'),
             'tabCounts' => $this->tabCounts($context),
-            'attendanceFilters' => $this->monthFilters($selectedMonth, $months, $attendances->pluck('attendance_date')),
+            'attendanceFilters' => $this->monthFilters($selectedMonth, $months, $attendances->pluck('attendance_date'), $validated['month'] ?? null),
             'attendances' => $attendances,
         ]);
     }
@@ -97,7 +97,7 @@ class AthleteController extends Controller
         return Inertia::render('external-coach/athletes/show', [
             ...$this->shellPayload($context['athlete'], $context['assignments'], 'performance'),
             'tabCounts' => $this->tabCounts($context),
-            'performanceFilters' => $this->monthFilters($selectedMonth, $months, $performanceUpdates->pluck('update_date')),
+            'performanceFilters' => $this->monthFilters($selectedMonth, $months, $performanceUpdates->pluck('update_date'), $validated['month'] ?? null),
             'performanceUpdates' => $performanceUpdates,
         ]);
     }
@@ -114,7 +114,7 @@ class AthleteController extends Controller
             ->where('organization_id', $coach->organization_id)
             ->where('external_coach_id', $coach->id)
             ->where('member_id', $member->id)
-            ->where('status', 'active')
+            ->visibleToCoach()
             ->pluck('id');
 
         abort_if($assignmentIds->isEmpty(), 404);
@@ -170,6 +170,8 @@ class AthleteController extends Controller
             'athlete' => $athlete,
             'assignments' => $assignments,
             'activeTab' => $activeTab,
+            // No active assignment left: the coach may look back but not submit anything.
+            'readOnly' => ! $assignments->contains(fn (ExternalCoachingAssignment $assignment): bool => $assignment->status === 'active'),
             'tabLinks' => [
                 'attendance' => route('external-coach.athletes.attendance', $athlete),
                 'performance' => route('external-coach.athletes.performance', $athlete),
@@ -259,12 +261,17 @@ class AthleteController extends Controller
      * @param  Collection<int, mixed>  $recordDates
      * @return array{month: string, months: list<array{value: string, label: string, count: int}>}
      */
-    private function monthFilters(Carbon $selectedMonth, Collection $months, Collection $recordDates): array
+    private function monthFilters(Carbon $selectedMonth, Collection $months, Collection $recordDates, ?string $requested = null): array
     {
         $counts = $recordDates->map(fn (mixed $date): string => substr((string) $date, 0, 7))->countBy();
 
+        // With no month asked for, open on the latest month that actually has records.
+        $month = $requested === null
+            ? ($months->filter(fn (string $candidate): bool => ($counts[$candidate] ?? 0) > 0)->last() ?? $selectedMonth->format('Y-m'))
+            : $selectedMonth->format('Y-m');
+
         return [
-            'month' => $selectedMonth->format('Y-m'),
+            'month' => $month,
             'months' => $months->map(fn (string $month): array => [
                 'value' => $month,
                 'label' => Carbon::createFromFormat('!Y-m', $month)->translatedFormat('F Y'),

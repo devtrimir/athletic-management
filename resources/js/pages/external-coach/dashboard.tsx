@@ -24,6 +24,7 @@ type Assignment = {
     end_date: string;
     training_start_time: string | null;
     training_end_time: string | null;
+    status?: string;
     member: {
         id: number;
         pno: string | null;
@@ -42,6 +43,7 @@ type Props = {
     assignments: PaginatedListing & {
         data: Assignment[];
     };
+    historyAssignments: Assignment[];
     summary: {
         active_assignments: number;
         sports_covered: number;
@@ -54,6 +56,7 @@ type Props = {
 
 export default function ExternalCoachDashboard({
     assignments,
+    historyAssignments,
     summary,
     filters,
 }: Props) {
@@ -251,6 +254,53 @@ export default function ExternalCoachDashboard({
                         paginator={assignments}
                         itemLabel={t('athletes')}
                     />
+
+                    {historyAssignments.length > 0 ? (
+                        <section className="rounded-lg border bg-card shadow-sm">
+                            <div className="border-b px-4 py-4 sm:px-5">
+                                <h2 className="text-sm font-semibold">
+                                    {t('Past athletes')}
+                                </h2>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Training has ended. You can look back at the history, but nothing can be added.',
+                                    )}
+                                </p>
+                            </div>
+                            <div className="divide-y">
+                                {historyAssignments.map((assignment) => (
+                                    <article
+                                        key={assignment.id}
+                                        className="grid gap-4 px-4 py-4 sm:px-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,340px)_auto] xl:items-center"
+                                    >
+                                        <AssignedAthlete
+                                            assignment={assignment}
+                                        />
+                                        <AssignmentSchedule
+                                            assignment={assignment}
+                                        />
+                                        <div className="flex items-center gap-2 xl:justify-end">
+                                            <Badge variant="secondary">
+                                                {t(assignment.status ?? '')}
+                                            </Badge>
+                                            <Button
+                                                asChild
+                                                size="sm"
+                                                variant="outline"
+                                            >
+                                                <Link
+                                                    href={`/external-coach/athletes/${assignment.member.id}`}
+                                                >
+                                                    <Eye className="size-4" />
+                                                    {t('View history')}
+                                                </Link>
+                                            </Button>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        </section>
+                    ) : null}
                 </div>
             </main>
         </>
