@@ -864,21 +864,21 @@ export default function ExternalTrainingAttendanceIndex({
                 }
             >
                 <div id="external-training-attendance-print" className="h-full">
-                    <ListingTable minWidth={1250}>
+                    <ListingTable minWidth={1680}>
                         <colgroup>
                             <col className="w-9" />
                             <col className="w-11" />
                             <col className="w-[96px]" />
                             <col className="w-[96px]" />
                             <col className="w-[56px]" />
-                            <col />
-                            <col className="w-[160px]" />
-                            <col className="w-[150px]" />
-                            <col className="w-[120px]" />
+                            <col className="w-[220px]" />
+                            <col className="w-[180px]" />
+                            <col className="min-w-[200px]" />
+                            <col className="w-[130px]" />
                             <col className="w-[100px]" />
-                            <col className="w-[110px]" />
-                            <col className="w-[90px]" />
-                            <col className="w-[110px]" />
+                            <col className="w-[120px]" />
+                            <col className="w-[130px]" />
+                            <col className="w-[130px]" />
                             <col className="w-[80px]" />
                             <col className="w-[56px]" />
                         </colgroup>
