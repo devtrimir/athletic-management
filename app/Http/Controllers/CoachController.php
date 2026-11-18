@@ -20,6 +20,7 @@ use App\Models\Unit;
 use App\Services\Coaches\CoachDeletionService;
 use App\Services\PromotionSyncService;
 use App\Support\Coaches\CoachProfileData;
+use App\Support\GenderLabel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -67,12 +68,6 @@ class CoachController extends Controller
         'certifications' => 'Certifications',
         'assignment_history_count' => 'Assignment History Count',
         'linked_member' => 'Linked Member Code',
-    ];
-
-    private const PRINT_GENDER_LABELS = [
-        'M' => 'Male',
-        'F' => 'Female',
-        'O' => 'Other gender',
     ];
 
     /**
@@ -674,7 +669,7 @@ class CoachController extends Controller
             'serial_number' => (string) $serialNumber,
             'coach' => $coach->full_name,
             'pno' => (string) ($coach->pno ?? ''),
-            'gender' => self::PRINT_GENDER_LABELS[$coach->gender] ?? ($coach->gender ?? ''),
+            'gender' => GenderLabel::for($coach->gender),
             'unit_district' => (string) ($coach->unit?->name ?? $coach->district?->name ?? ''),
             'current_assignments' => $coach->currentAssignments
                 ->map(function (CoachAssignment $assignment): string {

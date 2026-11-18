@@ -8,6 +8,7 @@ use App\Exports\ReportExport;
 use App\Models\Coach;
 use App\Models\CoachAssignment;
 use App\Models\Sport;
+use App\Support\GenderLabel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -54,12 +55,6 @@ class CoachExportController extends Controller
         'certifications' => 'Certifications',
         'assignment_history_count' => 'Assignment History Count',
         'linked_member' => 'Linked Member Code',
-    ];
-
-    private const GENDER_LABELS = [
-        'M' => 'Male',
-        'F' => 'Female',
-        'O' => 'Other gender',
     ];
 
     public function index(Request $request): BinaryFileResponse
@@ -529,7 +524,7 @@ class CoachExportController extends Controller
                 'serial_number' => $serialNumber,
                 'coach' => $coach->full_name,
                 'pno' => $coach->pno,
-                'gender' => self::GENDER_LABELS[$coach->gender] ?? ($coach->gender ?? ''),
+                'gender' => GenderLabel::for($coach->gender),
                 'unit_district' => (string) ($coach->unit?->name ?? $coach->district?->name),
                 'sport_name', 'sport_event' => $this->stackedExportValue($sportRows, $key),
                 'assignment_team', 'assignment_session', 'assignment_role', 'assignment_assigned_at' => $this->stackedExportValue($assignmentRows, $key),
