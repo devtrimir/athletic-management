@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate } from '@/lib/dates';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 import { specialAchievementTypeLabel } from '@/pages/incharges/show';
 
 type RankOption = {
@@ -250,6 +251,7 @@ export default function InchargePrintPreview({
     ranks?: RankOption[];
 }) {
     const { t } = useTranslation();
+    const organisationName = useOrganisationName();
     const { locale } = usePage().props as { locale: string };
     const printTargetRef = useRef<HTMLDivElement | null>(null);
     const inchargeRecord = incharge ?? {
@@ -459,12 +461,12 @@ export default function InchargePrintPreview({
                 <div className="relative z-10 flex items-center gap-4 border-b-2 border-neutral-900 pb-3 print:gap-3 print:pb-2">
                     <img
                         src={LETTERHEAD_LOGO_SRC}
-                        alt={t('UP Police Sports Control Board')}
+                        alt={organisationName}
                         className="size-20 shrink-0 object-contain print:size-16"
                     />
                     <div className="min-w-0 flex-1 text-center">
                         <div className="text-lg font-bold tracking-wide uppercase print:text-[16px]">
-                            {t('UP Police Sports Control Board')}
+                            {organisationName}
                         </div>
                         <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase print:text-[11px] print:text-black">
                             {uiText(

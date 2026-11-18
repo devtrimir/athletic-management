@@ -9,6 +9,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 import { home } from '@/routes';
 import type { AuthBackgroundPreset, AuthLayoutProps } from '@/types';
 
@@ -38,6 +39,7 @@ export default function AuthSplitLayout({
     defaultBackground = 'logo',
 }: AuthLayoutProps) {
     const { name } = usePage().props;
+    const organisationName = useOrganisationName();
     const [preset, setPreset] = useState<AuthBackgroundPreset>(() => {
         if (typeof window === 'undefined') {
             return defaultBackground;
@@ -132,7 +134,7 @@ export default function AuthSplitLayout({
                                 />
                                 <img
                                     src="/logo.jpg"
-                                    alt="UP Police Sports Control Board"
+                                    alt={organisationName}
                                     className="relative h-20 w-20 rounded-full object-cover shadow-xl ring-2 ring-white/20"
                                 />
                             </div>

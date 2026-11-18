@@ -21,6 +21,7 @@ use App\Services\Coaches\CoachDeletionService;
 use App\Services\PromotionSyncService;
 use App\Support\Coaches\CoachProfileData;
 use App\Support\GenderLabel;
+use App\Support\Organisation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -501,9 +502,9 @@ class CoachController extends Controller
             .'</head><body>'
             .'<img class="watermark" src="/logo.jpg" alt=""><div class="print-content">'
             .'<div class="letterhead">'
-            .'<img class="letterhead-logo" src="/logo.jpg" alt="'.e(__('UP Police Sports Control Board (UPPSCB)')).'">'
+            .'<img class="letterhead-logo" src="/logo.jpg" alt="'.e(Organisation::name()).'">'
             .'<div class="letterhead-body">'
-            .'<div class="letterhead-title">'.e(__('UP Police Sports Control Board (UPPSCB)')).'</div>'
+            .'<div class="letterhead-title">'.e(Organisation::name()).'</div>'
             .'<div class="letterhead-subtitle">'.e(__('Coach Listing Report')).'</div>'
             .'<div class="letterhead-meta">'.e(__('Official print preview')).'</div>'
             .'</div>'

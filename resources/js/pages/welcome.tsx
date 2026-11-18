@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { WelcomeSignIn } from '@/components/auth/welcome-sign-in';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 import { useTranslation } from '@/hooks/use-translation';
 
 type HomeBackgroundPreset = 'tennis' | 'multi-sport';
@@ -36,6 +37,7 @@ export default function Welcome({
     signedInAs?: 'user' | 'coach' | null;
 }) {
     const { t } = useTranslation();
+    const organisationName = useOrganisationName();
     const [preset, setPreset] = useState<HomeBackgroundPreset>(() => {
         if (typeof window === 'undefined') {
             return 'multi-sport';
@@ -112,7 +114,7 @@ export default function Welcome({
                             <div className="rounded-full bg-white p-1.5 shadow-xl sm:p-2">
                                 <img
                                     src="/logo.jpg"
-                                    alt="UP Police Sports Control Board"
+                                    alt={organisationName}
                                     className="h-14 w-14 rounded-full object-cover ring-2 ring-white/20 sm:h-16 sm:w-16 lg:h-20 lg:w-20 xl:h-24 xl:w-24"
                                 />
                             </div>

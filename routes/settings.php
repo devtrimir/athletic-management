@@ -3,6 +3,7 @@
 use App\Http\Controllers\Settings\DesignationController;
 use App\Http\Controllers\Settings\DistrictController;
 use App\Http\Controllers\Settings\NisMasterController;
+use App\Http\Controllers\Settings\OrganizationController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\RankController;
 use App\Http\Controllers\Settings\RoleController;
@@ -38,6 +39,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('settings/organisation', [OrganizationController::class, 'edit'])->name('organisation.edit');
+    Route::patch('settings/organisation', [OrganizationController::class, 'update'])->name('organisation.update');
+
     Route::resource('settings/sessions', SportSessionController::class)
         ->except(['show'])
         ->names('sessions');

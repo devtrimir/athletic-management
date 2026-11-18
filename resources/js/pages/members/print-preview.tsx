@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from '@/hooks/use-translation';
 import { genderLabel } from '@/lib/coach';
 import { formatDate, formatDateRange } from '@/lib/dates';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
 import type { BreadcrumbItem } from '@/types';
@@ -240,10 +241,6 @@ const UI_LABELS: Record<
     Print: { en: 'Print', hi: 'प्रिंट' },
     'Print preview': { en: 'Print preview', hi: 'प्रिंट पूर्वावलोकन' },
     'Print options': { en: 'Print options', hi: 'प्रिंट विकल्प' },
-    'UP Police Sports Control Board': {
-        en: 'UP Police Sports Control Board (UPPSCB)',
-        hi: 'उत्तर प्रदेश पुलिस खेल नियंत्रण बोर्ड (यूपीपीएससीबी)',
-    },
     'Member profile record': {
         en: 'Member profile record',
         hi: 'सदस्य प्रोफाइल रिकॉर्ड',
@@ -1229,6 +1226,7 @@ export default function PrintPreview({
     ranks,
 }: Props) {
     const { t } = useTranslation();
+    const organisationName = useOrganisationName();
     const { locale } = usePage().props as { locale: string };
     const printTargetRef = useRef<HTMLDivElement | null>(null);
     const [selectedSections, setSelectedSections] =
@@ -1470,12 +1468,12 @@ export default function PrintPreview({
                 <div className="relative z-10 flex items-center gap-4 border-b-2 border-neutral-900 pb-3 print:gap-3 print:pb-2">
                     <img
                         src={LETTERHEAD_LOGO_SRC}
-                        alt={uiText('UP Police Sports Control Board', locale)}
+                        alt={organisationName}
                         className="size-20 shrink-0 object-contain print:size-16"
                     />
                     <div className="min-w-0 flex-1 text-center">
                         <div className="text-lg font-bold tracking-wide uppercase print:text-[16px]">
-                            {uiText('UP Police Sports Control Board', locale)}
+                            {organisationName}
                         </div>
                         <div className="mt-1 text-sm font-semibold text-neutral-700 uppercase print:text-[11px] print:text-black">
                             {uiText('Member profile record', locale)}

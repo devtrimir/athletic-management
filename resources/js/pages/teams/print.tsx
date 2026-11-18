@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useTranslation } from '@/hooks/use-translation';
 import { coachRoleLabel } from '@/lib/coach';
 import { formatDate } from '@/lib/dates';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 
 type Team = {
     id: number;
@@ -144,7 +145,6 @@ function slugifyFileName(value: string): string {
 }
 
 const LETTERHEAD_LOGO_SRC = '/logo.jpg';
-const PRINT_HEADING = 'UP Police Sports Control Board (UPPSCB)';
 
 function rankLabel(
     rankCode: string | null | undefined,
@@ -179,6 +179,7 @@ export default function TeamsPrint({
     ranks?: RankOption[];
 }) {
     const { t } = useTranslation();
+    const organisationName = useOrganisationName();
 
     const selectedSession = sessions.find(
         (session) => session.id === selectedSessionId,
@@ -1073,11 +1074,11 @@ export default function TeamsPrint({
                         <img
                             class="letterhead-logo"
                             src="${escapeHtml(LETTERHEAD_LOGO_SRC)}"
-                            alt="${escapeHtml(PRINT_HEADING)}"
+                            alt="${escapeHtml(organisationName)}"
                         />
                         <div>
                             <div class="letterhead-title">${escapeHtml(
-                                t(PRINT_HEADING),
+                                organisationName,
                             )}</div>
                             <div class="letterhead-subtitle">${escapeHtml(
                                 t(
@@ -1090,7 +1091,7 @@ export default function TeamsPrint({
                     </div>
                     <header class="doc-head">
                         <h1 class="doc-title">${escapeHtml(documentTitle)}</h1>
-                        <p class="doc-subtitle">${escapeHtml(t('UP Police Sports Control Board (UPPSCB)'))}</p>
+                        <p class="doc-subtitle">${escapeHtml(organisationName)}</p>
                     </header>
                     <p class="meta">${t('Session')}: ${escapeHtml(selectedSession?.name ?? '')}</p>
                     ${teamBlocks}
