@@ -468,7 +468,9 @@ export function ActiveCoachesTable({
                                                     cell.column.id ===
                                                         'sport' &&
                                                         'font-medium',
-                                                    isGroupEnd &&
+                                                    (isGroupEnd ||
+                                                        cell.getRowSpan() >
+                                                            1) &&
                                                         teamGroupEndClass,
                                                     stickyLeft[
                                                         cell.column.id
