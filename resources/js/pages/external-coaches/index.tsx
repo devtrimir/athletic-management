@@ -2,7 +2,11 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Download, Eye, Plus, Printer, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { FilterPill, OptionList } from '@/components/data-table/filter-pill';
+import {
+    FilterPill,
+    OptionList,
+    SearchableOptionList,
+} from '@/components/data-table/filter-pill';
 import {
     SelectionHeaderCheckbox,
     SelectionRowCheckbox,
@@ -58,8 +62,12 @@ type Props = {
     filters: {
         q?: string | null;
         status?: string | null;
+        sport_id?: string | null;
+        training_venue_id?: string | null;
     };
     statuses: string[];
+    sports: Named;
+    trainingVenues: Named;
     perPage: number;
 };
 
@@ -103,6 +111,8 @@ export default function ExternalCoachesIndex({
     externalCoaches,
     filters,
     statuses,
+    sports,
+    trainingVenues,
     perPage,
 }: Props) {
     const { t } = useTranslation();
@@ -113,7 +123,11 @@ export default function ExternalCoachesIndex({
     const [search, setSearch] = useState(filters.q ?? '');
     const status = filters.status ?? 'all';
     const [selectedCoachIds, setSelectedCoachIds] = useState<number[]>([]);
-    const hasFilters = search.trim() !== '' || status !== 'all';
+    const hasFilters =
+        search.trim() !== '' ||
+        status !== 'all' ||
+        Boolean(filters.sport_id) ||
+        Boolean(filters.training_venue_id);
     const currentPageCoachIds = externalCoaches.data.map((coach) => coach.id);
     const selectedOnCurrentPage = currentPageCoachIds.filter((id) =>
         selectedCoachIds.includes(id),
@@ -145,7 +159,14 @@ export default function ExternalCoachesIndex({
         // Clear cross-page selections whenever the listing context changes.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedCoachIds([]);
-    }, [externalCoaches.current_page, filters.q, filters.status, perPage]);
+    }, [
+        externalCoaches.current_page,
+        filters.q,
+        filters.status,
+        filters.sport_id,
+        filters.training_venue_id,
+        perPage,
+    ]);
 
     function toggleCoachSelection(coachId: number) {
         setSelectedCoachIds((current) =>
@@ -167,12 +188,26 @@ export default function ExternalCoachesIndex({
         });
     }
 
+    type FilterOverrides = {
+        q?: string;
+        status?: string;
+        sport_id?: string;
+        training_venue_id?: string;
+        perPage?: number;
+    };
+
     function filterParams(
-        overrides: { q?: string; status?: string; perPage?: number } = {},
+        overrides: FilterOverrides = {},
     ): Record<string, string> {
         const q = (overrides.q ?? search).trim();
         const nextStatus =
             'status' in overrides ? overrides.status : filters.status;
+        const nextSport =
+            'sport_id' in overrides ? overrides.sport_id : filters.sport_id;
+        const nextVenue =
+            'training_venue_id' in overrides
+                ? overrides.training_venue_id
+                : filters.training_venue_id;
         const params: Record<string, string> = {
             per_page: String(overrides.perPage ?? perPage),
         };
@@ -185,10 +220,18 @@ export default function ExternalCoachesIndex({
             params['filter[status]'] = nextStatus;
         }
 
+        if (nextSport) {
+            params['filter[sport_id]'] = nextSport;
+        }
+
+        if (nextVenue) {
+            params['filter[training_venue_id]'] = nextVenue;
+        }
+
         return params;
     }
 
-    function applyFilters(overrides: { q?: string; status?: string } = {}) {
+    function applyFilters(overrides: FilterOverrides = {}) {
         router.get('/external-coaches', filterParams(overrides), {
             replace: true,
             preserveScroll: true,
@@ -286,6 +329,14 @@ export default function ExternalCoachesIndex({
             params.set('filter[status]', filters.status);
         }
 
+        if (filters.sport_id) {
+            params.set('filter[sport_id]', filters.sport_id);
+        }
+
+        if (filters.training_venue_id) {
+            params.set('filter[training_venue_id]', filters.training_venue_id);
+        }
+
         selectedCoachIds.forEach((id) => params.append('ids[]', String(id)));
         window.open(
             `/external-coaches/print?${params.toString()}`,
@@ -368,6 +419,53 @@ export default function ExternalCoachesIndex({
                             value={filters.status ?? undefined}
                             onSelect={(value) =>
                                 applyFilters({ status: value })
+                            }
+                        />
+                    </FilterPill>
+                    <FilterPill
+                        label={t('Sport')}
+                        activeLabel={
+                            sports.find(
+                                (sport) =>
+                                    String(sport.id) === filters.sport_id,
+                            )?.name
+                        }
+                        onClear={() => applyFilters({ sport_id: undefined })}
+                    >
+                        <SearchableOptionList
+                            options={sports.map((sport) => ({
+                                value: String(sport.id),
+                                label: sport.name,
+                            }))}
+                            value={filters.sport_id ?? undefined}
+                            searchPlaceholder={t('Search sports…')}
+                            onSelect={(value) =>
+                                applyFilters({ sport_id: value })
+                            }
+                        />
+                    </FilterPill>
+                    <FilterPill
+                        label={t('Training venue')}
+                        activeLabel={
+                            trainingVenues.find(
+                                (venue) =>
+                                    String(venue.id) ===
+                                    filters.training_venue_id,
+                            )?.name
+                        }
+                        onClear={() =>
+                            applyFilters({ training_venue_id: undefined })
+                        }
+                    >
+                        <SearchableOptionList
+                            options={trainingVenues.map((venue) => ({
+                                value: String(venue.id),
+                                label: venue.name,
+                            }))}
+                            value={filters.training_venue_id ?? undefined}
+                            searchPlaceholder={t('Search venues…')}
+                            onSelect={(value) =>
+                                applyFilters({ training_venue_id: value })
                             }
                         />
                     </FilterPill>

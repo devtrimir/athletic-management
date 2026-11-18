@@ -776,3 +776,49 @@ test('external coach print page honors permission, filters and selected ids', fu
 
     $this->actingAs(rcUser('external-coaches.view'))->get(route('external-coaches.print'))->assertForbidden();
 });
+
+test('external coach listing filters by sport and training venue, and keeps garbage out', function () {
+    $user = rcUser('external-coaches.view', 'coaches.print');
+    $org = $user->organization_id;
+    $boxing = Sport::factory()->create(['organization_id' => $org, 'name' => 'Boxing']);
+    $swimming = Sport::factory()->create(['organization_id' => $org, 'name' => 'Swimming']);
+    $hall = TrainingVenue::factory()->create(['organization_id' => $org, 'name' => 'Main Hall']);
+    $pool = TrainingVenue::factory()->create(['organization_id' => $org, 'name' => 'City Pool']);
+
+    $boxer = ExternalCoach::factory()->create(['organization_id' => $org, 'name' => 'Boxing Coach', 'status' => 'active']);
+    $boxer->sports()->attach($boxing);
+    $boxer->trainingVenues()->attach($hall);
+    $swimmer = ExternalCoach::factory()->create(['organization_id' => $org, 'name' => 'Swim Coach', 'status' => 'active']);
+    $swimmer->sports()->attach($swimming);
+    $swimmer->trainingVenues()->attach([$pool->id, $hall->id]);
+    ExternalCoach::factory()->create(['organization_id' => $org, 'name' => 'No Links Coach', 'status' => 'active']);
+
+    $names = fn (array $filter) => collect(
+        $this->actingAs($user)->get(route('external-coaches.index', ['filter' => $filter]))
+            ->assertOk()->viewData('page')['props']['externalCoaches']['data'],
+    )->pluck('name')->sort()->values()->all();
+
+    expect($names(['sport_id' => (string) $boxing->id]))->toBe(['Boxing Coach'])
+        ->and($names(['training_venue_id' => (string) $pool->id]))->toBe(['Swim Coach'])
+        ->and($names(['training_venue_id' => (string) $hall->id]))->toBe(['Boxing Coach', 'Swim Coach'])
+        // Sport and venue combine (AND).
+        ->and($names(['sport_id' => (string) $swimming->id, 'training_venue_id' => (string) $hall->id]))->toBe(['Swim Coach'])
+        ->and($names(['sport_id' => (string) $boxing->id, 'training_venue_id' => (string) $pool->id]))->toBe([])
+        // Junk ids are ignored rather than erroring or matching everything wrongly.
+        ->and($names(['sport_id' => 'abc']))->toHaveCount(3)
+        ->and($names(['sport_id' => ['1']]))->toHaveCount(3)
+        ->and($names(['sport_id' => '0']))->toHaveCount(3);
+
+    // Another organisation's sport id never matches anything of ours.
+    $foreign = Sport::factory()->create(['organization_id' => Organization::factory()->create()->id]);
+    expect($names(['sport_id' => (string) $foreign->id]))->toBe([]);
+
+    // The same filters reach the print view, which names them in its heading data.
+    $this->actingAs($user)
+        ->get(route('external-coaches.print', ['filter' => ['sport_id' => (string) $boxing->id, 'training_venue_id' => (string) $hall->id]]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.sport', 'Boxing')
+            ->where('filters.training_venue', 'Main Hall')
+            ->has('coaches', 1));
+});
