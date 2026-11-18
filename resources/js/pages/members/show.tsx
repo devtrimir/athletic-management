@@ -453,6 +453,7 @@ type ExternalCoachingData = {
         id: number;
         attendance_date: string | null;
         attendance_status: string;
+        final_attendance_status: string;
         geo_status: string;
         review_status: string;
         distance_from_venue_meters: string | null;
@@ -3298,7 +3299,7 @@ export default function MembersShow({
                                                             </TableCell>
                                                             <TableCell>
                                                                 {t(
-                                                                    attendance.attendance_status,
+                                                                    attendance.final_attendance_status,
                                                                 )}
                                                             </TableCell>
                                                             <TableCell>

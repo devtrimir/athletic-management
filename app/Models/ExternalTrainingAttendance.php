@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -100,6 +101,19 @@ class ExternalTrainingAttendance extends Model
 {
     /** @use HasFactory<ExternalTrainingAttendanceFactory> */
     use Auditable, HasFactory, SoftDeletes, Tenanted;
+
+    /**
+     * The status that counts after review: the admin's correction when one was
+     * made, otherwise what the coach submitted. Shown to coaches and admins alike.
+     *
+     * @return Attribute<string, never>
+     */
+    protected function finalAttendanceStatus(): Attribute
+    {
+        return Attribute::get(fn (): string => $this->review_status === 'corrected' && $this->corrected_attendance_status !== null
+            ? $this->corrected_attendance_status
+            : $this->attendance_status);
+    }
 
     /**
      * @return array<string, string>

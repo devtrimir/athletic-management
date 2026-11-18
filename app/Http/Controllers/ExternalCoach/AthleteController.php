@@ -49,13 +49,15 @@ class AthleteController extends Controller
                 'id',
                 'attendance_date',
                 'attendance_status',
+                'corrected_attendance_status',
                 'review_status',
                 'review_remarks',
                 'reviewed_at',
                 'geo_status',
                 'submitted_at',
                 'coach_remarks',
-            ]);
+            ])
+            ->each->append('final_attendance_status');
 
         return Inertia::render('external-coach/athletes/show', [
             ...$this->shellPayload($context['athlete'], $context['assignments'], 'attendance'),
@@ -93,6 +95,7 @@ class AthleteController extends Controller
                 'training_summary',
                 'improvement_notes',
                 'review_status',
+                'review_remarks',
             ]);
 
         return Inertia::render('external-coach/athletes/show', [

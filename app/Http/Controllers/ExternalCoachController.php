@@ -255,13 +255,15 @@ class ExternalCoachController extends Controller
                 'external_coaching_assignment_id',
                 'attendance_date',
                 'attendance_status',
+                'corrected_attendance_status',
                 'review_status',
                 'geo_status',
                 'distance_from_venue_meters',
                 'submitted_at',
                 'coach_remarks',
                 'review_remarks',
-            ]);
+            ])
+            ->each->append('final_attendance_status');
 
         return Inertia::render('external-coaches/player-assignments', [
             'externalCoach' => $externalCoach->only(['id', 'name', 'email', 'phone']),

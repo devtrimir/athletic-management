@@ -356,6 +356,7 @@ class MemberProfileData
                     'id' => $attendance->id,
                     'attendance_date' => $attendance->attendance_date?->toDateString(),
                     'attendance_status' => $attendance->attendance_status,
+                    'final_attendance_status' => $attendance->final_attendance_status,
                     'geo_status' => $attendance->geo_status,
                     'review_status' => $attendance->review_status,
                     'distance_from_venue_meters' => $attendance->distance_from_venue_meters,
