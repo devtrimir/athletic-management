@@ -9,7 +9,7 @@ import {
     TrendingUp,
     UserRound,
 } from 'lucide-react';
-import { useState } from 'react';
+import { Children, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -610,6 +610,9 @@ function AttendanceRecord({
     );
 }
 
+/** Rows shown before a panel asks for "Show more". */
+const PAGE_SIZE = 10;
+
 function HistoryPanel({
     title,
     description,
@@ -625,6 +628,10 @@ function HistoryPanel({
     icon: ReactNode;
     children: ReactNode;
 }) {
+    const { t } = useTranslation();
+    const items = Children.toArray(children);
+    const [visible, setVisible] = useState(PAGE_SIZE);
+
     return (
         <section className="rounded-lg border bg-card shadow-sm">
             <div className="flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-5">
@@ -638,7 +645,59 @@ function HistoryPanel({
             </div>
 
             {count > 0 ? (
-                <div className="divide-y">{children}</div>
+                <>
+                    <div className="divide-y">{items.slice(0, visible)}</div>
+                    {items.length > PAGE_SIZE ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3 text-xs text-muted-foreground sm:px-5">
+                            <span>
+                                {t('Showing :shown of :total')
+                                    .replace(
+                                        ':shown',
+                                        String(Math.min(visible, items.length)),
+                                    )
+                                    .replace(':total', String(items.length))}
+                            </span>
+                            <div className="flex gap-2">
+                                {visible < items.length ? (
+                                    <>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                                setVisible(
+                                                    (current) =>
+                                                        current + PAGE_SIZE,
+                                                )
+                                            }
+                                        >
+                                            {t('Show more')}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() =>
+                                                setVisible(items.length)
+                                            }
+                                        >
+                                            {t('Show all')}
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setVisible(PAGE_SIZE)}
+                                    >
+                                        {t('Show less')}
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+                </>
             ) : (
                 <div className="px-4 py-10 text-center sm:px-5">
                     <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
