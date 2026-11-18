@@ -65,7 +65,7 @@ class StoreExternalCoachRequest extends FormRequest
             'training_venue_ids.*' => ['integer', Rule::exists('training_venues', 'id')->where('organization_id', $orgId)],
             'documents' => ['nullable', 'array', 'max:10'],
             'documents.*.type' => ['required', Rule::in(ExternalCoachDocument::TYPES)],
-            'documents.*.file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120'],
+            'documents.*.file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:20480'],
         ];
     }
 

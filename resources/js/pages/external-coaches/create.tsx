@@ -502,7 +502,7 @@ function ExternalCoachForm({
                                     </h2>
                                     <p className="text-xs text-muted-foreground">
                                         {t(
-                                            'Aadhaar, PAN, certificates and other proofs. PDF or image, up to 5 MB each.',
+                                            'Aadhaar, PAN, certificates and other proofs. PDF or image, up to 20 MB each.',
                                         )}
                                     </p>
                                 </div>
