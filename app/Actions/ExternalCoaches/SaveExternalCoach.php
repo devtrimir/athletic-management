@@ -7,6 +7,7 @@ namespace App\Actions\ExternalCoaches;
 use App\Jobs\CompressExternalCoachDocument;
 use App\Models\ExternalCoach;
 use App\Models\User;
+use App\Services\AuditLogger;
 use App\Services\FileCompressor;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
@@ -15,7 +16,10 @@ use Illuminate\Support\Facades\Storage;
 
 class SaveExternalCoach
 {
-    public function __construct(private readonly FileCompressor $compressor) {}
+    public function __construct(
+        private readonly FileCompressor $compressor,
+        private readonly AuditLogger $audit,
+    ) {}
 
     private const EXTRA_KEYS = ['photo', 'remove_photo', 'sport_ids', 'training_venue_ids', 'documents', 'status_reason'];
 
@@ -98,6 +102,12 @@ class SaveExternalCoach
                 'mime_type' => (string) $file->getMimeType(),
                 'size_bytes' => $file->getSize(),
                 'uploaded_by' => $user->id,
+            ]);
+
+            $this->audit->log('document_uploaded', $externalCoach, [
+                'document_id' => $stored->id,
+                'type' => $stored->type,
+                'original_name' => $stored->original_name,
             ]);
 
             CompressExternalCoachDocument::dispatch($stored)->afterCommit();

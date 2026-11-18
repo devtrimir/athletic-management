@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { List, Pencil, UserRound } from 'lucide-react';
+import { Download, List, Pencil, UserRound } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate } from '@/lib/dates';
+import { documentTypeLabel } from '@/lib/external-coach-documents';
 
 type ExternalCoach = {
     id: number;
@@ -134,6 +135,68 @@ export default function ExternalCoachesShow({ externalCoach }: Props) {
                                     </dt>
                                     <dd>
                                         {externalCoach.active_assignments_count}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="text-muted-foreground">
+                                        {t('Sports')}
+                                    </dt>
+                                    <dd>
+                                        {externalCoach.sports
+                                            .map((sport) => sport.name)
+                                            .join(', ') || '-'}
+                                    </dd>
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <dt className="text-muted-foreground">
+                                        {t('Training venues')}
+                                    </dt>
+                                    <dd>
+                                        {externalCoach.training_venues
+                                            .map((venue) => venue.name)
+                                            .join(', ') || '-'}
+                                    </dd>
+                                </div>
+                                <div className="sm:col-span-2 lg:col-span-3">
+                                    <dt className="text-muted-foreground">
+                                        {t('Documents')}
+                                    </dt>
+                                    <dd className="flex flex-wrap gap-2">
+                                        {externalCoach.documents.length === 0
+                                            ? '-'
+                                            : externalCoach.documents.map(
+                                                  (document) => (
+                                                      <span
+                                                          key={document.id}
+                                                          className="inline-flex items-center gap-2 rounded-md border px-2 py-1"
+                                                      >
+                                                          <a
+                                                              href={`/external-coaches/${externalCoach.id}/documents/${document.id}`}
+                                                              target="_blank"
+                                                              rel="noreferrer"
+                                                              className="text-primary hover:underline"
+                                                          >
+                                                              {documentTypeLabel(
+                                                                  document.type,
+                                                                  t,
+                                                              )}{' '}
+                                                              ·{' '}
+                                                              {
+                                                                  document.original_name
+                                                              }
+                                                          </a>
+                                                          <a
+                                                              href={`/external-coaches/${externalCoach.id}/documents/${document.id}?download=1`}
+                                                              title={t(
+                                                                  'Download',
+                                                              )}
+                                                              className="text-muted-foreground hover:text-foreground"
+                                                          >
+                                                              <Download className="size-3.5" />
+                                                          </a>
+                                                      </span>
+                                                  ),
+                                              )}
                                     </dd>
                                 </div>
                                 <div className="sm:col-span-2 lg:col-span-3">

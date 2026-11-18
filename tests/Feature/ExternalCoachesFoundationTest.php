@@ -568,7 +568,15 @@ test('external coach profile saves photo, sports, venues and documents', functio
 
     $this->actingAs($user)
         ->get(route('external-coaches.documents.show', [$coach, $document]))
-        ->assertOk();
+        ->assertOk()
+        ->assertHeader('Cache-Control', 'no-store, private');
+
+    $this->actingAs($user)
+        ->get(route('external-coaches.documents.show', [$coach, $document, 'download' => 1]))
+        ->assertDownload('aadhaar.pdf');
+
+    expect(AuditLog::query()->where('entity', 'ExternalCoach')->where('entity_id', $coach->id)->pluck('action')->all())
+        ->toContain('document_uploaded', 'document_viewed', 'document_downloaded');
 
     // Clearing: empty selections and remove_photo detach/clear everything.
     $this->actingAs($user)
@@ -588,7 +596,8 @@ test('external coach profile saves photo, sports, venues and documents', functio
         ->delete(route('external-coaches.documents.destroy', [$coach, $document]))
         ->assertRedirect();
 
-    expect($coach->documents()->count())->toBe(0);
+    expect($coach->documents()->count())->toBe(0)
+        ->and(AuditLog::query()->where('entity_id', $coach->id)->where('action', 'document_deleted')->exists())->toBeTrue();
     Storage::disk('local')->assertMissing($document->path);
 });
 

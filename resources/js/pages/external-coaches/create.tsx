@@ -2,6 +2,7 @@ import { Form, Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
     Camera,
+    Download,
     Dumbbell,
     FileText,
     IdCard,
@@ -33,16 +34,12 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import {
+    DOCUMENT_TYPES,
+    documentTypeLabel,
+} from '@/lib/external-coach-documents';
 
 type Option = { id: number; name: string };
-
-const DOCUMENT_TYPES = [
-    'aadhaar',
-    'pan',
-    'certificate',
-    'police_verification',
-    'other',
-] as const;
 
 type Props = {
     statuses: string[];
@@ -124,7 +121,7 @@ function ExternalCoachForm({
     >([]);
     const documentTypeOptions = DOCUMENT_TYPES.map((type) => ({
         value: type,
-        label: t(type),
+        label: documentTypeLabel(type, t),
     }));
 
     function removeSavedDocument(documentId: number) {
@@ -529,7 +526,10 @@ function ExternalCoachForm({
                                     >
                                         <FileText className="size-4 shrink-0 text-muted-foreground" />
                                         <span className="w-40 shrink-0 font-medium">
-                                            {t(document.type)}
+                                            {documentTypeLabel(
+                                                document.type,
+                                                t,
+                                            )}
                                         </span>
                                         <a
                                             href={`/external-coaches/${coach.id}/documents/${document.id}`}
@@ -539,6 +539,18 @@ function ExternalCoachForm({
                                         >
                                             {document.original_name}
                                         </a>
+                                        <Button
+                                            asChild
+                                            variant="ghost"
+                                            size="icon"
+                                            title={t('Download')}
+                                        >
+                                            <a
+                                                href={`/external-coaches/${coach.id}/documents/${document.id}?download=1`}
+                                            >
+                                                <Download className="size-4" />
+                                            </a>
+                                        </Button>
                                         <Button
                                             type="button"
                                             variant="ghost"
