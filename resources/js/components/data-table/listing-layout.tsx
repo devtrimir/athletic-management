@@ -125,10 +125,13 @@ const PAN_IGNORE =
 export function ListingTable({
     minWidth = 1000,
     className,
+    centered = false,
     children,
 }: {
     minWidth?: number;
     className?: string;
+    /** Center every header and cell horizontally (cells are always vertically centered). */
+    centered?: boolean;
     children: ReactNode;
 }) {
     const { t } = useTranslation();
@@ -290,7 +293,12 @@ export function ListingTable({
             className="group/table relative h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full"
         >
             <Table
-                className={cn(listingTableClass, className)}
+                className={cn(
+                    listingTableClass,
+                    centered &&
+                        '[&_td]:text-center [&_td_.justify-end]:justify-center [&_th]:text-center [&_th_.justify-end]:justify-center',
+                    className,
+                )}
                 style={{ minWidth }}
             >
                 {children}

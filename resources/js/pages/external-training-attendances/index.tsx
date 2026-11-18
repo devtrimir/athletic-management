@@ -861,7 +861,11 @@ export default function ExternalTrainingAttendanceIndex({
                 }
             >
                 <div id="external-training-attendance-print" className="h-full">
-                    <ListingTable minWidth={1600} className="table-auto">
+                    <ListingTable
+                        minWidth={1600}
+                        className="table-auto"
+                        centered
+                    >
                         <colgroup>
                             <col className="w-9" />
                             <col className="w-[52px]" />
@@ -1058,16 +1062,18 @@ export default function ExternalTrainingAttendanceIndex({
                                                 </Badge>
                                             </SpanCell>
                                             <SpanCell meta={spans.member}>
-                                                <MemberPhotoPreview
-                                                    photoPath={
-                                                        attendance.member
-                                                            .photo_path
-                                                    }
-                                                    name={
-                                                        attendance.member
-                                                            .full_name
-                                                    }
-                                                />
+                                                <div className="flex justify-center">
+                                                    <MemberPhotoPreview
+                                                        photoPath={
+                                                            attendance.member
+                                                                .photo_path
+                                                        }
+                                                        name={
+                                                            attendance.member
+                                                                .full_name
+                                                        }
+                                                    />
+                                                </div>
                                             </SpanCell>
                                             <SpanCell
                                                 meta={spans.member}
