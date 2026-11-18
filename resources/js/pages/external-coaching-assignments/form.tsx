@@ -36,6 +36,11 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import {
+    attendanceModeHint,
+    attendanceModeLabel,
+    humanize,
+} from '@/lib/external-coaching';
 import { cn } from '@/lib/utils';
 
 type Option = { id: number; name: string };
@@ -736,7 +741,7 @@ export function AssignmentForm({
                                             )}
                                             onChange={() => toggleDay(day)}
                                         />
-                                        <span>{t(day)}</span>
+                                        <span>{t(humanize(day))}</span>
                                     </label>
                                 ))}
                             </div>
@@ -761,17 +766,26 @@ export function AssignmentForm({
                                     }}
                                     required
                                 >
-                                    <SelectTrigger id="attendance_mode">
+                                    <SelectTrigger
+                                        id="attendance_mode"
+                                        className="w-full"
+                                    >
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {attendanceModes.map((mode) => (
                                             <SelectItem key={mode} value={mode}>
-                                                {t(mode)}
+                                                {attendanceModeLabel(mode, t)}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <p className="text-xs text-muted-foreground">
+                                    {attendanceModeHint(
+                                        form.data.attendance_mode,
+                                        t,
+                                    )}
+                                </p>
                                 <InputError
                                     message={fieldError(
                                         form.errors,
@@ -789,7 +803,10 @@ export function AssignmentForm({
                                     }}
                                     required
                                 >
-                                    <SelectTrigger id="status">
+                                    <SelectTrigger
+                                        id="status"
+                                        className="w-full"
+                                    >
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -798,7 +815,7 @@ export function AssignmentForm({
                                                 key={status}
                                                 value={status}
                                             >
-                                                {t(status)}
+                                                {t(humanize(status))}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

@@ -3,6 +3,7 @@ import { ColumnsPrint } from '@/components/print/columns-print';
 import type { PrintColumn } from '@/components/print/columns-print';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate } from '@/lib/dates';
+import { attendanceModeLabel, humanize } from '@/lib/external-coaching';
 
 type Assignment = {
     id: number;
@@ -76,9 +77,14 @@ const COLUMNS: PrintColumn<Assignment>[] = [
         weight: 1.2,
         label: 'Attendance mode',
         optional: true,
-        cell: (a) => a.attendance_mode ?? '-',
+        cell: (a, t) => attendanceModeLabel(a.attendance_mode, t),
     },
-    { key: 'status', weight: 1, label: 'Status', cell: (a, t) => t(a.status) },
+    {
+        key: 'status',
+        weight: 1,
+        label: 'Status',
+        cell: (a, t) => t(humanize(a.status)),
+    },
 ];
 
 export default function ExternalCoachingAssignmentsPrint({

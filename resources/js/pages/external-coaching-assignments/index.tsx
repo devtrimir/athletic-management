@@ -47,6 +47,7 @@ import {
 } from '@/hooks/use-listing-filters';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate, formatTimeRange } from '@/lib/dates';
+import { attendanceModeLabel, humanize } from '@/lib/external-coaching';
 import { cn } from '@/lib/utils';
 
 type Assignment = {
@@ -173,14 +174,16 @@ export default function ExternalCoachingAssignmentsIndex({
                         <FilterPill
                             label={t('Status')}
                             activeLabel={
-                                filters.status ? t(filters.status) : undefined
+                                filters.status
+                                    ? t(humanize(filters.status))
+                                    : undefined
                             }
                             onClear={() => apply(filters, { status: null })}
                         >
                             <OptionList
                                 options={statuses.map((value) => ({
                                     value,
-                                    label: t(value),
+                                    label: t(humanize(value)),
                                 }))}
                                 value={filters.status}
                                 onSelect={(status) =>
@@ -385,14 +388,10 @@ export default function ExternalCoachingAssignmentsIndex({
                                         </span>
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
-                                        {assignment.attendance_mode
-                                            ? t(
-                                                  assignment.attendance_mode.replaceAll(
-                                                      '_',
-                                                      ' ',
-                                                  ),
-                                              )
-                                            : '-'}
+                                        {attendanceModeLabel(
+                                            assignment.attendance_mode,
+                                            t,
+                                        )}
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
                                         {formatDate(assignment.start_date)}
@@ -409,7 +408,7 @@ export default function ExternalCoachingAssignmentsIndex({
                                             }
                                             className="px-1.5 py-0 text-[10px]"
                                         >
-                                            {t(assignment.status)}
+                                            {t(humanize(assignment.status))}
                                         </Badge>
                                     </TableCell>
                                     <TableCell
