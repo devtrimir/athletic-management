@@ -99,7 +99,7 @@ export function WelcomeSignIn({ initialView, status, signedInAs }: Props) {
                 <p className="text-xs font-medium text-[#0b1e6b] sm:text-sm">
                     {t('UP Police Sports Control Board (UPPSCB)')}
                 </p>
-                <h1 className="mt-1.5 text-lg font-semibold tracking-tight text-neutral-900 sm:text-xl lg:text-2xl">
+                <h1 className="mt-1.5 text-sm font-semibold tracking-tight text-balance text-neutral-900 sm:text-base lg:text-[17px]">
                     {t(
                         'Sports records, teams, and performance in one secure system.',
                     )}
