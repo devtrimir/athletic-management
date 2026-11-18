@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\AuditLog;
 use App\Models\ExternalCoach;
+use App\Models\ExternalCoachDocument;
 use App\Models\ExternalCoachingAssignment;
 use App\Models\ExternalCoachPerformanceUpdate;
 use App\Models\ExternalCoachStatusHistory;
@@ -693,4 +694,15 @@ test('a combined document must be a pdf', function () {
     $this->actingAs($user)
         ->post(route('external-coaches.store'), $payload('combined', UploadedFile::fake()->create('all.pdf', 100, 'application/pdf')))
         ->assertSessionHasNoErrors();
+});
+
+test('external coach edit and show pages expose the document mime type for the viewer', function () {
+    $user = rcUser('external-coaches.view', 'external-coaches.update');
+    $coach = ExternalCoach::factory()->create(['organization_id' => $user->organization_id]);
+    ExternalCoachDocument::factory()->create(['external_coach_id' => $coach->id]);
+
+    foreach (['external-coaches.show', 'external-coaches.edit'] as $route) {
+        $this->actingAs($user)->get(route($route, $coach))
+            ->assertInertia(fn (Assert $page) => $page->where('externalCoach.documents.0.mime_type', 'application/pdf'));
+    }
 });

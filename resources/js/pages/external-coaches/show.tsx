@@ -1,6 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import { Download, List, Pencil, UserRound } from 'lucide-react';
 
+import { DocumentViewer } from '@/components/external-coaches/document-viewer';
+import type { CoachDocument } from '@/components/external-coaches/document-viewer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,7 +24,7 @@ type ExternalCoach = {
     photo_path: string | null;
     sports: { id: number; name: string }[];
     training_venues: { id: number; name: string }[];
-    documents: { id: number; type: string; original_name: string }[];
+    documents: CoachDocument[];
     status_history?: Array<{
         id: number;
         status: string;
@@ -168,32 +170,38 @@ export default function ExternalCoachesShow({ externalCoach }: Props) {
                                                   (document) => (
                                                       <span
                                                           key={document.id}
-                                                          className="inline-flex items-center gap-2 rounded-md border px-2 py-1"
+                                                          className="inline-flex items-center gap-1 rounded-md border py-0.5 pr-0.5 pl-2"
                                                       >
-                                                          <a
-                                                              href={`/external-coaches/${externalCoach.id}/documents/${document.id}`}
-                                                              target="_blank"
-                                                              rel="noreferrer"
-                                                              className="text-primary hover:underline"
-                                                          >
-                                                              {documentTypeLabel(
-                                                                  document.type,
-                                                                  t,
-                                                              )}{' '}
-                                                              ·{' '}
-                                                              {
-                                                                  document.original_name
+                                                          {documentTypeLabel(
+                                                              document.type,
+                                                              t,
+                                                          )}{' '}
+                                                          ·{' '}
+                                                          {
+                                                              document.original_name
+                                                          }
+                                                          <DocumentViewer
+                                                              coachId={
+                                                                  externalCoach.id
                                                               }
-                                                          </a>
-                                                          <a
-                                                              href={`/external-coaches/${externalCoach.id}/documents/${document.id}?download=1`}
+                                                              document={
+                                                                  document
+                                                              }
+                                                          />
+                                                          <Button
+                                                              asChild
+                                                              variant="ghost"
+                                                              size="icon"
                                                               title={t(
                                                                   'Download',
                                                               )}
-                                                              className="text-muted-foreground hover:text-foreground"
                                                           >
-                                                              <Download className="size-3.5" />
-                                                          </a>
+                                                              <a
+                                                                  href={`/external-coaches/${externalCoach.id}/documents/${document.id}?download=1`}
+                                                              >
+                                                                  <Download className="size-4" />
+                                                              </a>
+                                                          </Button>
                                                       </span>
                                                   ),
                                               )}

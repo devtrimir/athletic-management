@@ -93,7 +93,7 @@ class ExternalCoachController extends Controller
             'statusHistory.recordedBy:id,name',
             'sports:id,name',
             'trainingVenues:id,name',
-            'documents:id,external_coach_id,type,original_name,size_bytes',
+            'documents:id,external_coach_id,type,original_name,mime_type,size_bytes',
         ])->loadCount([
             'externalCoachingAssignments as active_assignments_count' => fn ($query) => $query
                 ->currentlyActive()
@@ -260,7 +260,7 @@ class ExternalCoachController extends Controller
     {
         Gate::authorize('update', $externalCoach);
 
-        $externalCoach->load('documents:id,external_coach_id,type,original_name,size_bytes');
+        $externalCoach->load('documents:id,external_coach_id,type,original_name,mime_type,size_bytes');
 
         return Inertia::render('external-coaches/edit', [
             'externalCoach' => [
