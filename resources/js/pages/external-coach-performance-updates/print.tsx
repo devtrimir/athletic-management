@@ -37,7 +37,7 @@ const COLUMNS: PrintColumn<Update>[] = [
     {
         key: 'member',
         weight: 2.2,
-        align: 'left',
+
         label: 'Member',
         cell: (u) => (
             <>
@@ -49,14 +49,14 @@ const COLUMNS: PrintColumn<Update>[] = [
     {
         key: 'coach',
         weight: 1.8,
-        align: 'left',
+
         label: 'External coach',
         cell: (u) => u.external_coach ?? '-',
     },
     {
         key: 'sport',
         weight: 1.4,
-        align: 'left',
+
         label: 'Sport',
         cell: (u) => u.sport ?? '-',
     },
@@ -81,7 +81,7 @@ const COLUMNS: PrintColumn<Update>[] = [
     {
         key: 'reviewer',
         weight: 1.4,
-        align: 'left',
+
         label: 'Reviewed by',
         optional: true,
         cell: (u) => u.reviewed_by ?? '-',
@@ -89,7 +89,7 @@ const COLUMNS: PrintColumn<Update>[] = [
     {
         key: 'summary',
         weight: 3,
-        align: 'left',
+
         label: 'Training summary',
         optional: true,
         cell: (u) => u.training_summary ?? '-',
@@ -97,7 +97,7 @@ const COLUMNS: PrintColumn<Update>[] = [
     {
         key: 'notes',
         weight: 3,
-        align: 'left',
+
         label: 'Improvement notes',
         optional: true,
         cell: (u) => u.improvement_notes ?? '-',

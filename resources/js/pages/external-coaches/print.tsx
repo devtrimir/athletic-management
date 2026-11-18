@@ -51,14 +51,14 @@ const COLUMNS: PrintColumn<Coach>[] = [
     {
         key: 'name',
         weight: 2,
-        align: 'left',
+
         label: 'Coach',
         cell: (coach) => <strong>{coach.name}</strong>,
     },
     {
         key: 'email',
         weight: 2.6,
-        align: 'left',
+
         breakAny: true,
         label: 'Email',
         cell: (coach) => coach.email,
@@ -79,14 +79,14 @@ const COLUMNS: PrintColumn<Coach>[] = [
     {
         key: 'sports',
         weight: 1.8,
-        align: 'left',
+
         label: 'Sports',
         cell: (coach) => join(coach.sports),
     },
     {
         key: 'venues',
         weight: 2.2,
-        align: 'left',
+
         label: 'Training venues',
         cell: (coach) => join(coach.training_venues),
     },

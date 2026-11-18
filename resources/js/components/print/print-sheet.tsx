@@ -56,7 +56,6 @@ export function PrintSheet({
                 .print-root table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10.5px; margin-bottom: 10px; }
                 .print-root th, .print-root td { border: 1px solid #d1d5db; padding: 5px 6px; vertical-align: middle; text-align: center; word-break: normal; overflow-wrap: break-word; hyphens: none; line-height: 1.35; }
                 .print-root th { background: #f3f4f6; padding: 5px 3px; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.01em; color: #334155; font-weight: 700; overflow-wrap: normal; word-break: keep-all; }
-                .print-root th.is-left, .print-root td.is-left { text-align: left; }
                 .print-root td.is-any { overflow-wrap: anywhere; }
                 .print-root .muted { display: block; color: #64748b; font-size: 9.5px; }
                 .print-root tbody tr:nth-child(even) td { background: #fafafa; }

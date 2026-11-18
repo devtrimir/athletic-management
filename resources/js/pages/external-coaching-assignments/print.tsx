@@ -29,7 +29,7 @@ const COLUMNS: PrintColumn<Assignment>[] = [
     {
         key: 'member',
         weight: 2.4,
-        align: 'left',
+
         label: 'Member',
         cell: (a) => (
             <>
@@ -41,21 +41,21 @@ const COLUMNS: PrintColumn<Assignment>[] = [
     {
         key: 'coach',
         weight: 2,
-        align: 'left',
+
         label: 'Coach',
         cell: (a) => a.external_coach ?? '-',
     },
     {
         key: 'venue',
         weight: 2.4,
-        align: 'left',
+
         label: 'Venue',
         cell: (a) => a.venue ?? '-',
     },
     {
         key: 'sport',
         weight: 1.6,
-        align: 'left',
+
         label: 'Sport',
         cell: (a) => a.sport ?? '-',
     },

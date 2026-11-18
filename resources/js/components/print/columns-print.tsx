@@ -12,8 +12,6 @@ export type PrintColumn<T> = {
     optional?: boolean;
     /** Relative width share among visible columns (default 1). */
     weight?: number;
-    /** Text-heavy columns read better left-aligned. */
-    align?: 'left' | 'center';
     /** Allow breaking anywhere (emails, codes) instead of at word boundaries. */
     breakAny?: boolean;
 };
@@ -54,9 +52,7 @@ export function ColumnsPrint<T extends { id: number | string }>({
     const widthOf = (weight: number) =>
         `${((weight / totalWeight) * 100).toFixed(2)}%`;
     const classOf = (column: PrintColumn<T>) =>
-        [column.align === 'left' && 'is-left', column.breakAny && 'is-any']
-            .filter(Boolean)
-            .join(' ');
+        column.breakAny ? 'is-any' : '';
 
     function toggle(key: string) {
         setVisible((current) =>

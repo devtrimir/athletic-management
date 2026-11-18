@@ -48,7 +48,7 @@ const COLUMNS: PrintColumn<Attendance>[] = [
     {
         key: 'member',
         weight: 2.2,
-        align: 'left',
+
         label: 'Member',
         cell: (a) => (
             <>
@@ -60,21 +60,21 @@ const COLUMNS: PrintColumn<Attendance>[] = [
     {
         key: 'coach',
         weight: 1.8,
-        align: 'left',
+
         label: 'External coach',
         cell: (a) => a.external_coach ?? '-',
     },
     {
         key: 'venue',
         weight: 2.2,
-        align: 'left',
+
         label: 'Venue',
         cell: (a) => a.venue ?? '-',
     },
     {
         key: 'sport',
         weight: 1.4,
-        align: 'left',
+
         label: 'Sport',
         cell: (a) => a.sport ?? '-',
     },
@@ -111,7 +111,7 @@ const COLUMNS: PrintColumn<Attendance>[] = [
     {
         key: 'reviewer',
         weight: 1.4,
-        align: 'left',
+
         label: 'Reviewed by',
         optional: true,
         cell: (a) => a.reviewed_by ?? '-',
@@ -119,7 +119,7 @@ const COLUMNS: PrintColumn<Attendance>[] = [
     {
         key: 'remarks',
         weight: 2.5,
-        align: 'left',
+
         label: 'Coach remarks',
         optional: true,
         cell: (a) => a.coach_remarks ?? '-',

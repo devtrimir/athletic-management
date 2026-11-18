@@ -18,7 +18,7 @@ const COLUMNS: PrintColumn<Venue>[] = [
     {
         key: 'name',
         weight: 3,
-        align: 'left',
+
         label: 'Venue',
         cell: (v) => <strong>{v.name}</strong>,
     },
@@ -39,7 +39,7 @@ const COLUMNS: PrintColumn<Venue>[] = [
     {
         key: 'unit',
         weight: 2,
-        align: 'left',
+
         label: 'Unit',
         cell: (v) => v.unit ?? '-',
     },
