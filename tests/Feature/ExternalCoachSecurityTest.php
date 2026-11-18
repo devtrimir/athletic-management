@@ -581,3 +581,38 @@ it('survives hostile search input on the dashboard', function (): void {
             ->assertSuccessful();
     }
 });
+
+it('allows only one performance update per athlete per day', function (): void {
+    $f = securityFixture();
+    $second = $f['make']($f['coach']);
+    $payload = fn (ExternalCoachingAssignment $assignment): array => [
+        'external_coaching_assignment_id' => $assignment->id,
+        'update_date' => today()->toDateString(),
+        'training_summary' => 'Session notes',
+    ];
+
+    $this->actingAs($f['coach'], 'external_coach')->post(route('external-coach.performance.store'), $payload($f['mine']))->assertSessionHasNoErrors();
+    $this->actingAs($f['coach'], 'external_coach')->post(route('external-coach.performance.store'), $payload($f['mine']))->assertSessionHasErrors('update_date');
+    $this->actingAs($f['coach'], 'external_coach')->post(route('external-coach.performance.store'), [...$payload($f['mine']), 'training_summary' => 'Different text, same day'])->assertSessionHasErrors('update_date');
+
+    // Another athlete on the same day is still fine.
+    $this->actingAs($f['coach'], 'external_coach')->post(route('external-coach.performance.store'), $payload($second))->assertSessionHasNoErrors();
+
+    expect(rowCount(ExternalCoachPerformanceUpdate::class))->toBe(2);
+});
+
+it('lets a coach resubmit after an admin removed that day\'s update', function (): void {
+    $f = securityFixture();
+    $payload = [
+        'external_coaching_assignment_id' => $f['mine']->id,
+        'update_date' => today()->toDateString(),
+        'training_summary' => 'First',
+    ];
+
+    $this->actingAs($f['coach'], 'external_coach')->post(route('external-coach.performance.store'), $payload)->assertSessionHasNoErrors();
+    ExternalCoachPerformanceUpdate::withoutGlobalScope(BelongsToOrganization::class)->firstOrFail()->delete();
+
+    $this->actingAs($f['coach'], 'external_coach')->post(route('external-coach.performance.store'), [...$payload, 'training_summary' => 'Redo'])->assertSessionHasNoErrors();
+
+    expect(ExternalCoachPerformanceUpdate::withoutGlobalScope(BelongsToOrganization::class)->count())->toBe(1);
+});
