@@ -706,3 +706,12 @@ test('external coach edit and show pages expose the document mime type for the v
             ->assertInertia(fn (Assert $page) => $page->where('externalCoach.documents.0.mime_type', 'application/pdf'));
     }
 });
+
+test('external coaching dates serialize as plain dates so IST does not shift the day', function () {
+    $assignment = ExternalCoachingAssignment::factory()->create([
+        'start_date' => '2026-11-01',
+        'end_date' => '2026-11-30',
+    ]);
+
+    expect($assignment->toArray())->toMatchArray(['start_date' => '2026-11-01', 'end_date' => '2026-11-30']);
+});

@@ -47,7 +47,7 @@ class ExternalCoachPerformanceUpdate extends Model
     protected function casts(): array
     {
         return [
-            'update_date' => 'date',
+            'update_date' => 'date:Y-m-d',
             'performance_score' => 'integer',
             'reviewed_at' => 'datetime',
             'deleted_at' => 'datetime',
