@@ -270,7 +270,6 @@ type SpanMeta = {
 };
 
 type RowSpanMeta = {
-    date: SpanMeta;
     source: SpanMeta;
     coach: SpanMeta;
     venue: SpanMeta;
@@ -283,7 +282,6 @@ type RowSpanMeta = {
 
 function computeRowSpans(attendances: Attendance[]): RowSpanMeta[] {
     const result: RowSpanMeta[] = attendances.map(() => ({
-        date: { span: 1, start: true },
         source: { span: 1, start: true },
         coach: { span: 1, start: true },
         venue: { span: 1, start: true },
@@ -298,7 +296,6 @@ function computeRowSpans(attendances: Attendance[]): RowSpanMeta[] {
         key: keyof RowSpanMeta;
         value: (attendance: Attendance) => string | number | null;
     }[] = [
-        { key: 'date', value: (a) => a.attendance_date },
         {
             key: 'source',
             value: (a) =>
@@ -864,23 +861,23 @@ export default function ExternalTrainingAttendanceIndex({
                 }
             >
                 <div id="external-training-attendance-print" className="h-full">
-                    <ListingTable minWidth={1680}>
+                    <ListingTable minWidth={1790}>
                         <colgroup>
                             <col className="w-9" />
-                            <col className="w-11" />
+                            <col className="w-[52px]" />
                             <col className="w-[96px]" />
-                            <col className="w-[96px]" />
+                            <col className="w-[112px]" />
                             <col className="w-[56px]" />
                             <col className="w-[220px]" />
                             <col className="w-[180px]" />
                             <col className="min-w-[200px]" />
                             <col className="w-[130px]" />
                             <col className="w-[100px]" />
-                            <col className="w-[120px]" />
+                            <col className="w-[140px]" />
                             <col className="w-[130px]" />
-                            <col className="w-[130px]" />
-                            <col className="w-[80px]" />
-                            <col className="w-[56px]" />
+                            <col className="w-[140px]" />
+                            <col className="w-[96px]" />
+                            <col className="w-[104px]" />
                         </colgroup>
                         <TableHeader className="sticky top-0 z-20">
                             <TableRow className="hover:bg-transparent">
@@ -914,8 +911,16 @@ export default function ExternalTrainingAttendanceIndex({
                                 >
                                     {t('S.No.')}
                                 </TableHead>
+                                <TableHead
+                                    style={{ left: 88 }}
+                                    className={cn(
+                                        listingHeadCellClass,
+                                        stickyLeftHeadCellClass,
+                                    )}
+                                >
+                                    {t('Date')}
+                                </TableHead>
                                 {[
-                                    'Date',
                                     'Entry source',
                                     'Photo',
                                     'Member',
@@ -1021,14 +1026,18 @@ export default function ExternalTrainingAttendanceIndex({
                                                 {(attendances.from ?? 1) +
                                                     index}
                                             </TableCell>
-                                            <SpanCell
-                                                meta={spans.date}
-                                                className="font-medium whitespace-nowrap"
+                                            <TableCell
+                                                style={{ left: 88 }}
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyLeftBodyCellClass,
+                                                    'font-medium whitespace-nowrap',
+                                                )}
                                             >
                                                 {formatDate(
                                                     attendance.attendance_date,
                                                 )}
-                                            </SpanCell>
+                                            </TableCell>
                                             <SpanCell meta={spans.source}>
                                                 <Badge
                                                     variant={
@@ -1189,24 +1198,29 @@ export default function ExternalTrainingAttendanceIndex({
                                                     {canReviewAttendanceDetails ? (
                                                         <Button
                                                             asChild
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            title={t('Review')}
+                                                            size="sm"
+                                                            className="h-6 gap-1 px-2 text-[11px]"
                                                         >
                                                             <Link
                                                                 href={`${PATH}/${attendance.id}`}
                                                             >
-                                                                <ClipboardCheck className="size-4" />
+                                                                <ClipboardCheck className="size-3.5" />
+                                                                {t('Review')}
                                                             </Link>
                                                         </Button>
                                                     ) : (
-                                                        <span
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            disabled
                                                             title={t(
                                                                 'No access',
                                                             )}
+                                                            className="h-6 gap-1 px-2 text-[11px]"
                                                         >
-                                                            <Lock className="size-4 text-muted-foreground" />
-                                                        </span>
+                                                            <Lock className="size-3.5" />
+                                                            {t('Review')}
+                                                        </Button>
                                                     )}
                                                 </div>
                                             </TableCell>
