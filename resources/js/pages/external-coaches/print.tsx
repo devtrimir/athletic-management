@@ -30,6 +30,7 @@ const join = (items: Named) => items.map((item) => item.name).join(', ') || '-';
 const COLUMNS: PrintColumn<Coach>[] = [
     {
         key: 'photo',
+        optional: true,
         weight: 0.7,
         label: 'Photo',
         cell: (coach) =>
