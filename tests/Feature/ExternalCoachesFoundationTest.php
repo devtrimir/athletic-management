@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\AuditLog;
 use App\Models\ExternalCoach;
+use App\Models\ExternalCoachDocument;
 use App\Models\ExternalCoachingAssignment;
 use App\Models\ExternalCoachPerformanceUpdate;
 use App\Models\ExternalCoachStatusHistory;
@@ -693,4 +694,59 @@ test('a combined document must be a pdf', function () {
     $this->actingAs($user)
         ->post(route('external-coaches.store'), $payload('combined', UploadedFile::fake()->create('all.pdf', 100, 'application/pdf')))
         ->assertSessionHasNoErrors();
+});
+
+test('external coach edit and show pages expose the document mime type for the viewer', function () {
+    $user = rcUser('external-coaches.view', 'external-coaches.update');
+    $coach = ExternalCoach::factory()->create(['organization_id' => $user->organization_id]);
+    ExternalCoachDocument::factory()->create(['external_coach_id' => $coach->id]);
+
+    foreach (['external-coaches.show', 'external-coaches.edit'] as $route) {
+        $this->actingAs($user)->get(route($route, $coach))
+            ->assertInertia(fn (Assert $page) => $page->where('externalCoach.documents.0.mime_type', 'application/pdf'));
+    }
+});
+
+test('external coaching dates serialize as plain dates so IST does not shift the day', function () {
+    $assignment = ExternalCoachingAssignment::factory()->create([
+        'start_date' => '2026-11-01',
+        'end_date' => '2026-11-30',
+    ]);
+
+    expect($assignment->toArray())->toMatchArray(['start_date' => '2026-11-01', 'end_date' => '2026-11-30']);
+});
+
+test('external coaches index includes each coach sports and photo path', function () {
+    $user = rcUser('external-coaches.view');
+    $coach = ExternalCoach::factory()->create(['organization_id' => $user->organization_id, 'photo_path' => 'external-coach-photos/1/x.jpg']);
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Archery']);
+    $coach->sports()->attach($sport);
+    $coach->trainingVenues()->attach(TrainingVenue::factory()->create(['organization_id' => $user->organization_id, 'name' => 'Main Ground']));
+
+    $this->actingAs($user)->get(route('external-coaches.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('externalCoaches.data.0.sports.0.name', 'Archery')
+            ->where('externalCoaches.data.0.training_venues.0.name', 'Main Ground')
+            ->where('externalCoaches.data.0.photo_path', 'external-coach-photos/1/x.jpg'));
+});
+
+test('external coach print page honors permission, filters and selected ids', function () {
+    $user = rcUser('external-coaches.view', 'coaches.print');
+    $org = $user->organization_id;
+    $active = ExternalCoach::factory()->create(['organization_id' => $org, 'name' => 'Active Coach', 'status' => 'active']);
+    $inactive = ExternalCoach::factory()->create(['organization_id' => $org, 'name' => 'Inactive Coach', 'status' => 'inactive']);
+    ExternalCoach::factory()->create(['name' => 'Other Org Coach']);
+
+    $names = fn (array $query) => collect(
+        $this->actingAs($user)->get(route('external-coaches.print', $query))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('external-coaches/print'))
+            ->viewData('page')['props']['coaches'],
+    )->pluck('name')->all();
+
+    expect($names([]))->toBe(['Active Coach', 'Inactive Coach'])
+        ->and($names(['filter' => ['status' => 'inactive']]))->toBe(['Inactive Coach'])
+        ->and($names(['ids' => [$active->id]]))->toBe(['Active Coach']);
+
+    $this->actingAs(rcUser('external-coaches.view'))->get(route('external-coaches.print'))->assertForbidden();
 });

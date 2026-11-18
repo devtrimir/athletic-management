@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 
 import { update } from '@/actions/App/Http/Controllers/ExternalCoachController';
+import type { CoachDocument } from '@/components/external-coaches/document-viewer';
 import { useTranslation } from '@/hooks/use-translation';
 import { ExternalCoachForm } from './create';
 
@@ -16,7 +17,7 @@ type ExternalCoach = {
     photo_path: string | null;
     sport_ids: string[];
     training_venue_ids: string[];
-    documents: { id: number; type: string; original_name: string }[];
+    documents: CoachDocument[];
 };
 
 type Props = {

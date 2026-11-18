@@ -1,13 +1,24 @@
 import { Head, Link, setLayoutProps, useHttp, usePage } from '@inertiajs/react';
-import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import AchievementHistoryController from '@/actions/App/Http/Controllers/Api/V1/AchievementHistoryController';
 import * as MemberController from '@/actions/App/Http/Controllers/MemberController';
 import * as ReportController from '@/actions/App/Http/Controllers/ReportController';
 import * as TournamentController from '@/actions/App/Http/Controllers/TournamentController';
-import { Combobox } from '@/components/combobox';
 import type { ComboboxItem } from '@/components/combobox';
-import Heading from '@/components/heading';
+import {
+    FilterPill,
+    SearchableOptionList,
+    TextFilterPill,
+} from '@/components/data-table/filter-pill';
+import {
+    ListingLayout,
+    ListingTable,
+} from '@/components/data-table/listing-layout';
+import {
+    listingCellClass,
+    listingHeadCellClass,
+} from '@/components/data-table/table-primitives';
+import { MemberPhotoPreview } from '@/components/members/member-photo-preview';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,16 +27,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -49,6 +51,7 @@ type AchievementRow = {
         pno: string | null;
         full_name: string;
         rank: string | null;
+        photo_path: string | null;
     };
     tournament: {
         id: number;
@@ -127,17 +130,10 @@ export default function AchievementHistory({
     const [tournamentId, setTournamentId] = useState<string>(
         filters.tournament_id ? String(filters.tournament_id) : '',
     );
-    const [memberNameInput, setMemberNameInput] = useState<string>(
-        filters.member_name ?? '',
-    );
     const [memberName, setMemberName] = useState<string>(
         filters.member_name ?? '',
     );
-    const [pnoInput, setPnoInput] = useState<string>(filters.pno ?? '');
     const [pno, setPno] = useState<string>(filters.pno ?? '');
-    const [eventNameInput, setEventNameInput] = useState<string>(
-        filters.event_name ?? '',
-    );
     const [eventName, setEventName] = useState<string>(
         filters.event_name ?? '',
     );
@@ -146,24 +142,6 @@ export default function AchievementHistory({
     const [selectedRow, setSelectedRow] = useState<AchievementRow | null>(null);
     const isFirstRender = useRef(true);
     const { get } = useHttp<Record<string, never>, ApiResponse>({});
-
-    useEffect(() => {
-        const timer = setTimeout(() => setMemberName(memberNameInput), 400);
-
-        return () => clearTimeout(timer);
-    }, [memberNameInput]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setPno(pnoInput), 400);
-
-        return () => clearTimeout(timer);
-    }, [pnoInput]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setEventName(eventNameInput), 400);
-
-        return () => clearTimeout(timer);
-    }, [eventNameInput]);
 
     useEffect(() => {
         if (isFirstRender.current) {
@@ -243,11 +221,8 @@ export default function AchievementHistory({
         setTierId(ALL);
         setUnitId(ALL);
         setTournamentId('');
-        setMemberNameInput('');
         setMemberName('');
-        setPnoInput('');
         setPno('');
-        setEventNameInput('');
         setEventName('');
     }
 
@@ -260,141 +235,137 @@ export default function AchievementHistory({
         label: tour.name,
     }));
 
+    const single = (
+        label: string,
+        items: ComboboxItem[],
+        value: string,
+        set: (value: string) => void,
+    ) => (
+        <FilterPill
+            label={label}
+            activeLabel={items.find((item) => item.value === value)?.label}
+            onClear={() => set('')}
+        >
+            <SearchableOptionList
+                options={items}
+                value={value || undefined}
+                searchPlaceholder={t('Search…')}
+                onSelect={(next) => set(next ?? '')}
+            />
+        </FilterPill>
+    );
+    const sessionItems: ComboboxItem[] = sessions.map((s) => ({
+        value: String(s.id),
+        label: s.name,
+    }));
+    const tierItems: ComboboxItem[] = tiers.map((tier) => ({
+        value: String(tier.id),
+        label: tier.label_hi,
+    }));
+    const unitItems: ComboboxItem[] = units.map((u) => ({
+        value: String(u.id),
+        label: u.name,
+    }));
+    const noneToAll = (value: string) => (value === '' ? ALL : value);
+
     return (
         <>
             <Head title={t('Achievement History')} />
 
-            <div className="space-y-6">
-                <Heading title={t('Achievement History')} />
-
-                {/* Filters */}
-                <div className="space-y-3 rounded-xl border bg-card p-4">
-                    <div className="flex flex-wrap gap-3">
-                        <Select value={sessionId} onValueChange={setSessionId}>
-                            <SelectTrigger className="w-44">
-                                <SelectValue placeholder={t('All Sessions')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>
-                                    {t('All Sessions')}
-                                </SelectItem>
-                                {sessions.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>
-                                        {s.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Combobox
-                            value={tournamentId}
-                            onValueChange={setTournamentId}
-                            items={tournamentItems}
-                            placeholder={t('All Tournaments')}
-                            className="w-56"
-                        />
-
-                        <Combobox
-                            value={sportId}
-                            onValueChange={setSportId}
-                            items={sportItems}
-                            placeholder={t('All Sports')}
-                            className="w-44"
-                        />
-
-                        <Select value={tierId} onValueChange={setTierId}>
-                            <SelectTrigger className="w-40">
-                                <SelectValue placeholder={t('All Tiers')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>
-                                    {t('All Tiers')}
-                                </SelectItem>
-                                {tiers.map((tier) => (
-                                    <SelectItem
-                                        key={tier.id}
-                                        value={String(tier.id)}
-                                    >
-                                        {tier.label_hi}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={unitId} onValueChange={setUnitId}>
-                            <SelectTrigger className="w-40">
-                                <SelectValue placeholder={t('All Units')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>
-                                    {t('All Units')}
-                                </SelectItem>
-                                {units.map((u) => (
-                                    <SelectItem key={u.id} value={String(u.id)}>
-                                        {u.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                        <Input
-                            className="h-9 w-52"
-                            placeholder={t('Member name')}
-                            value={memberNameInput}
-                            onChange={(e) => setMemberNameInput(e.target.value)}
-                        />
-                        <Input
-                            className="h-9 w-36"
-                            placeholder={t('PNO')}
-                            value={pnoInput}
-                            onChange={(e) => setPnoInput(e.target.value)}
-                        />
-                        <Input
-                            className="h-9 w-52"
-                            placeholder={t('Event name')}
-                            value={eventNameInput}
-                            onChange={(e) => setEventNameInput(e.target.value)}
-                        />
-                        {hasFilters && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={clearFilters}
-                            >
-                                <X className="mr-1 size-3.5" />
-                                {t('Clear filters')}
-                            </Button>
+            <ListingLayout
+                title={t('Achievement History')}
+                description={t('Medals won by members across tournaments.')}
+                filters={
+                    <>
+                        {single(
+                            t('Session'),
+                            sessionItems,
+                            sessionId === ALL ? '' : sessionId,
+                            (value) => setSessionId(noneToAll(value)),
                         )}
-                    </div>
-                </div>
-
-                {/* Count */}
-                <p className="text-sm text-muted-foreground">
-                    {rows.length} {t('records')}
-                </p>
-
-                {/* Table */}
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>{t('Member')}</TableHead>
-                            <TableHead>{t('PNO / Rank')}</TableHead>
-                            <TableHead>{t('Medal')}</TableHead>
-                            <TableHead>{t('Position')}</TableHead>
-                            <TableHead>{t('Tournament')}</TableHead>
-                            <TableHead>{t('Tier / Sport')}</TableHead>
-                            <TableHead>{t('Event')}</TableHead>
-                            <TableHead>{t('Session')}</TableHead>
+                        {single(
+                            t('Tournament'),
+                            tournamentItems,
+                            tournamentId,
+                            setTournamentId,
+                        )}
+                        {single(t('Sport'), sportItems, sportId, setSportId)}
+                        {single(
+                            t('Tier'),
+                            tierItems,
+                            tierId === ALL ? '' : tierId,
+                            (value) => setTierId(noneToAll(value)),
+                        )}
+                        {single(
+                            t('Unit'),
+                            unitItems,
+                            unitId === ALL ? '' : unitId,
+                            (value) => setUnitId(noneToAll(value)),
+                        )}
+                        <TextFilterPill
+                            label={t('Member name')}
+                            value={memberName}
+                            placeholder={t('Member name')}
+                            onApply={setMemberName}
+                        />
+                        <TextFilterPill
+                            label={t('PNO')}
+                            value={pno}
+                            placeholder={t('PNO')}
+                            onApply={setPno}
+                        />
+                        <TextFilterPill
+                            label={t('Event name')}
+                            value={eventName}
+                            placeholder={t('Event name')}
+                            onApply={setEventName}
+                        />
+                    </>
+                }
+                hasFilters={hasFilters}
+                onClearFilters={clearFilters}
+                resultCount={rows.length}
+            >
+                <ListingTable minWidth={1100} centered>
+                    <colgroup>
+                        <col style={{ width: 56 }} />
+                        <col style={{ width: 64 }} />
+                        <col style={{ width: '16%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: 90 }} />
+                        <col />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '11%' }} />
+                        <col style={{ width: 90 }} />
+                    </colgroup>
+                    <TableHeader className="sticky top-0 z-10">
+                        <TableRow className="hover:bg-transparent">
+                            {[
+                                'S. No.',
+                                'Photo',
+                                'Member',
+                                'PNO / Rank',
+                                'Medal',
+                                'Tournament',
+                                'Tier / Sport',
+                                'Event',
+                                'Session',
+                            ].map((label) => (
+                                <TableHead
+                                    key={label}
+                                    className={`${listingHeadCellClass} bg-muted/50`}
+                                >
+                                    {t(label)}
+                                </TableHead>
+                            ))}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {rows.length === 0 ? (
                             <TableRow>
                                 <TableCell
-                                    colSpan={8}
-                                    className="text-center text-muted-foreground"
+                                    colSpan={9}
+                                    className="h-24 text-center text-muted-foreground"
                                 >
                                     {t('No results.')}
                                 </TableCell>
@@ -403,13 +374,30 @@ export default function AchievementHistory({
                             rows.map((row, idx) => (
                                 <TableRow
                                     key={`${row.member.id}-${row.tournament.id}-${row.event.id}-${idx}`}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer hover:bg-muted/30"
                                     onClick={() => setSelectedRow(row)}
                                 >
-                                    <TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {idx + 1}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        <div className="flex justify-center">
+                                            <MemberPhotoPreview
+                                                photoPath={
+                                                    row.member.photo_path
+                                                }
+                                                name={row.member.full_name}
+                                            />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} font-medium`}
+                                    >
                                         {row.member.full_name}
                                     </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">
+                                    <TableCell
+                                        className={`${listingCellClass} text-muted-foreground`}
+                                    >
                                         {[
                                             row.member.pno,
                                             row.member.rank
@@ -423,7 +411,7 @@ export default function AchievementHistory({
                                             .filter(Boolean)
                                             .join(' / ')}
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className={listingCellClass}>
                                         <Badge
                                             variant={
                                                 MEDAL_VARIANT[row.medal_type] ??
@@ -433,13 +421,12 @@ export default function AchievementHistory({
                                             {t(row.medal_type)}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell>
-                                        {row.position != null
-                                            ? `#${row.position}`
-                                            : '—'}
+                                    <TableCell className={listingCellClass}>
+                                        {row.tournament.name}
                                     </TableCell>
-                                    <TableCell>{row.tournament.name}</TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">
+                                    <TableCell
+                                        className={`${listingCellClass} text-muted-foreground`}
+                                    >
                                         {[
                                             row.tournament.tier_label_hi,
                                             row.tournament.sport_name,
@@ -447,16 +434,20 @@ export default function AchievementHistory({
                                             .filter(Boolean)
                                             .join(' / ')}
                                     </TableCell>
-                                    <TableCell>{row.event.name}</TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">
+                                    <TableCell className={listingCellClass}>
+                                        {row.event.name}
+                                    </TableCell>
+                                    <TableCell
+                                        className={`${listingCellClass} text-muted-foreground`}
+                                    >
                                         {row.session.name}
                                     </TableCell>
                                 </TableRow>
                             ))
                         )}
                     </TableBody>
-                </Table>
-            </div>
+                </ListingTable>
+            </ListingLayout>
 
             {/* Detail Dialog */}
             <Dialog
@@ -567,11 +558,6 @@ export default function AchievementHistory({
                                     >
                                         {t(selectedRow.medal_type)}
                                     </Badge>
-                                    {selectedRow.position != null && (
-                                        <span className="text-muted-foreground">
-                                            #{selectedRow.position}
-                                        </span>
-                                    )}
                                 </div>
                             </div>
                         </div>

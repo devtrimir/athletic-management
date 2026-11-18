@@ -1,19 +1,23 @@
 import { Head, router, setLayoutProps } from '@inertiajs/react';
-import { useState } from 'react';
+import { Download } from 'lucide-react';
 import * as MemberController from '@/actions/App/Http/Controllers/MemberController';
 import * as ReportController from '@/actions/App/Http/Controllers/ReportController';
-import Heading from '@/components/heading';
+import {
+    FilterPill,
+    SearchableOptionList,
+    TextFilterPill,
+} from '@/components/data-table/filter-pill';
+import {
+    ListingLayout,
+    ListingTable,
+} from '@/components/data-table/listing-layout';
+import {
+    listingCellClass,
+    listingHeadCellClass,
+} from '@/components/data-table/table-primitives';
+import { MemberPhotoPreview } from '@/components/members/member-photo-preview';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -33,8 +37,6 @@ type ReportMeta = {
     name_hi?: string;
 };
 type Filters = Record<string, string | number | null>;
-
-const ALL = 'all';
 
 function renderCellValue(val: unknown): string {
     if (val === null || val === undefined) {
@@ -72,6 +74,48 @@ function renderCellValue(val: unknown): string {
     return String(val);
 }
 
+type MedalMember = {
+    id: number;
+    full_name: string;
+    pno: string | null;
+    photo_path: string | null;
+};
+
+function MedalMemberCells({
+    index,
+    member,
+}: {
+    index: number;
+    member: MedalMember;
+}) {
+    return (
+        <>
+            <TableCell className={listingCellClass}>{index + 1}</TableCell>
+            <TableCell className={listingCellClass}>
+                <div className="flex justify-center">
+                    <MemberPhotoPreview
+                        photoPath={member.photo_path}
+                        name={member.full_name}
+                    />
+                </div>
+            </TableCell>
+            <TableCell className={listingCellClass}>
+                <a
+                    href={MemberController.show.url(member.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-primary hover:underline"
+                >
+                    {member.full_name}
+                </a>
+            </TableCell>
+            <TableCell className={listingCellClass}>
+                {member.pno ?? '-'}
+            </TableCell>
+        </>
+    );
+}
+
 export default function ReportShow({
     report,
     data,
@@ -93,6 +137,7 @@ export default function ReportShow({
     const reportTitle =
         report.name ?? report.name_en ?? report.name_hi ?? t('Report');
     const recordCount = data.length;
+    const isMedalsByMember = report.key === 'medals-by-member';
     const isResignationDismissalReport =
         report.key === 'resignation-dismissal-log';
 
@@ -103,116 +148,62 @@ export default function ReportShow({
         ],
     });
 
-    const [sessionId, setSessionId] = useState<string>(
-        filters.session_id ? String(filters.session_id) : ALL,
-    );
-    const [sportId, setSportId] = useState<string>(
-        filters.sport_id ? String(filters.sport_id) : ALL,
-    );
-    const [tierId, setTierId] = useState<string>(
-        filters.tier_id ? String(filters.tier_id) : ALL,
-    );
-    const [unitId, setUnitId] = useState<string>(
-        filters.unit_id ? String(filters.unit_id) : ALL,
-    );
-    const [memberName, setMemberName] = useState<string>(
-        typeof filters.member_name === 'string' ? filters.member_name : '',
-    );
-    const [pno, setPno] = useState<string>(
-        typeof filters.pno === 'string' ? filters.pno : '',
-    );
+    const current: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(filters)) {
+        if (value !== null && value !== '' && value !== undefined) {
+            current[key] = String(value);
+        }
+    }
+
+    const allowed = [
+        'session_id',
+        'sport_id',
+        'tier_id',
+        'unit_id',
+        ...(isResignationDismissalReport ? ['member_name', 'pno'] : []),
+    ];
+
+    function visit(values: Record<string, string | undefined>) {
+        const params: Record<string, string> = {};
+
+        for (const key of allowed) {
+            const value = (values[key] ?? '').trim();
+
+            if (value !== '') {
+                params[key] = value;
+            }
+        }
+
+        router.get(ReportController.show(report.key).url, params, {
+            replace: true,
+            preserveScroll: true,
+            preserveState: true,
+        });
+    }
+
+    const setFilter = (key: string, value: string | undefined) =>
+        visit({ ...current, [key]: value });
+    const clearFilters = () => visit({});
 
     function appliedExportQuery(): Record<string, string> {
         const query: Record<string, string> = { format: 'xlsx' };
 
-        if (filters.session_id) {
-            query.session_id = String(filters.session_id);
-        }
-
-        if (filters.sport_id) {
-            query.sport_id = String(filters.sport_id);
-        }
-
-        if (filters.tier_id) {
-            query.tier_id = String(filters.tier_id);
-        }
-
-        if (filters.unit_id) {
-            query.unit_id = String(filters.unit_id);
-        }
-
-        if (
-            isResignationDismissalReport &&
-            typeof filters.member_name === 'string' &&
-            filters.member_name.trim() !== ''
-        ) {
-            query.member_name = filters.member_name.trim();
-        }
-
-        if (
-            isResignationDismissalReport &&
-            typeof filters.pno === 'string' &&
-            filters.pno.trim() !== ''
-        ) {
-            query.pno = filters.pno.trim();
+        for (const key of allowed) {
+            if (current[key]) {
+                query[key] = current[key];
+            }
         }
 
         return query;
     }
 
-    function applyFilters() {
-        const params: Record<string, string> = {};
-
-        if (sessionId !== ALL) {
-            params.session_id = sessionId;
-        }
-
-        if (sportId !== ALL) {
-            params.sport_id = sportId;
-        }
-
-        if (tierId !== ALL) {
-            params.tier_id = tierId;
-        }
-
-        if (unitId !== ALL) {
-            params.unit_id = unitId;
-        }
-
-        if (isResignationDismissalReport && memberName.trim() !== '') {
-            params.member_name = memberName.trim();
-        }
-
-        if (isResignationDismissalReport && pno.trim() !== '') {
-            params.pno = pno.trim();
-        }
-
-        router.get(ReportController.show(report.key).url, params, {
-            preserveScroll: true,
-        });
-    }
-
-    function clearFilters() {
-        setSessionId(ALL);
-        setSportId(ALL);
-        setTierId(ALL);
-        setUnitId(ALL);
-        setMemberName('');
-        setPno('');
-
-        router.get(
-            ReportController.show(report.key).url,
-            {},
-            {
-                preserveScroll: true,
-            },
-        );
-    }
-
     function exportReport() {
-        window.location.href = ReportController.exportMethod.url(report.key, {
-            query: appliedExportQuery(),
-        });
+        window.location.assign(
+            ReportController.exportMethod.url(report.key, {
+                query: appliedExportQuery(),
+            }),
+        );
     }
 
     const columns =
@@ -220,198 +211,206 @@ export default function ReportShow({
             ? Object.keys(data[0]).filter(
                   (column) =>
                       column !== 'member_code' &&
+                      !(isMedalsByMember && column === 'member') &&
                       !(
                           report.key === 'resignation-dismissal-log' &&
                           column === 'id'
                       ),
               )
             : [];
-    const hasFilters =
-        sessionId !== ALL ||
-        sportId !== ALL ||
-        tierId !== ALL ||
-        unitId !== ALL ||
-        memberName.trim() !== '' ||
-        pno.trim() !== '';
+    const hasFilters = allowed.some((key) => current[key]);
+
+    const selects = [
+        {
+            key: 'session_id',
+            label: t('Sessions'),
+            all: t('Search sessions…'),
+            items: sessions.map((x) => ({
+                value: String(x.id),
+                label: x.name,
+            })),
+        },
+        {
+            key: 'sport_id',
+            label: t('Sports'),
+            all: t('Search sports…'),
+            items: sports.map((x) => ({ value: String(x.id), label: x.name })),
+        },
+        {
+            key: 'tier_id',
+            label: t('Tiers'),
+            all: t('Search tiers…'),
+            items: tiers.map((x) => ({ value: String(x.id), label: x.label })),
+        },
+        {
+            key: 'unit_id',
+            label: t('Units'),
+            all: t('Search units…'),
+            items: units.map((x) => ({ value: String(x.id), label: x.name })),
+        },
+    ].filter((select) => select.items.length > 0);
 
     return (
         <>
             <Head title={reportTitle} />
-
-            <div className="px-4 py-6">
-                <Heading
-                    title={reportTitle}
-                    description={t(
-                        'Review report records and apply filters to narrow the list.',
-                    )}
-                />
-
-                {/* Filter bar — full UI built in P7-T14 */}
-                <div className="mt-4 flex flex-wrap items-end gap-3">
-                    {sessions.length > 0 && (
-                        <Select value={sessionId} onValueChange={setSessionId}>
-                            <SelectTrigger className="w-44">
-                                <SelectValue placeholder={t('All Sessions')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>
-                                    {t('All Sessions')}
-                                </SelectItem>
-                                {sessions.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>
-                                        {s.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-
-                    {sports.length > 0 && (
-                        <Select value={sportId} onValueChange={setSportId}>
-                            <SelectTrigger className="w-44">
-                                <SelectValue placeholder={t('All Sports')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>
-                                    {t('All Sports')}
-                                </SelectItem>
-                                {sports.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>
-                                        {s.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-
-                    {tiers.length > 0 && (
-                        <Select value={tierId} onValueChange={setTierId}>
-                            <SelectTrigger className="w-44">
-                                <SelectValue placeholder={t('All Tiers')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>
-                                    {t('All Tiers')}
-                                </SelectItem>
-                                {tiers.map((tier) => (
-                                    <SelectItem
-                                        key={tier.id}
-                                        value={String(tier.id)}
-                                    >
-                                        {tier.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-
-                    {units.length > 0 && (
-                        <Select value={unitId} onValueChange={setUnitId}>
-                            <SelectTrigger className="w-44">
-                                <SelectValue placeholder={t('All Units')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>
-                                    {t('All Units')}
-                                </SelectItem>
-                                {units.map((u) => (
-                                    <SelectItem key={u.id} value={String(u.id)}>
-                                        {u.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-
-                    {isResignationDismissalReport && (
-                        <>
-                            <Input
-                                className="h-9 w-52"
-                                placeholder={t('Member name')}
-                                value={memberName}
-                                onChange={(e) => setMemberName(e.target.value)}
-                            />
-                            <Input
-                                className="h-9 w-36"
-                                placeholder={t('PNO')}
-                                value={pno}
-                                onChange={(e) => setPno(e.target.value)}
-                            />
-                        </>
-                    )}
-
-                    <Button onClick={applyFilters}>{t('Apply')}</Button>
-                    {hasFilters && (
-                        <Button variant="ghost" onClick={clearFilters}>
-                            {t('Clear filters')}
-                        </Button>
-                    )}
-                    <Button variant="outline" onClick={exportReport}>
+            <ListingLayout
+                title={reportTitle}
+                description={t(
+                    'Review report records and apply filters to narrow the list.',
+                )}
+                actions={
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={exportReport}
+                    >
+                        <Download className="mr-1.5 size-4" />
                         {t('Export')}
                     </Button>
-                </div>
+                }
+                filters={
+                    <>
+                        {selects.map((select) => {
+                            const active = select.items.find(
+                                (item) => item.value === current[select.key],
+                            );
 
-                {/* Data table — full UI with Recharts + export in P7-T14 */}
-                <div className="mt-6 overflow-x-auto rounded-md border">
-                    {data.length === 0 ? (
-                        <p className="p-6 text-sm text-muted-foreground">
-                            {t('No data found')}
-                        </p>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    {isResignationDismissalReport && (
-                                        <TableHead>{t('S. No.')}</TableHead>
-                                    )}
-                                    {columns.map((col) => (
-                                        <TableHead key={col}>{col}</TableHead>
-                                    ))}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {data.map((row, i) => (
-                                    <TableRow key={i}>
-                                        {isResignationDismissalReport && (
-                                            <TableCell>{i + 1}</TableCell>
-                                        )}
-                                        {columns.map((col) => (
-                                            <TableCell key={col}>
-                                                {isResignationDismissalReport &&
-                                                (col === 'pno' ||
-                                                    col === 'full_name') &&
-                                                typeof row.id === 'number' &&
-                                                row[col] ? (
-                                                    <a
-                                                        href={MemberController.show.url(
-                                                            row.id,
-                                                        )}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="text-primary hover:underline"
-                                                    >
-                                                        {renderCellValue(
-                                                            row[col],
-                                                        )}
-                                                    </a>
-                                                ) : (
-                                                    renderCellValue(row[col])
+                            return (
+                                <FilterPill
+                                    key={select.key}
+                                    label={select.label}
+                                    activeLabel={active?.label}
+                                    onClear={() =>
+                                        setFilter(select.key, undefined)
+                                    }
+                                >
+                                    <SearchableOptionList
+                                        options={select.items}
+                                        value={current[select.key]}
+                                        searchPlaceholder={select.all}
+                                        onSelect={(value) =>
+                                            setFilter(select.key, value)
+                                        }
+                                    />
+                                </FilterPill>
+                            );
+                        })}
+                        {isResignationDismissalReport && (
+                            <>
+                                <TextFilterPill
+                                    label={t('Member name')}
+                                    value={current.member_name ?? ''}
+                                    placeholder={t('Member name')}
+                                    onApply={(value) =>
+                                        setFilter('member_name', value)
+                                    }
+                                />
+                                <TextFilterPill
+                                    label={t('PNO')}
+                                    value={current.pno ?? ''}
+                                    placeholder={t('PNO')}
+                                    onApply={(value) => setFilter('pno', value)}
+                                />
+                            </>
+                        )}
+                    </>
+                }
+                hasFilters={hasFilters}
+                onClearFilters={clearFilters}
+                resultCount={recordCount}
+            >
+                <ListingTable
+                    minWidth={Math.max(600, columns.length * 140)}
+                    centered
+                >
+                    <TableHeader className="sticky top-0 z-10">
+                        <TableRow className="hover:bg-transparent">
+                            {isResignationDismissalReport && (
+                                <TableHead className={listingHeadCellClass}>
+                                    {t('S. No.')}
+                                </TableHead>
+                            )}
+                            {isMedalsByMember && (
+                                <>
+                                    <TableHead className={listingHeadCellClass}>
+                                        {t('S. No.')}
+                                    </TableHead>
+                                    <TableHead className={listingHeadCellClass}>
+                                        {t('Photo')}
+                                    </TableHead>
+                                    <TableHead className={listingHeadCellClass}>
+                                        {t('Member')}
+                                    </TableHead>
+                                    <TableHead className={listingHeadCellClass}>
+                                        {t('PNO')}
+                                    </TableHead>
+                                </>
+                            )}
+                            {columns.map((col) => (
+                                <TableHead
+                                    key={col}
+                                    className={listingHeadCellClass}
+                                >
+                                    {col}
+                                </TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {data.length === 0 && (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={Math.max(1, columns.length + 5)}
+                                    className="h-24 text-center text-sm text-muted-foreground"
+                                >
+                                    {t('No data found')}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                        {data.map((row, i) => (
+                            <TableRow key={i}>
+                                {isResignationDismissalReport && (
+                                    <TableCell className={listingCellClass}>
+                                        {i + 1}
+                                    </TableCell>
+                                )}
+                                {isMedalsByMember && (
+                                    <MedalMemberCells
+                                        index={i}
+                                        member={row.member as MedalMember}
+                                    />
+                                )}
+                                {columns.map((col) => (
+                                    <TableCell
+                                        key={col}
+                                        className={listingCellClass}
+                                    >
+                                        {isResignationDismissalReport &&
+                                        (col === 'pno' ||
+                                            col === 'full_name') &&
+                                        typeof row.id === 'number' &&
+                                        row[col] ? (
+                                            <a
+                                                href={MemberController.show.url(
+                                                    row.id,
                                                 )}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-primary hover:underline"
+                                            >
+                                                {renderCellValue(row[col])}
+                                            </a>
+                                        ) : (
+                                            renderCellValue(row[col])
+                                        )}
+                                    </TableCell>
                                 ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                </div>
-                <div className="mt-3 text-sm text-muted-foreground">
-                    {t('Showing all :total records').replace(
-                        ':total',
-                        String(recordCount),
-                    )}
-                </div>
-            </div>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </ListingTable>
+            </ListingLayout>
         </>
     );
 }

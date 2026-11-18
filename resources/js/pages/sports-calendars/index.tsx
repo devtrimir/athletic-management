@@ -1,6 +1,5 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { Edit3, Plus, Search, X, Printer } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { Head, Link } from '@inertiajs/react';
+import { Edit3, Plus, Printer } from 'lucide-react';
 import { useState } from 'react';
 
 import {
@@ -8,7 +7,15 @@ import {
     edit,
     index as indexUrl,
 } from '@/actions/App/Http/Controllers/SportsCalendarController';
-import Heading from '@/components/heading';
+import { FilterPill, OptionList } from '@/components/data-table/filter-pill';
+import {
+    ListingLayout,
+    ListingTable,
+} from '@/components/data-table/listing-layout';
+import {
+    listingCellClass,
+    listingHeadCellClass,
+} from '@/components/data-table/table-primitives';
 import { ListingPagination } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,23 +28,17 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    useDebouncedSearch,
+    useListingFilters,
+} from '@/hooks/use-listing-filters';
 import { useTranslation } from '@/hooks/use-translation';
 
 const ALL_COLUMNS = [
@@ -78,6 +79,9 @@ type Filters = {
     report_arrived?: string;
 };
 
+const head = `${listingHeadCellClass} bg-muted text-center`;
+const cell = `${listingCellClass} text-center`;
+
 export default function SportsCalendarsIndex({
     calendars,
     filters,
@@ -88,10 +92,14 @@ export default function SportsCalendarsIndex({
     yearOptions: (string | number)[];
 }) {
     const { t } = useTranslation();
-    const [query, setQuery] = useState(filters.q ?? '');
-    const [yearFilter, setYearFilter] = useState(filters.year ?? 'all');
-    const [reportFilter, setReportFilter] = useState(
-        filters.report_arrived ?? 'all',
+    const { apply, clear } = useListingFilters(indexUrl.url());
+    const current = {
+        q: filters.q,
+        year: filters.year,
+        report_arrived: filters.report_arrived,
+    };
+    const [search, setSearch] = useDebouncedSearch(filters.q, (q) =>
+        apply(current, { q }),
     );
     const [printOpen, setPrintOpen] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<readonly string[]>(
@@ -101,44 +109,10 @@ export default function SportsCalendarsIndex({
     const yearList = [...new Set(yearOptions.map(String))].sort(
         (a, b) => Number(b) - Number(a),
     );
-    const hasFilters =
-        query.trim() !== '' || yearFilter !== 'all' || reportFilter !== 'all';
+    const hasFilters = Boolean(
+        filters.q || filters.year || filters.report_arrived,
+    );
     const hasSelectedColumns = selectedColumns.length > 0;
-
-    function applyFilters(event?: FormEvent<HTMLFormElement>) {
-        event?.preventDefault();
-
-        const params: Record<string, string> = {};
-
-        if (query.trim() !== '') {
-            params['filter[q]'] = query.trim();
-        }
-
-        if (yearFilter !== 'all') {
-            params['filter[year]'] = yearFilter;
-        }
-
-        if (reportFilter !== 'all') {
-            params['filter[report_arrived]'] = reportFilter;
-        }
-
-        router.get(indexUrl.url(), params, {
-            replace: true,
-            preserveScroll: true,
-            preserveState: true,
-        });
-    }
-
-    function clearFilters() {
-        setQuery('');
-        setYearFilter('all');
-        setReportFilter('all');
-        router.get(
-            indexUrl.url(),
-            {},
-            { replace: true, preserveScroll: true, preserveState: true },
-        );
-    }
 
     function toggleColumn(columnKey: string): void {
         setSelectedColumns((prev) => {
@@ -203,16 +177,18 @@ export default function SportsCalendarsIndex({
     return (
         <>
             <Head title={t('Sports calendars')} />
-            <div className="flex h-[calc(100svh-3rem)] flex-col gap-4 overflow-hidden">
-                <div className="flex shrink-0 items-start justify-between gap-4">
-                    <Heading
-                        variant="small"
-                        title={t('Sports calendars')}
-                        description={t(
-                            'Track yearly competition schedules and report availability.',
-                        )}
-                    />
-                    <div className="flex gap-2">
+            <ListingLayout
+                title={t('Sports calendars')}
+                description={t(
+                    'Track yearly competition schedules and report availability.',
+                )}
+                search={{
+                    value: search,
+                    onChange: setSearch,
+                    placeholder: t('Search by competition, month, or venue'),
+                }}
+                actions={
+                    <>
                         <Button asChild size="sm">
                             <Link href={create.url()}>
                                 <Plus className="mr-1.5 h-4 w-4" />
@@ -229,259 +205,233 @@ export default function SportsCalendarsIndex({
                             <Printer className="mr-1.5 h-4 w-4" />
                             {t('Print')}
                         </Button>
-                    </div>
-                </div>
-
-                <form
-                    className="shrink-0 rounded-xl border bg-card p-3 shadow-sm"
-                    onSubmit={applyFilters}
-                >
-                    <div className="grid [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))] items-end gap-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="q" className="text-sm font-medium">
-                                {t('Search')}
-                            </Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="q"
-                                    value={query}
-                                    onChange={(event) =>
-                                        setQuery(event.target.value)
-                                    }
-                                    placeholder={t(
-                                        'Search by competition, month, or venue',
-                                    )}
-                                    className="pl-9"
-                                />
-                            </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label
-                                htmlFor="year_filter"
-                                className="text-sm font-medium"
-                            >
+                    </>
+                }
+                filters={
+                    <>
+                        <FilterPill
+                            label={t('Year')}
+                            activeLabel={filters.year}
+                            onClear={() => apply(current, { year: null })}
+                        >
+                            <OptionList
+                                options={yearList.map((year) => ({
+                                    value: year,
+                                    label: year,
+                                }))}
+                                value={filters.year}
+                                onSelect={(year) =>
+                                    apply(current, { year: year ?? null })
+                                }
+                            />
+                        </FilterPill>
+                        <FilterPill
+                            label={t('Report status')}
+                            activeLabel={
+                                filters.report_arrived
+                                    ? t(
+                                          filters.report_arrived === 'arrived'
+                                              ? 'Report arrived'
+                                              : 'Report not arrived',
+                                      )
+                                    : undefined
+                            }
+                            onClear={() =>
+                                apply(current, { report_arrived: null })
+                            }
+                        >
+                            <OptionList
+                                options={[
+                                    {
+                                        value: 'arrived',
+                                        label: t('Report arrived'),
+                                    },
+                                    {
+                                        value: 'missing',
+                                        label: t('Report not arrived'),
+                                    },
+                                ]}
+                                value={filters.report_arrived}
+                                onSelect={(report) =>
+                                    apply(current, {
+                                        report_arrived: report ?? null,
+                                    })
+                                }
+                            />
+                        </FilterPill>
+                    </>
+                }
+                hasFilters={hasFilters}
+                onClearFilters={clear}
+                resultCount={calendars.total}
+                footer={
+                    <ListingPagination
+                        paginator={calendars}
+                        itemLabel={t('calendar entries')}
+                    />
+                }
+            >
+                <ListingTable minWidth={1000} centered>
+                    <colgroup>
+                        <col style={{ width: 56 }} />
+                        <col style={{ width: 64 }} />
+                        <col />
+                        <col style={{ width: '19%' }} />
+                        <col style={{ width: '19%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: 130 }} />
+                        <col style={{ width: 64 }} />
+                    </colgroup>
+                    <TableHeader className="sticky top-0 z-10">
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className={head} rowSpan={2}>
+                                {t('S.No.')}
+                            </TableHead>
+                            <TableHead className={head} rowSpan={2}>
                                 {t('Year')}
-                            </Label>
-                            <Select
-                                value={yearFilter}
-                                onValueChange={setYearFilter}
-                            >
-                                <SelectTrigger id="year_filter">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        {t('All years')}
-                                    </SelectItem>
-                                    {yearList.map((year) => (
-                                        <SelectItem key={year} value={year}>
-                                            {year}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label
-                                htmlFor="report_filter"
-                                className="text-sm font-medium"
-                            >
+                            </TableHead>
+                            <TableHead className={head} rowSpan={2}>
+                                {t('Competition')}
+                            </TableHead>
+                            <TableHead className={head} colSpan={2}>
+                                {t('Proposed month')}
+                            </TableHead>
+                            <TableHead className={head} rowSpan={2}>
+                                {t('Proposed venue')}
+                            </TableHead>
+                            <TableHead className={head} rowSpan={2}>
                                 {t('Report status')}
-                            </Label>
-                            <Select
-                                value={reportFilter}
-                                onValueChange={setReportFilter}
-                            >
-                                <SelectTrigger id="report_filter">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        {t('All')}
-                                    </SelectItem>
-                                    <SelectItem value="arrived">
-                                        {t('Report arrived')}
-                                    </SelectItem>
-                                    <SelectItem value="missing">
-                                        {t('Report not arrived')}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            {hasFilters ? (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={clearFilters}
-                                >
-                                    <X className="size-4" />
-                                    {t('Clear filters')}
-                                </Button>
-                            ) : null}
-                            <Button type="submit">{t('Apply filters')}</Button>
-                        </div>
-                    </div>
-                </form>
-
-                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm [&>[data-slot=table-container]]:h-full">
-                    <Table>
-                        <TableHeader className="sticky top-0 z-10">
-                            <TableRow className="bg-muted hover:bg-muted">
-                                <TableHead className="w-16" rowSpan={2}>
-                                    {t('S.No.')}
-                                </TableHead>
-                                <TableHead rowSpan={2}>{t('Year')}</TableHead>
-                                <TableHead rowSpan={2}>
-                                    {t('Competition')}
-                                </TableHead>
-                                <TableHead colSpan={2}>
-                                    {t('Proposed month')}
-                                </TableHead>
-                                <TableHead rowSpan={2}>
-                                    {t('Proposed venue')}
-                                </TableHead>
-                                <TableHead>{t('Report status')}</TableHead>
-                                <TableHead className="w-24 text-right">
-                                    {t('Actions')}
-                                </TableHead>
-                            </TableRow>
-                            <TableRow className="bg-muted hover:bg-muted">
-                                <TableHead>
-                                    {t(
-                                        'Inter-unit / District competition month',
-                                    )}
-                                </TableHead>
-                                <TableHead>
-                                    {t('UP Police annual competition month')}
-                                </TableHead>
-                                <TableHead />
-                                <TableHead />
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {calendars.data.map((calendar, index) => (
-                                <TableRow key={calendar.id}>
-                                    <TableCell>
-                                        {(calendars.from ?? 1) + index}
-                                    </TableCell>
-                                    <TableCell>{calendar.year}</TableCell>
-                                    <TableCell className="font-medium">
-                                        {calendar.competition_name}
-                                    </TableCell>
-                                    <TableCell>
-                                        {calendar.proposed_month}
-                                    </TableCell>
-                                    <TableCell>
-                                        {calendar.proposed_month_annual ?? '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {calendar.proposed_venue}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge
-                                            variant={
-                                                calendar.report_arrived
-                                                    ? 'default'
-                                                    : 'secondary'
-                                            }
-                                        >
-                                            {calendar.report_arrived
-                                                ? t('Report arrived')
-                                                : t('Report not arrived')}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex justify-end">
-                                            <Button
-                                                asChild
-                                                size="icon"
-                                                variant="ghost"
-                                            >
-                                                <Link
-                                                    href={edit.url(calendar)}
-                                                    aria-label={t('Edit')}
-                                                >
-                                                    <Edit3 className="size-4" />
-                                                </Link>
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {calendars.data.length === 0 ? (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={8}
-                                        className="h-24 text-center text-sm text-muted-foreground"
-                                    >
-                                        {t('No sports calendars found.')}
-                                    </TableCell>
-                                </TableRow>
-                            ) : null}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                <ListingPagination
-                    paginator={calendars}
-                    itemLabel={t('calendar entries')}
-                    className="shrink-0 shadow-sm"
-                />
-
-                <Dialog open={printOpen} onOpenChange={setPrintOpen}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>
-                                {t('Select columns to print')}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {t(
-                                    'Choose fields and print the current page only.',
-                                )}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-3">
-                            {ALL_COLUMNS.map((column) => (
-                                <label
-                                    key={column.key}
-                                    className="flex items-center gap-2 text-sm"
-                                >
-                                    <Checkbox
-                                        checked={selectedColumns.includes(
-                                            column.key,
-                                        )}
-                                        onCheckedChange={() =>
-                                            toggleColumn(column.key)
+                            </TableHead>
+                            <TableHead className={head} rowSpan={2}>
+                                {t('Actions')}
+                            </TableHead>
+                        </TableRow>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className={head}>
+                                {t('Inter-unit / District competition month')}
+                            </TableHead>
+                            <TableHead className={head}>
+                                {t('UP Police annual competition month')}
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {calendars.data.map((calendar, index) => (
+                            <TableRow key={calendar.id}>
+                                <TableCell className={cell}>
+                                    {(calendars.from ?? 1) + index}
+                                </TableCell>
+                                <TableCell className={cell}>
+                                    {calendar.year}
+                                </TableCell>
+                                <TableCell className={`${cell} font-medium`}>
+                                    {calendar.competition_name}
+                                </TableCell>
+                                <TableCell className={cell}>
+                                    {calendar.proposed_month}
+                                </TableCell>
+                                <TableCell className={cell}>
+                                    {calendar.proposed_month_annual ?? '-'}
+                                </TableCell>
+                                <TableCell className={cell}>
+                                    {calendar.proposed_venue}
+                                </TableCell>
+                                <TableCell className={cell}>
+                                    <Badge
+                                        variant={
+                                            calendar.report_arrived
+                                                ? 'default'
+                                                : 'secondary'
                                         }
-                                    />
-                                    <span>{t(column.label)}</span>
-                                </label>
-                            ))}
-                        </div>
-                        <DialogFooter>
-                            <Button
-                                onClick={() => {
-                                    handlePrint();
-                                    setPrintOpen(false);
-                                }}
-                                disabled={!hasSelectedColumns}
+                                    >
+                                        {calendar.report_arrived
+                                            ? t('Report arrived')
+                                            : t('Report not arrived')}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className={cell}>
+                                    <div className="flex justify-end">
+                                        <Button
+                                            asChild
+                                            size="icon"
+                                            variant="ghost"
+                                        >
+                                            <Link
+                                                href={edit.url(calendar)}
+                                                aria-label={t('Edit')}
+                                            >
+                                                <Edit3 className="size-4" />
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        {calendars.data.length === 0 ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={8}
+                                    className="h-24 text-center text-sm text-muted-foreground"
+                                >
+                                    {t('No sports calendars found.')}
+                                </TableCell>
+                            </TableRow>
+                        ) : null}
+                    </TableBody>
+                </ListingTable>
+            </ListingLayout>
+
+            <Dialog open={printOpen} onOpenChange={setPrintOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {t('Select columns to print')}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {t(
+                                'Choose fields and print the current page only.',
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        {ALL_COLUMNS.map((column) => (
+                            <label
+                                key={column.key}
+                                className="flex items-center gap-2 text-sm"
                             >
-                                <Printer className="size-4" />
-                                {t('Print')}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setPrintOpen(false)}
-                            >
-                                {t('Cancel')}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
+                                <Checkbox
+                                    checked={selectedColumns.includes(
+                                        column.key,
+                                    )}
+                                    onCheckedChange={() =>
+                                        toggleColumn(column.key)
+                                    }
+                                />
+                                <span>{t(column.label)}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            onClick={() => {
+                                handlePrint();
+                                setPrintOpen(false);
+                            }}
+                            disabled={!hasSelectedColumns}
+                        >
+                            <Printer className="size-4" />
+                            {t('Print')}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setPrintOpen(false)}
+                        >
+                            {t('Cancel')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

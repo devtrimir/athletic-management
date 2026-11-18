@@ -18,6 +18,8 @@ import {
     store,
 } from '@/actions/App/Http/Controllers/ExternalCoachController';
 import { ClearableSelect } from '@/components/clearable-select';
+import { DocumentViewer } from '@/components/external-coaches/document-viewer';
+import type { CoachDocument } from '@/components/external-coaches/document-viewer';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { OptionMultiSelect } from '@/components/option-multi-select';
@@ -83,11 +85,7 @@ type FormProps = {
         photo_path?: string | null;
         sport_ids?: string[];
         training_venue_ids?: string[];
-        documents?: {
-            id: number;
-            type: string;
-            original_name: string;
-        }[];
+        documents?: CoachDocument[];
         name: string;
         email: string;
         phone: string | null;
@@ -539,6 +537,10 @@ function ExternalCoachForm({
                                         >
                                             {document.original_name}
                                         </a>
+                                        <DocumentViewer
+                                            coachId={coach.id as number}
+                                            document={document}
+                                        />
                                         <Button
                                             asChild
                                             variant="ghost"

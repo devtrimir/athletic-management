@@ -110,3 +110,35 @@ export function formatDateRange(
 
     return fallback;
 }
+
+/**
+ * Formats a "HH:mm" or "HH:mm:ss" time as 12-hour with AM/PM (e.g. "17:30:00" -> "5:30 PM").
+ */
+export function formatTime(
+    value: string | null | undefined,
+    fallback: string = '',
+): string {
+    const match = /^(\d{1,2}):(\d{2})/.exec((value ?? '').trim());
+
+    if (!match) {
+        return fallback;
+    }
+
+    const hours = Number(match[1]);
+    const suffix = hours >= 12 ? 'PM' : 'AM';
+
+    return `${hours % 12 || 12}:${match[2]} ${suffix}`;
+}
+
+/** "5:00 PM - 6:30 PM", or the fallback when either end is missing. */
+export function formatTimeRange(
+    start: string | null | undefined,
+    end: string | null | undefined,
+    separator: string = ' - ',
+    fallback: string = '',
+): string {
+    const from = formatTime(start);
+    const to = formatTime(end);
+
+    return from && to ? `${from}${separator}${to}` : fallback;
+}

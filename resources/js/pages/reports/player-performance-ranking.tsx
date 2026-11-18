@@ -1,12 +1,30 @@
-import { Head, router, setLayoutProps, useHttp, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import {
+    Head,
+    router,
+    setLayoutProps,
+    useHttp,
+    usePage,
+} from '@inertiajs/react';
+import { useState } from 'react';
 import * as ReportController from '@/actions/App/Http/Controllers/ReportController';
-import Heading from '@/components/heading';
+import {
+    DateRangePill,
+    FilterPill,
+    MultiOptionList,
+    OptionList,
+    TextFilterPill,
+    dateRangePresets,
+} from '@/components/data-table/filter-pill';
+import { ListingLayout } from '@/components/data-table/listing-layout';
+import {
+    listingCellClass,
+    listingHeadCellClass,
+    listingTableClass,
+} from '@/components/data-table/table-primitives';
 import type { MemberOption } from '@/components/member-picker';
 import { MemberPerformanceTab } from '@/components/members/member-performance-tab';
 import type { MemberPerformanceData } from '@/components/members/member-performance-tab';
 import { MembersMultiSelect } from '@/components/members-multi-select';
-import { OptionMultiSelect } from '@/components/option-multi-select';
 import type { MultiSelectOption } from '@/components/option-multi-select';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,14 +34,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Table,
@@ -42,7 +52,12 @@ type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label_hi: string; label_en: string };
 type Unit = { id: number; name: string };
 type District = { id: number; name: string };
-type ReportMeta = { key: string; name: string };
+type ReportMeta = {
+    key: string;
+    name?: string;
+    name_en?: string;
+    name_hi?: string;
+};
 type PaginationLink = { url: string | null; label: string; active: boolean };
 
 type MetricSummary = {
@@ -201,6 +216,8 @@ export default function PlayerPerformanceRanking({
     ranks: RankOption[];
 }) {
     const { t } = useTranslation();
+    const reportTitle =
+        report.name ?? report.name_en ?? report.name_hi ?? t('Report');
     const { locale } = usePage().props as { locale: string };
     const { get: getMemberDetail, processing: detailLoading } = useHttp<
         Record<string, never>,
@@ -214,45 +231,29 @@ export default function PlayerPerformanceRanking({
     setLayoutProps({
         breadcrumbs: [
             { title: t('Reports'), href: ReportController.index().url },
-            { title: report.name },
+            { title: reportTitle },
         ],
     });
 
-    const [sessionIds, setSessionIds] = useState<string[]>(
-        filters.session_ids?.map(String) ?? [],
-    );
-    const [sportIds, setSportIds] = useState<string[]>(
-        filters.sport_ids?.map(String) ?? [],
-    );
-    const [tierIds, setTierIds] = useState<string[]>(
-        filters.tier_ids?.map(String) ?? [],
-    );
-    const [unitIds, setUnitIds] = useState<string[]>(
-        filters.unit_ids?.map(String) ?? [],
-    );
-    const [districtIds, setDistrictIds] = useState<string[]>(
-        filters.district_ids?.map(String) ?? [],
-    );
-    const [selectedMembers, setSelectedMembers] =
-        useState<MemberOption[]>(selectedMembersProp);
-    const [limit, setLimit] = useState<string>(
-        filters.limit ? String(filters.limit) : '50',
-    );
-    const [memberName, setMemberName] = useState<string>(
-        filters.member_name ?? '',
-    );
-    const [pno, setPno] = useState<string>(filters.pno ?? '');
-    const [fromDate, setFromDate] = useState<string>(filters.from_date ?? '');
-    const [toDate, setToDate] = useState<string>(filters.to_date ?? '');
-    const [groupBy, setGroupBy] = useState<string>(
-        filters.group_by ?? data.group_by ?? 'overall',
-    );
-    const [subgroupBy, setSubgroupBy] = useState<string>(
-        filters.subgroup_by ?? data.subgroup_by ?? 'none',
-    );
-    const [rankingScope, setRankingScope] = useState<string>(
-        filters.ranking_scope ?? data.ranking_scope ?? 'within_group',
-    );
+    const selectedMembers = selectedMembersProp;
+    const current = {
+        session_ids: filters.session_ids?.map(String) ?? [],
+        sport_ids: filters.sport_ids?.map(String) ?? [],
+        tier_ids: filters.tier_ids?.map(String) ?? [],
+        unit_ids: filters.unit_ids?.map(String) ?? [],
+        district_ids: filters.district_ids?.map(String) ?? [],
+        member_ids: selectedMembers.map((member) => String(member.id)),
+        limit: filters.limit ? String(filters.limit) : '50',
+        member_name: filters.member_name ?? '',
+        pno: filters.pno ?? '',
+        from_date: filters.from_date ?? '',
+        to_date: filters.to_date ?? '',
+        group_by: filters.group_by ?? data.group_by ?? 'overall',
+        subgroup_by: filters.subgroup_by ?? data.subgroup_by ?? 'none',
+        ranking_scope:
+            filters.ranking_scope ?? data.ranking_scope ?? 'within_group',
+    };
+    type Current = typeof current;
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedMemberId, setSelectedMemberId] = useState<number | null>(
         null,
@@ -262,39 +263,21 @@ export default function PlayerPerformanceRanking({
     const [drilldownTitle, setDrilldownTitle] = useState('');
     const [drilldownRows, setDrilldownRows] = useState<DrilldownRow[]>([]);
 
-    const hasActiveFilters = useMemo(
-        () =>
-            sessionIds.length > 0 ||
-            sportIds.length > 0 ||
-            tierIds.length > 0 ||
-            unitIds.length > 0 ||
-            districtIds.length > 0 ||
-            selectedMembers.length > 0 ||
-            memberName !== '' ||
-            pno !== '' ||
-            fromDate !== '' ||
-            toDate !== '' ||
-            limit !== '50' ||
-            groupBy !== 'overall' ||
-            subgroupBy !== 'none' ||
-            rankingScope !== 'within_group',
-        [
-            districtIds.length,
-            fromDate,
-            groupBy,
-            limit,
-            memberName,
-            pno,
-            rankingScope,
-            selectedMembers.length,
-            sessionIds.length,
-            sportIds.length,
-            subgroupBy,
-            tierIds.length,
-            toDate,
-            unitIds.length,
-        ],
-    );
+    const hasActiveFilters =
+        current.session_ids.length > 0 ||
+        current.sport_ids.length > 0 ||
+        current.tier_ids.length > 0 ||
+        current.unit_ids.length > 0 ||
+        current.district_ids.length > 0 ||
+        current.member_ids.length > 0 ||
+        current.member_name !== '' ||
+        current.pno !== '' ||
+        current.from_date !== '' ||
+        current.to_date !== '' ||
+        current.limit !== '50' ||
+        current.group_by !== 'overall' ||
+        current.subgroup_by !== 'none' ||
+        current.ranking_scope !== 'within_group';
 
     const sessionOptions: MultiSelectOption[] = sessions.map((session) => ({
         value: String(session.id),
@@ -317,83 +300,54 @@ export default function PlayerPerformanceRanking({
         label: district.name,
     }));
 
-    function buildParams(): Record<string, string | string[]> {
+    function buildParams(
+        patch: Partial<Current> = {},
+    ): Record<string, string | string[]> {
+        const merged = { ...current, ...patch };
         const params: Record<string, string | string[]> = {
-            limit,
-            group_by: groupBy,
-            subgroup_by: subgroupBy,
-            ranking_scope: rankingScope,
+            limit: merged.limit,
+            group_by: merged.group_by,
+            subgroup_by: merged.subgroup_by,
+            ranking_scope: merged.ranking_scope,
             page: '1',
         };
 
-        if (sessionIds.length > 0) {
-            params['session_ids'] = sessionIds;
+        for (const key of [
+            'session_ids',
+            'sport_ids',
+            'tier_ids',
+            'unit_ids',
+            'district_ids',
+            'member_ids',
+        ] as const) {
+            if (merged[key].length > 0) {
+                params[key] = merged[key];
+            }
         }
 
-        if (sportIds.length > 0) {
-            params['sport_ids'] = sportIds;
-        }
-
-        if (tierIds.length > 0) {
-            params['tier_ids'] = tierIds;
-        }
-
-        if (unitIds.length > 0) {
-            params['unit_ids'] = unitIds;
-        }
-
-        if (districtIds.length > 0) {
-            params['district_ids'] = districtIds;
-        }
-
-        if (selectedMembers.length > 0) {
-            params['member_ids'] = selectedMembers.map((member) =>
-                String(member.id),
-            );
-        }
-
-        if (memberName.trim() !== '') {
-            params['member_name'] = memberName.trim();
-        }
-
-        if (pno.trim() !== '') {
-            params['pno'] = pno.trim();
-        }
-
-        if (fromDate !== '') {
-            params['from_date'] = fromDate;
-        }
-
-        if (toDate !== '') {
-            params['to_date'] = toDate;
+        for (const key of [
+            'member_name',
+            'pno',
+            'from_date',
+            'to_date',
+        ] as const) {
+            if (merged[key].trim() !== '') {
+                params[key] = merged[key].trim();
+            }
         }
 
         return params;
     }
 
-    function applyFilters() {
-        router.get(ReportController.show(report.key).url, buildParams(), {
+    function apply(patch: Partial<Current>) {
+        router.get(ReportController.show(report.key).url, buildParams(patch), {
+            replace: true,
             preserveScroll: true,
             preserveState: true,
         });
     }
 
     function clearFilters() {
-        setSessionIds([]);
-        setSportIds([]);
-        setTierIds([]);
-        setUnitIds([]);
-        setDistrictIds([]);
-        setSelectedMembers([]);
-        setLimit('50');
-        setMemberName('');
-        setPno('');
-        setFromDate('');
-        setToDate('');
-        setGroupBy('overall');
-        setSubgroupBy('none');
-        setRankingScope('within_group');
-
         router.get(
             ReportController.show(report.key).url,
             {
@@ -402,10 +356,7 @@ export default function PlayerPerformanceRanking({
                 subgroup_by: 'none',
                 ranking_scope: 'within_group',
             },
-            {
-                preserveScroll: true,
-                preserveState: true,
-            },
+            { replace: true, preserveScroll: true, preserveState: true },
         );
     }
 
@@ -498,7 +449,7 @@ export default function PlayerPerformanceRanking({
         return (
             <button
                 type="button"
-                className={`w-full text-right tabular-nums hover:underline ${strong ? 'font-semibold' : ''}`}
+                className={`w-full tabular-nums hover:underline ${strong ? 'font-semibold' : ''}`}
                 onClick={() =>
                     openDrilldown({
                         title,
@@ -521,36 +472,55 @@ export default function PlayerPerformanceRanking({
         label: string,
     ) {
         return (
-            <div className="overflow-hidden rounded-lg border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-16">{t('Rank')}</TableHead>
-                            <TableHead>{t('Member')}</TableHead>
-                            <TableHead>{t('District')}</TableHead>
-                            <TableHead>{t('Unit')}</TableHead>
-                            <TableHead className="text-right">
+            <div className="overflow-x-auto rounded-xl border bg-card">
+                <Table
+                    className={`${listingTableClass} min-w-[960px] [&_td]:text-center [&_th]:text-center`}
+                >
+                    <colgroup>
+                        <col style={{ width: 56 }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '14%' }} />
+                        {Array.from({ length: 8 }, (_, i) => (
+                            <col key={i} />
+                        ))}
+                    </colgroup>
+                    <TableHeader className="bg-muted/50">
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Rank')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Member')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('District')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
+                                {t('Unit')}
+                            </TableHead>
+                            <TableHead className={listingHeadCellClass}>
                                 {t('Participations')}
                             </TableHead>
-                            <TableHead className="text-right">
+                            <TableHead className={listingHeadCellClass}>
                                 {t('Achievements')}
                             </TableHead>
-                            <TableHead className="text-right">
+                            <TableHead className={listingHeadCellClass}>
                                 {t('Awards')}
                             </TableHead>
-                            <TableHead className="text-right">
+                            <TableHead className={listingHeadCellClass}>
                                 {t('Gold')}
                             </TableHead>
-                            <TableHead className="text-right">
+                            <TableHead className={listingHeadCellClass}>
                                 {t('Silver')}
                             </TableHead>
-                            <TableHead className="text-right">
+                            <TableHead className={listingHeadCellClass}>
                                 {t('Bronze')}
                             </TableHead>
-                            <TableHead className="text-right">
+                            <TableHead className={listingHeadCellClass}>
                                 {t('Merit')}
                             </TableHead>
-                            <TableHead className="text-right">
+                            <TableHead className={listingHeadCellClass}>
                                 {t('Points')}
                             </TableHead>
                         </TableRow>
@@ -571,8 +541,10 @@ export default function PlayerPerformanceRanking({
                             <TableRow
                                 key={`${dimension}-${dimensionId}-${row.member.id}`}
                             >
-                                <TableCell>{row.rank ?? '—'}</TableCell>
-                                <TableCell>
+                                <TableCell className={listingCellClass}>
+                                    {row.rank ?? '—'}
+                                </TableCell>
+                                <TableCell className={listingCellClass}>
                                     <button
                                         type="button"
                                         className="text-left font-medium text-primary hover:underline"
@@ -597,7 +569,7 @@ export default function PlayerPerformanceRanking({
                                             .join(' / ') || '—'}
                                     </div>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className={listingCellClass}>
                                     <button
                                         type="button"
                                         className="text-left hover:underline"
@@ -616,7 +588,7 @@ export default function PlayerPerformanceRanking({
                                         {row.member.district?.name ?? '—'}
                                     </button>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className={listingCellClass}>
                                     <button
                                         type="button"
                                         className="text-left hover:underline"
@@ -634,7 +606,7 @@ export default function PlayerPerformanceRanking({
                                         {row.member.unit?.name ?? '—'}
                                     </button>
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className={listingCellClass}>
                                     {metricCell({
                                         title: `${row.member.full_name} · ${t('Participations')}`,
                                         dimension,
@@ -644,7 +616,7 @@ export default function PlayerPerformanceRanking({
                                         memberId: row.member.id,
                                     })}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className={listingCellClass}>
                                     {metricCell({
                                         title: `${row.member.full_name} · ${t('Achievements')}`,
                                         dimension,
@@ -654,7 +626,7 @@ export default function PlayerPerformanceRanking({
                                         memberId: row.member.id,
                                     })}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className={listingCellClass}>
                                     {metricCell({
                                         title: `${row.member.full_name} · ${t('Awards')}`,
                                         dimension,
@@ -664,7 +636,7 @@ export default function PlayerPerformanceRanking({
                                         memberId: row.member.id,
                                     })}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className={listingCellClass}>
                                     {metricCell({
                                         title: `${row.member.full_name} · ${t('Gold')}`,
                                         dimension,
@@ -674,7 +646,7 @@ export default function PlayerPerformanceRanking({
                                         memberId: row.member.id,
                                     })}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className={listingCellClass}>
                                     {metricCell({
                                         title: `${row.member.full_name} · ${t('Silver')}`,
                                         dimension,
@@ -684,7 +656,7 @@ export default function PlayerPerformanceRanking({
                                         memberId: row.member.id,
                                     })}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className={listingCellClass}>
                                     {metricCell({
                                         title: `${row.member.full_name} · ${t('Bronze')}`,
                                         dimension,
@@ -694,7 +666,7 @@ export default function PlayerPerformanceRanking({
                                         memberId: row.member.id,
                                     })}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className={listingCellClass}>
                                     {metricCell({
                                         title: `${row.member.full_name} · ${t('Merit')}`,
                                         dimension,
@@ -704,7 +676,7 @@ export default function PlayerPerformanceRanking({
                                         memberId: row.member.id,
                                     })}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className={listingCellClass}>
                                     {metricCell({
                                         title: `${row.member.full_name} · ${t('Points')}`,
                                         dimension,
@@ -723,365 +695,354 @@ export default function PlayerPerformanceRanking({
         );
     }
 
+    function multiLabel(
+        options: MultiSelectOption[],
+        selected: string[],
+    ): string | undefined {
+        if (selected.length === 0) {
+            return undefined;
+        }
+
+        return selected.length === 1
+            ? options.find((o) => o.value === selected[0])?.label
+            : String(selected.length);
+    }
+
+    const paginationFooter =
+        data.pagination.last_page > 1 ? (
+            <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                <span>
+                    {data.pagination.from !== null
+                        ? t('Showing :from–:to of :total')
+                              .replace(':from', String(data.pagination.from))
+                              .replace(':to', String(data.pagination.to ?? ''))
+                              .replace(':total', String(data.pagination.total))
+                        : ''}
+                </span>
+                <div className="flex items-center gap-1">
+                    {data.pagination.links.map((link, index) =>
+                        link.url ? (
+                            <Button
+                                key={index}
+                                variant={link.active ? 'default' : 'outline'}
+                                size="sm"
+                                className="h-8 min-w-8 px-2"
+                                onClick={() =>
+                                    router.get(
+                                        link.url!,
+                                        {},
+                                        { preserveState: true },
+                                    )
+                                }
+                                dangerouslySetInnerHTML={{
+                                    __html: link.label,
+                                }}
+                            />
+                        ) : (
+                            <Button
+                                key={index}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 min-w-8 px-2"
+                                disabled
+                                dangerouslySetInnerHTML={{
+                                    __html: link.label,
+                                }}
+                            />
+                        ),
+                    )}
+                </div>
+            </div>
+        ) : null;
+
     return (
         <>
-            <Head title={report.name} />
+            <Head title={reportTitle} />
 
-            <div className="space-y-6 px-4 py-6">
-                <h1 className="sr-only">{report.name}</h1>
-                <Heading
-                    title={report.name}
-                    description={t(
-                        'Review ranked player performance across points, medals, participation, and awards.',
-                    )}
-                />
-
-                <div className="space-y-2 rounded-lg border p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <OptionMultiSelect
-                            value={sessionIds}
-                            onValueChange={setSessionIds}
-                            options={sessionOptions}
-                            placeholder={t('All Sessions')}
-                            className="w-[180px]"
-                        />
-                        <OptionMultiSelect
-                            value={sportIds}
-                            onValueChange={setSportIds}
-                            options={sportOptions}
-                            placeholder={t('All Sports')}
-                            className="w-[180px]"
-                        />
-                        <OptionMultiSelect
-                            value={tierIds}
-                            onValueChange={setTierIds}
-                            options={tierOptions}
-                            placeholder={t('All Tiers')}
-                            className="w-[180px]"
-                        />
-                        <OptionMultiSelect
-                            value={districtIds}
-                            onValueChange={setDistrictIds}
-                            options={districtOptions}
-                            placeholder={t('All Districts')}
-                            className="w-[180px]"
-                        />
-                        <OptionMultiSelect
-                            value={unitIds}
-                            onValueChange={setUnitIds}
-                            options={unitOptions}
-                            placeholder={t('All Units')}
-                            className="w-[180px]"
-                        />
-                        <Select value={limit} onValueChange={setLimit}>
-                            <SelectTrigger className="h-9 w-[92px]">
-                                <SelectValue placeholder={t('Top N')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {LIMIT_OPTIONS.map((option) => (
-                                    <SelectItem key={option} value={option}>
-                                        {option}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        <MembersMultiSelect
-                            value={selectedMembers}
-                            onValueChange={setSelectedMembers}
-                            className="w-full sm:w-[320px]"
-                        />
-                        <Input
-                            value={memberName}
-                            onChange={(event) =>
-                                setMemberName(event.target.value)
+            <ListingLayout
+                title={reportTitle}
+                description={t(
+                    'Review ranked player performance across points, medals, participation, and awards.',
+                )}
+                filters={
+                    <>
+                        {(
+                            [
+                                ['session_ids', 'Sessions', sessionOptions],
+                                ['sport_ids', 'Sports', sportOptions],
+                                ['tier_ids', 'Tiers', tierOptions],
+                                ['district_ids', 'Districts', districtOptions],
+                                ['unit_ids', 'Units', unitOptions],
+                            ] as const
+                        ).map(([key, label, options]) => (
+                            <FilterPill
+                                key={key}
+                                label={t(label)}
+                                activeLabel={multiLabel(options, current[key])}
+                                onClear={() => apply({ [key]: [] })}
+                            >
+                                <MultiOptionList
+                                    options={options}
+                                    value={current[key]}
+                                    searchPlaceholder={t('Search…')}
+                                    onChange={(value) =>
+                                        apply({ [key]: value })
+                                    }
+                                />
+                            </FilterPill>
+                        ))}
+                        <FilterPill
+                            label={t('Members')}
+                            activeLabel={
+                                selectedMembers.length > 0
+                                    ? String(selectedMembers.length)
+                                    : undefined
                             }
-                            placeholder={t('Search by name or PNO…')}
-                            className="h-9 w-full sm:w-[220px]"
-                        />
-                        <Input
-                            value={pno}
-                            onChange={(event) => setPno(event.target.value)}
-                            placeholder={t('Search by PNO…')}
-                            className="h-9 w-full sm:w-[180px]"
-                        />
-                        <Input
-                            type="date"
-                            value={fromDate}
-                            onChange={(event) =>
-                                setFromDate(event.target.value)
-                            }
-                            aria-label={t('Date from')}
-                            className="h-9 w-full sm:w-[150px]"
-                        />
-                        <Input
-                            type="date"
-                            value={toDate}
-                            onChange={(event) => setToDate(event.target.value)}
-                            aria-label={t('Date to')}
-                            className="h-9 w-full sm:w-[150px]"
-                        />
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Select value={groupBy} onValueChange={setGroupBy}>
-                            <SelectTrigger className="h-9 w-[160px]">
-                                <SelectValue placeholder={t('Group by')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {GROUP_OPTIONS.map((option) => (
-                                    <SelectItem
-                                        key={option.value}
-                                        value={option.value}
-                                    >
-                                        {t(option.label)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select
-                            value={subgroupBy}
-                            onValueChange={setSubgroupBy}
+                            onClear={() => apply({ member_ids: [] })}
                         >
-                            <SelectTrigger className="h-9 w-[160px]">
-                                <SelectValue placeholder={t('No subgroup')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {SUBGROUP_OPTIONS.map((option) => (
-                                    <SelectItem
-                                        key={option.value}
-                                        value={option.value}
-                                    >
-                                        {t(option.label)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select
-                            value={rankingScope}
-                            onValueChange={setRankingScope}
-                        >
-                            <SelectTrigger className="h-9 w-[180px]">
-                                <SelectValue placeholder={t('Within group')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="within_group">
-                                    {t('Within group')}
-                                </SelectItem>
-                                <SelectItem value="overall">
-                                    {t('Overall')}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Button className="h-9 px-3" onClick={applyFilters}>
-                            {t('Search')}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            className="h-9 px-3"
-                            onClick={clearFilters}
-                            disabled={!hasActiveFilters}
-                        >
-                            {t('Clear filters')}
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-lg border p-3">
-                        <div className="text-xs text-muted-foreground">
-                            {t('Points')}
-                        </div>
-                        <div className="text-2xl font-semibold tabular-nums">
-                            {data.summary.points}
-                        </div>
-                    </div>
-                    <div className="rounded-lg border p-3">
-                        <div className="text-xs text-muted-foreground">
-                            {t('Participations')}
-                        </div>
-                        <div className="text-2xl font-semibold tabular-nums">
-                            {data.summary.participation_count}
-                        </div>
-                    </div>
-                    <div className="rounded-lg border p-3">
-                        <div className="text-xs text-muted-foreground">
-                            {t('Achievements')}
-                        </div>
-                        <div className="text-2xl font-semibold tabular-nums">
-                            {data.summary.achievement_count}
-                        </div>
-                    </div>
-                    <div className="rounded-lg border p-3">
-                        <div className="text-xs text-muted-foreground">
-                            {t('Awards')}
-                        </div>
-                        <div className="text-2xl font-semibold tabular-nums">
-                            {data.summary.award_count}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-5">
-                    {data.groups.length === 0 && (
-                        <div className="rounded-lg border py-10 text-center text-muted-foreground">
-                            {t('No records found')}
-                        </div>
-                    )}
-
-                    {data.groups.map((group) => (
-                        <section key={group.key} className="space-y-3">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <button
-                                    type="button"
-                                    className="text-left text-base font-semibold hover:underline"
-                                    onClick={() =>
-                                        openDrilldown({
-                                            title: group.label,
-                                            dimension: group.dimension,
-                                            dimensionId: group.dimension_id,
-                                            metric: 'all',
+                            <div className="w-72 p-3">
+                                <MembersMultiSelect
+                                    value={selectedMembers}
+                                    onValueChange={(members) =>
+                                        apply({
+                                            member_ids: members.map((member) =>
+                                                String(member.id),
+                                            ),
                                         })
                                     }
-                                >
-                                    {group.label}
-                                </button>
-                                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                    <button
-                                        type="button"
-                                        className="rounded border px-2 py-1 hover:bg-muted"
-                                        onClick={() =>
-                                            openDrilldown({
-                                                title: `${group.label} · ${t('Points')}`,
-                                                dimension: group.dimension,
-                                                dimensionId: group.dimension_id,
-                                                metric: 'points',
-                                            })
-                                        }
-                                    >
-                                        {t('Points')}: {group.summary.points}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="rounded border px-2 py-1 hover:bg-muted"
-                                        onClick={() =>
-                                            openDrilldown({
-                                                title: `${group.label} · ${t('Achievements')}`,
-                                                dimension: group.dimension,
-                                                dimensionId: group.dimension_id,
-                                                metric: 'achievements',
-                                            })
-                                        }
-                                    >
-                                        {t('Achievements')}:{' '}
-                                        {group.summary.achievement_count}
-                                    </button>
-                                </div>
+                                />
                             </div>
-
-                            {group.subgroups && group.subgroups.length > 0 ? (
-                                <div className="space-y-4">
-                                    {group.subgroups.map((subgroup) => (
-                                        <div
-                                            key={subgroup.key}
-                                            className="space-y-2"
-                                        >
-                                            <button
-                                                type="button"
-                                                className="text-left text-sm font-medium hover:underline"
-                                                onClick={() =>
-                                                    openDrilldown({
-                                                        title: `${group.label} · ${subgroup.label}`,
-                                                        dimension:
-                                                            subgroup.dimension,
-                                                        dimensionId:
-                                                            subgroup.dimension_id,
-                                                        metric: 'all',
-                                                    })
-                                                }
-                                            >
-                                                {subgroup.label}
-                                            </button>
-                                            {renderRows(
-                                                subgroup.rows ?? [],
-                                                subgroup.dimension,
-                                                subgroup.dimension_id,
-                                                subgroup.label,
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                renderRows(
-                                    group.rows ?? [],
-                                    group.dimension,
-                                    group.dimension_id,
-                                    group.label,
-                                )
-                            )}
-                        </section>
-                    ))}
-                </div>
-
-                {data.pagination.last_page > 1 && (
-                    <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
-                        <span>
-                            {data.pagination.from !== null
-                                ? t('Showing :from–:to of :total')
-                                      .replace(
-                                          ':from',
-                                          String(data.pagination.from),
-                                      )
-                                      .replace(
-                                          ':to',
-                                          String(data.pagination.to ?? ''),
-                                      )
-                                      .replace(
-                                          ':total',
-                                          String(data.pagination.total),
-                                      )
-                                : ''}
-                        </span>
-                        <div className="flex items-center gap-1">
-                            {data.pagination.links.map((link, index) =>
-                                link.url ? (
-                                    <Button
-                                        key={index}
-                                        variant={
-                                            link.active ? 'default' : 'outline'
-                                        }
-                                        size="sm"
-                                        className="h-8 min-w-8 px-2"
-                                        onClick={() =>
-                                            router.get(
-                                                link.url!,
-                                                {},
-                                                { preserveState: true },
-                                            )
-                                        }
-                                        dangerouslySetInnerHTML={{
-                                            __html: link.label,
-                                        }}
-                                    />
-                                ) : (
-                                    <Button
-                                        key={index}
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 min-w-8 px-2"
-                                        disabled
-                                        dangerouslySetInnerHTML={{
-                                            __html: link.label,
-                                        }}
-                                    />
-                                ),
-                            )}
-                        </div>
+                        </FilterPill>
+                        <TextFilterPill
+                            label={t('Name')}
+                            value={current.member_name}
+                            placeholder={t('Search by name or PNO…')}
+                            onApply={(value) => apply({ member_name: value })}
+                        />
+                        <TextFilterPill
+                            label={t('PNO')}
+                            value={current.pno}
+                            placeholder={t('Search by PNO…')}
+                            onApply={(value) => apply({ pno: value })}
+                        />
+                        <DateRangePill
+                            label={t('Date')}
+                            from={current.from_date}
+                            to={current.to_date}
+                            onChange={(from, to) =>
+                                apply({ from_date: from, to_date: to })
+                            }
+                            presets={dateRangePresets(t)}
+                        />
+                        {(
+                            [
+                                [
+                                    'limit',
+                                    'Top',
+                                    LIMIT_OPTIONS.map((v) => ({
+                                        value: v,
+                                        label: v,
+                                    })),
+                                    '50',
+                                ],
+                                [
+                                    'group_by',
+                                    'Group by',
+                                    GROUP_OPTIONS.map((o) => ({
+                                        value: o.value,
+                                        label: t(o.label),
+                                    })),
+                                    'overall',
+                                ],
+                                [
+                                    'subgroup_by',
+                                    'Subgroup',
+                                    SUBGROUP_OPTIONS.map((o) => ({
+                                        value: o.value,
+                                        label: t(o.label),
+                                    })),
+                                    'none',
+                                ],
+                                [
+                                    'ranking_scope',
+                                    'Ranking',
+                                    [
+                                        {
+                                            value: 'within_group',
+                                            label: t('Within group'),
+                                        },
+                                        {
+                                            value: 'overall',
+                                            label: t('Overall'),
+                                        },
+                                    ],
+                                    'within_group',
+                                ],
+                            ] as const
+                        ).map(([key, label, options, fallback]) => (
+                            <FilterPill
+                                key={key}
+                                label={t(label)}
+                                activeLabel={
+                                    current[key] !== fallback
+                                        ? options.find(
+                                              (o) => o.value === current[key],
+                                          )?.label
+                                        : undefined
+                                }
+                                onClear={() => apply({ [key]: fallback })}
+                            >
+                                <OptionList
+                                    options={[...options]}
+                                    value={current[key]}
+                                    onSelect={(value) =>
+                                        apply({ [key]: value ?? fallback })
+                                    }
+                                />
+                            </FilterPill>
+                        ))}
+                    </>
+                }
+                hasFilters={hasActiveFilters}
+                onClearFilters={clearFilters}
+                footer={paginationFooter}
+            >
+                <div className="h-full space-y-4 overflow-y-auto pr-1">
+                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        {(
+                            [
+                                ['Points', data.summary.points],
+                                [
+                                    'Participations',
+                                    data.summary.participation_count,
+                                ],
+                                [
+                                    'Achievements',
+                                    data.summary.achievement_count,
+                                ],
+                                ['Awards', data.summary.award_count],
+                            ] as const
+                        ).map(([label, value]) => (
+                            <div
+                                key={label}
+                                className="flex items-baseline justify-between rounded-xl border bg-card px-3 py-2"
+                            >
+                                <span className="text-xs text-muted-foreground">
+                                    {t(label)}
+                                </span>
+                                <span className="text-lg font-semibold tabular-nums">
+                                    {value}
+                                </span>
+                            </div>
+                        ))}
                     </div>
-                )}
-            </div>
+
+                    <div className="space-y-5">
+                        {data.groups.length === 0 && (
+                            <div className="rounded-lg border py-10 text-center text-muted-foreground">
+                                {t('No records found')}
+                            </div>
+                        )}
+
+                        {data.groups.map((group) => (
+                            <section key={group.key} className="space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <button
+                                        type="button"
+                                        className="text-left text-base font-semibold hover:underline"
+                                        onClick={() =>
+                                            openDrilldown({
+                                                title: group.label,
+                                                dimension: group.dimension,
+                                                dimensionId: group.dimension_id,
+                                                metric: 'all',
+                                            })
+                                        }
+                                    >
+                                        {group.label}
+                                    </button>
+                                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                        <button
+                                            type="button"
+                                            className="rounded border px-2 py-1 hover:bg-muted"
+                                            onClick={() =>
+                                                openDrilldown({
+                                                    title: `${group.label} · ${t('Points')}`,
+                                                    dimension: group.dimension,
+                                                    dimensionId:
+                                                        group.dimension_id,
+                                                    metric: 'points',
+                                                })
+                                            }
+                                        >
+                                            {t('Points')}:{' '}
+                                            {group.summary.points}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="rounded border px-2 py-1 hover:bg-muted"
+                                            onClick={() =>
+                                                openDrilldown({
+                                                    title: `${group.label} · ${t('Achievements')}`,
+                                                    dimension: group.dimension,
+                                                    dimensionId:
+                                                        group.dimension_id,
+                                                    metric: 'achievements',
+                                                })
+                                            }
+                                        >
+                                            {t('Achievements')}:{' '}
+                                            {group.summary.achievement_count}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {group.subgroups &&
+                                group.subgroups.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {group.subgroups.map((subgroup) => (
+                                            <div
+                                                key={subgroup.key}
+                                                className="space-y-2"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    className="text-left text-sm font-medium hover:underline"
+                                                    onClick={() =>
+                                                        openDrilldown({
+                                                            title: `${group.label} · ${subgroup.label}`,
+                                                            dimension:
+                                                                subgroup.dimension,
+                                                            dimensionId:
+                                                                subgroup.dimension_id,
+                                                            metric: 'all',
+                                                        })
+                                                    }
+                                                >
+                                                    {subgroup.label}
+                                                </button>
+                                                {renderRows(
+                                                    subgroup.rows ?? [],
+                                                    subgroup.dimension,
+                                                    subgroup.dimension_id,
+                                                    subgroup.label,
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    renderRows(
+                                        group.rows ?? [],
+                                        group.dimension,
+                                        group.dimension_id,
+                                        group.label,
+                                    )
+                                )}
+                            </section>
+                        ))}
+                    </div>
+                </div>
+            </ListingLayout>
 
             <Dialog
                 open={detailOpen}

@@ -1,6 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import {
     ArrowLeft,
+    ArrowRight,
     Camera,
     ClipboardCheck,
     FileText,
@@ -8,7 +9,7 @@ import {
     ShieldCheck,
     UserRound,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -81,12 +82,14 @@ type Attendance = {
 
 type Props = {
     attendance: Attendance;
+    queue: { next_id: number | null; pending_count: number };
     reviewActions: string[];
     attendanceStatuses: string[];
 };
 
 export default function ExternalTrainingAttendanceShow({
     attendance,
+    queue,
     reviewActions,
     attendanceStatuses,
 }: Props) {
@@ -96,6 +99,7 @@ export default function ExternalTrainingAttendanceShow({
         attendance.corrected_attendance_status ?? attendance.attendance_status,
     );
     const canCorrectAttendance = reviewActions.includes('correct');
+    const nextFlag = useRef<HTMLInputElement>(null);
 
     function updateCorrectedStatus(status: string): void {
         if (!canCorrectAttendance) {
@@ -159,12 +163,30 @@ export default function ExternalTrainingAttendanceShow({
                             </Badge>
                         </div>
                     </div>
-                    <Button asChild variant="outline">
-                        <Link href="/external-training-attendances">
-                            <ArrowLeft className="size-4" />
-                            {t('Back')}
-                        </Link>
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {queue.next_id !== null && (
+                            <Button asChild>
+                                <Link
+                                    href={`/external-training-attendances/${queue.next_id}`}
+                                >
+                                    {t('Next to review')}
+                                    <Badge
+                                        variant="secondary"
+                                        className="px-1.5 py-0 text-[10px]"
+                                    >
+                                        {queue.pending_count}
+                                    </Badge>
+                                    <ArrowRight className="size-4" />
+                                </Link>
+                            </Button>
+                        )}
+                        <Button asChild variant="outline">
+                            <Link href="/external-training-attendances">
+                                <ArrowLeft className="size-4" />
+                                {t('Back')}
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -449,6 +471,12 @@ export default function ExternalTrainingAttendanceShow({
                                     {({ errors, processing }) => (
                                         <>
                                             <input
+                                                ref={nextFlag}
+                                                type="hidden"
+                                                name="next"
+                                                defaultValue="0"
+                                            />
+                                            <input
                                                 type="hidden"
                                                 name="_method"
                                                 value="patch"
@@ -570,13 +598,52 @@ export default function ExternalTrainingAttendanceShow({
                                                 />
                                             </div>
 
-                                            <Button
-                                                type="submit"
-                                                disabled={processing}
-                                                className="w-full"
+                                            <div
+                                                className={
+                                                    queue.next_id !== null
+                                                        ? 'grid gap-2 sm:grid-cols-2 xl:grid-cols-1'
+                                                        : 'grid'
+                                                }
                                             >
-                                                {t('Save review')}
-                                            </Button>
+                                                <Button
+                                                    type="submit"
+                                                    variant={
+                                                        queue.next_id !== null
+                                                            ? 'outline'
+                                                            : 'default'
+                                                    }
+                                                    disabled={processing}
+                                                    className="w-full"
+                                                    onClick={() => {
+                                                        if (nextFlag.current) {
+                                                            nextFlag.current.value =
+                                                                '0';
+                                                        }
+                                                    }}
+                                                >
+                                                    {t('Save review')}
+                                                </Button>
+                                                {queue.next_id !== null && (
+                                                    <Button
+                                                        type="submit"
+                                                        disabled={processing}
+                                                        className="w-full"
+                                                        onClick={() => {
+                                                            if (
+                                                                nextFlag.current
+                                                            ) {
+                                                                nextFlag.current.value =
+                                                                    '1';
+                                                            }
+                                                        }}
+                                                    >
+                                                        {t(
+                                                            'Save & next review',
+                                                        )}
+                                                        <ArrowRight className="size-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </>
                                     )}
                                 </Form>

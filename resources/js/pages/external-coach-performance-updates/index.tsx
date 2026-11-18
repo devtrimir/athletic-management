@@ -1,34 +1,43 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Calendar, Search, X } from 'lucide-react';
-import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { Eye, Printer } from 'lucide-react';
 
-import type { ComboboxItem } from '@/components/combobox';
-import { Combobox } from '@/components/combobox';
-import Heading from '@/components/heading';
+import {
+    DateRangePill,
+    FilterPill,
+    OptionList,
+    SearchableOptionList,
+    TextFilterPill,
+    dateRangePresets,
+} from '@/components/data-table/filter-pill';
+import {
+    ListingLayout,
+    ListingTable,
+} from '@/components/data-table/listing-layout';
+import {
+    listingCellClass,
+    listingHeadCellClass,
+    stickyRightBodyCellClass,
+    stickyRightHeadCellClass,
+} from '@/components/data-table/table-primitives';
 import { ListingPagination } from '@/components/listing-pagination';
 import type { PaginatedListing } from '@/components/listing-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    openPrintView,
+    useDebouncedSearch,
+    useListingFilters,
+} from '@/hooks/use-listing-filters';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate } from '@/lib/dates';
+import { cn } from '@/lib/utils';
 
 type Update = {
     id: number;
@@ -45,11 +54,6 @@ type Update = {
     sport: { name: string };
 };
 
-type Sport = {
-    id: number;
-    name: string;
-};
-
 type Filters = {
     member_query: string | null;
     coach_query: string | null;
@@ -59,16 +63,14 @@ type Filters = {
     date_to: string | null;
 };
 
-type PaginatedUpdates = PaginatedListing & {
-    data: Update[];
-};
-
 type Props = {
-    updates: PaginatedUpdates;
+    updates: PaginatedListing & { data: Update[] };
     filters: Filters;
     reviewStatuses: string[];
-    sports: Sport[];
+    sports: { id: number; name: string }[];
 };
+
+const PATH = '/external-coach-performance-updates';
 
 export default function ExternalCoachPerformanceUpdatesIndex({
     updates,
@@ -77,354 +79,261 @@ export default function ExternalCoachPerformanceUpdatesIndex({
     sports,
 }: Props) {
     const { t } = useTranslation();
-    const [memberQuery, setMemberQuery] = useState<string>(
-        filters.member_query ?? '',
+    const { apply, clear } = useListingFilters(PATH);
+    const [search, setSearch] = useDebouncedSearch(
+        filters.member_query,
+        (member_query) => apply(filters, { member_query }),
     );
-    const [coachQuery, setCoachQuery] = useState<string>(
-        filters.coach_query ?? '',
-    );
-    const [dateFrom, setDateFrom] = useState<string>(filters.date_from ?? '');
-    const [dateTo, setDateTo] = useState<string>(filters.date_to ?? '');
-    const [reviewStatusFilter, setReviewStatusFilter] = useState<string>(
-        filters.review_status ?? 'all',
-    );
-    const [sportFilter, setSportFilter] = useState<string>(
-        filters.sport_id ?? 'all',
-    );
-    const sportItems: ComboboxItem[] = sports.map((sport) => ({
-        value: String(sport.id),
-        label: sport.name,
-    }));
-    const hasFilters =
-        memberQuery.trim() !== '' ||
-        coachQuery.trim() !== '' ||
-        dateFrom !== '' ||
-        dateTo !== '' ||
-        reviewStatusFilter !== 'all' ||
-        sportFilter !== 'all';
-
-    const hasDateError = dateFrom !== '' && dateTo !== '' && dateFrom > dateTo;
-
-    function applyFilters(event?: FormEvent<HTMLFormElement>) {
-        event?.preventDefault();
-
-        if (hasDateError) {
-            return;
-        }
-
-        const params: Record<string, string> = {};
-
-        if (memberQuery.trim() !== '') {
-            params['filter[member_query]'] = memberQuery.trim();
-        }
-
-        if (coachQuery.trim() !== '') {
-            params['filter[coach_query]'] = coachQuery.trim();
-        }
-
-        if (dateFrom !== '') {
-            params['filter[date_from]'] = dateFrom;
-        }
-
-        if (dateTo !== '') {
-            params['filter[date_to]'] = dateTo;
-        }
-
-        if (reviewStatusFilter !== 'all') {
-            params['filter[review_status]'] = reviewStatusFilter;
-        }
-
-        if (sportFilter !== 'all') {
-            params['filter[sport_id]'] = sportFilter;
-        }
-
-        router.get('/external-coach-performance-updates', params, {
-            replace: true,
-            preserveScroll: true,
-            preserveState: true,
-        });
-    }
-
-    function clearFilters() {
-        setMemberQuery('');
-        setCoachQuery('');
-        setDateFrom('');
-        setDateTo('');
-        setReviewStatusFilter('all');
-        setSportFilter('all');
-
-        router.get(
-            '/external-coach-performance-updates',
-            {},
-            { replace: true, preserveScroll: true, preserveState: true },
-        );
-    }
+    const hasFilters = Object.values(filters).some(Boolean);
+    const sportName = sports.find(
+        (sport) => String(sport.id) === filters.sport_id,
+    )?.name;
 
     return (
         <>
             <Head title={t('External coach performance updates')} />
-
-            <div className="space-y-4 p-4 sm:p-6">
-                <Heading
-                    title={t('External coach performance updates')}
-                    description={t(
-                        'Review progress updates submitted by external coaches.',
-                    )}
-                />
-
-                <form
-                    className="rounded-lg border bg-card p-4"
-                    onSubmit={applyFilters}
-                >
-                    <div className="grid [grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))] items-end gap-2">
-                        <div className="space-y-1">
-                            <Label
-                                htmlFor="member_query"
-                                className="text-sm font-medium"
-                            >
-                                {t('Member')}
-                            </Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="member_query"
-                                    name="member_query"
-                                    value={memberQuery}
-                                    onChange={(event) =>
-                                        setMemberQuery(event.target.value)
-                                    }
-                                    placeholder={t(
-                                        'Search member by name, code, or PNO',
-                                    )}
-                                    className="pl-9"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label
-                                htmlFor="coach_query"
-                                className="text-sm font-medium"
-                            >
-                                {t('External coach')}
-                            </Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="coach_query"
-                                    name="coach_query"
-                                    value={coachQuery}
-                                    onChange={(event) =>
-                                        setCoachQuery(event.target.value)
-                                    }
-                                    placeholder={t(
-                                        'Search coach by name, phone, or email',
-                                    )}
-                                    className="pl-9"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label
-                                htmlFor="date_from"
-                                className="text-sm font-medium"
-                            >
-                                {t('Date from')}
-                            </Label>
-                            <div className="relative">
-                                <Calendar className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="date_from"
-                                    name="date_from"
-                                    type="date"
-                                    value={dateFrom}
-                                    onChange={(event) =>
-                                        setDateFrom(event.target.value)
-                                    }
-                                    className="pl-9"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label
-                                htmlFor="date_to"
-                                className="text-sm font-medium"
-                            >
-                                {t('Date to')}
-                            </Label>
-                            <div className="relative">
-                                <Calendar className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-                                <Input
-                                    id="date_to"
-                                    name="date_to"
-                                    type="date"
-                                    value={dateTo}
-                                    onChange={(event) =>
-                                        setDateTo(event.target.value)
-                                    }
-                                    className={
-                                        hasDateError
-                                            ? 'border-destructive pl-9'
-                                            : 'pl-9'
-                                    }
-                                />
-                            </div>
-                            {hasDateError ? (
-                                <p className="text-xs text-destructive">
-                                    {t('Date from cannot be after date to.')}
-                                </p>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label
-                                htmlFor="review_status"
-                                className="text-sm font-medium"
-                            >
-                                {t('Review status')}
-                            </Label>
-                            <Select
-                                value={reviewStatusFilter}
-                                onValueChange={setReviewStatusFilter}
-                            >
-                                <SelectTrigger id="review_status">
-                                    <SelectValue placeholder={t('All')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        {t('All')}
-                                    </SelectItem>
-                                    {reviewStatuses.map((status) => (
-                                        <SelectItem key={status} value={status}>
-                                            {t(status)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label
-                                htmlFor="sport_filter"
-                                className="text-sm font-medium"
-                            >
-                                {t('Sport')}
-                            </Label>
-                            <Combobox
-                                id="sport_filter"
-                                value={sportFilter === 'all' ? '' : sportFilter}
-                                onValueChange={(value) =>
-                                    setSportFilter(value || 'all')
+            <ListingLayout
+                title={t('External coach performance updates')}
+                description={t(
+                    'Review progress updates submitted by external coaches.',
+                )}
+                search={{
+                    value: search,
+                    onChange: setSearch,
+                    placeholder: t('Search member name or PNO'),
+                }}
+                actions={
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openPrintView(PATH, filters)}
+                    >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        {t('Print')}
+                    </Button>
+                }
+                filters={
+                    <>
+                        <TextFilterPill
+                            label={t('Coach')}
+                            value={filters.coach_query ?? ''}
+                            placeholder={t('Coach name or phone')}
+                            onApply={(coach_query) =>
+                                apply(filters, { coach_query })
+                            }
+                        />
+                        <FilterPill
+                            label={t('Sport')}
+                            activeLabel={sportName}
+                            onClear={() => apply(filters, { sport_id: null })}
+                        >
+                            <SearchableOptionList
+                                options={sports.map((sport) => ({
+                                    value: String(sport.id),
+                                    label: sport.name,
+                                }))}
+                                value={filters.sport_id ?? undefined}
+                                onSelect={(sport_id) =>
+                                    apply(filters, {
+                                        sport_id: sport_id ?? null,
+                                    })
                                 }
-                                items={sportItems}
-                                placeholder={t('All sports')}
-                                searchPlaceholder={t('Search sport')}
-                                emptyMessage={t('No sport found.')}
+                                searchPlaceholder={t('Search by sport')}
                             />
-                        </div>
-                    </div>
-
-                    <div className="mt-1 flex items-center justify-end gap-2">
-                        {hasFilters ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={clearFilters}
-                            >
-                                <X className="size-4" />
-                                {t('Clear filters')}
-                            </Button>
-                        ) : null}
-                        <Button type="submit" disabled={hasDateError}>
-                            {t('Apply filters')}
-                        </Button>
-                    </div>
-                </form>
-
-                <div className="overflow-hidden rounded-lg border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-20">
-                                    {t('S.No.')}
+                        </FilterPill>
+                        <FilterPill
+                            label={t('Review status')}
+                            activeLabel={
+                                filters.review_status
+                                    ? t(filters.review_status)
+                                    : undefined
+                            }
+                            onClear={() =>
+                                apply(filters, { review_status: null })
+                            }
+                        >
+                            <OptionList
+                                options={reviewStatuses.map((value) => ({
+                                    value,
+                                    label: t(value),
+                                }))}
+                                value={filters.review_status ?? undefined}
+                                onSelect={(review_status) =>
+                                    apply(filters, {
+                                        review_status: review_status ?? null,
+                                    })
+                                }
+                            />
+                        </FilterPill>
+                        <DateRangePill
+                            label={t('Date')}
+                            from={filters.date_from ?? ''}
+                            to={filters.date_to ?? ''}
+                            presets={dateRangePresets(t)}
+                            onChange={(date_from, date_to) =>
+                                apply(filters, { date_from, date_to })
+                            }
+                        />
+                    </>
+                }
+                hasFilters={hasFilters}
+                onClearFilters={clear}
+                resultCount={updates.total}
+                footer={
+                    <ListingPagination
+                        paginator={updates}
+                        itemLabel={t('performance updates')}
+                        className="shrink-0 shadow-sm"
+                    />
+                }
+            >
+                <ListingTable minWidth={950}>
+                    <colgroup>
+                        <col className="w-11" />
+                        <col className="w-[110px]" />
+                        <col />
+                        <col className="w-[200px]" />
+                        <col className="w-[150px]" />
+                        <col className="w-[80px]" />
+                        <col className="w-[120px]" />
+                        <col className="w-[130px]" />
+                        <col className="w-[64px]" />
+                    </colgroup>
+                    <TableHeader className="sticky top-0 z-20">
+                        <TableRow className="hover:bg-transparent">
+                            {[
+                                'S.No.',
+                                'Date',
+                                'Member',
+                                'External coach',
+                                'Sport',
+                                'Score',
+                                'Level',
+                                'Review status',
+                            ].map((label, position) => (
+                                <TableHead
+                                    key={label}
+                                    className={cn(
+                                        listingHeadCellClass,
+                                        position === 0 && 'text-center',
+                                    )}
+                                >
+                                    {t(label)}
                                 </TableHead>
-                                <TableHead>{t('Date')}</TableHead>
-                                <TableHead>{t('Member')}</TableHead>
-                                <TableHead>{t('External coach')}</TableHead>
-                                <TableHead>{t('Sport')}</TableHead>
-                                <TableHead>{t('Score')}</TableHead>
-                                <TableHead>{t('Review status')}</TableHead>
-                                <TableHead>{t('Action')}</TableHead>
+                            ))}
+                            <TableHead
+                                className={cn(
+                                    listingHeadCellClass,
+                                    stickyRightHeadCellClass,
+                                    'text-right',
+                                )}
+                            >
+                                {t('Action')}
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {updates.data.length === 0 ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={9}
+                                    className="py-12 text-center text-muted-foreground"
+                                >
+                                    {t('No performance updates found.')}
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {updates.data.length === 0 ? (
-                                <TableRow>
+                        ) : (
+                            updates.data.map((update, position) => (
+                                <TableRow
+                                    key={update.id}
+                                    className="cursor-pointer hover:bg-muted/30"
+                                    onClick={() =>
+                                        router.visit(`${PATH}/${update.id}`)
+                                    }
+                                >
                                     <TableCell
-                                        colSpan={8}
-                                        className="h-24 text-center text-sm text-muted-foreground"
+                                        className={cn(
+                                            listingCellClass,
+                                            'text-center font-mono text-muted-foreground tabular-nums',
+                                        )}
                                     >
-                                        {t('No performance updates found.')}
+                                        {(updates.from ?? 1) + position}
                                     </TableCell>
-                                </TableRow>
-                            ) : null}
-                            {updates.data.map((update, index) => (
-                                <TableRow key={update.id}>
-                                    <TableCell>
-                                        {(updates.from ?? 1) + index}
-                                    </TableCell>
-                                    <TableCell>
+                                    <TableCell className={listingCellClass}>
                                         {formatDate(update.update_date)}
                                     </TableCell>
-                                    <TableCell>
-                                        <div className="font-medium">
-                                            {update.member.full_name}
-                                        </div>
-                                        {update.member.pno ? (
-                                            <div className="text-xs text-muted-foreground">
-                                                {update.member.pno}
-                                            </div>
-                                        ) : null}
+                                    <TableCell className={listingCellClass}>
+                                        <span className="block truncate">
+                                            <span className="font-medium">
+                                                {update.member.full_name}
+                                            </span>
+                                            {update.member.pno && (
+                                                <span className="ml-1.5 text-muted-foreground">
+                                                    {update.member.pno}
+                                                </span>
+                                            )}
+                                        </span>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className={listingCellClass}>
                                         {update.external_coach.name}
                                     </TableCell>
-                                    <TableCell>{update.sport.name}</TableCell>
-                                    <TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {update.sport.name}
+                                    </TableCell>
+                                    <TableCell
+                                        className={cn(
+                                            listingCellClass,
+                                            'tabular-nums',
+                                        )}
+                                    >
                                         {update.performance_score ?? '-'}
                                     </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">
+                                    <TableCell className={listingCellClass}>
+                                        {update.performance_level
+                                            ? t(update.performance_level)
+                                            : '-'}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        <Badge
+                                            variant="outline"
+                                            className="px-1.5 py-0 text-[10px]"
+                                        >
                                             {t(update.review_status)}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell>
-                                        <Button
-                                            asChild
-                                            size="sm"
-                                            variant="outline"
+                                    <TableCell
+                                        className={cn(
+                                            listingCellClass,
+                                            stickyRightBodyCellClass,
+                                        )}
+                                    >
+                                        <div
+                                            className="flex justify-end"
+                                            onClick={(event) =>
+                                                event.stopPropagation()
+                                            }
                                         >
-                                            <Link
-                                                href={`/external-coach-performance-updates/${update.id}`}
+                                            <Button
+                                                asChild
+                                                size="icon"
+                                                variant="ghost"
+                                                title={t('Review')}
                                             >
-                                                {t('Review')}
-                                            </Link>
-                                        </Button>
+                                                <Link
+                                                    href={`${PATH}/${update.id}`}
+                                                >
+                                                    <Eye className="size-4" />
+                                                </Link>
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                <ListingPagination
-                    paginator={updates}
-                    itemLabel={t('performance updates')}
-                />
-            </div>
+                            ))
+                        )}
+                    </TableBody>
+                </ListingTable>
+            </ListingLayout>
         </>
     );
 }
-

@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTranslation } from '@/hooks/use-translation';
-import { formatDate } from '@/lib/dates';
+import { formatDate, formatTime } from '@/lib/dates';
 
 type Assignment = {
     id: number;
@@ -320,6 +320,7 @@ function AssignedAthlete({ assignment }: { assignment: Assignment }) {
 function AssignmentSchedule({ assignment }: { assignment: Assignment }) {
     const range = `${formatDate(assignment.start_date)} - ${formatDate(assignment.end_date)}`;
     const time = [assignment.training_start_time, assignment.training_end_time]
+        .map((value) => formatTime(value))
         .filter(Boolean)
         .join(' - ');
 
@@ -352,4 +353,3 @@ function memberStatusBadgeClass(status: string): string {
             return 'border-muted bg-muted text-muted-foreground';
     }
 }
-

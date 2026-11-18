@@ -16,6 +16,7 @@ import {
 } from '@/components/data-table/table-primitives';
 import Heading from '@/components/heading';
 import { ListingPagination } from '@/components/listing-pagination';
+import { MemberAvatar } from '@/components/members/member-table-cells';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,9 @@ type ExternalCoach = {
     name: string;
     email: string;
     phone: string | null;
+    photo_path: string | null;
+    sports: { id: number; name: string }[];
+    training_venues: { id: number; name: string }[];
     status: string;
     experience_years: number | null;
     active_coached_players_count: number;
@@ -58,6 +62,36 @@ type Props = {
     statuses: string[];
     perPage: number;
 };
+
+type Named = { id: number; name: string }[];
+
+function joinNames(items: Named): string {
+    return items.map((item) => item.name).join(', ');
+}
+
+/** First two names plus a "+N" badge; full list on hover. */
+function NameList({ items }: { items: Named }) {
+    if (items.length === 0) {
+        return <>-</>;
+    }
+
+    return (
+        <span
+            className="flex min-w-0 items-center gap-1"
+            title={joinNames(items)}
+        >
+            <span className="truncate">{joinNames(items.slice(0, 2))}</span>
+            {items.length > 2 && (
+                <Badge
+                    variant="outline"
+                    className="shrink-0 px-1.5 py-0 text-[10px]"
+                >
+                    +{items.length - 2}
+                </Badge>
+            )}
+        </span>
+    );
+}
 
 function escapeCsvCell(value: string | number | null): string {
     const text = String(value ?? '').replaceAll('"', '""');
@@ -203,6 +237,8 @@ export default function ExternalCoachesIndex({
             t('Name'),
             t('Email'),
             t('Phone'),
+            t('Sports'),
+            t('Training venues'),
             t('Experience'),
             t('Active players'),
             t('Status'),
@@ -213,6 +249,8 @@ export default function ExternalCoachesIndex({
             coach.name,
             coach.email,
             coach.phone ?? '-',
+            joinNames(coach.sports) || '-',
+            joinNames(coach.training_venues) || '-',
             coach.experience_years ?? '-',
             coach.active_coached_players_count,
             t(coach.status),
@@ -238,73 +276,22 @@ export default function ExternalCoachesIndex({
     }
 
     function printTable() {
-        const headers = [
-            t('S.No.'),
-            t('Coach'),
-            t('Email'),
-            t('Phone'),
-            t('Coaching'),
-            t('Status'),
-        ];
+        const params = new URLSearchParams();
 
-        const printWindow = window.open('', '_blank', 'width=1100,height=800');
-
-        if (!printWindow) {
-            return;
+        if (filters.q) {
+            params.set('filter[q]', filters.q);
         }
 
-        const coachesToPrint = selectedOrVisibleCoaches();
+        if (filters.status) {
+            params.set('filter[status]', filters.status);
+        }
 
-        printWindow.document.write(`
-            <!doctype html>
-            <html>
-                <head>
-                    <meta charset="utf-8">
-                    <title>${t('External coaches')}</title>
-                    <style>
-                        body{font-family:Arial,sans-serif;padding:16px;font-size:12px}
-                        h2{font-size:18px;margin:0 0 12px}
-                        table{width:100%;border-collapse:collapse}
-                        th,td{border:1px solid #ccc;padding:6px 8px;text-align:center;vertical-align:middle}
-                        th{background:#1f2937;color:#fff}
-                    </style>
-                </head>
-                <body>
-                    <h2>${t('External coaches')}</h2>
-                    <table>
-                        <thead>
-                            <tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr>
-                        </thead>
-                        <tbody>
-                            ${coachesToPrint
-                                .map((coach) => {
-                                    const cells = [
-                                        rowNumber(coach),
-                                        coach.name,
-                                        coach.email,
-                                        coach.phone ?? '-',
-                                        [
-                                            `${t('Experience')}: ${coach.experience_years ?? '-'}`,
-                                            `${t('Active players')}: ${coach.active_coached_players_count}`,
-                                        ].join(' / '),
-                                        t(coach.status),
-                                    ];
-
-                                    return `<tr>${cells
-                                        .map(
-                                            (cell) =>
-                                                `<td>${String(cell)}</td>`,
-                                        )
-                                        .join('')}</tr>`;
-                                })
-                                .join('')}
-                        </tbody>
-                    </table>
-                    <script>window.onload=()=>{window.print();window.close()};</script>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
+        selectedCoachIds.forEach((id) => params.append('ids[]', String(id)));
+        window.open(
+            `/external-coaches/print?${params.toString()}`,
+            '_blank',
+            'noopener',
+        );
     }
 
     return (
@@ -406,14 +393,17 @@ export default function ExternalCoachesIndex({
                 <div className="min-h-0 flex-1 overflow-hidden">
                     <div className="h-full min-h-0 max-w-full min-w-0 overflow-hidden rounded-xl border bg-card [&>[data-slot=table-container]]:h-full">
                         <Table
-                            className={`${listingTableClass} min-w-[1000px]`}
+                            className={`${listingTableClass} min-w-[1400px]`}
                         >
                             <colgroup>
                                 <col className="w-9" />
                                 <col className="w-11" />
+                                <col className="w-[52px]" />
                                 <col className="w-[220px]" />
                                 <col className="w-[260px]" />
                                 <col className="w-[140px]" />
+                                <col className="w-[200px]" />
+                                <col className="w-[240px]" />
                                 <col className="w-[100px]" />
                                 <col className="w-[120px]" />
                                 <col />
@@ -459,6 +449,15 @@ export default function ExternalCoachesIndex({
                                             stickyLeftHeadCellClass,
                                         )}
                                     >
+                                        {t('Photo')}
+                                    </TableHead>
+                                    <TableHead
+                                        style={{ left: 132 }}
+                                        className={cn(
+                                            listingHeadCellClass,
+                                            stickyLeftHeadCellClass,
+                                        )}
+                                    >
                                         {t('Coach')}
                                     </TableHead>
                                     <TableHead className={listingHeadCellClass}>
@@ -466,6 +465,12 @@ export default function ExternalCoachesIndex({
                                     </TableHead>
                                     <TableHead className={listingHeadCellClass}>
                                         {t('Phone')}
+                                    </TableHead>
+                                    <TableHead className={listingHeadCellClass}>
+                                        {t('Sports')}
+                                    </TableHead>
+                                    <TableHead className={listingHeadCellClass}>
+                                        {t('Training venues')}
                                     </TableHead>
                                     <TableHead className={listingHeadCellClass}>
                                         {t('Experience')}
@@ -491,7 +496,7 @@ export default function ExternalCoachesIndex({
                                 {externalCoaches.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={9}
+                                            colSpan={12}
                                             className="py-12 text-center text-muted-foreground"
                                         >
                                             {hasFilters
@@ -558,6 +563,18 @@ export default function ExternalCoachesIndex({
                                                     stickyLeftBodyCellClass,
                                                 )}
                                             >
+                                                <MemberAvatar
+                                                    photoPath={coach.photo_path}
+                                                    name={coach.name}
+                                                />
+                                            </TableCell>
+                                            <TableCell
+                                                style={{ left: 132 }}
+                                                className={cn(
+                                                    listingCellClass,
+                                                    stickyLeftBodyCellClass,
+                                                )}
+                                            >
                                                 <span className="block truncate font-medium">
                                                     {coach.name}
                                                 </span>
@@ -573,6 +590,22 @@ export default function ExternalCoachesIndex({
                                                 className={listingCellClass}
                                             >
                                                 {coach.phone ?? '-'}
+                                            </TableCell>
+                                            <TableCell
+                                                className={listingCellClass}
+                                            >
+                                                <NameList
+                                                    items={coach.sports}
+                                                />
+                                            </TableCell>
+                                            <TableCell
+                                                className={listingCellClass}
+                                            >
+                                                <NameList
+                                                    items={
+                                                        coach.training_venues
+                                                    }
+                                                />
                                             </TableCell>
                                             <TableCell
                                                 className={cn(

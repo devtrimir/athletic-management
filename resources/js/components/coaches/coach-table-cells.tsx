@@ -31,7 +31,7 @@ export const coachHeadCellClass = listingHeadCellClass;
 
 export const coachCellClass = listingCellClass;
 
-export const teamGroupEndClass = 'border-b-2 border-b-primary/30';
+export const teamGroupEndClass = 'border-b-border';
 
 /** Widths (px) for the leading select / S.No / Coach columns, shared by both listing tables. */
 export const LEADING_COL_WIDTH = {

@@ -36,6 +36,7 @@ class ExternalCoachController extends Controller
         $externalCoaches = ExternalCoach::query()
             ->where('organization_id', $orgId)
             ->filter($statusFilter, $search)
+            ->with(['sports:id,name', 'trainingVenues:id,name'])
             ->withActivePlayersCount()
             ->latest('id')
             ->paginate($perPage)
@@ -49,6 +50,38 @@ class ExternalCoachController extends Controller
             ],
             'statuses' => $this->statuses(),
             'perPage' => $perPage,
+        ]);
+    }
+
+    /**
+     * Printable listing (letterhead + table) for the current filters, or for the
+     * selected `ids` when given.
+     */
+    public function print(Request $request): Response
+    {
+        Gate::authorize('viewAny', ExternalCoach::class);
+        abort_unless($request->user()->can('coaches.print'), 403);
+
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+        $statusFilter = $this->filterString($filters['status'] ?? null);
+        $search = $this->filterString($filters['q'] ?? null);
+        $ids = collect((array) $request->query('ids', []))->map(fn ($id): int => (int) $id)->filter()->values();
+
+        $coaches = ExternalCoach::query()
+            ->where('organization_id', (int) $request->user()->organization_id)
+            ->filter($statusFilter, $search)
+            ->when($ids->isNotEmpty(), fn ($query) => $query->whereKey($ids))
+            ->with(['sports:id,name', 'trainingVenues:id,name'])
+            ->withActivePlayersCount()
+            ->orderBy('name')
+            ->limit(2000)
+            ->get(['id', 'name', 'email', 'phone', 'photo_path', 'status', 'experience_years', 'city']);
+
+        return Inertia::render('external-coaches/print', [
+            'coaches' => $coaches,
+            'filters' => ['q' => $search, 'status' => $statusFilter, 'selected' => $ids->count()],
+            'printedAt' => now()->timezone('Asia/Kolkata')->format('d M Y, h:i A').' IST',
         ]);
     }
 
@@ -93,7 +126,7 @@ class ExternalCoachController extends Controller
             'statusHistory.recordedBy:id,name',
             'sports:id,name',
             'trainingVenues:id,name',
-            'documents:id,external_coach_id,type,original_name,size_bytes',
+            'documents:id,external_coach_id,type,original_name,mime_type,size_bytes',
         ])->loadCount([
             'externalCoachingAssignments as active_assignments_count' => fn ($query) => $query
                 ->currentlyActive()
@@ -260,7 +293,7 @@ class ExternalCoachController extends Controller
     {
         Gate::authorize('update', $externalCoach);
 
-        $externalCoach->load('documents:id,external_coach_id,type,original_name,size_bytes');
+        $externalCoach->load('documents:id,external_coach_id,type,original_name,mime_type,size_bytes');
 
         return Inertia::render('external-coaches/edit', [
             'externalCoach' => [

@@ -89,6 +89,7 @@ class MedalMemberScope
                 'm.id',
                 'm.member_code',
                 'm.pno',
+                'm.photo_path',
                 'm.full_name',
                 'm.rank',
                 'm.gender',

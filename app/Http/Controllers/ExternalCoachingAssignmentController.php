@@ -11,6 +11,7 @@ use App\Models\ExternalCoachingAssignment;
 use App\Models\Sport;
 use App\Models\TrainingVenue;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -41,60 +42,15 @@ class ExternalCoachingAssignmentController extends Controller
     {
         Gate::authorize('viewAny', ExternalCoachingAssignment::class);
 
-        $filters = $request->query('filter', []);
-        $filters = is_array($filters) ? $filters : [];
+        $filters = $this->listingFilters($request);
+        $statusFilter = $filters['status'];
+        $memberQuery = $filters['memberQuery'];
+        $coachQuery = $filters['coachQuery'];
+        $sportId = $filters['sportId'];
+        $startDateFrom = $filters['startDateFrom'];
+        $startDateTo = $filters['startDateTo'];
 
-        $statusFilter = $this->filterString($filters['status'] ?? null);
-        $memberQuery = $this->filterString($filters['member_query'] ?? $filters['member'] ?? null);
-        $coachQuery = $this->filterString($filters['coach_query'] ?? $filters['coach'] ?? null);
-        $sportId = $this->filterString($filters['sport_id'] ?? null);
-        $startDateFrom = $this->filterDate($filters['start_date_from'] ?? $filters['from_date'] ?? null);
-        $startDateTo = $this->filterDate($filters['start_date_to'] ?? $filters['to_date'] ?? null);
-
-        $assignments = ExternalCoachingAssignment::query()
-            ->with(['member:id,member_code,pno,full_name', 'externalCoach:id,name,email,phone', 'trainingVenue:id,name', 'sport:id,name'])
-            ->when($statusFilter !== null, fn ($query) => $query->where('status', $statusFilter))
-            ->when($sportId !== null, fn ($query) => $query->where('sport_id', $sportId))
-            ->when($memberQuery !== null, function ($query) use ($memberQuery): void {
-                $query->whereHas('member', function ($memberQueryBuilder) use ($memberQuery): void {
-                    $memberQueryBuilder
-                        ->where('full_name', 'like', "%{$memberQuery}%")
-                        ->orWhere('pno', 'like', "%{$memberQuery}%");
-                });
-            })
-            ->when($coachQuery !== null, function ($query) use ($coachQuery): void {
-                $query->whereHas('externalCoach', function ($coachQueryBuilder) use ($coachQuery): void {
-                    $coachQueryBuilder
-                        ->where('name', 'like', "%{$coachQuery}%")
-                        ->orWhere('phone', 'like', "%{$coachQuery}%");
-                });
-            })
-            ->when(
-                $startDateFrom !== null || $startDateTo !== null,
-                function ($query) use ($startDateFrom, $startDateTo): void {
-                    if ($startDateFrom === null) {
-                        $query->whereDate('start_date', '<=', $startDateTo);
-
-                        return;
-                    }
-
-                    if ($startDateTo === null) {
-                        $query->where(function ($query) use ($startDateFrom): void {
-                            $query->whereDate('end_date', '>=', $startDateFrom)
-                                ->orWhereNull('end_date');
-                        });
-
-                        return;
-                    }
-
-                    $query
-                        ->whereDate('start_date', '<=', $startDateTo)
-                        ->where(function ($query) use ($startDateFrom): void {
-                            $query->whereDate('end_date', '>=', $startDateFrom)
-                                ->orWhereNull('end_date');
-                        });
-                },
-            )
+        $assignments = $this->listingQuery($filters)
             ->latest('id')
             ->paginate(25)
             ->withQueryString();
@@ -234,6 +190,105 @@ class ExternalCoachingAssignmentController extends Controller
     /**
      * @return array<string, mixed>
      */
+    /**
+     * @return array{status: ?string, memberQuery: ?string, coachQuery: ?string, sportId: ?string, startDateFrom: ?string, startDateTo: ?string}
+     */
+    private function listingFilters(Request $request): array
+    {
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+
+        return [
+            'status' => $this->filterString($filters['status'] ?? null),
+            'memberQuery' => $this->filterString($filters['member_query'] ?? $filters['member'] ?? null),
+            'coachQuery' => $this->filterString($filters['coach_query'] ?? $filters['coach'] ?? null),
+            'sportId' => $this->filterString($filters['sport_id'] ?? null),
+            'startDateFrom' => $this->filterDate($filters['start_date_from'] ?? $filters['from_date'] ?? null),
+            'startDateTo' => $this->filterDate($filters['start_date_to'] ?? $filters['to_date'] ?? null),
+        ];
+    }
+
+    /**
+     * @param  array{status: ?string, memberQuery: ?string, coachQuery: ?string, sportId: ?string, startDateFrom: ?string, startDateTo: ?string}  $filters
+     * @return Builder<ExternalCoachingAssignment>
+     */
+    private function listingQuery(array $filters): Builder
+    {
+        ['status' => $statusFilter, 'memberQuery' => $memberQuery, 'coachQuery' => $coachQuery, 'sportId' => $sportId, 'startDateFrom' => $startDateFrom, 'startDateTo' => $startDateTo] = $filters;
+
+        return ExternalCoachingAssignment::query()
+            ->with(['member:id,member_code,pno,full_name,photo_path', 'externalCoach:id,name,email,phone', 'trainingVenue:id,name', 'sport:id,name'])
+            ->when($statusFilter !== null, fn ($query) => $query->where('status', $statusFilter))
+            ->when($sportId !== null, fn ($query) => $query->where('sport_id', $sportId))
+            ->when($memberQuery !== null, function ($query) use ($memberQuery): void {
+                $query->whereHas('member', function ($memberQueryBuilder) use ($memberQuery): void {
+                    $memberQueryBuilder
+                        ->where('full_name', 'like', "%{$memberQuery}%")
+                        ->orWhere('pno', 'like', "%{$memberQuery}%");
+                });
+            })
+            ->when($coachQuery !== null, function ($query) use ($coachQuery): void {
+                $query->whereHas('externalCoach', function ($coachQueryBuilder) use ($coachQuery): void {
+                    $coachQueryBuilder
+                        ->where('name', 'like', "%{$coachQuery}%")
+                        ->orWhere('phone', 'like', "%{$coachQuery}%");
+                });
+            })
+            ->when(
+                $startDateFrom !== null || $startDateTo !== null,
+                function ($query) use ($startDateFrom, $startDateTo): void {
+                    if ($startDateFrom === null) {
+                        $query->whereDate('start_date', '<=', $startDateTo);
+
+                        return;
+                    }
+
+                    if ($startDateTo === null) {
+                        $query->where(function ($query) use ($startDateFrom): void {
+                            $query->whereDate('end_date', '>=', $startDateFrom)
+                                ->orWhereNull('end_date');
+                        });
+
+                        return;
+                    }
+
+                    $query
+                        ->whereDate('start_date', '<=', $startDateTo)
+                        ->where(function ($query) use ($startDateFrom): void {
+                            $query->whereDate('end_date', '>=', $startDateFrom)
+                                ->orWhereNull('end_date');
+                        });
+                },
+            );
+    }
+
+    public function print(Request $request): Response
+    {
+        Gate::authorize('viewAny', ExternalCoachingAssignment::class);
+
+        $filters = $this->listingFilters($request);
+        $assignments = $this->listingQuery($filters)->latest('id')->limit(2000)->get()
+            ->map(fn (ExternalCoachingAssignment $assignment): array => [
+                'id' => $assignment->id,
+                'member' => $assignment->member?->full_name,
+                'pno' => $assignment->member?->pno,
+                'external_coach' => $assignment->externalCoach?->name,
+                'venue' => $assignment->trainingVenue?->name,
+                'sport' => $assignment->sport?->name,
+                'start_date' => $assignment->start_date?->toDateString(),
+                'end_date' => $assignment->end_date?->toDateString(),
+                'status' => $assignment->status,
+                'attendance_mode' => $assignment->attendance_mode,
+            ]);
+
+        return Inertia::render('external-coaching-assignments/print', [
+            'assignments' => $assignments,
+            'filters' => $filters,
+            'sportName' => $filters['sportId'] !== null ? Sport::query()->whereKey($filters['sportId'])->value('name') : null,
+            'printedAt' => now()->timezone('Asia/Kolkata')->format('d M Y, h:i A').' IST',
+        ]);
+    }
+
     private function formOptions(int $organizationId): array
     {
         return [

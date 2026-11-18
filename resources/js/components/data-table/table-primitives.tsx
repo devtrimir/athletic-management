@@ -8,7 +8,7 @@ export const listingTableClass =
     'w-full table-fixed border-separate border-spacing-0 text-xs';
 
 export const listingHeadCellClass =
-    'h-7 border-r border-b border-border/45 bg-card px-1.5 text-[11px] last:border-r-0';
+    'h-7 overflow-hidden border-r border-b border-border/45 bg-card px-1.5 text-[11px] text-ellipsis whitespace-nowrap last:border-r-0';
 
 export const listingCellClass =
     'overflow-hidden border-r border-b border-border/45 px-1.5 py-0.5 align-middle text-xs break-words last:border-r-0';

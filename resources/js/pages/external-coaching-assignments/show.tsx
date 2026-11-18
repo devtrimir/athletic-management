@@ -10,7 +10,8 @@ import { ConfidentialDocumentPreview } from '@/components/shared/confidential-do
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
-import { formatDateRange } from '@/lib/dates';
+import { formatDateRange, formatTimeRange } from '@/lib/dates';
+import { attendanceModeLabel, translateValue } from '@/lib/external-coaching';
 
 type Assignment = {
     id: number;
@@ -82,7 +83,11 @@ export default function ExternalCoachingAssignmentsShow({
                     <div className="grid gap-5 p-6 sm:grid-cols-2 lg:grid-cols-3">
                         <Detail
                             label={t('Status')}
-                            value={<Badge>{t(assignment.status)}</Badge>}
+                            value={
+                                <Badge>
+                                    {translateValue(assignment.status, t)}
+                                </Badge>
+                            }
                         />
                         <Detail
                             label={t('Member PNO')}
@@ -106,16 +111,19 @@ export default function ExternalCoachingAssignmentsShow({
                         />
                         <Detail
                             label={t('Attendance mode')}
-                            value={t(assignment.attendance_mode)}
+                            value={attendanceModeLabel(
+                                assignment.attendance_mode,
+                                t,
+                            )}
                         />
                         <Detail
                             label={t('Training time')}
-                            value={
-                                assignment.training_start_time &&
-                                assignment.training_end_time
-                                    ? `${assignment.training_start_time} - ${assignment.training_end_time}`
-                                    : t('Not set')
-                            }
+                            value={formatTimeRange(
+                                assignment.training_start_time,
+                                assignment.training_end_time,
+                                ' - ',
+                                t('Not set'),
+                            )}
                         />
                         <Detail
                             label={t('Training days')}
