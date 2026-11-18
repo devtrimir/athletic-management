@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Models\AuditLog;
+use App\Models\ExternalCoach;
 use App\Models\Organization;
+use App\Models\Sport;
 use App\Models\TrainingVenue;
 use App\Models\Unit;
 use Illuminate\Support\Facades\Schema;
@@ -185,4 +187,48 @@ test('training venue route binding does not expose another organization records'
     $this->actingAs($user)
         ->get(route('training-venues.show', $trainingVenue))
         ->assertNotFound();
+});
+
+test('training venue listing filters by city, state, external coach and sport', function (): void {
+    $user = rcUser('training-venues.view', 'training-venues.print');
+    $org = $user->organization_id;
+    $lucknow = TrainingVenue::factory()->create(['organization_id' => $org, 'name' => 'Lucknow Ground', 'city' => 'Lucknow', 'state' => 'Uttar Pradesh']);
+    $agra = TrainingVenue::factory()->create(['organization_id' => $org, 'name' => 'Agra Track', 'city' => 'Agra', 'state' => 'Uttar Pradesh']);
+    $delhi = TrainingVenue::factory()->create(['organization_id' => $org, 'name' => 'Delhi Arena', 'city' => 'Delhi', 'state' => 'Delhi']);
+    $boxing = Sport::factory()->create(['organization_id' => $org, 'name' => 'Boxing']);
+    $coach = ExternalCoach::factory()->create(['organization_id' => $org, 'name' => 'Ravi Coach']);
+    $coach->sports()->attach($boxing);
+    $coach->trainingVenues()->attach([$lucknow->id, $delhi->id]);
+
+    $names = fn (array $filter) => collect(
+        $this->actingAs($user)->get(route('training-venues.index', ['filter' => $filter]))
+            ->assertOk()->viewData('page')['props']['trainingVenues']['data'],
+    )->pluck('name')->sort()->values()->all();
+
+    expect($names(['city' => 'lucknow']))->toBe(['Lucknow Ground'])
+        ->and($names(['state' => 'Uttar Pradesh']))->toBe(['Agra Track', 'Lucknow Ground'])
+        ->and($names(['coach_id' => (string) $coach->id]))->toBe(['Delhi Arena', 'Lucknow Ground'])
+        ->and($names(['sport_id' => (string) $boxing->id]))->toBe(['Delhi Arena', 'Lucknow Ground'])
+        // Filters combine (AND).
+        ->and($names(['state' => 'Delhi', 'coach_id' => (string) $coach->id]))->toBe(['Delhi Arena'])
+        ->and($names(['city' => 'Agra', 'sport_id' => (string) $boxing->id]))->toBe([])
+        // Junk values are ignored instead of erroring.
+        ->and($names(['coach_id' => 'x', 'sport_id' => ['1']]))->toHaveCount(3);
+
+    $this->actingAs($user)->get(route('training-venues.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('cities', ['Agra', 'Delhi', 'Lucknow'])
+            ->where('states', ['Delhi', 'Uttar Pradesh'])
+            ->where('coaches', fn ($coaches) => collect($coaches)->pluck('name')->all() === ['Ravi Coach'])
+            ->where('sports', fn ($sports) => collect($sports)->pluck('name')->all() === ['Boxing'])
+            ->etc());
+
+    $this->actingAs($user)
+        ->get(route('training-venues.print', ['filter' => ['coach_id' => (string) $coach->id, 'sport_id' => (string) $boxing->id, 'city' => 'Delhi']]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.coach', 'Ravi Coach')
+            ->where('filters.sport', 'Boxing')
+            ->where('filters.city', 'Delhi')
+            ->has('venues', 1));
 });

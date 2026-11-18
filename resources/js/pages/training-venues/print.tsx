@@ -8,8 +8,6 @@ type Venue = {
     name: string;
     code: string | null;
     city: string | null;
-    district: string | null;
-    unit: string | null;
     allowed_radius_meters: number;
     status: string;
 };
@@ -31,19 +29,6 @@ const COLUMNS: PrintColumn<Venue>[] = [
     },
     { key: 'city', weight: 1.5, label: 'City', cell: (v) => v.city ?? '-' },
     {
-        key: 'district',
-        weight: 1.5,
-        label: 'District',
-        cell: (v) => v.district ?? '-',
-    },
-    {
-        key: 'unit',
-        weight: 2,
-
-        label: 'Unit',
-        cell: (v) => v.unit ?? '-',
-    },
-    {
         key: 'radius',
         weight: 1.1,
         label: 'Radius',
@@ -58,7 +43,14 @@ export default function TrainingVenuesPrint({
     printedAt,
 }: {
     venues: Venue[];
-    filters: { q: string | null; status: string | null };
+    filters: {
+        q: string | null;
+        status: string | null;
+        city: string | null;
+        state: string | null;
+        coach: string | null;
+        sport: string | null;
+    };
     printedAt: string;
 }) {
     const { t } = useTranslation();
@@ -73,6 +65,12 @@ export default function TrainingVenuesPrint({
                     filters.status
                         ? `${t('Status')}: ${t(filters.status)}`
                         : null,
+                    filters.city ? `${t('City')}: ${filters.city}` : null,
+                    filters.state ? `${t('State')}: ${filters.state}` : null,
+                    filters.coach
+                        ? `${t('External coach')}: ${filters.coach}`
+                        : null,
+                    filters.sport ? `${t('Sport')}: ${filters.sport}` : null,
                     filters.q ? `${t('Search')}: ${filters.q}` : null,
                 ]}
                 rows={venues}

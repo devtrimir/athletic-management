@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\TrainingVenues\GetVenueFilterOptions;
+use App\Actions\TrainingVenues\GetVenuePrintData;
+use App\Actions\TrainingVenues\ListTrainingVenues;
 use App\Http\Requests\TrainingVenues\StoreTrainingVenueRequest;
 use App\Http\Requests\TrainingVenues\UpdateTrainingVenueRequest;
 use App\Models\TrainingVenue;
+use App\Support\TrainingVenues\VenueFilters;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -15,61 +19,27 @@ use Inertia\Response;
 
 class TrainingVenueController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, ListTrainingVenues $list, GetVenueFilterOptions $options): Response
     {
         Gate::authorize('viewAny', TrainingVenue::class);
 
-        $filters = $request->query('filter', []);
-        $filters = is_array($filters) ? $filters : [];
-        $statusFilter = $this->filterString($filters['status'] ?? null);
-        $search = $this->filterString($filters['q'] ?? null);
+        $filters = VenueFilters::fromRequest($request);
         $perPage = min(max((int) $request->query('per_page', 25), 10), 100);
 
-        $trainingVenues = TrainingVenue::query()
-            ->with(['district:id,name', 'unit:id,name'])
-            ->filter($statusFilter, $search)
-            ->orderBy('name')
-            ->paginate($perPage)
-            ->withQueryString();
-
         return Inertia::render('training-venues/index', [
-            'trainingVenues' => $trainingVenues,
-            'filters' => [
-                'q' => $search,
-                'status' => $statusFilter,
-            ],
-            'statuses' => ['active', 'inactive', 'under_review'],
+            'trainingVenues' => $list($filters, $perPage),
+            'filters' => $filters->toArray(),
+            ...$options((int) $request->user()->organization_id),
             'perPage' => $perPage,
         ]);
     }
 
-    public function print(Request $request): Response
+    public function print(Request $request, GetVenuePrintData $printData): Response
     {
         Gate::authorize('viewAny', TrainingVenue::class);
 
-        $filters = $request->query('filter', []);
-        $filters = is_array($filters) ? $filters : [];
-        $statusFilter = $this->filterString($filters['status'] ?? null);
-        $search = $this->filterString($filters['q'] ?? null);
-
         return Inertia::render('training-venues/print', [
-            'venues' => TrainingVenue::query()
-                ->with(['district:id,name', 'unit:id,name'])
-                ->filter($statusFilter, $search)
-                ->orderBy('name')
-                ->limit(2000)
-                ->get()
-                ->map(fn (TrainingVenue $venue): array => [
-                    'id' => $venue->id,
-                    'name' => $venue->name,
-                    'code' => $venue->code,
-                    'city' => $venue->city,
-                    'district' => $venue->district?->name,
-                    'unit' => $venue->unit?->name,
-                    'allowed_radius_meters' => $venue->allowed_radius_meters,
-                    'status' => $venue->status,
-                ]),
-            'filters' => ['q' => $search, 'status' => $statusFilter],
+            ...$printData(VenueFilters::fromRequest($request), (int) $request->user()->organization_id),
             'printedAt' => now()->timezone('Asia/Kolkata')->format('d M Y, h:i A').' IST',
         ]);
     }
@@ -147,18 +117,7 @@ class TrainingVenueController extends Controller
     private function formOptions(): array
     {
         return [
-            'statuses' => ['active', 'inactive', 'under_review'],
+            'statuses' => TrainingVenue::STATUSES,
         ];
-    }
-
-    private function filterString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' || $value === 'all' ? null : $value;
     }
 }

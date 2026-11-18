@@ -7,7 +7,11 @@ import {
     index,
     show,
 } from '@/actions/App/Http/Controllers/TrainingVenueController';
-import { FilterPill, OptionList } from '@/components/data-table/filter-pill';
+import {
+    FilterPill,
+    OptionList,
+    SearchableOptionList,
+} from '@/components/data-table/filter-pill';
 import {
     ListingLayout,
     ListingTable,
@@ -48,11 +52,17 @@ type Venue = {
     longitude: string | null;
     status: string;
     allowed_radius_meters: number;
-    district?: { name: string } | null;
-    unit?: { name: string } | null;
 };
 
-type Filters = { q?: string | null; status?: string | null };
+type Filters = {
+    q?: string | null;
+    status?: string | null;
+    city?: string | null;
+    state?: string | null;
+    coach_id?: string | null;
+    sport_id?: string | null;
+};
+type Named = { id: number; name: string }[];
 
 function statusLabel(value: string, t: (key: string) => string): string {
     return t(
@@ -66,11 +76,19 @@ export default function TrainingVenuesIndex({
     trainingVenues,
     filters,
     statuses,
+    cities,
+    states,
+    coaches,
+    sports,
     perPage,
 }: {
     trainingVenues: PaginatedListing & { data: Venue[] };
     filters: Filters;
     statuses: string[];
+    cities: string[];
+    states: string[];
+    coaches: Named;
+    sports: Named;
     perPage: number;
 }) {
     const { t } = useTranslation();
@@ -79,11 +97,18 @@ export default function TrainingVenuesIndex({
     const { apply, clear } = useListingFilters(index.url(), {
         per_page: String(perPage),
     });
-    const current = { q: filters.q, status: filters.status };
+    const current = {
+        q: filters.q,
+        status: filters.status,
+        city: filters.city,
+        state: filters.state,
+        coach_id: filters.coach_id,
+        sport_id: filters.sport_id,
+    };
     const [search, setSearch] = useDebouncedSearch(filters.q, (q) =>
         apply(current, { q }),
     );
-    const hasFilters = Boolean(filters.q || filters.status);
+    const hasFilters = Object.values(current).some(Boolean);
 
     return (
         <>
@@ -120,26 +145,88 @@ export default function TrainingVenuesIndex({
                     </>
                 }
                 filters={
-                    <FilterPill
-                        label={t('Status')}
-                        activeLabel={
-                            filters.status
-                                ? statusLabel(filters.status, t)
-                                : undefined
-                        }
-                        onClear={() => apply(current, { status: null })}
-                    >
-                        <OptionList
-                            options={statuses.map((value) => ({
-                                value,
-                                label: statusLabel(value, t),
-                            }))}
-                            value={filters.status ?? undefined}
-                            onSelect={(status) =>
-                                apply(current, { status: status ?? null })
+                    <>
+                        <FilterPill
+                            label={t('Status')}
+                            activeLabel={
+                                filters.status
+                                    ? statusLabel(filters.status, t)
+                                    : undefined
                             }
-                        />
-                    </FilterPill>
+                            onClear={() => apply(current, { status: null })}
+                        >
+                            <OptionList
+                                options={statuses.map((value) => ({
+                                    value,
+                                    label: statusLabel(value, t),
+                                }))}
+                                value={filters.status ?? undefined}
+                                onSelect={(status) =>
+                                    apply(current, { status: status ?? null })
+                                }
+                            />
+                        </FilterPill>
+                        {(
+                            [
+                                ['city', 'City', cities],
+                                ['state', 'State', states],
+                            ] as const
+                        ).map(([key, label, values]) => (
+                            <FilterPill
+                                key={key}
+                                label={t(label)}
+                                activeLabel={filters[key] ?? undefined}
+                                onClear={() => apply(current, { [key]: null })}
+                            >
+                                <SearchableOptionList
+                                    options={values.map((value) => ({
+                                        value,
+                                        label: value,
+                                    }))}
+                                    value={filters[key] ?? undefined}
+                                    searchPlaceholder={t('Search…')}
+                                    onSelect={(value) =>
+                                        apply(current, { [key]: value ?? null })
+                                    }
+                                />
+                            </FilterPill>
+                        ))}
+                        {(
+                            [
+                                [
+                                    'coach_id',
+                                    'External coach',
+                                    coaches,
+                                    'Search coaches…',
+                                ],
+                                ['sport_id', 'Sport', sports, 'Search sports…'],
+                            ] as const
+                        ).map(([key, label, items, placeholder]) => (
+                            <FilterPill
+                                key={key}
+                                label={t(label)}
+                                activeLabel={
+                                    items.find(
+                                        (item) =>
+                                            String(item.id) === filters[key],
+                                    )?.name
+                                }
+                                onClear={() => apply(current, { [key]: null })}
+                            >
+                                <SearchableOptionList
+                                    options={items.map((item) => ({
+                                        value: String(item.id),
+                                        label: item.name,
+                                    }))}
+                                    value={filters[key] ?? undefined}
+                                    searchPlaceholder={t(placeholder)}
+                                    onSelect={(value) =>
+                                        apply(current, { [key]: value ?? null })
+                                    }
+                                />
+                            </FilterPill>
+                        ))}
+                    </>
                 }
                 hasFilters={hasFilters}
                 onClearFilters={clear}
@@ -173,16 +260,14 @@ export default function TrainingVenuesIndex({
                     />
                 }
             >
-                <ListingTable minWidth={1300}>
+                <ListingTable minWidth={1000}>
                     <colgroup>
                         <col className="w-11" />
                         <col className="w-[260px]" />
                         <col className="w-[120px]" />
                         <col className="w-[130px]" />
-                        <col className="w-[140px]" />
                         <col />
                         <col className="w-[150px]" />
-                        <col className="w-[170px]" />
                         <col className="w-[90px]" />
                         <col className="w-[100px]" />
                         <col className="w-[84px]" />
@@ -194,10 +279,8 @@ export default function TrainingVenuesIndex({
                                 'Venue',
                                 'Code',
                                 'City',
-                                'District',
                                 'Address',
                                 'Coordinates',
-                                'Unit',
                                 'Radius',
                                 'Status',
                             ].map((label, position) => (
@@ -226,7 +309,7 @@ export default function TrainingVenuesIndex({
                         {trainingVenues.data.length === 0 ? (
                             <TableRow>
                                 <TableCell
-                                    colSpan={11}
+                                    colSpan={9}
                                     className="py-12 text-center text-muted-foreground"
                                 >
                                     {t('No training venues found.')}
@@ -260,9 +343,6 @@ export default function TrainingVenuesIndex({
                                     <TableCell className={listingCellClass}>
                                         {venue.city || '-'}
                                     </TableCell>
-                                    <TableCell className={listingCellClass}>
-                                        {venue.district?.name || '-'}
-                                    </TableCell>
                                     <TableCell
                                         className={listingCellClass}
                                         title={venue.address ?? undefined}
@@ -280,9 +360,6 @@ export default function TrainingVenuesIndex({
                                         {venue.latitude && venue.longitude
                                             ? `${Number(venue.latitude).toFixed(4)}, ${Number(venue.longitude).toFixed(4)}`
                                             : '-'}
-                                    </TableCell>
-                                    <TableCell className={listingCellClass}>
-                                        {venue.unit?.name || '-'}
                                     </TableCell>
                                     <TableCell
                                         className={cn(
