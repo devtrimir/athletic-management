@@ -339,6 +339,22 @@ function computeRowSpans(attendances: Attendance[]): RowSpanMeta[] {
 
 const PATH = '/external-training-attendances';
 
+/**
+ * Pinned columns must be exactly as wide as their offsets assume. The table
+ * itself auto-sizes, so each cell's width is pinned too (min = max = width);
+ * otherwise a gap opens between the pinned columns and content scrolls
+ * through it.
+ */
+const pinned = (left: number, width: number) => ({
+    left,
+    width,
+    minWidth: width,
+    maxWidth: width,
+});
+const PIN_SELECT = pinned(0, 36);
+const PIN_SNO = pinned(36, 52);
+const PIN_DATE = pinned(88, 96);
+
 /** Review-queue shortcuts map onto one filter each; 'pending' is a review_status. */
 const QUEUE_FILTER: Record<string, string> = {
     flagged: 'flagged_only',
@@ -886,7 +902,7 @@ export default function ExternalTrainingAttendanceIndex({
                         <TableHeader className="sticky top-0 z-20">
                             <TableRow className="hover:bg-transparent">
                                 <TableHead
-                                    style={{ left: 0 }}
+                                    style={PIN_SELECT}
                                     className={cn(
                                         listingHeadCellClass,
                                         stickyLeftHeadCellClass,
@@ -906,7 +922,7 @@ export default function ExternalTrainingAttendanceIndex({
                                     />
                                 </TableHead>
                                 <TableHead
-                                    style={{ left: 36 }}
+                                    style={PIN_SNO}
                                     className={cn(
                                         listingHeadCellClass,
                                         stickyLeftHeadCellClass,
@@ -916,7 +932,7 @@ export default function ExternalTrainingAttendanceIndex({
                                     {t('S.No.')}
                                 </TableHead>
                                 <TableHead
-                                    style={{ left: 88 }}
+                                    style={PIN_DATE}
                                     className={cn(
                                         listingHeadCellClass,
                                         stickyLeftHeadCellClass,
@@ -997,7 +1013,7 @@ export default function ExternalTrainingAttendanceIndex({
                                             className="hover:bg-muted/30 data-[state=selected]:bg-primary/5"
                                         >
                                             <TableCell
-                                                style={{ left: 0 }}
+                                                style={PIN_SELECT}
                                                 className={cn(
                                                     listingCellClass,
                                                     stickyLeftBodyCellClass,
@@ -1020,7 +1036,7 @@ export default function ExternalTrainingAttendanceIndex({
                                                 />
                                             </TableCell>
                                             <TableCell
-                                                style={{ left: 36 }}
+                                                style={PIN_SNO}
                                                 className={cn(
                                                     listingCellClass,
                                                     stickyLeftBodyCellClass,
@@ -1031,7 +1047,7 @@ export default function ExternalTrainingAttendanceIndex({
                                                     index}
                                             </TableCell>
                                             <TableCell
-                                                style={{ left: 88 }}
+                                                style={PIN_DATE}
                                                 className={cn(
                                                     listingCellClass,
                                                     stickyLeftBodyCellClass,
