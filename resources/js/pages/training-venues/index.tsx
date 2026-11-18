@@ -43,6 +43,9 @@ type Venue = {
     name: string;
     code: string | null;
     city: string | null;
+    address: string | null;
+    latitude: string | null;
+    longitude: string | null;
     status: string;
     allowed_radius_meters: number;
     district?: { name: string } | null;
@@ -170,14 +173,17 @@ export default function TrainingVenuesIndex({
                     />
                 }
             >
-                <ListingTable minWidth={900}>
+                <ListingTable minWidth={1300}>
                     <colgroup>
                         <col className="w-11" />
+                        <col className="w-[260px]" />
+                        <col className="w-[120px]" />
+                        <col className="w-[130px]" />
+                        <col className="w-[140px]" />
                         <col />
-                        <col className="w-[110px]" />
-                        <col className="w-[200px]" />
-                        <col className="w-[220px]" />
-                        <col className="w-[100px]" />
+                        <col className="w-[150px]" />
+                        <col className="w-[170px]" />
+                        <col className="w-[90px]" />
                         <col className="w-[100px]" />
                         <col className="w-[84px]" />
                     </colgroup>
@@ -187,7 +193,10 @@ export default function TrainingVenuesIndex({
                                 'S.No.',
                                 'Venue',
                                 'Code',
-                                'City / district',
+                                'City',
+                                'District',
+                                'Address',
+                                'Coordinates',
                                 'Unit',
                                 'Radius',
                                 'Status',
@@ -217,7 +226,7 @@ export default function TrainingVenuesIndex({
                         {trainingVenues.data.length === 0 ? (
                             <TableRow>
                                 <TableCell
-                                    colSpan={8}
+                                    colSpan={11}
                                     className="py-12 text-center text-muted-foreground"
                                 >
                                     {t('No training venues found.')}
@@ -249,9 +258,28 @@ export default function TrainingVenuesIndex({
                                         {venue.code || '-'}
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
-                                        {venue.city ||
-                                            venue.district?.name ||
-                                            '-'}
+                                        {venue.city || '-'}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {venue.district?.name || '-'}
+                                    </TableCell>
+                                    <TableCell
+                                        className={listingCellClass}
+                                        title={venue.address ?? undefined}
+                                    >
+                                        <span className="block truncate">
+                                            {venue.address || '-'}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell
+                                        className={cn(
+                                            listingCellClass,
+                                            'font-mono tabular-nums',
+                                        )}
+                                    >
+                                        {venue.latitude && venue.longitude
+                                            ? `${Number(venue.latitude).toFixed(4)}, ${Number(venue.longitude).toFixed(4)}`
+                                            : '-'}
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
                                         {venue.unit?.name || '-'}
