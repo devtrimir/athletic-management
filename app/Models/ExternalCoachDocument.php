@@ -27,7 +27,7 @@ class ExternalCoachDocument extends Model
     use HasFactory;
 
     /** @var list<string> */
-    public const TYPES = ['aadhaar', 'pan', 'certificate', 'police_verification', 'other'];
+    public const TYPES = ['combined', 'aadhaar', 'pan', 'certificate', 'police_verification', 'other'];
 
     /** @return BelongsTo<ExternalCoach, $this> */
     public function externalCoach(): BelongsTo

@@ -1,4 +1,5 @@
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+    combined: 'Combined (all documents in one PDF)',
     aadhaar: 'Aadhaar card',
     pan: 'PAN card',
     certificate: 'Certificate',

@@ -604,7 +604,11 @@ function ExternalCoachForm({
                                             <Input
                                                 type="file"
                                                 name={`documents[${index}][file]`}
-                                                accept=".pdf,image/jpeg,image/png,image/webp"
+                                                accept={
+                                                    row.type === 'combined'
+                                                        ? '.pdf,application/pdf'
+                                                        : '.pdf,image/jpeg,image/png,image/webp'
+                                                }
                                                 required
                                             />
                                             <InputError

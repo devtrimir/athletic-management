@@ -675,3 +675,22 @@ test('external coach assignments page filters by activity and player search', fu
         ->get(route('external-coaches.player-assignments', [$coach, $running, 'month' => now()->format('Y-m')]))
         ->assertOk();
 });
+
+test('a combined document must be a pdf', function () {
+    $user = rcUser('external-coaches.view', 'external-coaches.create');
+    $payload = fn (string $type, UploadedFile $file) => [
+        'name' => 'C',
+        'email' => 'combined.coach@example.test',
+        'password' => 'password',
+        'status' => 'active',
+        'documents' => [['type' => $type, 'file' => $file]],
+    ];
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), $payload('combined', UploadedFile::fake()->image('scan.jpg')))
+        ->assertSessionHasErrors('documents.0.file');
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), $payload('combined', UploadedFile::fake()->create('all.pdf', 100, 'application/pdf')))
+        ->assertSessionHasNoErrors();
+});

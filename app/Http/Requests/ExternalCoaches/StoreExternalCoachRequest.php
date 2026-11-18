@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Requests\ExternalCoaches;
 
 use App\Models\ExternalCoachDocument;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
 
 class StoreExternalCoachRequest extends FormRequest
@@ -65,7 +67,17 @@ class StoreExternalCoachRequest extends FormRequest
             'training_venue_ids.*' => ['integer', Rule::exists('training_venues', 'id')->where('organization_id', $orgId)],
             'documents' => ['nullable', 'array', 'max:10'],
             'documents.*.type' => ['required', Rule::in(ExternalCoachDocument::TYPES)],
-            'documents.*.file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:20480'],
+            'documents.*.file' => [
+                'required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:20480',
+                // A "combined" document is every proof merged into one PDF.
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    $type = request()->input(str_replace('.file', '.type', $attribute));
+
+                    if ($type === 'combined' && $value instanceof UploadedFile && $value->getMimeType() !== 'application/pdf') {
+                        $fail(__('A combined document must be a PDF.'));
+                    }
+                },
+            ],
         ];
     }
 
