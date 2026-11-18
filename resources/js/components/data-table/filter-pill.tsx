@@ -163,6 +163,61 @@ export function SearchableOptionList({
     );
 }
 
+/** Searchable list where several options can be ticked at once. */
+export function MultiOptionList({
+    options,
+    value,
+    onChange,
+    searchPlaceholder,
+}: {
+    options: { value: string; label: string }[];
+    value: string[];
+    onChange: (v: string[]) => void;
+    searchPlaceholder: string;
+}) {
+    return (
+        <Command className="w-60">
+            <CommandInput
+                placeholder={searchPlaceholder}
+                className="h-8 text-sm"
+            />
+            <CommandList className="max-h-56">
+                <CommandEmpty>—</CommandEmpty>
+                <CommandGroup>
+                    {options.map((opt) => {
+                        const selected = value.includes(opt.value);
+
+                        return (
+                            <CommandItem
+                                key={opt.value}
+                                value={opt.label}
+                                onSelect={() =>
+                                    onChange(
+                                        selected
+                                            ? value.filter(
+                                                  (v) => v !== opt.value,
+                                              )
+                                            : [...value, opt.value],
+                                    )
+                                }
+                                className="gap-2"
+                            >
+                                <Check
+                                    className={[
+                                        'size-3.5 shrink-0',
+                                        selected ? 'opacity-100' : 'opacity-0',
+                                    ].join(' ')}
+                                />
+                                {opt.label}
+                            </CommandItem>
+                        );
+                    })}
+                </CommandGroup>
+            </CommandList>
+        </Command>
+    );
+}
+
 /**
  * Pill with a free-text input inside. Applies automatically ~400ms after the
  * user stops typing (and immediately on Enter or when focus leaves the box).

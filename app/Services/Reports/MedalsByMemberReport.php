@@ -17,7 +17,7 @@ class MedalsByMemberReport
      * Return per-member medal counts ordered by total descending.
      *
      * @param  array{session_id: int|null, sport_id: int|null, unit_id: int|null, tier_id: int|null}  $filters
-     * @return Collection<int, array{member: array{id: int, member_code: string, full_name: string, full_name: string|null}, GOLD: int, SILVER: int, BRONZE: int, MERIT: int, total: int}>
+     * @return Collection<int, array{member: array{id: int, member_code: string, full_name: string, pno: string|null, photo_path: string|null}, GOLD: int, SILVER: int, BRONZE: int, MERIT: int, total: int}>
      */
     public function run(int $orgId, array $filters, int $limit = 50): Collection
     {
@@ -43,6 +43,7 @@ class MedalsByMemberReport
                 'm.member_code',
                 'm.full_name',
                 'm.pno',
+                'm.photo_path',
                 'm.rank',
                 'm.gender',
                 'm.player_category',
@@ -77,6 +78,8 @@ class MedalsByMemberReport
                         'id' => $first['id'],
                         'member_code' => $first['member_code'],
                         'full_name' => $first['full_name'],
+                        'pno' => $first['pno'],
+                        'photo_path' => $first['photo_path'],
                     ],
                     'GOLD' => $counts['GOLD'],
                     'SILVER' => $counts['SILVER'],
@@ -103,6 +106,7 @@ class MedalsByMemberReport
                 'member_code' => $row->member_code,
                 'full_name' => $row->full_name,
                 'pno' => $row->pno,
+                'photo_path' => $row->photo_path,
                 'rank' => $row->rank,
                 'gender' => $row->gender,
                 'player_category' => $row->player_category,
@@ -122,6 +126,7 @@ class MedalsByMemberReport
                 'member_code' => $member->member_code,
                 'full_name' => $member->full_name,
                 'pno' => $member->pno,
+                'photo_path' => $member->photo_path,
                 'rank' => $member->rank,
                 'gender' => $member->gender,
                 'player_category' => $member->player_category,

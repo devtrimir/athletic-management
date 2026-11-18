@@ -19,7 +19,7 @@ class AchievementHistoryReport
      *
      * @param  array{session_id?: int|null, sport_id?: int|null, unit_id?: int|null, tier_id?: int|null, member_name?: string|null, pno?: string|null, tournament_id?: int|null, event_name?: string|null}  $filters
      * @return Collection<int, array{
-     *     member: array{id: int, member_code: string, pno: string|null, full_name: string, rank: string|null},
+     *     member: array{id: int, member_code: string, pno: string|null, full_name: string, rank: string|null, photo_path: string|null},
      *     tournament: array{id: int, name: string, date_from: string|null, tier_label_hi: string|null, sport_name: string|null},
      *     event: array{id: int, name: string, discipline: string|null},
      *     session: array{name: string},
@@ -52,6 +52,7 @@ class AchievementHistoryReport
                 'm.pno',
                 'm.full_name',
                 'm.rank',
+                'm.photo_path',
                 't.id as tournament_id',
                 't.name as tournament_name',
                 't.date_from',
@@ -86,6 +87,7 @@ class AchievementHistoryReport
                 'pno' => $row->pno,
                 'full_name' => $row->full_name,
                 'rank' => $row->rank,
+                'photo_path' => $row->photo_path,
             ],
             'tournament' => [
                 'id' => $row->tournament_id,
