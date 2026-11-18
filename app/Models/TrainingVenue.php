@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -75,12 +76,17 @@ class TrainingVenue extends Model
 
     /**
      * @param  Builder<TrainingVenue>  $query
+     * @param  array{city?: ?string, state?: ?string, coach_id?: ?int, sport_id?: ?int}  $extra
      */
     #[Scope]
-    protected function filter(Builder $query, ?string $status, ?string $search): void
+    protected function filter(Builder $query, ?string $status, ?string $search, array $extra = []): void
     {
         $query
             ->when($status !== null, fn (Builder $query) => $query->where('status', $status))
+            ->when(($extra['city'] ?? null) !== null, fn (Builder $query) => $query->whereRaw('LOWER(city) = ?', [mb_strtolower((string) $extra['city'])]))
+            ->when(($extra['state'] ?? null) !== null, fn (Builder $query) => $query->whereRaw('LOWER(state) = ?', [mb_strtolower((string) $extra['state'])]))
+            ->when(($extra['coach_id'] ?? null) !== null, fn (Builder $query) => $query->whereHas('externalCoaches', fn (Builder $coaches) => $coaches->whereKey($extra['coach_id'])))
+            ->when(($extra['sport_id'] ?? null) !== null, fn (Builder $query) => $query->whereHas('externalCoaches.sports', fn (Builder $sports) => $sports->whereKey($extra['sport_id'])))
             ->when($search !== null, function (Builder $query) use ($search): void {
                 $like = '%'.mb_strtolower($search).'%';
 
@@ -90,6 +96,12 @@ class TrainingVenue extends Model
                         ->orWhereRaw('LOWER(COALESCE(city, \'\')) LIKE ?', [$like]);
                 });
             });
+    }
+
+    /** @return BelongsToMany<ExternalCoach, $this> */
+    public function externalCoaches(): BelongsToMany
+    {
+        return $this->belongsToMany(ExternalCoach::class, 'external_coach_training_venue')->withTimestamps();
     }
 
     /** @return BelongsTo<Organization, $this> */

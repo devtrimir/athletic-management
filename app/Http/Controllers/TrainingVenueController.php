@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TrainingVenues\StoreTrainingVenueRequest;
 use App\Http\Requests\TrainingVenues\UpdateTrainingVenueRequest;
+use App\Models\ExternalCoach;
+use App\Models\Sport;
 use App\Models\TrainingVenue;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,15 +21,12 @@ class TrainingVenueController extends Controller
     {
         Gate::authorize('viewAny', TrainingVenue::class);
 
-        $filters = $request->query('filter', []);
-        $filters = is_array($filters) ? $filters : [];
-        $statusFilter = $this->filterString($filters['status'] ?? null);
-        $search = $this->filterString($filters['q'] ?? null);
+        ['status' => $statusFilter, 'q' => $search, 'extra' => $extra] = $this->listingFilters($request);
         $perPage = min(max((int) $request->query('per_page', 25), 10), 100);
 
         $trainingVenues = TrainingVenue::query()
             ->with(['district:id,name', 'unit:id,name'])
-            ->filter($statusFilter, $search)
+            ->filter($statusFilter, $search, $extra)
             ->orderBy('name')
             ->paginate($perPage)
             ->withQueryString();
@@ -37,8 +36,16 @@ class TrainingVenueController extends Controller
             'filters' => [
                 'q' => $search,
                 'status' => $statusFilter,
+                'city' => $extra['city'],
+                'state' => $extra['state'],
+                'coach_id' => $extra['coach_id'] === null ? null : (string) $extra['coach_id'],
+                'sport_id' => $extra['sport_id'] === null ? null : (string) $extra['sport_id'],
             ],
             'statuses' => ['active', 'inactive', 'under_review'],
+            'cities' => TrainingVenue::query()->whereNotNull('city')->where('city', '!=', '')->distinct()->orderBy('city')->pluck('city'),
+            'states' => TrainingVenue::query()->whereNotNull('state')->where('state', '!=', '')->distinct()->orderBy('state')->pluck('state'),
+            'coaches' => ExternalCoach::query()->where('organization_id', (int) $request->user()->organization_id)->whereHas('trainingVenues')->orderBy('name')->get(['id', 'name']),
+            'sports' => Sport::query()->where('organization_id', (int) $request->user()->organization_id)->whereHas('externalCoaches.trainingVenues')->orderBy('name')->get(['id', 'name']),
             'perPage' => $perPage,
         ]);
     }
@@ -47,15 +54,13 @@ class TrainingVenueController extends Controller
     {
         Gate::authorize('viewAny', TrainingVenue::class);
 
-        $filters = $request->query('filter', []);
-        $filters = is_array($filters) ? $filters : [];
-        $statusFilter = $this->filterString($filters['status'] ?? null);
-        $search = $this->filterString($filters['q'] ?? null);
+        ['status' => $statusFilter, 'q' => $search, 'extra' => $extra] = $this->listingFilters($request);
+        $orgId = (int) $request->user()->organization_id;
 
         return Inertia::render('training-venues/print', [
             'venues' => TrainingVenue::query()
                 ->with(['district:id,name', 'unit:id,name'])
-                ->filter($statusFilter, $search)
+                ->filter($statusFilter, $search, $extra)
                 ->orderBy('name')
                 ->limit(2000)
                 ->get()
@@ -69,7 +74,14 @@ class TrainingVenueController extends Controller
                     'allowed_radius_meters' => $venue->allowed_radius_meters,
                     'status' => $venue->status,
                 ]),
-            'filters' => ['q' => $search, 'status' => $statusFilter],
+            'filters' => [
+                'q' => $search,
+                'status' => $statusFilter,
+                'city' => $extra['city'],
+                'state' => $extra['state'],
+                'coach' => $extra['coach_id'] === null ? null : ExternalCoach::query()->where('organization_id', $orgId)->whereKey($extra['coach_id'])->value('name'),
+                'sport' => $extra['sport_id'] === null ? null : Sport::query()->where('organization_id', $orgId)->whereKey($extra['sport_id'])->value('name'),
+            ],
             'printedAt' => now()->timezone('Asia/Kolkata')->format('d M Y, h:i A').' IST',
         ]);
     }
@@ -148,6 +160,27 @@ class TrainingVenueController extends Controller
     {
         return [
             'statuses' => ['active', 'inactive', 'under_review'],
+        ];
+    }
+
+    /**
+     * @return array{status: ?string, q: ?string, extra: array{city: ?string, state: ?string, coach_id: ?int, sport_id: ?int}}
+     */
+    private function listingFilters(Request $request): array
+    {
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+        $id = static fn (mixed $value): ?int => is_string($value) && ctype_digit($value) && (int) $value > 0 ? (int) $value : null;
+
+        return [
+            'status' => $this->filterString($filters['status'] ?? null),
+            'q' => $this->filterString($filters['q'] ?? null),
+            'extra' => [
+                'city' => $this->filterString($filters['city'] ?? null),
+                'state' => $this->filterString($filters['state'] ?? null),
+                'coach_id' => $id($filters['coach_id'] ?? null),
+                'sport_id' => $id($filters['sport_id'] ?? null),
+            ],
         ];
     }
 

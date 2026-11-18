@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -38,6 +39,12 @@ class Sport extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /** @return BelongsToMany<ExternalCoach, $this> */
+    public function externalCoaches(): BelongsToMany
+    {
+        return $this->belongsToMany(ExternalCoach::class, 'external_coach_sport')->withTimestamps();
     }
 
     /** @return HasMany<SportEvent, $this> */

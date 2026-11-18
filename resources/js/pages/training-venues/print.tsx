@@ -58,7 +58,14 @@ export default function TrainingVenuesPrint({
     printedAt,
 }: {
     venues: Venue[];
-    filters: { q: string | null; status: string | null };
+    filters: {
+        q: string | null;
+        status: string | null;
+        city: string | null;
+        state: string | null;
+        coach: string | null;
+        sport: string | null;
+    };
     printedAt: string;
 }) {
     const { t } = useTranslation();
@@ -73,6 +80,12 @@ export default function TrainingVenuesPrint({
                     filters.status
                         ? `${t('Status')}: ${t(filters.status)}`
                         : null,
+                    filters.city ? `${t('City')}: ${filters.city}` : null,
+                    filters.state ? `${t('State')}: ${filters.state}` : null,
+                    filters.coach
+                        ? `${t('External coach')}: ${filters.coach}`
+                        : null,
+                    filters.sport ? `${t('Sport')}: ${filters.sport}` : null,
                     filters.q ? `${t('Search')}: ${filters.q}` : null,
                 ]}
                 rows={venues}
