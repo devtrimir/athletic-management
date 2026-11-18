@@ -8,6 +8,7 @@ use App\Exports\ReportExport;
 use App\Models\Member;
 use App\Models\Rank;
 use App\Models\TournamentTier;
+use App\Support\GenderLabel;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -280,6 +281,7 @@ class MemberExportController extends Controller
                 'dob', 'joining_date', 'promotion_date', 'team_since' => $this->formatDate($member->{$col}),
                 'playable_sports' => $this->playableSportsSummary($member),
                 'rank', 'initial_rank' => $this->resolveRankLabel($member->{$col}),
+                'gender' => GenderLabel::for($member->gender),
                 'player_category' => $this->resolvePlayerCategoryLabel($member->player_category),
                 'player_level' => $this->resolvePlayerLevelLabel($member->player_level),
                 default => $member->{$col},

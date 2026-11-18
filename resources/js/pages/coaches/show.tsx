@@ -111,8 +111,8 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/use-translation';
+import { coachRoleLabel, genderLabel } from '@/lib/coach';
 import { formatDate, formatDateRange } from '@/lib/dates';
-import { coachRoleLabel } from '@/lib/coach';
 import { resolveRankLabel } from '@/lib/ranks';
 
 type CoachCertification = {
@@ -378,22 +378,6 @@ const COACH_STATUSES = [
     'DECEASED',
     'SUSPENDED',
 ] as const;
-function genderLabel(
-    gender: string | null | undefined,
-    t: (key: string) => string,
-): string {
-    switch (gender) {
-        case 'M':
-            return t('Male');
-        case 'F':
-            return t('Female');
-        case 'O':
-            return t('Other gender');
-        default:
-            return gender ?? '';
-    }
-}
-
 function formatTournamentDateRange(tournament: {
     date_from?: string | null;
     date_to?: string | null;

@@ -23,6 +23,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from '@/hooks/use-translation';
+import { genderLabel } from '@/lib/coach';
 import { formatDate } from '@/lib/dates';
 
 type CertificationItem = {
@@ -101,22 +102,6 @@ type AssignmentHistoryItem = {
     removed_at: string | null;
     notes: string | null;
 };
-
-function genderLabel(
-    gender: string | null,
-    t: (key: string) => string,
-): string {
-    switch (gender) {
-        case 'M':
-            return t('Male');
-        case 'F':
-            return t('Female');
-        case 'O':
-            return t('Other gender');
-        default:
-            return gender ?? '';
-    }
-}
 
 type CoachPreview = {
     id: number;

@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
+import { genderLabel } from '@/lib/coach';
 
 type NisMasterOption = {
     id: number;
@@ -48,12 +49,6 @@ type TierOption = {
     label?: string;
 };
 type ComboboxItem = { value: string; label: string };
-const GENDER_OPTIONS: ComboboxItem[] = [
-    { value: 'M', label: 'Male' },
-    { value: 'F', label: 'Female' },
-    { value: 'O', label: 'Other gender' },
-];
-
 type Coach = {
     id: number;
     full_name: string;
@@ -580,11 +575,7 @@ export default function CoachesEdit({
                                                     key={value}
                                                     value={value}
                                                 >
-                                                    {GENDER_OPTIONS.find(
-                                                        (option) =>
-                                                            option.value ===
-                                                            value,
-                                                    )?.label ?? value}
+                                                    {genderLabel(value, t)}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>

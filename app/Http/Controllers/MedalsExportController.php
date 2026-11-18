@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Concerns\HasReportFilters;
 use App\Services\Reports\MedalsDetailReport;
 use App\Services\Reports\MedalTallyReport;
+use App\Support\GenderLabel;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -61,7 +62,7 @@ class MedalsExportController extends Controller
                     $row['member']['pno'],
                     $row['member']['full_name'],
                     $row['member']['rank'],
-                    $row['member']['gender'],
+                    GenderLabel::for($row['member']['gender']),
                     $row['member']['unit_name'],
                     $row['session_name'],
                     $row['tournament']['name'],
