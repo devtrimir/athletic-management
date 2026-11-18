@@ -9,11 +9,15 @@ use App\Http\Requests\ExternalCoaches\UpdateExternalCoachRequest;
 use App\Models\ExternalCoach;
 use App\Models\ExternalTrainingAttendance;
 use App\Models\Member;
+use App\Models\Sport;
+use App\Models\TrainingVenue;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -73,6 +77,7 @@ class ExternalCoachController extends Controller
 
         return Inertia::render('external-coaches/create', [
             'statuses' => $this->statuses(),
+            ...$this->formOptions(),
         ]);
     }
 
@@ -93,6 +98,7 @@ class ExternalCoachController extends Controller
 
         $payload = $request->validated();
         $statusReason = Arr::pull($payload, 'status_reason');
+        $payload = Arr::except($payload, ['photo', 'remove_photo', 'sport_ids', 'training_venue_ids', 'documents']);
 
         $externalCoach = ExternalCoach::create([
             ...$payload,
@@ -102,6 +108,7 @@ class ExternalCoachController extends Controller
         ]);
 
         $this->recordStatus($externalCoach, $externalCoach->status, $request->user()->id, $statusReason);
+        $this->saveExtras($externalCoach, $request);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('External coach created.')]);
 
@@ -115,6 +122,9 @@ class ExternalCoachController extends Controller
         $externalCoach->load([
             'district:id,name',
             'statusHistory.recordedBy:id,name',
+            'sports:id,name',
+            'trainingVenues:id,name',
+            'documents:id,external_coach_id,type,original_name,size_bytes',
         ])->loadCount([
             'externalCoachingAssignments as active_assignments_count' => function ($query): void {
                 $query->where('status', 'active')
@@ -331,9 +341,16 @@ class ExternalCoachController extends Controller
     {
         Gate::authorize('update', $externalCoach);
 
+        $externalCoach->load('documents:id,external_coach_id,type,original_name,size_bytes');
+
         return Inertia::render('external-coaches/edit', [
-            'externalCoach' => $externalCoach,
+            'externalCoach' => [
+                ...$externalCoach->toArray(),
+                'sport_ids' => $externalCoach->sports()->pluck('sports.id')->map(fn ($id): string => (string) $id)->all(),
+                'training_venue_ids' => $externalCoach->trainingVenues()->pluck('training_venues.id')->map(fn ($id): string => (string) $id)->all(),
+            ],
             'statuses' => $this->statuses(),
+            ...$this->formOptions(),
         ]);
     }
 
@@ -343,6 +360,7 @@ class ExternalCoachController extends Controller
 
         $payload = $request->validated();
         $statusReason = Arr::pull($payload, 'status_reason');
+        $payload = Arr::except($payload, ['photo', 'remove_photo', 'sport_ids', 'training_venue_ids', 'documents']);
         $oldStatus = $externalCoach->status;
 
         if (($payload['password'] ?? null) === null) {
@@ -362,6 +380,8 @@ class ExternalCoachController extends Controller
             $this->recordStatus($externalCoach, $externalCoach->status, $request->user()->id, $statusReason);
         }
 
+        $this->saveExtras($externalCoach, $request);
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('External coach updated.')]);
 
         return to_route('external-coaches.show', $externalCoach);
@@ -376,6 +396,48 @@ class ExternalCoachController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('External coach deleted.')]);
 
         return to_route('external-coaches.index');
+    }
+
+    /**
+     * @return array{sports: Collection<int, Sport>, trainingVenues: Collection<int, TrainingVenue>}
+     */
+    private function formOptions(): array
+    {
+        $orgId = (int) auth()->user()->organization_id;
+
+        return [
+            'sports' => Sport::query()->where('organization_id', $orgId)->orderBy('name')->get(['id', 'name']),
+            'trainingVenues' => TrainingVenue::query()->where('organization_id', $orgId)->orderBy('name')->get(['id', 'name']),
+        ];
+    }
+
+    private function saveExtras(ExternalCoach $externalCoach, Request $request): void
+    {
+        $externalCoach->sports()->sync($request->input('sport_ids', []));
+        $externalCoach->trainingVenues()->sync($request->input('training_venue_ids', []));
+
+        if ($request->hasFile('photo') || $request->boolean('remove_photo')) {
+            if ($externalCoach->photo_path !== null) {
+                Storage::disk('public')->delete($externalCoach->photo_path);
+            }
+
+            $externalCoach->update([
+                'photo_path' => $request->file('photo')?->store("external-coach-photos/{$externalCoach->organization_id}", 'public'),
+            ]);
+        }
+
+        foreach ((array) $request->file('documents', []) as $index => $row) {
+            $file = $row['file'];
+
+            $externalCoach->documents()->create([
+                'type' => $request->input("documents.{$index}.type"),
+                'path' => $file->store("external-coach-documents/{$externalCoach->id}", 'local'),
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => (string) $file->getMimeType(),
+                'size_bytes' => $file->getSize(),
+                'uploaded_by' => $request->user()->id,
+            ]);
+        }
     }
 
     /**

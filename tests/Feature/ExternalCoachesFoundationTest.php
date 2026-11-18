@@ -14,8 +14,10 @@ use App\Models\Sport;
 use App\Models\TrainingVenue;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
@@ -530,4 +532,76 @@ test('inactive external coaches cannot login', function () {
         ->assertSessionHasErrors(['email']);
 
     $this->assertGuest('external_coach');
+});
+
+test('external coach profile saves photo, sports, venues and documents', function () {
+    Storage::fake('public');
+    Storage::fake('local');
+
+    $user = rcUser('external-coaches.view', 'external-coaches.create', 'external-coaches.update');
+    $sport = Sport::factory()->create(['organization_id' => $user->organization_id]);
+    $venue = TrainingVenue::factory()->create(['organization_id' => $user->organization_id]);
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), [
+            'name' => 'Photo Coach',
+            'email' => 'photo.coach@example.test',
+            'password' => 'password',
+            'status' => 'active',
+            'photo' => UploadedFile::fake()->image('me.jpg'),
+            'sport_ids' => [$sport->id],
+            'training_venue_ids' => [$venue->id],
+            'documents' => [['type' => 'aadhaar', 'file' => UploadedFile::fake()->create('aadhaar.pdf', 100, 'application/pdf')]],
+        ])
+        ->assertSessionHasNoErrors();
+
+    $coach = ExternalCoach::query()->where('email', 'photo.coach@example.test')->firstOrFail();
+
+    Storage::disk('public')->assertExists($coach->photo_path);
+    expect($coach->sports()->pluck('sports.id')->all())->toBe([$sport->id])
+        ->and($coach->trainingVenues()->pluck('training_venues.id')->all())->toBe([$venue->id])
+        ->and($coach->documents)->toHaveCount(1);
+
+    $document = $coach->documents->first();
+    Storage::disk('local')->assertExists($document->path);
+
+    $this->actingAs($user)
+        ->get(route('external-coaches.documents.show', [$coach, $document]))
+        ->assertOk();
+
+    // Clearing: empty selections and remove_photo detach/clear everything.
+    $this->actingAs($user)
+        ->patch(route('external-coaches.update', $coach), [
+            'name' => 'Photo Coach',
+            'email' => 'photo.coach@example.test',
+            'status' => 'active',
+            'remove_photo' => '1',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($coach->refresh()->photo_path)->toBeNull()
+        ->and($coach->sports()->count())->toBe(0)
+        ->and($coach->trainingVenues()->count())->toBe(0);
+
+    $this->actingAs($user)
+        ->delete(route('external-coaches.documents.destroy', [$coach, $document]))
+        ->assertRedirect();
+
+    expect($coach->documents()->count())->toBe(0);
+    Storage::disk('local')->assertMissing($document->path);
+});
+
+test('external coach sports must belong to the same organization', function () {
+    $user = rcUser('external-coaches.view', 'external-coaches.create');
+    $foreignSport = Sport::factory()->create(['organization_id' => Organization::factory()->create()->id]);
+
+    $this->actingAs($user)
+        ->post(route('external-coaches.store'), [
+            'name' => 'X',
+            'email' => 'x.coach@example.test',
+            'password' => 'password',
+            'status' => 'active',
+            'sport_ids' => [$foreignSport->id],
+        ])
+        ->assertSessionHasErrors('sport_ids.0');
 });

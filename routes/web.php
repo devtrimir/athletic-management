@@ -22,6 +22,7 @@ use App\Http\Controllers\ExternalCoach\DashboardController as ExternalCoachDashb
 use App\Http\Controllers\ExternalCoach\ExternalCoachPerformanceUpdateController;
 use App\Http\Controllers\ExternalCoach\ExternalTrainingAttendanceController;
 use App\Http\Controllers\ExternalCoachController;
+use App\Http\Controllers\ExternalCoachDocumentController;
 use App\Http\Controllers\ExternalCoachingAssignmentController;
 use App\Http\Controllers\ExternalCoachPerformanceUpdateController as AdminExternalCoachPerformanceUpdateController;
 use App\Http\Controllers\ExternalTrainingAttendanceController as AdminExternalTrainingAttendanceController;
@@ -88,6 +89,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('external-coaches/{externalCoach}/assignments', [ExternalCoachController::class, 'assignments'])->name('external-coaches.assignments');
     Route::get('external-coaches/{externalCoach}/members/{member}/assignments', [ExternalCoachController::class, 'playerAssignments'])->name('external-coaches.player-assignments');
+    Route::get('external-coaches/{externalCoach}/documents/{document}', [ExternalCoachDocumentController::class, 'show'])->name('external-coaches.documents.show');
+    Route::delete('external-coaches/{externalCoach}/documents/{document}', [ExternalCoachDocumentController::class, 'destroy'])->name('external-coaches.documents.destroy');
     Route::resource('external-coaches', ExternalCoachController::class);
     Route::resource('training-venues', TrainingVenueController::class);
     Route::get('external-coaching-assignments/{external_coaching_assignment}/permission-document', [ExternalCoachingAssignmentController::class, 'permissionDocument'])->name('external-coaching-assignments.permission-document');
