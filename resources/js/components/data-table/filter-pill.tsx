@@ -1,5 +1,5 @@
 import { Check, ChevronDown, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
     Command,
@@ -163,7 +163,10 @@ export function SearchableOptionList({
     );
 }
 
-/** Pill with a free-text input inside; applies on Enter or blur. */
+/**
+ * Pill with a free-text input inside. Applies automatically ~400ms after the
+ * user stops typing (and immediately on Enter or when focus leaves the box).
+ */
 export function TextFilterPill({
     label,
     value,
@@ -177,6 +180,23 @@ export function TextFilterPill({
 }) {
     const [draft, setDraft] = useState(value);
 
+    useEffect(() => {
+        // Keep the box in sync when the filter is changed or cleared elsewhere.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setDraft(value);
+    }, [value]);
+
+    useEffect(() => {
+        if (draft.trim() === value) {
+            return;
+        }
+
+        const timer = setTimeout(() => onApply(draft.trim()), 400);
+
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draft]);
+
     return (
         <FilterPill
             label={label}
@@ -188,13 +208,16 @@ export function TextFilterPill({
         >
             <div className="p-3">
                 <Input
+                    autoFocus
                     value={draft}
                     placeholder={placeholder}
                     className="h-8 w-52 text-sm"
                     onChange={(event) => setDraft(event.target.value)}
-                    onBlur={() => draft !== value && onApply(draft)}
+                    onBlur={() =>
+                        draft.trim() !== value && onApply(draft.trim())
+                    }
                     onKeyDown={(event) =>
-                        event.key === 'Enter' && onApply(draft)
+                        event.key === 'Enter' && onApply(draft.trim())
                     }
                 />
             </div>
