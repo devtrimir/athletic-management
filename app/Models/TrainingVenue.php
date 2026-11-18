@@ -10,6 +10,8 @@ use App\Observers\AuditObserver;
 use Database\Factories\TrainingVenueFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -69,6 +71,25 @@ class TrainingVenue extends Model
             'allowed_radius_meters' => 'integer',
             'deleted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @param  Builder<TrainingVenue>  $query
+     */
+    #[Scope]
+    protected function filter(Builder $query, ?string $status, ?string $search): void
+    {
+        $query
+            ->when($status !== null, fn (Builder $query) => $query->where('status', $status))
+            ->when($search !== null, function (Builder $query) use ($search): void {
+                $like = '%'.mb_strtolower($search).'%';
+
+                $query->where(function (Builder $builder) use ($like): void {
+                    $builder->whereRaw('LOWER(name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(COALESCE(code, \'\')) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(COALESCE(city, \'\')) LIKE ?', [$like]);
+                });
+            });
     }
 
     /** @return BelongsTo<Organization, $this> */

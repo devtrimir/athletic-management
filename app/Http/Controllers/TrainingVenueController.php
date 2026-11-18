@@ -27,16 +27,7 @@ class TrainingVenueController extends Controller
 
         $trainingVenues = TrainingVenue::query()
             ->with(['district:id,name', 'unit:id,name'])
-            ->when($statusFilter !== null, fn ($query) => $query->where('status', $statusFilter))
-            ->when($search !== null, function ($query) use ($search): void {
-                $like = '%'.mb_strtolower($search).'%';
-
-                $query->where(function ($builder) use ($like): void {
-                    $builder->whereRaw('LOWER(name) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(COALESCE(code, \'\')) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(COALESCE(city, \'\')) LIKE ?', [$like]);
-                });
-            })
+            ->filter($statusFilter, $search)
             ->orderBy('name')
             ->paginate($perPage)
             ->withQueryString();
@@ -49,6 +40,37 @@ class TrainingVenueController extends Controller
             ],
             'statuses' => ['active', 'inactive', 'under_review'],
             'perPage' => $perPage,
+        ]);
+    }
+
+    public function print(Request $request): Response
+    {
+        Gate::authorize('viewAny', TrainingVenue::class);
+
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+        $statusFilter = $this->filterString($filters['status'] ?? null);
+        $search = $this->filterString($filters['q'] ?? null);
+
+        return Inertia::render('training-venues/print', [
+            'venues' => TrainingVenue::query()
+                ->with(['district:id,name', 'unit:id,name'])
+                ->filter($statusFilter, $search)
+                ->orderBy('name')
+                ->limit(2000)
+                ->get()
+                ->map(fn (TrainingVenue $venue): array => [
+                    'id' => $venue->id,
+                    'name' => $venue->name,
+                    'code' => $venue->code,
+                    'city' => $venue->city,
+                    'district' => $venue->district?->name,
+                    'unit' => $venue->unit?->name,
+                    'allowed_radius_meters' => $venue->allowed_radius_meters,
+                    'status' => $venue->status,
+                ]),
+            'filters' => ['q' => $search, 'status' => $statusFilter],
+            'printedAt' => now()->timezone('Asia/Kolkata')->format('d M Y, h:i A').' IST',
         ]);
     }
 

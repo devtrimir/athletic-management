@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Eye, Pencil, Plus } from 'lucide-react';
+import { Eye, Pencil, Plus, Printer } from 'lucide-react';
 
 import {
     create,
@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/table';
 import { useAuthorization } from '@/hooks/use-authorization';
 import {
+    openPrintView,
     useDebouncedSearch,
     useListingFilters,
 } from '@/hooks/use-listing-filters';
@@ -105,14 +106,25 @@ export default function ExternalCoachingAssignmentsIndex({
                     placeholder: t('Search member by name or PNO'),
                 }}
                 actions={
-                    can('external-coaching-assignments.create') && (
-                        <Button asChild size="sm">
-                            <Link href={create.url()}>
-                                <Plus className="mr-1.5 h-4 w-4" />
-                                {t('Add assignment')}
-                            </Link>
+                    <>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openPrintView(index.url(), filters)}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            {t('Print')}
                         </Button>
-                    )
+                        {can('external-coaching-assignments.create') && (
+                            <Button asChild size="sm">
+                                <Link href={create.url()}>
+                                    <Plus className="mr-1.5 h-4 w-4" />
+                                    {t('Add assignment')}
+                                </Link>
+                            </Button>
+                        )}
+                    </>
                 }
                 filters={
                     <>

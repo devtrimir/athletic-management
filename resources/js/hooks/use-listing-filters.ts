@@ -38,6 +38,29 @@ export function useListingFilters(
 }
 
 /**
+ * Opens `<path>/print` in a new tab with the listing's current filters (and
+ * the selected row ids, when any) so the print view shows what is on screen.
+ */
+export function openPrintView(
+    path: string,
+    values: FilterValues,
+    ids: (number | string)[] = [],
+) {
+    const params = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(values)) {
+        const text = (value ?? '').trim();
+
+        if (text !== '' && text !== 'all' && text !== '0') {
+            params.set(`filter[${key}]`, text);
+        }
+    }
+
+    ids.forEach((id) => params.append('ids[]', String(id)));
+    window.open(`${path}/print?${params.toString()}`, '_blank', 'noopener');
+}
+
+/**
  * Controlled search box that syncs from the URL filter and applies itself
  * 400ms after the user stops typing.
  */

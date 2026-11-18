@@ -44,6 +44,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import {
+    openPrintView,
     useDebouncedSearch,
     useListingFilters,
 } from '@/hooks/use-listing-filters';
@@ -656,17 +657,15 @@ export default function ExternalTrainingAttendanceIndex({
                                     <Button
                                         type="button"
                                         onClick={() =>
-                                            printSelectedAttendanceColumns(
-                                                t(
-                                                    'External training attendance',
-                                                ),
-                                                selectedOutputColumns,
+                                            openPrintView(
+                                                PATH,
+                                                filters,
                                                 selectedAttendanceIds,
                                             )
                                         }
                                     >
                                         <Printer className="size-4" />
-                                        {t('Print selected')}
+                                        {t('Open print view')}
                                     </Button>
                                 </DialogFooter>
                             </DialogContent>
@@ -1240,106 +1239,6 @@ function exportUrlFor(columns: string[], attendanceIds: number[]): string {
     attendanceIds.forEach((id) => params.append('ids[]', String(id)));
 
     return `/external-training-attendances/export?${params.toString()}`;
-}
-
-function printSelectedAttendanceColumns(
-    title: string,
-    columns: string[],
-    attendanceIds: number[],
-): void {
-    const rows = Array.from(
-        document.querySelectorAll<HTMLTableRowElement>(
-            '#external-training-attendance-print tbody tr',
-        ),
-    ).filter((row) => {
-        if (attendanceIds.length === 0) {
-            return true;
-        }
-
-        const rowId = Number(row.dataset.attendanceId);
-
-        return attendanceIds.includes(rowId);
-    });
-    const headerLabels = columns
-        .map((column) =>
-            exportColumnGroups
-                .flatMap((group) => group.columns)
-                .find((item) => item.key === column),
-        )
-        .filter((column): column is ExportColumn => column !== undefined);
-    const printWindow = window.open('', '_blank', 'width=1200,height=800');
-
-    if (!printWindow) {
-        return;
-    }
-
-    const printableRows = rows.map((row) => {
-        const cells = Array.from(row.querySelectorAll('td'));
-        const values: Record<string, string> = {
-            date: cells[3]?.textContent?.trim() ?? '',
-            member: cells[4]?.textContent?.trim() ?? '',
-            pno: cells[4]?.querySelector('div')?.textContent?.trim() ?? '',
-            external_coach: cells[5]?.textContent?.trim() ?? '',
-            venue: cells[6]?.textContent?.trim() ?? '',
-            sport: cells[7]?.textContent?.trim() ?? '',
-            attendance_status: cells[8]?.textContent?.trim() ?? '',
-            corrected_attendance_status: cells[9]?.textContent?.trim() ?? '',
-            review_status: cells[11]?.textContent?.trim() ?? '',
-            geo_status: cells[10]?.textContent?.trim() ?? '',
-            distance_meters: cells[12]?.textContent?.trim() ?? '',
-        };
-
-        return headerLabels
-            .map((column) => `<td>${escapeHtml(values[column.key] ?? '')}</td>`)
-            .join('');
-    });
-
-    printWindow.document.write(`
-        <!doctype html>
-        <html>
-            <head>
-                <title>${title}</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 16px; color: #111; }
-                    h1 { font-size: 16px; margin: 0 0 12px; }
-                    table { width: 100%; border-collapse: collapse; font-size: 10px; }
-                    th, td { border: 1px solid #d4d4d4; padding: 4px 6px; text-align: left; vertical-align: top; }
-                    th { background: #f4f4f5; font-weight: 700; text-transform: uppercase; }
-                    a { color: #111; text-decoration: none; }
-                    button { display: none; }
-                    .sticky { position: static !important; }
-                </style>
-            </head>
-            <body>
-                <h1>${title}</h1>
-                <table>
-                    <thead>
-                        <tr>${headerLabels.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr>
-                    </thead>
-                    <tbody>
-                        ${printableRows.map((row) => `<tr>${row}</tr>`).join('')}
-                    </tbody>
-                </table>
-            </body>
-        </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-}
-
-function escapeHtml(value: string): string {
-    return value.replace(
-        /[&<>"']/g,
-        (character) =>
-            ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;',
-            })[character] ?? character,
-    );
 }
 
 function attendanceStatusBadgeClass(status: string): string {

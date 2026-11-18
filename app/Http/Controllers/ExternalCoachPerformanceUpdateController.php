@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ExternalCoachPerformanceUpdates\ReviewExternalCoachPerformanceUpdateRequest;
 use App\Models\ExternalCoachPerformanceUpdate;
 use App\Models\Sport;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -22,56 +23,15 @@ class ExternalCoachPerformanceUpdateController extends Controller
     {
         Gate::authorize('viewAny', ExternalCoachPerformanceUpdate::class);
 
-        $filters = $request->query('filter', []);
-        $filters = is_array($filters) ? $filters : [];
-        $memberQuery = $this->filterString($filters['member_query'] ?? $filters['member'] ?? null);
-        $coachQuery = $this->filterString($filters['coach_query'] ?? $filters['coach'] ?? null);
-        $sportId = $this->filterInt($filters['sport_id'] ?? null);
-        $reviewStatus = $this->filterString($filters['review_status'] ?? null);
-        $dateFrom = $this->filterDate($filters['date_from'] ?? $filters['update_date_from'] ?? null);
-        $dateTo = $this->filterDate($filters['date_to'] ?? $filters['update_date_to'] ?? null);
+        $filters = $this->listingFilters($request);
+        $memberQuery = $filters['memberQuery'];
+        $coachQuery = $filters['coachQuery'];
+        $sportId = $filters['sportId'];
+        $reviewStatus = $filters['reviewStatus'];
+        $dateFrom = $filters['dateFrom'];
+        $dateTo = $filters['dateTo'];
 
-        $updates = ExternalCoachPerformanceUpdate::query()
-            ->with([
-                'member:id,member_code,pno,full_name',
-                'externalCoach:id,name,email,phone',
-                'sport:id,name',
-                'assignment:id,status,start_date,end_date',
-                'reviewer:id,name',
-            ])
-            ->when(
-                $memberQuery !== null,
-                function ($query) use ($memberQuery): void {
-                    $query->whereHas('member', function ($memberQueryBuilder) use ($memberQuery): void {
-                        $memberQueryBuilder
-                            ->where('full_name', 'like', "%{$memberQuery}%")
-                            ->orWhere('member_code', 'like', "%{$memberQuery}%")
-                            ->orWhere('pno', 'like', "%{$memberQuery}%");
-                    });
-                },
-            )
-            ->when(
-                $coachQuery !== null,
-                function ($query) use ($coachQuery): void {
-                    $query->whereHas('externalCoach', function ($coachQueryBuilder) use ($coachQuery): void {
-                        $coachQueryBuilder
-                            ->where('name', 'like', "%{$coachQuery}%")
-                            ->orWhere('phone', 'like', "%{$coachQuery}%")
-                            ->orWhere('email', 'like', "%{$coachQuery}%");
-                    });
-                },
-            )
-            ->when($sportId !== null, fn ($query) => $query->where('sport_id', $sportId))
-            ->when($dateFrom !== null || $dateTo !== null, function ($query) use ($dateFrom, $dateTo): void {
-                if ($dateFrom !== null) {
-                    $query->whereDate('update_date', '>=', $dateFrom);
-                }
-
-                if ($dateTo !== null) {
-                    $query->whereDate('update_date', '<=', $dateTo);
-                }
-            })
-            ->when($reviewStatus !== null, fn ($query) => $query->where('review_status', $reviewStatus))
+        $updates = $this->listingQuery($filters)
             ->latest('update_date')
             ->latest('id')
             ->paginate(25)
@@ -135,6 +95,104 @@ class ExternalCoachPerformanceUpdateController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Performance review saved.')]);
 
         return to_route('external-coach-performance-updates.show', $performanceUpdate);
+    }
+
+    /**
+     * @return array{memberQuery: ?string, coachQuery: ?string, sportId: ?int, reviewStatus: ?string, dateFrom: ?string, dateTo: ?string}
+     */
+    private function listingFilters(Request $request): array
+    {
+        $filters = $request->query('filter', []);
+        $filters = is_array($filters) ? $filters : [];
+
+        return [
+            'memberQuery' => $this->filterString($filters['member_query'] ?? $filters['member'] ?? null),
+            'coachQuery' => $this->filterString($filters['coach_query'] ?? $filters['coach'] ?? null),
+            'sportId' => $this->filterInt($filters['sport_id'] ?? null),
+            'reviewStatus' => $this->filterString($filters['review_status'] ?? null),
+            'dateFrom' => $this->filterDate($filters['date_from'] ?? $filters['update_date_from'] ?? null),
+            'dateTo' => $this->filterDate($filters['date_to'] ?? $filters['update_date_to'] ?? null),
+        ];
+    }
+
+    /**
+     * @param  array{memberQuery: ?string, coachQuery: ?string, sportId: ?int, reviewStatus: ?string, dateFrom: ?string, dateTo: ?string}  $filters
+     * @return Builder<ExternalCoachPerformanceUpdate>
+     */
+    private function listingQuery(array $filters): Builder
+    {
+        ['memberQuery' => $memberQuery, 'coachQuery' => $coachQuery, 'sportId' => $sportId, 'reviewStatus' => $reviewStatus, 'dateFrom' => $dateFrom, 'dateTo' => $dateTo] = $filters;
+
+        return ExternalCoachPerformanceUpdate::query()
+            ->with([
+                'member:id,member_code,pno,full_name',
+                'externalCoach:id,name,email,phone',
+                'sport:id,name',
+                'assignment:id,status,start_date,end_date',
+                'reviewer:id,name',
+            ])
+            ->when(
+                $memberQuery !== null,
+                function ($query) use ($memberQuery): void {
+                    $query->whereHas('member', function ($memberQueryBuilder) use ($memberQuery): void {
+                        $memberQueryBuilder
+                            ->where('full_name', 'like', "%{$memberQuery}%")
+                            ->orWhere('member_code', 'like', "%{$memberQuery}%")
+                            ->orWhere('pno', 'like', "%{$memberQuery}%");
+                    });
+                },
+            )
+            ->when(
+                $coachQuery !== null,
+                function ($query) use ($coachQuery): void {
+                    $query->whereHas('externalCoach', function ($coachQueryBuilder) use ($coachQuery): void {
+                        $coachQueryBuilder
+                            ->where('name', 'like', "%{$coachQuery}%")
+                            ->orWhere('phone', 'like', "%{$coachQuery}%")
+                            ->orWhere('email', 'like', "%{$coachQuery}%");
+                    });
+                },
+            )
+            ->when($sportId !== null, fn ($query) => $query->where('sport_id', $sportId))
+            ->when($dateFrom !== null || $dateTo !== null, function ($query) use ($dateFrom, $dateTo): void {
+                if ($dateFrom !== null) {
+                    $query->whereDate('update_date', '>=', $dateFrom);
+                }
+
+                if ($dateTo !== null) {
+                    $query->whereDate('update_date', '<=', $dateTo);
+                }
+            })
+            ->when($reviewStatus !== null, fn ($query) => $query->where('review_status', $reviewStatus));
+    }
+
+    public function print(Request $request): Response
+    {
+        Gate::authorize('viewAny', ExternalCoachPerformanceUpdate::class);
+
+        $filters = $this->listingFilters($request);
+        $updates = $this->listingQuery($filters)->latest('update_date')->latest('id')->limit(2000)->get()
+            ->map(fn (ExternalCoachPerformanceUpdate $update): array => [
+                'id' => $update->id,
+                'update_date' => $update->update_date?->toDateString(),
+                'member' => $update->member?->full_name,
+                'pno' => $update->member?->pno,
+                'external_coach' => $update->externalCoach?->name,
+                'sport' => $update->sport?->name,
+                'performance_score' => $update->performance_score,
+                'performance_level' => $update->performance_level,
+                'review_status' => $update->review_status,
+                'reviewed_by' => $update->reviewer?->name,
+                'training_summary' => $update->training_summary,
+                'improvement_notes' => $update->improvement_notes,
+            ]);
+
+        return Inertia::render('external-coach-performance-updates/print', [
+            'updates' => $updates,
+            'filters' => $filters,
+            'sportName' => $filters['sportId'] !== null ? Sport::query()->whereKey($filters['sportId'])->value('name') : null,
+            'printedAt' => now()->timezone('Asia/Kolkata')->format('d M Y, h:i A').' IST',
+        ]);
     }
 
     private function filterDate(mixed $value): ?string

@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Eye } from 'lucide-react';
+import { Eye, Printer } from 'lucide-react';
 
 import {
     DateRangePill,
@@ -31,6 +31,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import {
+    openPrintView,
     useDebouncedSearch,
     useListingFilters,
 } from '@/hooks/use-listing-filters';
@@ -101,6 +102,17 @@ export default function ExternalCoachPerformanceUpdatesIndex({
                     onChange: setSearch,
                     placeholder: t('Search member name or PNO'),
                 }}
+                actions={
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openPrintView(PATH, filters)}
+                    >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        {t('Print')}
+                    </Button>
+                }
                 filters={
                     <>
                         <TextFilterPill

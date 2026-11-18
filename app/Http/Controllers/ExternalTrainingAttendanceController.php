@@ -142,6 +142,48 @@ class ExternalTrainingAttendanceController extends Controller
         ]);
     }
 
+    public function print(Request $request): Response
+    {
+        Gate::authorize('viewAny', ExternalTrainingAttendance::class);
+
+        $filters = $this->attendanceFilters($request);
+        $rows = $this->attendanceQuery($filters)
+            ->latest('attendance_date')
+            ->latest('id')
+            ->limit(2000)
+            ->get()
+            ->map(fn (ExternalTrainingAttendance $attendance): array => [
+                'id' => $attendance->id,
+                'date' => $attendance->attendance_date?->toDateString(),
+                'member' => $attendance->member?->full_name,
+                'pno' => $attendance->member?->pno,
+                'external_coach' => $attendance->externalCoach?->name,
+                'venue' => $attendance->trainingVenue?->name,
+                'sport' => $attendance->assignment?->sport?->name,
+                'attendance_status' => $attendance->attendance_status,
+                'corrected_status' => $attendance->review_status === 'corrected' ? $attendance->corrected_attendance_status : null,
+                'geo_status' => $attendance->geo_status,
+                'review_status' => $attendance->review_status,
+                'distance_meters' => $attendance->distance_from_venue_meters,
+                'reviewed_by' => $attendance->reviewer?->name,
+                'coach_remarks' => $attendance->coach_remarks,
+            ]);
+
+        return Inertia::render('external-training-attendances/print', [
+            'attendances' => $rows,
+            'filters' => [
+                'q' => $filters['query'],
+                'date_from' => $filters['dateFrom'],
+                'date_to' => $filters['dateTo'],
+                'attendance_status' => $filters['attendanceStatus'],
+                'geo_status' => $filters['geoStatus'],
+                'review_status' => $filters['reviewStatus'],
+                'selected' => count($filters['ids']),
+            ],
+            'printedAt' => now()->timezone('Asia/Kolkata')->format('d M Y, h:i A').' IST',
+        ]);
+    }
+
     public function export(Request $request): BinaryFileResponse
     {
         Gate::authorize('viewAny', ExternalTrainingAttendance::class);
