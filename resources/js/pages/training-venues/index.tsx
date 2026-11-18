@@ -52,8 +52,6 @@ type Venue = {
     longitude: string | null;
     status: string;
     allowed_radius_meters: number;
-    district?: { name: string } | null;
-    unit?: { name: string } | null;
 };
 
 type Filters = {
@@ -262,16 +260,14 @@ export default function TrainingVenuesIndex({
                     />
                 }
             >
-                <ListingTable minWidth={1300}>
+                <ListingTable minWidth={1000}>
                     <colgroup>
                         <col className="w-11" />
                         <col className="w-[260px]" />
                         <col className="w-[120px]" />
                         <col className="w-[130px]" />
-                        <col className="w-[140px]" />
                         <col />
                         <col className="w-[150px]" />
-                        <col className="w-[170px]" />
                         <col className="w-[90px]" />
                         <col className="w-[100px]" />
                         <col className="w-[84px]" />
@@ -283,10 +279,8 @@ export default function TrainingVenuesIndex({
                                 'Venue',
                                 'Code',
                                 'City',
-                                'District',
                                 'Address',
                                 'Coordinates',
-                                'Unit',
                                 'Radius',
                                 'Status',
                             ].map((label, position) => (
@@ -315,7 +309,7 @@ export default function TrainingVenuesIndex({
                         {trainingVenues.data.length === 0 ? (
                             <TableRow>
                                 <TableCell
-                                    colSpan={11}
+                                    colSpan={9}
                                     className="py-12 text-center text-muted-foreground"
                                 >
                                     {t('No training venues found.')}
@@ -349,9 +343,6 @@ export default function TrainingVenuesIndex({
                                     <TableCell className={listingCellClass}>
                                         {venue.city || '-'}
                                     </TableCell>
-                                    <TableCell className={listingCellClass}>
-                                        {venue.district?.name || '-'}
-                                    </TableCell>
                                     <TableCell
                                         className={listingCellClass}
                                         title={venue.address ?? undefined}
@@ -369,9 +360,6 @@ export default function TrainingVenuesIndex({
                                         {venue.latitude && venue.longitude
                                             ? `${Number(venue.latitude).toFixed(4)}, ${Number(venue.longitude).toFixed(4)}`
                                             : '-'}
-                                    </TableCell>
-                                    <TableCell className={listingCellClass}>
-                                        {venue.unit?.name || '-'}
                                     </TableCell>
                                     <TableCell
                                         className={cn(

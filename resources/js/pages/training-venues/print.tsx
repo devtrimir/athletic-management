@@ -8,8 +8,6 @@ type Venue = {
     name: string;
     code: string | null;
     city: string | null;
-    district: string | null;
-    unit: string | null;
     allowed_radius_meters: number;
     status: string;
 };
@@ -30,19 +28,6 @@ const COLUMNS: PrintColumn<Venue>[] = [
         cell: (v) => v.code ?? '-',
     },
     { key: 'city', weight: 1.5, label: 'City', cell: (v) => v.city ?? '-' },
-    {
-        key: 'district',
-        weight: 1.5,
-        label: 'District',
-        cell: (v) => v.district ?? '-',
-    },
-    {
-        key: 'unit',
-        weight: 2,
-
-        label: 'Unit',
-        cell: (v) => v.unit ?? '-',
-    },
     {
         key: 'radius',
         weight: 1.1,

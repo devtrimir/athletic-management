@@ -25,7 +25,6 @@ class TrainingVenueController extends Controller
         $perPage = min(max((int) $request->query('per_page', 25), 10), 100);
 
         $trainingVenues = TrainingVenue::query()
-            ->with(['district:id,name', 'unit:id,name'])
             ->filter($statusFilter, $search, $extra)
             ->orderBy('name')
             ->paginate($perPage)
@@ -59,7 +58,6 @@ class TrainingVenueController extends Controller
 
         return Inertia::render('training-venues/print', [
             'venues' => TrainingVenue::query()
-                ->with(['district:id,name', 'unit:id,name'])
                 ->filter($statusFilter, $search, $extra)
                 ->orderBy('name')
                 ->limit(2000)
@@ -69,8 +67,6 @@ class TrainingVenueController extends Controller
                     'name' => $venue->name,
                     'code' => $venue->code,
                     'city' => $venue->city,
-                    'district' => $venue->district?->name,
-                    'unit' => $venue->unit?->name,
                     'allowed_radius_meters' => $venue->allowed_radius_meters,
                     'status' => $venue->status,
                 ]),
