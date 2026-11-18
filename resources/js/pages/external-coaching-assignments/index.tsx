@@ -1,11 +1,11 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { Eye, Pencil, Plus, Printer } from 'lucide-react';
+import { useState } from 'react';
 
 import {
     create,
     edit,
     index,
-    show,
 } from '@/actions/App/Http/Controllers/ExternalCoachingAssignmentController';
 import {
     DateRangePill,
@@ -27,6 +27,8 @@ import {
     stickyRightBodyCellClass,
     stickyRightHeadCellClass,
 } from '@/components/data-table/table-primitives';
+import { AssignmentQuickView } from '@/components/external-coaching/assignment-quick-view';
+import type { AssignmentQuickViewData } from '@/components/external-coaching/assignment-quick-view';
 import { ListingPagination } from '@/components/listing-pagination';
 import type { PaginatedListing } from '@/components/listing-pagination';
 import { MemberAvatar } from '@/components/members/member-table-cells';
@@ -47,27 +49,10 @@ import {
 } from '@/hooks/use-listing-filters';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate, formatTimeRange } from '@/lib/dates';
-import { attendanceModeLabel, humanize } from '@/lib/external-coaching';
+import { attendanceModeLabel, translateValue } from '@/lib/external-coaching';
 import { cn } from '@/lib/utils';
 
-type Assignment = {
-    id: number;
-    start_date: string;
-    end_date: string;
-    status: string;
-    training_days?: string[] | null;
-    training_start_time?: string | null;
-    training_end_time?: string | null;
-    attendance_mode?: string | null;
-    member?: {
-        full_name: string;
-        pno: string | null;
-        photo_path: string | null;
-    } | null;
-    external_coach?: { name: string } | null;
-    training_venue?: { name: string } | null;
-    sport?: { name: string } | null;
-};
+type Assignment = AssignmentQuickViewData;
 
 type Filters = {
     member_query?: string;
@@ -95,9 +80,12 @@ const DAY_LABELS: Record<string, string> = {
     sunday: 'Sun',
 };
 
-function scheduleLabel(assignment: Assignment): string {
+function scheduleLabel(
+    assignment: Assignment,
+    t: (key: string) => string,
+): string {
     const days = (assignment.training_days ?? [])
-        .map((day) => DAY_LABELS[day] ?? day)
+        .map((day) => t(DAY_LABELS[day] ?? day))
         .join(', ');
     const time = formatTimeRange(
         assignment.training_start_time,
@@ -122,6 +110,7 @@ export default function ExternalCoachingAssignmentsIndex({
         filters.member_query,
         (member_query) => apply(filters, { member_query }),
     );
+    const [viewing, setViewing] = useState<Assignment | null>(null);
     const hasFilters = Object.values(filters).some(Boolean);
     const sportName = sports.find(
         (sport) => String(sport.id) === filters.sport_id,
@@ -175,7 +164,7 @@ export default function ExternalCoachingAssignmentsIndex({
                             label={t('Status')}
                             activeLabel={
                                 filters.status
-                                    ? t(humanize(filters.status))
+                                    ? translateValue(filters.status, t)
                                     : undefined
                             }
                             onClear={() => apply(filters, { status: null })}
@@ -183,7 +172,7 @@ export default function ExternalCoachingAssignmentsIndex({
                             <OptionList
                                 options={statuses.map((value) => ({
                                     value,
-                                    label: t(humanize(value)),
+                                    label: translateValue(value, t),
                                 }))}
                                 value={filters.status}
                                 onSelect={(status) =>
@@ -325,9 +314,7 @@ export default function ExternalCoachingAssignmentsIndex({
                                 <TableRow
                                     key={assignment.id}
                                     className="cursor-pointer hover:bg-muted/30"
-                                    onClick={() =>
-                                        router.visit(show.url(assignment))
-                                    }
+                                    onClick={() => setViewing(assignment)}
                                 >
                                     <TableCell
                                         style={{ left: 0 }}
@@ -384,7 +371,7 @@ export default function ExternalCoachingAssignmentsIndex({
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
                                         <span className="block truncate">
-                                            {scheduleLabel(assignment)}
+                                            {scheduleLabel(assignment, t)}
                                         </span>
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
@@ -408,7 +395,10 @@ export default function ExternalCoachingAssignmentsIndex({
                                             }
                                             className="px-1.5 py-0 text-[10px]"
                                         >
-                                            {t(humanize(assignment.status))}
+                                            {translateValue(
+                                                assignment.status,
+                                                t,
+                                            )}
                                         </Badge>
                                     </TableCell>
                                     <TableCell
@@ -424,16 +414,14 @@ export default function ExternalCoachingAssignmentsIndex({
                                             }
                                         >
                                             <Button
-                                                asChild
                                                 size="icon"
                                                 variant="ghost"
                                                 title={t('View')}
+                                                onClick={() =>
+                                                    setViewing(assignment)
+                                                }
                                             >
-                                                <Link
-                                                    href={show.url(assignment)}
-                                                >
-                                                    <Eye className="size-4" />
-                                                </Link>
+                                                <Eye className="size-4" />
                                             </Button>
                                             {canUpdate && (
                                                 <Button
@@ -459,6 +447,11 @@ export default function ExternalCoachingAssignmentsIndex({
                     </TableBody>
                 </ListingTable>
             </ListingLayout>
+            <AssignmentQuickView
+                assignment={viewing}
+                canEdit={canUpdate}
+                onClose={() => setViewing(null)}
+            />
         </>
     );
 }

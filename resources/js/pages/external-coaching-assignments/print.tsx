@@ -3,7 +3,7 @@ import { ColumnsPrint } from '@/components/print/columns-print';
 import type { PrintColumn } from '@/components/print/columns-print';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate } from '@/lib/dates';
-import { attendanceModeLabel, humanize } from '@/lib/external-coaching';
+import { attendanceModeLabel, translateValue } from '@/lib/external-coaching';
 
 type Assignment = {
     id: number;
@@ -83,7 +83,7 @@ const COLUMNS: PrintColumn<Assignment>[] = [
         key: 'status',
         weight: 1,
         label: 'Status',
-        cell: (a, t) => t(humanize(a.status)),
+        cell: (a, t) => translateValue(a.status, t),
     },
 ];
 

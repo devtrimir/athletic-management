@@ -39,7 +39,7 @@ import { useTranslation } from '@/hooks/use-translation';
 import {
     attendanceModeHint,
     attendanceModeLabel,
-    humanize,
+    translateValue,
 } from '@/lib/external-coaching';
 import { cn } from '@/lib/utils';
 
@@ -741,7 +741,7 @@ export function AssignmentForm({
                                             )}
                                             onChange={() => toggleDay(day)}
                                         />
-                                        <span>{t(humanize(day))}</span>
+                                        <span>{translateValue(day, t)}</span>
                                     </label>
                                 ))}
                             </div>
@@ -815,7 +815,7 @@ export function AssignmentForm({
                                                 key={status}
                                                 value={status}
                                             >
-                                                {t(humanize(status))}
+                                                {translateValue(status, t)}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDateRange, formatTimeRange } from '@/lib/dates';
-import { attendanceModeLabel, humanize } from '@/lib/external-coaching';
+import { attendanceModeLabel, translateValue } from '@/lib/external-coaching';
 
 type Assignment = {
     id: number;
@@ -84,7 +84,9 @@ export default function ExternalCoachingAssignmentsShow({
                         <Detail
                             label={t('Status')}
                             value={
-                                <Badge>{t(humanize(assignment.status))}</Badge>
+                                <Badge>
+                                    {translateValue(assignment.status, t)}
+                                </Badge>
                             }
                         />
                         <Detail
