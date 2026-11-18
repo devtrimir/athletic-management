@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ExternalCoaches\LoginExternalCoachRequest;
 use App\Models\ExternalCoach;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -18,8 +19,11 @@ class ExternalCoachLoginController extends Controller
     /**
      * Sign-in happens inline on the welcome page; this route just points there.
      */
-    public function create(): RedirectResponse
+    public function create(Request $request): RedirectResponse
     {
+        // Keep flashed errors (e.g. "account inactive") across this extra hop.
+        $request->session()->reflash();
+
         return redirect()->route('home', ['panel' => 'coach']);
     }
 
@@ -80,6 +84,6 @@ class ExternalCoachLoginController extends Controller
         request()->session()->invalidate();
         request()->session()->regenerateToken();
 
-        return to_route('external-coach.login');
+        return to_route('home');
     }
 }
