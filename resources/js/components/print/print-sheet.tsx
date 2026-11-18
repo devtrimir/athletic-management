@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 import { useTranslation } from '@/hooks/use-translation';
-import { ORGANISATION_NAME } from '@/lib/organisation';
 
 export type PrintOrientation = 'portrait' | 'landscape';
 
@@ -30,6 +30,7 @@ export function PrintSheet({
     children: ReactNode;
 }) {
     const { t } = useTranslation();
+    const organisationName = useOrganisationName();
 
     return (
         <>
@@ -120,11 +121,11 @@ export function PrintSheet({
                     <img
                         className="letterhead-logo"
                         src={LETTERHEAD_LOGO_SRC}
-                        alt={t(ORGANISATION_NAME)}
+                        alt={organisationName}
                     />
                     <div>
                         <div className="letterhead-title">
-                            {t(ORGANISATION_NAME)}
+                            {organisationName}
                         </div>
                     </div>
                 </div>

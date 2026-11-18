@@ -6,7 +6,7 @@ import {
 } from '@/actions/App/Http/Controllers/MedalsReportExportController';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate } from '@/lib/dates';
-import { ORGANISATION_NAME } from '@/lib/organisation';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 import type { RankOption } from '@/lib/ranks';
 import { resolveRankLabel } from '@/lib/ranks';
 
@@ -175,6 +175,7 @@ export default function MedalsPrint({
     ranks: RankOption[];
 }) {
     const { t } = useTranslation();
+    const organisationName = useOrganisationName();
     const { locale } = usePage().props as { locale: string };
     const printTargetRef = useRef<HTMLDivElement>(null);
 
@@ -980,10 +981,10 @@ export default function MedalsPrint({
                     <img
                         className="letterhead-logo"
                         src={LETTERHEAD_LOGO_SRC}
-                        alt={t(ORGANISATION_NAME)}
+                        alt={organisationName}
                     />
                     <div>
-                        <div className="letterhead-title">{t(ORGANISATION_NAME)}</div>
+                        <div className="letterhead-title">{organisationName}</div>
                     </div>
                 </div>
 

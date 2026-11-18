@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Auth\Rbac;
 use App\Models\User;
+use App\Support\Organisation;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -42,6 +43,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'organisation' => fn (): array => ['name' => Organisation::name()],
             'auth' => [
                 'user' => $user,
                 'permissions' => fn (): array => $user instanceof User && $user->organization_id

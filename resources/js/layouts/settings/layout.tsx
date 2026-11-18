@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     BriefcaseIcon,
+    Building,
     Building2,
     CalendarDays,
     LocateIcon,
@@ -23,6 +24,7 @@ import { edit as editAppearance } from '@/routes/appearance';
 import { index as designationsIndex } from '@/routes/designations';
 import { index as districtsIndex } from '@/routes/districts';
 import { index as nisMastersIndex } from '@/routes/nis-masters';
+import { edit as editOrganisation } from '@/routes/organisation';
 import { edit } from '@/routes/profile';
 import { index as ranksIndex } from '@/routes/ranks';
 import { index as rolesIndex } from '@/routes/roles';
@@ -67,6 +69,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
     ];
 
     const referenceDataNavItems: NavItem[] = [
+        { title: t('Organisation'), href: editOrganisation(), icon: Building },
         { title: t('Sessions'), href: sessionsIndex(), icon: CalendarDays },
         { title: t('Sports'), href: sportsIndex(), icon: Trophy },
         { title: t('Units'), href: unitsIndex(), icon: Building2 },

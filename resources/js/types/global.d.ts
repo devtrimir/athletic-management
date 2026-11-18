@@ -17,6 +17,7 @@ declare module '@inertiajs/core' {
             translations: Record<string, string>;
             flash: { toast?: FlashToast; import_id?: number };
             sidebarOpen: boolean;
+            organisation: { name: string };
             [key: string]: unknown;
         };
         flashDataType: {

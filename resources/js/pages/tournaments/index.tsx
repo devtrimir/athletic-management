@@ -44,9 +44,9 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 import { useTranslation } from '@/hooks/use-translation';
 import { formatDate, formatDateRange } from '@/lib/dates';
-import { ORGANISATION_NAME } from '@/lib/organisation';
 
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
@@ -124,6 +124,7 @@ export default function TournamentsIndex({
     tiers: Tier[];
 }) {
     const { t } = useTranslation();
+    const organisationName = useOrganisationName();
 
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [quickOverviewTournament, setQuickOverviewTournament] =
@@ -417,9 +418,9 @@ export default function TournamentsIndex({
             <img class="watermark" src="/logo.jpg" alt="">
             <div class="print-content">
             <div class="letterhead">
-                <img class="letterhead-logo" src="/logo.jpg" alt="${escapePrintValue(t(ORGANISATION_NAME))}">
+                <img class="letterhead-logo" src="/logo.jpg" alt="${escapePrintValue(organisationName)}">
                 <div class="letterhead-body">
-                    <h1>${escapePrintValue(t(ORGANISATION_NAME))}</h1>
+                    <h1>${escapePrintValue(organisationName)}</h1>
                     <p>${escapePrintValue(t('Tournament Listing'))}</p>
                     <p>${escapePrintValue(t('Official print preview'))}</p>
                 </div>

@@ -1,6 +1,6 @@
 import { PrintDocument } from '@/components/print/print-document';
 import { useTranslation } from '@/hooks/use-translation';
-import { ORGANISATION_NAME } from '@/lib/organisation';
+import { useOrganisationName } from '@/hooks/use-organisation-name';
 
 type ReportMeta = {
     title: string;
@@ -21,10 +21,11 @@ export default function MembersPrint({
     reportMeta: ReportMeta;
 }) {
     const { t } = useTranslation();
+    const organisationName = useOrganisationName();
 
     return (
         <PrintDocument
-            organization={t(ORGANISATION_NAME)}
+            organization={organisationName}
             title={t(reportMeta.title)}
             printedAt={reportMeta.printedAt}
             columns={columns}
