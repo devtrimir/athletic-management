@@ -1754,5 +1754,14 @@
     "Choose the sign-in area for your role.": "अपनी भूमिका के अनुसार साइन-इन क्षेत्र चुनें।",
     "Organisation": "संगठन",
     "Organisation name updated.": "संगठन का नाम अपडेट किया गया।",
-    "The name shown on letterheads, prints, exports and the login page.": "लेटरहेड, प्रिंट, एक्सपोर्ट और लॉगिन पेज पर दिखने वाला नाम।"
+    "The name shown on letterheads, prints, exports and the login page.": "लेटरहेड, प्रिंट, एक्सपोर्ट और लॉगिन पेज पर दिखने वाला नाम।",
+    "Past athletes": "पूर्व खिलाड़ी",
+    "Training has ended. You can look back at the history, but nothing can be added.": "प्रशिक्षण समाप्त हो चुका है। आप इतिहास देख सकते हैं, पर कुछ जोड़ा नहीं जा सकता।",
+    "View history": "इतिहास देखें",
+    "Training with you has ended. This history is read-only.": "आपके साथ प्रशिक्षण समाप्त हो चुका है। यह इतिहास केवल देखने के लिए है।",
+    "Let the coach view this history after training ends": "प्रशिक्षण समाप्त होने के बाद कोच को यह इतिहास देखने दें",
+    "Once the assignment is completed, cancelled or expired, the coach can still open the attendance and performance history, read-only. Off by default.": "नियुक्ति पूर्ण, रद्द या समाप्त होने के बाद भी कोच उपस्थिति और प्रदर्शन का इतिहास केवल देखने के लिए खोल सकता है। डिफ़ॉल्ट रूप से बंद।",
+    "Coach history after training ends": "प्रशिक्षण समाप्त होने के बाद कोच का इतिहास",
+    "Allowed (read-only)": "अनुमत (केवल देखने के लिए)",
+    "Not allowed": "अनुमत नहीं"
 }

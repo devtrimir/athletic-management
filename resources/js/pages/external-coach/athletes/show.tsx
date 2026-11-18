@@ -82,6 +82,7 @@ type Props = {
     athlete: Athlete;
     assignments: Assignment[];
     activeTab: 'attendance' | 'performance';
+    readOnly: boolean;
     tabLinks: {
         attendance: string;
         performance: string;
@@ -100,6 +101,7 @@ export default function ExternalCoachAthleteShow({
     athlete,
     assignments,
     activeTab,
+    readOnly,
     tabLinks,
     tabCounts,
     attendanceFilters,
@@ -215,7 +217,7 @@ export default function ExternalCoachAthleteShow({
                                         {t('Dashboard')}
                                     </Link>
                                 </Button>
-                                {activeAssignment ? (
+                                {activeAssignment && !readOnly ? (
                                     <>
                                         <Button
                                             asChild
@@ -280,6 +282,14 @@ export default function ExternalCoachAthleteShow({
                             </Link>
                         </nav>
                     </header>
+
+                    {readOnly ? (
+                        <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-100">
+                            {t(
+                                'Training with you has ended. This history is read-only.',
+                            )}
+                        </p>
+                    ) : null}
 
                     <section className="grid min-w-0 gap-3">
                         {activeTab === 'attendance' ? (

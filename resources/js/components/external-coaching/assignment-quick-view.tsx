@@ -33,6 +33,7 @@ export type AssignmentQuickViewData = {
     remarks?: string | null;
     cancellation_reason?: string | null;
     completion_remarks?: string | null;
+    coach_history_access?: boolean;
     member?: {
         full_name: string;
         pno: string | null;
@@ -162,6 +163,13 @@ export function AssignmentQuickView({
                                         t,
                                     )}
                                 </span>
+                            </Field>
+                            <Field
+                                label={t('Coach history after training ends')}
+                            >
+                                {assignment.coach_history_access
+                                    ? t('Allowed (read-only)')
+                                    : t('Not allowed')}
                             </Field>
                             <Field label={t('Permission reference')}>
                                 {assignment.permission_reference_number ??
