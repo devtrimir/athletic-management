@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Concerns\Auditable;
 use App\Concerns\Tenanted;
 use App\Observers\AuditObserver;
+use App\Support\TrainingVenues\VenueFilters;
 use Database\Factories\TrainingVenueFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -60,6 +61,8 @@ use Illuminate\Support\Carbon;
 #[ObservedBy([AuditObserver::class])]
 class TrainingVenue extends Model
 {
+    public const STATUSES = ['active', 'inactive', 'under_review'];
+
     /** @use HasFactory<TrainingVenueFactory> */
     use Auditable, HasFactory, SoftDeletes, Tenanted;
 
@@ -76,19 +79,18 @@ class TrainingVenue extends Model
 
     /**
      * @param  Builder<TrainingVenue>  $query
-     * @param  array{city?: ?string, state?: ?string, coach_id?: ?int, sport_id?: ?int}  $extra
      */
     #[Scope]
-    protected function filter(Builder $query, ?string $status, ?string $search, array $extra = []): void
+    protected function filter(Builder $query, VenueFilters $filters): void
     {
         $query
-            ->when($status !== null, fn (Builder $query) => $query->where('status', $status))
-            ->when(($extra['city'] ?? null) !== null, fn (Builder $query) => $query->whereRaw('LOWER(city) = ?', [mb_strtolower((string) $extra['city'])]))
-            ->when(($extra['state'] ?? null) !== null, fn (Builder $query) => $query->whereRaw('LOWER(state) = ?', [mb_strtolower((string) $extra['state'])]))
-            ->when(($extra['coach_id'] ?? null) !== null, fn (Builder $query) => $query->whereHas('externalCoaches', fn (Builder $coaches) => $coaches->whereKey($extra['coach_id'])))
-            ->when(($extra['sport_id'] ?? null) !== null, fn (Builder $query) => $query->whereHas('externalCoaches.sports', fn (Builder $sports) => $sports->whereKey($extra['sport_id'])))
-            ->when($search !== null, function (Builder $query) use ($search): void {
-                $like = '%'.mb_strtolower($search).'%';
+            ->when($filters->status !== null, fn (Builder $query) => $query->where('status', $filters->status))
+            ->when($filters->city !== null, fn (Builder $query) => $query->whereRaw('LOWER(city) = ?', [mb_strtolower($filters->city)]))
+            ->when($filters->state !== null, fn (Builder $query) => $query->whereRaw('LOWER(state) = ?', [mb_strtolower($filters->state)]))
+            ->when($filters->coachId !== null, fn (Builder $query) => $query->whereHas('externalCoaches', fn (Builder $coaches) => $coaches->whereKey($filters->coachId)))
+            ->when($filters->sportId !== null, fn (Builder $query) => $query->whereHas('externalCoaches.sports', fn (Builder $sports) => $sports->whereKey($filters->sportId)))
+            ->when($filters->search !== null, function (Builder $query) use ($filters): void {
+                $like = '%'.mb_strtolower($filters->search).'%';
 
                 $query->where(function (Builder $builder) use ($like): void {
                     $builder->whereRaw('LOWER(name) LIKE ?', [$like])
