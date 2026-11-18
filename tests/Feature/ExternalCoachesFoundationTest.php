@@ -13,6 +13,7 @@ use App\Models\Organization;
 use App\Models\Sport;
 use App\Models\TrainingVenue;
 use App\Models\User;
+use App\Services\FileCompressor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -604,4 +605,23 @@ test('external coach sports must belong to the same organization', function () {
             'sport_ids' => [$foreignSport->id],
         ])
         ->assertSessionHasErrors('sport_ids.0');
+});
+
+test('file compressor shrinks oversized images in place and skips unknown files', function () {
+    Storage::fake('local');
+
+    $image = new Imagick;
+    $image->newPseudoImage(3000, 2000, 'gradient:red-blue');
+    $image->setImageFormat('png');
+    Storage::disk('local')->put('t/big.png', $image->getImagesBlob());
+    Storage::disk('local')->put('t/note.txt', 'hello');
+    $before = Storage::disk('local')->size('t/big.png');
+
+    $compressor = app(FileCompressor::class);
+
+    expect($compressor->compressInPlace('local', 't/big.png'))->toBeGreaterThan(0)
+        ->and(Storage::disk('local')->size('t/big.png'))->toBeLessThan($before)
+        ->and(getimagesize(Storage::disk('local')->path('t/big.png'))[0])->toBe(2000)
+        ->and($compressor->compressInPlace('local', 't/note.txt'))->toBe(0)
+        ->and($compressor->compressInPlace('local', 't/missing.pdf'))->toBe(0);
 });

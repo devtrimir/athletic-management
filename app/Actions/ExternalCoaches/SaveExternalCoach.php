@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Actions\ExternalCoaches;
 
+use App\Jobs\CompressExternalCoachDocument;
 use App\Models\ExternalCoach;
 use App\Models\User;
+use App\Services\FileCompressor;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +15,8 @@ use Illuminate\Support\Facades\Storage;
 
 class SaveExternalCoach
 {
+    public function __construct(private readonly FileCompressor $compressor) {}
+
     private const EXTRA_KEYS = ['photo', 'remove_photo', 'sport_ids', 'training_venue_ids', 'documents', 'status_reason'];
 
     /**
@@ -70,9 +74,13 @@ class SaveExternalCoach
             Storage::disk('public')->delete($externalCoach->photo_path);
         }
 
-        $externalCoach->update([
-            'photo_path' => $photo?->store("external-coach-photos/{$externalCoach->organization_id}", 'public'),
-        ]);
+        $path = $photo?->store("external-coach-photos/{$externalCoach->organization_id}", 'public');
+
+        if ($path !== null) {
+            $this->compressor->compressInPlace('public', $path);
+        }
+
+        $externalCoach->update(['photo_path' => $path]);
     }
 
     /**
@@ -83,7 +91,7 @@ class SaveExternalCoach
         foreach ($documents as $document) {
             $file = $document['file'];
 
-            $externalCoach->documents()->create([
+            $stored = $externalCoach->documents()->create([
                 'type' => $document['type'],
                 'path' => $file->store("external-coach-documents/{$externalCoach->id}", 'local'),
                 'original_name' => $file->getClientOriginalName(),
@@ -91,6 +99,8 @@ class SaveExternalCoach
                 'size_bytes' => $file->getSize(),
                 'uploaded_by' => $user->id,
             ]);
+
+            CompressExternalCoachDocument::dispatch($stored)->afterCommit();
         }
     }
 }
