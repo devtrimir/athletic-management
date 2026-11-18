@@ -1,13 +1,26 @@
-import { Form, Head, Link } from '@inertiajs/react';
-import { ArrowLeft, IdCard } from 'lucide-react';
+import { Form, Head, Link, router } from '@inertiajs/react';
+import {
+    ArrowLeft,
+    Camera,
+    Dumbbell,
+    FileText,
+    IdCard,
+    Plus,
+    Trash2,
+    UserRound,
+} from 'lucide-react';
+import { useState } from 'react';
 
 import type { update } from '@/actions/App/Http/Controllers/ExternalCoachController';
 import {
     index,
     store,
 } from '@/actions/App/Http/Controllers/ExternalCoachController';
+import { ClearableSelect } from '@/components/clearable-select';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { OptionMultiSelect } from '@/components/option-multi-select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,11 +34,27 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/hooks/use-translation';
 
+type Option = { id: number; name: string };
+
+const DOCUMENT_TYPES = [
+    'aadhaar',
+    'pan',
+    'certificate',
+    'police_verification',
+    'other',
+] as const;
+
 type Props = {
     statuses: string[];
+    sports: Option[];
+    trainingVenues: Option[];
 };
 
-export default function ExternalCoachesCreate({ statuses }: Props) {
+export default function ExternalCoachesCreate({
+    statuses,
+    sports,
+    trainingVenues,
+}: Props) {
     const { t } = useTranslation();
 
     return (
@@ -38,6 +67,8 @@ export default function ExternalCoachesCreate({ statuses }: Props) {
                 )}
                 action={store()}
                 statuses={statuses}
+                sports={sports}
+                trainingVenues={trainingVenues}
             />
         </>
     );
@@ -48,8 +79,18 @@ type FormProps = {
     description: string;
     action: ReturnType<typeof store> | ReturnType<typeof update>;
     statuses: string[];
+    sports: Option[];
+    trainingVenues: Option[];
     coach?: {
         id?: number;
+        photo_path?: string | null;
+        sport_ids?: string[];
+        training_venue_ids?: string[];
+        documents?: {
+            id: number;
+            type: string;
+            original_name: string;
+        }[];
         name: string;
         email: string;
         phone: string | null;
@@ -65,9 +106,35 @@ function ExternalCoachForm({
     description,
     action,
     statuses,
+    sports,
+    trainingVenues,
     coach,
 }: FormProps) {
     const { t } = useTranslation();
+    const [photoPreview, setPhotoPreview] = useState<string | null>(
+        coach?.photo_path ? `/storage/${coach.photo_path}` : null,
+    );
+    const [removePhoto, setRemovePhoto] = useState(false);
+    const [sportIds, setSportIds] = useState<string[]>(coach?.sport_ids ?? []);
+    const [venueIds, setVenueIds] = useState<string[]>(
+        coach?.training_venue_ids ?? [],
+    );
+    const [documentRows, setDocumentRows] = useState<
+        { key: number; type: string }[]
+    >([]);
+    const documentTypeOptions = DOCUMENT_TYPES.map((type) => ({
+        value: type,
+        label: t(type),
+    }));
+
+    function removeSavedDocument(documentId: number) {
+        router.delete(
+            `/external-coaches/${coach?.id}/documents/${documentId}`,
+            {
+                preserveScroll: true,
+            },
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -102,6 +169,91 @@ function ExternalCoachForm({
                             </div>
 
                             <div className="space-y-5 p-6">
+                                <div className="flex items-center gap-4">
+                                    <Avatar className="size-20 border">
+                                        {photoPreview && !removePhoto && (
+                                            <AvatarImage
+                                                src={photoPreview}
+                                                alt=""
+                                                className="object-cover"
+                                            />
+                                        )}
+                                        <AvatarFallback>
+                                            <UserRound className="size-8 text-muted-foreground/60" />
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="grid gap-1.5">
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button
+                                                asChild
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                            >
+                                                <label
+                                                    htmlFor="photo"
+                                                    className="cursor-pointer"
+                                                >
+                                                    <Camera className="size-4" />
+                                                    {t('Upload photo')}
+                                                </label>
+                                            </Button>
+                                            {photoPreview && !removePhoto && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setRemovePhoto(true);
+                                                        setPhotoPreview(null);
+                                                        const input =
+                                                            document.getElementById(
+                                                                'photo',
+                                                            ) as HTMLInputElement | null;
+
+                                                        if (input) {
+                                                            input.value = '';
+                                                        }
+                                                    }}
+                                                >
+                                                    {t('Remove photo')}
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t('JPG, PNG or WebP, up to 2 MB.')}
+                                        </p>
+                                        <input
+                                            id="photo"
+                                            name="photo"
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="sr-only"
+                                            onChange={(event) => {
+                                                const file =
+                                                    event.target.files?.[0];
+
+                                                if (file) {
+                                                    setRemovePhoto(false);
+                                                    setPhotoPreview(
+                                                        URL.createObjectURL(
+                                                            file,
+                                                        ),
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                        {removePhoto && (
+                                            <input
+                                                type="hidden"
+                                                name="remove_photo"
+                                                value="1"
+                                            />
+                                        )}
+                                        <InputError message={errors.photo} />
+                                    </div>
+                                </div>
+
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="grid gap-2">
                                         <Label htmlFor="name">
@@ -266,6 +418,216 @@ function ExternalCoachForm({
                                         message={errors.status_reason}
                                     />
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="overflow-hidden rounded-xl border bg-card">
+                            <div className="flex items-center gap-3 border-b px-6 py-4">
+                                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <Dumbbell className="size-4" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Sports & training venues')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Sports this coach trains and where they train.',
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="grid gap-5 p-6 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label>{t('Sports')}</Label>
+                                    <OptionMultiSelect
+                                        clearable
+                                        value={sportIds}
+                                        onValueChange={setSportIds}
+                                        options={sports.map((sport) => ({
+                                            value: String(sport.id),
+                                            label: sport.name,
+                                        }))}
+                                        placeholder={t('Select sports')}
+                                        className="w-full"
+                                    />
+                                    {sportIds.map((id) => (
+                                        <input
+                                            key={id}
+                                            type="hidden"
+                                            name="sport_ids[]"
+                                            value={id}
+                                        />
+                                    ))}
+                                    <InputError message={errors.sport_ids} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>{t('Training venues')}</Label>
+                                    <OptionMultiSelect
+                                        clearable
+                                        value={venueIds}
+                                        onValueChange={setVenueIds}
+                                        options={trainingVenues.map(
+                                            (venue) => ({
+                                                value: String(venue.id),
+                                                label: venue.name,
+                                            }),
+                                        )}
+                                        placeholder={t('Select venues')}
+                                        className="w-full"
+                                    />
+                                    {venueIds.map((id) => (
+                                        <input
+                                            key={id}
+                                            type="hidden"
+                                            name="training_venue_ids[]"
+                                            value={id}
+                                        />
+                                    ))}
+                                    <InputError
+                                        message={errors.training_venue_ids}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="overflow-hidden rounded-xl border bg-card">
+                            <div className="flex items-center gap-3 border-b px-6 py-4">
+                                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <FileText className="size-4" />
+                                </div>
+                                <div className="flex-1">
+                                    <h2 className="text-sm font-semibold">
+                                        {t('Documents')}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Aadhaar, PAN, certificates and other proofs. PDF or image, up to 5 MB each.',
+                                        )}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                        setDocumentRows((rows) => [
+                                            ...rows,
+                                            { key: Date.now(), type: '' },
+                                        ])
+                                    }
+                                >
+                                    <Plus className="size-4" />
+                                    {t('Add document')}
+                                </Button>
+                            </div>
+                            <div className="space-y-3 p-6">
+                                {coach?.documents?.map((document) => (
+                                    <div
+                                        key={document.id}
+                                        className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
+                                    >
+                                        <FileText className="size-4 shrink-0 text-muted-foreground" />
+                                        <span className="w-40 shrink-0 font-medium">
+                                            {t(document.type)}
+                                        </span>
+                                        <a
+                                            href={`/external-coaches/${coach.id}/documents/${document.id}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="min-w-0 flex-1 truncate text-primary hover:underline"
+                                        >
+                                            {document.original_name}
+                                        </a>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            title={t('Remove')}
+                                            onClick={() =>
+                                                removeSavedDocument(document.id)
+                                            }
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                {documentRows.map((row, index) => (
+                                    <div
+                                        key={row.key}
+                                        className="grid items-start gap-3 sm:grid-cols-[200px_1fr_auto]"
+                                    >
+                                        <div className="grid gap-1">
+                                            <ClearableSelect
+                                                value={row.type}
+                                                onValueChange={(type) =>
+                                                    setDocumentRows((rows) =>
+                                                        rows.map((item) =>
+                                                            item.key === row.key
+                                                                ? {
+                                                                      ...item,
+                                                                      type,
+                                                                  }
+                                                                : item,
+                                                        ),
+                                                    )
+                                                }
+                                                options={documentTypeOptions}
+                                                placeholder={t('Document type')}
+                                            />
+                                            <input
+                                                type="hidden"
+                                                name={`documents[${index}][type]`}
+                                                value={row.type}
+                                            />
+                                            <InputError
+                                                message={
+                                                    errors[
+                                                        `documents.${index}.type`
+                                                    ]
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-1">
+                                            <Input
+                                                type="file"
+                                                name={`documents[${index}][file]`}
+                                                accept=".pdf,image/jpeg,image/png,image/webp"
+                                                required
+                                            />
+                                            <InputError
+                                                message={
+                                                    errors[
+                                                        `documents.${index}.file`
+                                                    ]
+                                                }
+                                            />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            title={t('Remove')}
+                                            onClick={() =>
+                                                setDocumentRows((rows) =>
+                                                    rows.filter(
+                                                        (item) =>
+                                                            item.key !==
+                                                            row.key,
+                                                    ),
+                                                )
+                                            }
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                {!coach?.documents?.length &&
+                                documentRows.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        {t('No documents added yet.')}
+                                    </p>
+                                ) : null}
                             </div>
                         </div>
 
