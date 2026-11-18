@@ -217,7 +217,7 @@ class ExternalCoachingAssignmentController extends Controller
         ['status' => $statusFilter, 'memberQuery' => $memberQuery, 'coachQuery' => $coachQuery, 'sportId' => $sportId, 'startDateFrom' => $startDateFrom, 'startDateTo' => $startDateTo] = $filters;
 
         return ExternalCoachingAssignment::query()
-            ->with(['member:id,member_code,pno,full_name', 'externalCoach:id,name,email,phone', 'trainingVenue:id,name', 'sport:id,name'])
+            ->with(['member:id,member_code,pno,full_name,photo_path', 'externalCoach:id,name,email,phone', 'trainingVenue:id,name', 'sport:id,name'])
             ->when($statusFilter !== null, fn ($query) => $query->where('status', $statusFilter))
             ->when($sportId !== null, fn ($query) => $query->where('sport_id', $sportId))
             ->when($memberQuery !== null, function ($query) use ($memberQuery): void {

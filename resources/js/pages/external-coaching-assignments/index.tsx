@@ -22,11 +22,14 @@ import {
 import {
     listingCellClass,
     listingHeadCellClass,
+    stickyLeftBodyCellClass,
+    stickyLeftHeadCellClass,
     stickyRightBodyCellClass,
     stickyRightHeadCellClass,
 } from '@/components/data-table/table-primitives';
 import { ListingPagination } from '@/components/listing-pagination';
 import type { PaginatedListing } from '@/components/listing-pagination';
+import { MemberAvatar } from '@/components/members/member-table-cells';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,7 +54,15 @@ type Assignment = {
     start_date: string;
     end_date: string;
     status: string;
-    member?: { full_name: string; pno: string | null } | null;
+    training_days?: string[] | null;
+    training_start_time?: string | null;
+    training_end_time?: string | null;
+    attendance_mode?: string | null;
+    member?: {
+        full_name: string;
+        pno: string | null;
+        photo_path: string | null;
+    } | null;
     external_coach?: { name: string } | null;
     training_venue?: { name: string } | null;
     sport?: { name: string } | null;
@@ -72,6 +83,28 @@ type Props = {
     statuses: string[];
     sports: { id: number; name: string }[];
 };
+
+const DAY_LABELS: Record<string, string> = {
+    monday: 'Mon',
+    tuesday: 'Tue',
+    wednesday: 'Wed',
+    thursday: 'Thu',
+    friday: 'Fri',
+    saturday: 'Sat',
+    sunday: 'Sun',
+};
+
+function scheduleLabel(assignment: Assignment): string {
+    const days = (assignment.training_days ?? [])
+        .map((day) => DAY_LABELS[day] ?? day)
+        .join(', ');
+    const time =
+        assignment.training_start_time && assignment.training_end_time
+            ? `${assignment.training_start_time.slice(0, 5)}–${assignment.training_end_time.slice(0, 5)}`
+            : '';
+
+    return [days, time].filter(Boolean).join(' · ') || '-';
+}
 
 export default function ExternalCoachingAssignmentsIndex({
     assignments,
@@ -198,36 +231,64 @@ export default function ExternalCoachingAssignmentsIndex({
                     />
                 }
             >
-                <ListingTable minWidth={1050}>
+                <ListingTable minWidth={1500}>
                     <colgroup>
                         <col className="w-11" />
-                        <col />
+                        <col className="w-[52px]" />
+                        <col className="w-[230px]" />
                         <col className="w-[190px]" />
-                        <col className="w-[200px]" />
-                        <col className="w-[130px]" />
-                        <col className="w-[100px]" />
-                        <col className="w-[100px]" />
-                        <col className="w-[100px]" />
+                        <col className="w-[240px]" />
+                        <col className="w-[140px]" />
+                        <col className="min-w-[190px]" />
+                        <col className="w-[120px]" />
+                        <col className="w-[96px]" />
+                        <col className="w-[96px]" />
+                        <col className="w-[110px]" />
                         <col className="w-[84px]" />
                     </colgroup>
                     <TableHeader className="sticky top-0 z-20">
                         <TableRow className="hover:bg-transparent">
+                            <TableHead
+                                style={{ left: 0 }}
+                                className={cn(
+                                    listingHeadCellClass,
+                                    stickyLeftHeadCellClass,
+                                    'text-center',
+                                )}
+                            >
+                                {t('S.No.')}
+                            </TableHead>
+                            <TableHead
+                                style={{ left: 44 }}
+                                className={cn(
+                                    listingHeadCellClass,
+                                    stickyLeftHeadCellClass,
+                                )}
+                            >
+                                {t('Photo')}
+                            </TableHead>
+                            <TableHead
+                                style={{ left: 96 }}
+                                className={cn(
+                                    listingHeadCellClass,
+                                    stickyLeftHeadCellClass,
+                                )}
+                            >
+                                {t('Member')}
+                            </TableHead>
                             {[
-                                'S.No.',
-                                'Member',
                                 'Coach',
                                 'Venue',
                                 'Sport',
+                                'Schedule',
+                                'Attendance mode',
                                 'Start',
                                 'End',
                                 'Status',
-                            ].map((label, position) => (
+                            ].map((label) => (
                                 <TableHead
                                     key={label}
-                                    className={cn(
-                                        listingHeadCellClass,
-                                        position === 0 && 'text-center',
-                                    )}
+                                    className={listingHeadCellClass}
                                 >
                                     {t(label)}
                                 </TableHead>
@@ -247,7 +308,7 @@ export default function ExternalCoachingAssignmentsIndex({
                         {assignments.data.length === 0 ? (
                             <TableRow>
                                 <TableCell
-                                    colSpan={9}
+                                    colSpan={12}
                                     className="py-12 text-center text-muted-foreground"
                                 >
                                     {t(
@@ -265,25 +326,48 @@ export default function ExternalCoachingAssignmentsIndex({
                                     }
                                 >
                                     <TableCell
+                                        style={{ left: 0 }}
                                         className={cn(
                                             listingCellClass,
+                                            stickyLeftBodyCellClass,
                                             'text-center font-mono text-muted-foreground tabular-nums',
                                         )}
                                     >
                                         {(assignments.from ?? 1) + position}
                                     </TableCell>
-                                    <TableCell className={listingCellClass}>
-                                        <span className="block truncate">
-                                            <span className="font-medium">
-                                                {assignment.member?.full_name ??
-                                                    t('Unknown member')}
-                                            </span>
-                                            {assignment.member?.pno && (
-                                                <span className="ml-1.5 text-muted-foreground">
-                                                    {assignment.member.pno}
-                                                </span>
-                                            )}
+                                    <TableCell
+                                        style={{ left: 44 }}
+                                        className={cn(
+                                            listingCellClass,
+                                            stickyLeftBodyCellClass,
+                                        )}
+                                    >
+                                        <MemberAvatar
+                                            photoPath={
+                                                assignment.member?.photo_path
+                                            }
+                                            name={
+                                                assignment.member?.full_name ??
+                                                ''
+                                            }
+                                        />
+                                    </TableCell>
+                                    <TableCell
+                                        style={{ left: 96 }}
+                                        className={cn(
+                                            listingCellClass,
+                                            stickyLeftBodyCellClass,
+                                        )}
+                                    >
+                                        <span className="block truncate font-medium">
+                                            {assignment.member?.full_name ??
+                                                t('Unknown member')}
                                         </span>
+                                        {assignment.member?.pno && (
+                                            <span className="block truncate text-[11px] text-muted-foreground">
+                                                {assignment.member.pno}
+                                            </span>
+                                        )}
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
                                         {assignment.external_coach?.name ?? '-'}
@@ -293,6 +377,21 @@ export default function ExternalCoachingAssignmentsIndex({
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
                                         {assignment.sport?.name ?? '-'}
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        <span className="block truncate">
+                                            {scheduleLabel(assignment)}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell className={listingCellClass}>
+                                        {assignment.attendance_mode
+                                            ? t(
+                                                  assignment.attendance_mode.replaceAll(
+                                                      '_',
+                                                      ' ',
+                                                  ),
+                                              )
+                                            : '-'}
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
                                         {formatDate(assignment.start_date)}
