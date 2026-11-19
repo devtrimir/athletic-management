@@ -5,7 +5,7 @@ import {
     useHttp,
     usePage,
 } from '@inertiajs/react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import * as ReportController from '@/actions/App/Http/Controllers/ReportController';
 import {
     DateRangePill,
@@ -168,8 +168,12 @@ type DrilldownRow = {
     } | null;
     event: { id: number | null; name: string | null } | null;
     achievement: { medal_type: string | null; position: number | null } | null;
-    awards: Array<{ id: number; title: string; points: number }>;
-    scoring: { total_points: number };
+    awards: Array<{ id: number; title: string }>;
+    scoring: {
+        total_points: number;
+        game_level: string | null;
+        version: number | null;
+    };
 };
 
 type DrilldownResponse = {
@@ -755,6 +759,22 @@ export default function PlayerPerformanceRanking({
             </div>
         ) : null;
 
+    const drilldownGroups = Object.values(
+        drilldownRows.reduce<
+            Record<
+                string,
+                { label: string; points: number; rows: DrilldownRow[] }
+            >
+        >((groups, row) => {
+            const label = row.scoring.game_level ?? t('Not classified');
+            const group = (groups[label] ??= { label, points: 0, rows: [] });
+            group.points += row.scoring.total_points;
+            group.rows.push(row);
+
+            return groups;
+        }, {}),
+    ).sort((left, right) => right.points - left.points);
+
     return (
         <>
             <Head title={reportTitle} />
@@ -1145,41 +1165,64 @@ export default function PlayerPerformanceRanking({
                                         </TableRow>
                                     )}
 
-                                    {drilldownRows.map((row) => (
-                                        <TableRow key={row.participation_id}>
-                                            <TableCell>
-                                                {row.member.full_name ?? '—'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {row.session.name ?? '—'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {row.sport.name ?? '—'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {row.tournament?.name ?? '—'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {row.event?.name ?? '—'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {row.achievement?.medal_type ??
-                                                    '—'}
-                                            </TableCell>
-                                            <TableCell className="text-sm">
-                                                {row.awards.length === 0
-                                                    ? '—'
-                                                    : row.awards
-                                                          .map(
-                                                              (award) =>
-                                                                  `${award.title} (${award.points})`,
-                                                          )
-                                                          .join(', ')}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {row.scoring.total_points}
-                                            </TableCell>
-                                        </TableRow>
+                                    {drilldownGroups.map((group) => (
+                                        <Fragment key={group.label}>
+                                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                                <TableCell
+                                                    colSpan={7}
+                                                    className="font-medium"
+                                                >
+                                                    {group.label}
+                                                </TableCell>
+                                                <TableCell className="text-right font-semibold tabular-nums">
+                                                    {group.points}
+                                                </TableCell>
+                                            </TableRow>
+                                            {group.rows.map((row) => (
+                                                <TableRow
+                                                    key={row.participation_id}
+                                                >
+                                                    <TableCell>
+                                                        {row.member.full_name ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.session.name ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.sport.name ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.tournament?.name ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.event?.name ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.achievement
+                                                            ?.medal_type ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">
+                                                        {row.awards.length === 0
+                                                            ? '—'
+                                                            : row.awards
+                                                                  .map(
+                                                                      (award) =>
+                                                                          award.title,
+                                                                  )
+                                                                  .join(', ')}
+                                                    </TableCell>
+                                                    <TableCell className="text-right tabular-nums">
+                                                        {
+                                                            row.scoring
+                                                                .total_points
+                                                        }
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </Fragment>
                                     ))}
                                 </TableBody>
                             </Table>
