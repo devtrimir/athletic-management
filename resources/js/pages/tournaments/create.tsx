@@ -17,7 +17,11 @@ import { useTranslation } from '@/hooks/use-translation';
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label: string };
-type Competition = { id: number; label: string };
+type Competition = {
+    id: number;
+    label: string;
+    group: string;
+};
 
 type FormData = {
     name: string;
@@ -175,16 +179,23 @@ export default function TournamentsCreate({
                                 <Combobox
                                     id="competition_id"
                                     value={data.competition_id}
-                                    onValueChange={(v) => setData('competition_id', v)}
+                                    onValueChange={(v) =>
+                                        setData('competition_id', v)
+                                    }
                                     items={competitions.map((competition) => ({
                                         value: String(competition.id),
                                         label: competition.label,
+                                        group: competition.group,
                                     }))}
                                     placeholder={t('Select competition')}
-                                    searchPlaceholder={t('Search competitions…')}
+                                    searchPlaceholder={t(
+                                        'Search competitions…',
+                                    )}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    {t('Pick the competition this tournament belongs to (for example Asian Games or National Games). Its game level decides how many points players earn for Gold, Silver, Bronze or Participation. Without one, no points are given until you choose it.')}
+                                    {t(
+                                        'Pick the competition this tournament belongs to (for example Asian Games or National Games). Its game level decides how many points players earn for Gold, Silver, Bronze or Participation. Without one, no points are given until you choose it.',
+                                    )}
                                 </p>
                                 <InputError message={errors.competition_id} />
                             </div>
