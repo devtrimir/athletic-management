@@ -306,3 +306,9 @@ test('attendance batch job inserts missing attendance rows', function (): void {
         ->and($attendance->created_at->toDateTimeString())->toBe($now->toDateTimeString())
         ->and($attendance->updated_at->toDateTimeString())->toBe($now->toDateTimeString());
 });
+
+test('the auto-mark jobs run on a queue that Horizon actually processes', function (): void {
+    $job = new MarkMissingAttendanceBatchJob([]);
+
+    expect(config('horizon.defaults.supervisor-1.queue'))->toContain($job->queue);
+});
