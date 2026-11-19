@@ -1523,7 +1523,7 @@ export default function TournamentsShow({
         {
             label: t('Game level'),
             value: tournament.game_level?.name
-                ? `${tournament.game_level.name}${tournament.game_level.version ? ` · ${t('Version')} ${tournament.game_level.version}` : ''}`
+                ? `${tournament.game_level.name}${tournament.game_level.version ? ` · v${tournament.game_level.version}` : ''}`
                 : t('No game level set'),
             icon: Medal,
         },

@@ -470,7 +470,7 @@ test('create and edit offer active game levels with the version and points', fun
 
     $this->actingAs($user)->get(route('tournaments.create'))->assertOk()->assertInertia(fn ($page) => $page
         ->has('gameLevels', 6)
-        ->where('gameLevels.0.label', fn ($label) => str_contains($label, '1'))
+        ->where('gameLevels.0.label', fn ($label) => str_ends_with($label, ' · v1'))
         ->where('gameLevels.0.description', 'G100 · S90 · B80 · P70')
         ->where('gameLevels.5.description', 'G50 · S40 · B30 · P20')
         ->missing('competitions'));

@@ -33,7 +33,7 @@ class GameLevelOptions
         foreach (GameLevel::where('is_active', true)->orderBy('sort_order')->orderBy('id')->get() as $level) {
             $options[] = [
                 'id' => $level->id,
-                'label' => $level->{$column}.($scheme ? ' · '.__('Version').' '.$scheme->version_number : ''),
+                'label' => $level->{$column}.($scheme ? ' · v'.$scheme->version_number : ''),
                 'description' => isset($byLevel[$level->id])
                     ? implode(' · ', array_map(fn (string $result, string $initial): string => $initial.($byLevel[$level->id][$result] ?? 0), array_keys($initials), $initials))
                     : null,
