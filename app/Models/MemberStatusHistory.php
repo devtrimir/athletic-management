@@ -41,7 +41,7 @@ class MemberStatusHistory extends Model
     protected function casts(): array
     {
         return [
-            'effective_on' => 'date',
+            'effective_on' => 'date:Y-m-d',
         ];
     }
 
