@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             SportEventVariantSeeder::class,
             SportSessionSeeder::class,
             TournamentTierSeeder::class,
+            PointSchemeSeeder::class,
             NisMasterSeeder::class,
             RanksAndDesignationsSeeder::class,
             UnitSeeder::class,

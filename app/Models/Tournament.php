@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int $organization_id
  * @property int $session_id
  * @property int $tier_id
+ * @property int|null $competition_id
  * @property int|null $sport_id
  * @property string $name
  * @property string|null $venue
@@ -40,6 +41,7 @@ use Illuminate\Support\Carbon;
     'organization_id',
     'session_id',
     'tier_id',
+    'competition_id',
     'sport_id',
     'name',
     'venue',
@@ -80,6 +82,12 @@ class Tournament extends Model
     public function tier(): BelongsTo
     {
         return $this->belongsTo(TournamentTier::class, 'tier_id');
+    }
+
+    /** @return BelongsTo<Competition, $this> */
+    public function competition(): BelongsTo
+    {
+        return $this->belongsTo(Competition::class);
     }
 
     /** @return BelongsTo<Sport, $this> */
