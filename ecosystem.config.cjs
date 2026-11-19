@@ -8,7 +8,8 @@
  *
  * Apps:
  *   - athletic-management-worker:            processes the default queue
- *   - athletic-management-attendance-worker: processes the attendance queue (auto-absent inserts)
+ *   - athletic-management-attendance-worker: legacy; auto-absent inserts now use the default queue. It only
+ *                                            drains any jobs left on the old attendance queue and can be removed.
  *   - athletic-management-scheduler:         runs `artisan schedule:work` every minute
  *
  * If you switch to Laravel Horizon, replace the `athletic-management-worker` and
