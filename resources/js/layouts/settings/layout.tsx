@@ -27,6 +27,7 @@ import { index as districtsIndex } from '@/routes/districts';
 import { index as gameLevelsIndex } from '@/routes/game-levels';
 import { index as nisMastersIndex } from '@/routes/nis-masters';
 import { edit as editOrganisation } from '@/routes/organisation';
+import { index as pointSchemesIndex } from '@/routes/point-schemes';
 import { edit } from '@/routes/profile';
 import { index as ranksIndex } from '@/routes/ranks';
 import { index as rolesIndex } from '@/routes/roles';
@@ -97,6 +98,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
             href: gameLevelsIndex(),
             icon: Layers,
         },
+        { title: t('Points versions'), href: pointSchemesIndex(), icon: Medal },
         { title: t('NIS Masters'), href: nisMastersIndex(), icon: Medal },
     ];
 
