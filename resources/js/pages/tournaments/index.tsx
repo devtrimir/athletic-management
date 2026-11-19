@@ -611,7 +611,7 @@ export default function TournamentsIndex({
                     />
                 }
             >
-                <ListingTable minWidth={1700} centered>
+                <ListingTable minWidth={1843} centered>
                     <colgroup>
                         <col style={{ width: 40 }} />
                         <col style={{ width: 48 }} />
@@ -619,7 +619,7 @@ export default function TournamentsIndex({
                         <col style={{ width: 90 }} />
                         <col style={{ width: 160 }} />
                         <col style={{ width: 170 }} />
-                        <col style={{ width: 150 }} />
+                        <col style={{ width: 215 }} />
                         <col style={{ width: 100 }} />
                         <col style={{ width: 76 }} />
                         <col style={{ width: 112 }} />
@@ -781,7 +781,9 @@ export default function TournamentsIndex({
                                     <TableCell className={listingCellClass}>
                                         {t_.venue ?? dash}
                                     </TableCell>
-                                    <TableCell className={listingCellClass}>
+                                    <TableCell
+                                        className={`${listingCellClass} whitespace-nowrap`}
+                                    >
                                         {dateRange(t_)}
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
