@@ -223,10 +223,10 @@ class TournamentController extends Controller
     }
 
     /**
-     * Active competitions grouped by game level, each with the Gold/Silver/Bronze/Participation
+     * Active competitions grouped by game level, the group heading showing the Gold/Silver/Bronze/Participation
      * points of the version in force today (shown as a hint; scoring uses the tournament's own date).
      *
-     * @return list<array{id: int, label: string, group: string, badge: string|null}>
+     * @return list<array{id: int, label: string, group: string}>
      */
     private function competitionOptions(int $orgId): array
     {
@@ -250,7 +250,7 @@ class TournamentController extends Controller
                 : null;
 
             foreach ($competitions->where('game_level_id', $levelId) as $competition) {
-                $options[] = ['id' => $competition->id, 'label' => (string) $competition->{$column}, 'group' => (string) $levelName, 'badge' => $badge];
+                $options[] = ['id' => $competition->id, 'label' => (string) $competition->{$column}, 'group' => $badge === null ? (string) $levelName : $levelName.' — '.$badge];
             }
         }
 
@@ -258,7 +258,7 @@ class TournamentController extends Controller
     }
 
     /**
-     * @return array{sessions: Collection<int, SportSession>, sports: Collection<int, Sport>, tiers: Collection<int, TournamentTier>, competitions: list<array{id: int, label: string, group: string, badge: string|null}>}
+     * @return array{sessions: Collection<int, SportSession>, sports: Collection<int, Sport>, tiers: Collection<int, TournamentTier>, competitions: list<array{id: int, label: string, group: string}>}
      */
     private function formOptions(int $orgId): array
     {

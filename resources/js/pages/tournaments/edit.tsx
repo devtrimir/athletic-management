@@ -22,7 +22,6 @@ type Competition = {
     id: number;
     label: string;
     group: string;
-    badge: string | null;
 };
 
 type TournamentProp = {
@@ -212,7 +211,6 @@ export default function TournamentsEdit({
                                         value: String(competition.id),
                                         label: competition.label,
                                         group: competition.group,
-                                        badge: competition.badge ?? undefined,
                                     }))}
                                     placeholder={t('Select competition')}
                                     searchPlaceholder={t(

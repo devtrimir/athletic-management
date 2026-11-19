@@ -21,7 +21,6 @@ type Competition = {
     id: number;
     label: string;
     group: string;
-    badge: string | null;
 };
 
 type FormData = {
@@ -187,7 +186,6 @@ export default function TournamentsCreate({
                                         value: String(competition.id),
                                         label: competition.label,
                                         group: competition.group,
-                                        badge: competition.badge ?? undefined,
                                     }))}
                                     placeholder={t('Select competition')}
                                     searchPlaceholder={t(
