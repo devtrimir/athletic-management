@@ -6,6 +6,7 @@ use App\Http\Controllers\Settings\DistrictController;
 use App\Http\Controllers\Settings\GameLevelController;
 use App\Http\Controllers\Settings\NisMasterController;
 use App\Http\Controllers\Settings\OrganizationController;
+use App\Http\Controllers\Settings\PointSchemeController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\RankController;
 use App\Http\Controllers\Settings\RoleController;
@@ -74,6 +75,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/competitions', CompetitionController::class)
         ->only(['store', 'update', 'destroy'])
         ->names('competitions');
+
+    Route::resource('settings/point-schemes', PointSchemeController::class)
+        ->only(['index', 'store', 'show', 'update', 'destroy'])
+        ->parameters(['point-schemes' => 'pointScheme'])
+        ->names('point-schemes');
 
     Route::resource('settings/nis-masters', NisMasterController::class)
         ->except(['show'])
