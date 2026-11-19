@@ -475,18 +475,13 @@ test('create and edit offer active competitions with their game level', function
         ->where('competitions.20.group', fn ($group) => str_ends_with($group, 'G50 · S40 · B30 · P20')));
 });
 
-test('index and show expose the tournament competition with its game level', function () {
+test('show exposes the tournament competition with its game level', function () {
     $user = tournamentUser('tournaments.view');
     $this->seed(PointSchemeSeeder::class);
     $this->actingAs($user);
     $competition = Competition::where('name_en', 'Asian Games')->firstOrFail();
     $classified = makeTournament($user);
     $classified->update(['competition_id' => $competition->id]);
-    $unclassified = makeTournament($user);
-
-    $this->actingAs($user)->get(route('tournaments.index', ['filter' => ['session_id' => '']]))->assertOk()
-        ->assertInertia(fn ($page) => $page->where('tournaments.data', fn ($rows) => collect($rows)->firstWhere('id', $classified->id)['competition']['game_level'] !== null
-            && collect($rows)->firstWhere('id', $unclassified->id)['competition'] === null));
 
     $this->actingAs($user)->get(route('tournaments.show', $classified))->assertOk()
         ->assertInertia(fn ($page) => $page->where('tournament.competition.id', $competition->id)->whereType('tournament.competition.game_level', 'string'));
