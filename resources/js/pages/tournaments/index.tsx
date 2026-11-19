@@ -70,11 +70,6 @@ type Tournament = {
     merit_medals_count: number;
     session: Session | null;
     tier: { id: number; code: string; label: string } | null;
-    competition?: {
-        id: number;
-        name: string;
-        game_level: string | null;
-    } | null;
     sport: Sport | null;
     sports?: Sport[];
 };
@@ -751,11 +746,6 @@ export default function TournamentsIndex({
                                         >
                                             {t_.name}
                                         </Link>
-                                        <div className="mt-0.5 text-xs text-muted-foreground">
-                                            {t_.competition
-                                                ? `${t_.competition.name}${t_.competition.game_level ? ` · ${t_.competition.game_level}` : ''}`
-                                                : t('No competition set')}
-                                        </div>
                                     </TableCell>
                                     <TableCell className={listingCellClass}>
                                         {t_.tier ? (

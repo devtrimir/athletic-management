@@ -81,7 +81,7 @@ class TournamentController extends Controller
                     ->whereColumn('events.tournament_id', 'tournaments.id')
                     ->whereNotNull('participations.team_id'),
             ])
-            ->with(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name', 'sports:id,name', 'competition.gameLevel'])
+            ->with(['session:id,name', 'tier:id,code,label_hi,label_en', 'sport:id,name', 'sports:id,name'])
             ->when(
                 ! $request->has('filter.session_id') && $defaultSessionId,
                 fn ($q) => $q->where('session_id', $defaultSessionId)
