@@ -235,7 +235,7 @@ test('command runs in dry-run mode without writing attendance', function (): voi
     expect($count)->toBe(0);
 });
 
-test('command dispatches batch jobs to attendance queue when --queue is used', function (): void {
+test('command dispatches batch jobs to the default queue when --queue is used', function (): void {
     $targetDate = Carbon::today()->subDays(1)->toDateString();
     $fixture = markAttendanceFixture([
         'start_date' => Carbon::today()->subWeek()->toDateString(),
@@ -250,7 +250,7 @@ test('command dispatches batch jobs to attendance queue when --queue is used', f
     ])->assertSuccessful();
 
     Queue::assertPushed(MarkMissingAttendanceBatchJob::class, function (MarkMissingAttendanceBatchJob $job): bool {
-        if ($job->queue !== 'attendance' || $job->rows === []) {
+        if ($job->queue !== null || $job->rows === []) {
             return false;
         }
 
@@ -307,8 +307,6 @@ test('attendance batch job inserts missing attendance rows', function (): void {
         ->and($attendance->updated_at->toDateTimeString())->toBe($now->toDateTimeString());
 });
 
-test('the auto-mark jobs run on a queue that Horizon actually processes', function (): void {
-    $job = new MarkMissingAttendanceBatchJob([]);
-
-    expect(config('horizon.defaults.supervisor-1.queue'))->toContain($job->queue);
+test('the auto-mark jobs use the default queue so any worker setup processes them', function (): void {
+    expect((new MarkMissingAttendanceBatchJob([]))->queue)->toBeNull();
 });
