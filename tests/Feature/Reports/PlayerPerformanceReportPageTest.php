@@ -29,7 +29,7 @@ test('player performance report detail returns member performance payload', func
     );
 
     $response->assertSuccessful()->assertJsonPath('member.id', $setup['member']->id);
-    $response->assertJsonPath('performance.summary.overall_points', 25);
+    $response->assertJsonPath('performance.summary.overall_points', 60);
     $response->assertJsonCount(1, 'performance.ledger');
 });
 

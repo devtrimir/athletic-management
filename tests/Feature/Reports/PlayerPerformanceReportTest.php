@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Achievement;
+use App\Models\Competition;
 use App\Models\Event;
 use App\Models\Member;
 use App\Models\Organization;
@@ -14,6 +15,7 @@ use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\Reports\PlayerPerformanceReport;
+use Database\Seeders\PointSchemeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -49,11 +51,17 @@ function pprSeedParticipation(
             ],
         );
 
+    // Classify under National Games so results score from the seeded Version 1 (national gold = 60).
+    (new PointSchemeSeeder)->run();
+    $competition = Competition::withoutGlobalScopes()->where('organization_id', $org->id)->where('name_en', 'National Games')->first();
+
     $tournament = Tournament::factory()->create([
         'organization_id' => $org->id,
         'session_id' => $session->id,
         'tier_id' => $tier->id,
         'sport_id' => $sport->id,
+        'competition_id' => $competition->id,
+        'date_from' => '2026-03-01',
     ]);
     $event = Event::factory()->create([
         'tournament_id' => $tournament->id,
@@ -117,7 +125,7 @@ test('returns ranked rows with totals and medal counts', function (): void {
             'SILVER' => 0,
             'BRONZE' => 0,
             'MERIT' => 0,
-            'total_points' => 25,
+            'total_points' => 60,
         ])
         ->and($rows[0]['member']['id'])->toBe($setup['member']->id);
 });

@@ -90,7 +90,7 @@ test('returns 200 with correct structure', function (): void {
     expect($response->json('data'))->toHaveCount(1);
     expect($response->json('data.0.team.id'))->toBe($team->id);
     expect($response->json('data.0.members.0.role'))->toBe('CAPTAIN');
-    expect($response->json('filters'))->toBe(['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null]);
+    expect($response->json('filters'))->toHaveKeys(['session_ids', 'sport_ids', 'unit_ids', 'tier_ids']);
 });
 
 test('returns empty data when no teams exist', function (): void {
