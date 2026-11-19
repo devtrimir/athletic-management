@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Actions\Points\ScoreTournament;
 use App\Concerns\Tenanted;
+use App\Jobs\ScoreTournamentJob;
 use App\Models\Scopes\BelongsToOrganization;
 use Database\Factories\TournamentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -59,15 +59,15 @@ class Tournament extends Model
     use HasFactory, SoftDeletes, Tenanted;
 
     /**
-     * Choosing a game level (or moving the date) rescores the tournament's results.
+     * Choosing a game level (or moving the date) rescores the tournament's results in the background.
      * Chains the Tenanted trait's booted(), which this method would otherwise replace.
      */
     protected static function booted(): void
     {
         static::addGlobalScope(new BelongsToOrganization);
-        static::saved(function (Tournament $tournament): void {
+        static::updated(function (Tournament $tournament): void {
             if ($tournament->wasChanged(['game_level_id', 'competition_id', 'date_from'])) {
-                app(ScoreTournament::class)($tournament);
+                ScoreTournamentJob::dispatch($tournament->id);
             }
         });
     }

@@ -25,6 +25,7 @@ import {
     X,
 } from 'lucide-react';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import {
     destroy as destroyEvent,
     store as storeEvent,
@@ -52,6 +53,7 @@ import {
 } from '@/components/data-table/filter-pill';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { PointsUpdatesListener } from '@/components/points/points-updates-listener';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1731,9 +1733,30 @@ export default function TournamentsShow({
     );
     let eventSerialNumber = 0;
 
+    const organizationId =
+        (page.props.auth as { user?: { organization_id?: number } } | undefined)
+            ?.user?.organization_id ?? null;
+
     return (
         <>
             <Head title={tournament.name} />
+
+            {organizationId !== null && (
+                <PointsUpdatesListener
+                    organizationId={organizationId}
+                    onFinished={(event) => {
+                        if (event.tournament_id === tournament.id) {
+                            router.reload();
+                            toast.success(
+                                t('Points updated for :name.').replace(
+                                    ':name',
+                                    event.name,
+                                ),
+                            );
+                        }
+                    }}
+                />
+            )}
 
             <div className="space-y-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

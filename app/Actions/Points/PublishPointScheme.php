@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Points;
 
+use App\Jobs\ScoreTournamentJob;
 use App\Models\PointScheme;
 use App\Models\Scopes\BelongsToOrganization;
 use App\Models\Tournament;
@@ -15,8 +16,6 @@ use Illuminate\Support\Facades\DB;
  */
 class PublishPointScheme
 {
-    public function __construct(private ScoreTournament $scoreTournament) {}
-
     public function __invoke(PointScheme $scheme, string $effectiveFrom): void
     {
         DB::transaction(fn () => $scheme->update([
@@ -27,8 +26,9 @@ class PublishPointScheme
 
         Tournament::withoutGlobalScope(BelongsToOrganization::class)
             ->where('organization_id', $scheme->organization_id)
-            ->whereNotNull('competition_id')
+            ->where(fn ($levelled) => $levelled->whereNotNull('game_level_id')->orWhereNotNull('competition_id'))
             ->whereDate('date_from', '>=', $effectiveFrom)
-            ->each(fn (Tournament $tournament) => ($this->scoreTournament)($tournament));
+            ->pluck('id')
+            ->each(fn (int $tournamentId) => ScoreTournamentJob::dispatch($tournamentId));
     }
 }
