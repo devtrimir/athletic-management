@@ -40,6 +40,15 @@ class TournamentResource extends JsonResource
                 'label_hi' => $this->tier->label_hi,
                 'label' => $this->tier->label,
             ]),
+            'competition' => $this->whenLoaded('competition', function (): ?array {
+                $column = app()->getLocale() === 'en' ? 'name_en' : 'name_hi';
+
+                return $this->competition ? [
+                    'id' => $this->competition->id,
+                    'name' => $this->competition->{$column},
+                    'game_level' => $this->competition->gameLevel?->{$column},
+                ] : null;
+            }),
             'sport' => $this->whenLoaded('sport', fn () => $this->sport ? [
                 'id' => $this->sport->id,
                 'name' => $this->sport->name,
