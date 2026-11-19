@@ -470,5 +470,8 @@ test('create and edit offer active competitions with their game level', function
 
     $this->actingAs($user)->get(route('tournaments.create'))->assertOk()->assertInertia(fn ($page) => $page
         ->has('competitions', 21)
-        ->whereType('competitions.0.label', 'string'));
+        ->whereType('competitions.0.label', 'string')
+        ->whereType('competitions.0.group', 'string')
+        ->where('competitions.0.badge', 'G100 · S90 · B80 · P70')
+        ->where('competitions.20.badge', 'G50 · S40 · B30 · P20'));
 });
