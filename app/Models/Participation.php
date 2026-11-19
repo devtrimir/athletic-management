@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Actions\Points\ScoreParticipation;
 use App\Concerns\Auditable;
 use App\Concerns\HasMedia;
 use App\Observers\AuditObserver;
@@ -49,6 +50,12 @@ class Participation extends Model
 {
     /** @use HasFactory<ParticipationFactory> */
     use Auditable, HasFactory, HasMedia;
+
+    /** Keeps stored points in step with the participation. */
+    protected static function booted(): void
+    {
+        static::saved(fn (Participation $participation) => app(ScoreParticipation::class)($participation));
+    }
 
     /**
      * @return array<string, string>
