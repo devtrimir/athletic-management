@@ -105,6 +105,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('users.updateRoles');
 
     Route::resource('settings/roles', RoleController::class)
+        ->except(['edit'])
         ->names('roles');
 
     Route::post('settings/roles/{role}/permissions', [RoleController::class, 'updatePermissions'])
