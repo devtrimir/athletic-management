@@ -310,3 +310,78 @@ test('attendance batch job inserts missing attendance rows', function (): void {
 test('the auto-mark jobs use the default queue so any worker setup processes them', function (): void {
     expect((new MarkMissingAttendanceBatchJob([]))->queue)->toBeNull();
 });
+
+function markedDates(array $fixture): array
+{
+    return ExternalTrainingAttendance::withoutGlobalScope(BelongsToOrganization::class)
+        ->where('external_coaching_assignment_id', $fixture['assignment']->id)
+        ->orderBy('attendance_date')->get()
+        ->map(fn ($row) => $row->attendance_date->toDateString().':'.$row->attendance_status)->all();
+}
+
+test('catch-up marks every missed scheduled day up to yesterday and keeps submitted days', function (): void {
+    $fixture = markAttendanceFixture([
+        'start_date' => Carbon::today()->subDays(10)->toDateString(),
+        'end_date' => Carbon::today()->addDays(10)->toDateString(),
+    ]);
+    $submitted = Carbon::today()->subDays(3)->toDateString();
+
+    ExternalTrainingAttendance::factory()->create([
+        'organization_id' => $fixture['organization']->id,
+        'external_coaching_assignment_id' => $fixture['assignment']->id,
+        'member_id' => $fixture['member']->id,
+        'external_coach_id' => $fixture['coach']->id,
+        'training_venue_id' => $fixture['venue']->id,
+        'attendance_date' => $submitted,
+        'attendance_status' => 'present',
+    ]);
+
+    $this->artisan('external-coaching:mark-missing-attendance')->assertSuccessful();
+
+    $expected = collect(range(7, 1))->map(fn (int $ago) => Carbon::today()->subDays($ago)->toDateString())
+        ->map(fn (string $date) => $date.':'.($date === $submitted ? 'present' : 'absent'))->all();
+    expect(markedDates($fixture))->toBe($expected);
+
+    // Running again changes nothing.
+    $this->artisan('external-coaching:mark-missing-attendance')->assertSuccessful();
+    expect(markedDates($fixture))->toBe($expected);
+});
+
+test('catch-up never goes before the assignment start, today, or an unscheduled weekday', function (): void {
+    $fixture = markAttendanceFixture([
+        'start_date' => Carbon::today()->subDays(2)->toDateString(),
+        'end_date' => Carbon::today()->addDays(10)->toDateString(),
+    ]);
+
+    $this->artisan('external-coaching:mark-missing-attendance')->assertSuccessful();
+
+    expect(markedDates($fixture))->toBe([
+        Carbon::today()->subDays(2)->toDateString().':absent',
+        Carbon::today()->subDays(1)->toDateString().':absent',
+    ]);
+
+    $weekday = strtolower(Carbon::today()->subDays(1)->format('l'));
+    $skipped = markAttendanceFixture([
+        'start_date' => Carbon::today()->subDays(5)->toDateString(),
+        'end_date' => Carbon::today()->addDays(10)->toDateString(),
+        'training_days' => [$weekday],
+    ]);
+    $this->artisan('external-coaching:mark-missing-attendance')->assertSuccessful();
+
+    expect(collect(markedDates($skipped))->every(fn (string $row) => strtolower(Carbon::parse(substr($row, 0, 10))->format('l')) === $weekday))->toBeTrue();
+});
+
+test('--catch-up-days limits the window and --date marks only that day', function (): void {
+    $fixture = markAttendanceFixture([
+        'start_date' => Carbon::today()->subDays(10)->toDateString(),
+        'end_date' => Carbon::today()->addDays(10)->toDateString(),
+    ]);
+
+    $this->artisan('external-coaching:mark-missing-attendance', ['--catch-up-days' => 2])->assertSuccessful();
+    expect(markedDates($fixture))->toHaveCount(2);
+
+    $this->artisan('external-coaching:mark-missing-attendance', ['--date' => Carbon::today()->subDays(6)->toDateString()])->assertSuccessful();
+    expect(markedDates($fixture))->toHaveCount(3);
+
+    $this->artisan('external-coaching:mark-missing-attendance', ['--catch-up-days' => 'abc'])->assertFailed();
+});
