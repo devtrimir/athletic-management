@@ -30,12 +30,12 @@ test('lucknow and varanasi are present with correct data', function (): void {
     $lucknow = District::where('code', 'LKO')->first();
     expect($lucknow)->not->toBeNull()
         ->and($lucknow->name)->toBe('लखनऊ')
-        ->and($lucknow->name)->toBe('Lucknow');
+        ->and($lucknow->name_en)->toBe('Lucknow');
 
     $varanasi = District::where('code', 'VNS')->first();
     expect($varanasi)->not->toBeNull()
         ->and($varanasi->name)->toBe('वाराणसी')
-        ->and($varanasi->name)->toBe('Varanasi');
+        ->and($varanasi->name_en)->toBe('Varanasi');
 });
 
 test('every district has non-empty name name code and state', function (): void {

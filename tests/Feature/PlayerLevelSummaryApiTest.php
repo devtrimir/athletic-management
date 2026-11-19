@@ -68,7 +68,7 @@ test('returns 200 with correct structure', function (): void {
     expect($response->json('data'))->toHaveCount(1);
     expect($response->json('data.0.player_level'))->toBe('NATIONAL');
     expect($response->json('data.0.total'))->toBe(1);
-    expect($response->json('filters'))->toBe(['session_id' => null, 'sport_id' => null, 'unit_id' => null, 'tier_id' => null]);
+    expect($response->json('filters'))->toHaveKeys(['session_ids', 'sport_ids', 'unit_ids', 'tier_ids']);
 });
 
 test('returns empty data when no qualifying members exist', function (): void {

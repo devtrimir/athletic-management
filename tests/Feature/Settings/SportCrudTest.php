@@ -109,6 +109,7 @@ test('show page returns seeded sport master details and switcher list', function
             ->has('sports.0', fn (Assert $switcherSport) => $switcherSport
                 ->has('id')
                 ->has('name')
+                ->has('name_en')
                 ->has('code')
                 ->has('category')
                 ->has('sport_events_count')
@@ -148,15 +149,16 @@ test('show page returns seeded sport master details and switcher list', function
                     ->etc()
                 )
                 ->has('weight_categories', 0)
-                ->has('event_directory')
-                ->has('event_directory.0', fn (Assert $eventEntry) => $eventEntry
-                    ->has('id')
-                    ->has('name')
-                    ->has('code')
-                    ->has('sport_id')
-                    ->has('sport_name')
-                    ->has('sport_code')
-                )
+                ->etc()
+            )
+            ->has('event_directory')
+            ->has('event_directory.0', fn (Assert $eventEntry) => $eventEntry
+                ->has('id')
+                ->has('name')
+                ->has('code')
+                ->has('sport_id')
+                ->has('sport_name')
+                ->has('sport_code')
                 ->etc()
             )
         );

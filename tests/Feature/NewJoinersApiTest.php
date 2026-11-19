@@ -68,7 +68,7 @@ test('returns 200 with correct structure', function (): void {
     expect($response->json('data'))->toHaveCount(1);
     expect($response->json('data.0.joining_date'))->toBe('2026-04-01');
     expect($response->json('data.0'))->toHaveKeys(['member', 'unit', 'joining_date']);
-    expect($response->json('filters'))->toHaveKeys(['session_id', 'sport_id', 'unit_id', 'tier_id', 'from_date', 'to_date']);
+    expect($response->json('filters'))->toHaveKeys(['session_ids', 'sport_ids', 'unit_ids', 'tier_ids', 'date_from', 'date_to']);
 });
 
 test('returns empty data when no qualifying members exist', function (): void {
