@@ -184,7 +184,7 @@ export default function TournamentsCreate({
                                     searchPlaceholder={t('Search competitions…')}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    {t('Decides the points players earn. Leave empty to score later.')}
+                                    {t('Pick the competition this tournament belongs to (for example Asian Games or National Games). Its game level decides how many points players earn for Gold, Silver, Bronze or Participation. Without one, no points are given until you choose it.')}
                                 </p>
                                 <InputError message={errors.competition_id} />
                             </div>
