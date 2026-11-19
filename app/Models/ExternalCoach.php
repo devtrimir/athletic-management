@@ -73,7 +73,7 @@ class ExternalCoach extends Authenticatable
     protected function casts(): array
     {
         return [
-            'date_of_birth' => 'date',
+            'date_of_birth' => 'date:Y-m-d',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
             'deleted_at' => 'datetime',

@@ -48,8 +48,8 @@ class TeamMember extends Model
     protected function casts(): array
     {
         return [
-            'joined_on' => 'date',
-            'left_on' => 'date',
+            'joined_on' => 'date:Y-m-d',
+            'left_on' => 'date:Y-m-d',
         ];
     }
 

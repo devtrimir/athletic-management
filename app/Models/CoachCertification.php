@@ -58,8 +58,8 @@ class CoachCertification extends Model
     protected function casts(): array
     {
         return [
-            'issued_at' => 'date',
-            'expired_at' => 'date',
+            'issued_at' => 'date:Y-m-d',
+            'expired_at' => 'date:Y-m-d',
             'metadata' => 'array',
             'deleted_at' => 'datetime',
         ];

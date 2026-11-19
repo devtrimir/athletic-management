@@ -82,8 +82,8 @@ class CoachPlayingAchievement extends Model
     protected function casts(): array
     {
         return [
-            'event_date' => 'date',
-            'achieved_on' => 'date',
+            'event_date' => 'date:Y-m-d',
+            'achieved_on' => 'date:Y-m-d',
             'event_type' => 'string',
             'position' => 'integer',
         ];

@@ -71,8 +71,8 @@ class MemberPromotion extends Model
     protected function casts(): array
     {
         return [
-            'promotion_date' => 'date',
-            'cash_reward_date' => 'date',
+            'promotion_date' => 'date:Y-m-d',
+            'cash_reward_date' => 'date:Y-m-d',
             'cash_reward_amount' => 'decimal:2',
         ];
     }
