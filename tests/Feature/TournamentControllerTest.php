@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\Achievement;
-use App\Models\Competition;
 use App\Models\Event;
+use App\Models\GameLevel;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Participation;
@@ -445,44 +445,45 @@ test('destroy soft-deletes tournament and redirects to index', function () {
     $this->assertSoftDeleted('tournaments', ['id' => $tournament->id]);
 });
 
-test('store and update save the competition and reject one from another org', function () {
+test('store and update save the game level and reject one from another org', function () {
     $user = tournamentUser('tournaments.create', 'tournaments.update');
     $this->seed(PointSchemeSeeder::class);
-    $own = Competition::withoutGlobalScopes()->where('organization_id', $user->organization_id)->first()
-        ?? Competition::factory()->create(['organization_id' => $user->organization_id]);
-    $foreign = Competition::factory()->create(['organization_id' => Organization::factory()->create()->id]);
+    $this->actingAs($user);
+    $own = GameLevel::first();
+    $foreign = GameLevel::factory()->create(['organization_id' => Organization::factory()->create()->id]);
 
     $payload = validTournamentPayload($user);
-    $this->actingAs($user)->post(route('tournaments.store'), $payload + ['competition_id' => $foreign->id])
-        ->assertSessionHasErrors('competition_id');
+    $this->post(route('tournaments.store'), $payload + ['game_level_id' => $foreign->id])
+        ->assertSessionHasErrors('game_level_id');
 
-    $this->actingAs($user)->post(route('tournaments.store'), $payload + ['competition_id' => $own->id]);
+    $this->post(route('tournaments.store'), $payload + ['game_level_id' => $own->id]);
     $tournament = Tournament::latest('id')->first();
-    expect($tournament->competition_id)->toBe($own->id);
+    expect($tournament->game_level_id)->toBe($own->id);
 
-    $this->actingAs($user)->patch(route('tournaments.update', $tournament), ['competition_id' => null])->assertSessionHasNoErrors();
-    expect($tournament->fresh()->competition_id)->toBeNull();
+    $this->patch(route('tournaments.update', $tournament), ['game_level_id' => null])->assertSessionHasNoErrors();
+    expect($tournament->fresh()->game_level_id)->toBeNull();
 });
 
-test('create and edit offer active competitions with their game level', function () {
+test('create and edit offer active game levels with the version and points', function () {
     $user = tournamentUser('tournaments.create', 'tournaments.update');
     $this->seed(PointSchemeSeeder::class);
 
     $this->actingAs($user)->get(route('tournaments.create'))->assertOk()->assertInertia(fn ($page) => $page
-        ->has('competitions', 21)
-        ->whereType('competitions.0.label', 'string')
-        ->where('competitions.0.group', fn ($group) => str_ends_with($group, 'G100 · S90 · B80 · P70'))
-        ->where('competitions.20.group', fn ($group) => str_ends_with($group, 'G50 · S40 · B30 · P20')));
+        ->has('gameLevels', 6)
+        ->where('gameLevels.0.label', fn ($label) => str_contains($label, '1'))
+        ->where('gameLevels.0.description', 'G100 · S90 · B80 · P70')
+        ->where('gameLevels.5.description', 'G50 · S40 · B30 · P20')
+        ->missing('competitions'));
 });
 
-test('show exposes the tournament competition with its game level', function () {
+test('show exposes the tournament game level and the version that applies', function () {
     $user = tournamentUser('tournaments.view');
     $this->seed(PointSchemeSeeder::class);
     $this->actingAs($user);
-    $competition = Competition::where('name_en', 'Asian Games')->firstOrFail();
-    $classified = makeTournament($user);
-    $classified->update(['competition_id' => $competition->id]);
+    $level = GameLevel::first();
+    $tournament = makeTournament($user);
+    $tournament->update(['game_level_id' => $level->id, 'date_from' => '2026-03-01']);
 
-    $this->actingAs($user)->get(route('tournaments.show', $classified))->assertOk()
-        ->assertInertia(fn ($page) => $page->where('tournament.competition.id', $competition->id)->whereType('tournament.competition.game_level', 'string'));
+    $this->get(route('tournaments.show', $tournament))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('tournament.game_level.id', $level->id)->where('tournament.game_level.version', 1)->missing('tournament.competition'));
 });

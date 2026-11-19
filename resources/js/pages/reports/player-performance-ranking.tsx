@@ -1149,6 +1149,9 @@ export default function PlayerPerformanceRanking({
                                         <TableHead>{t('Medal')}</TableHead>
                                         <TableHead>{t('Awards')}</TableHead>
                                         <TableHead className="text-right">
+                                            {t('Version')}
+                                        </TableHead>
+                                        <TableHead className="text-right">
                                             {t('Points')}
                                         </TableHead>
                                     </TableRow>
@@ -1157,7 +1160,7 @@ export default function PlayerPerformanceRanking({
                                     {drilldownRows.length === 0 && (
                                         <TableRow>
                                             <TableCell
-                                                colSpan={8}
+                                                colSpan={9}
                                                 className="py-8 text-center text-muted-foreground"
                                             >
                                                 {t('No records found')}
@@ -1169,7 +1172,7 @@ export default function PlayerPerformanceRanking({
                                         <Fragment key={group.label}>
                                             <TableRow className="bg-muted/50 hover:bg-muted/50">
                                                 <TableCell
-                                                    colSpan={7}
+                                                    colSpan={8}
                                                     className="font-medium"
                                                 >
                                                     {group.label}
@@ -1213,6 +1216,11 @@ export default function PlayerPerformanceRanking({
                                                                           award.title,
                                                                   )
                                                                   .join(', ')}
+                                                    </TableCell>
+                                                    <TableCell className="text-right tabular-nums">
+                                                        {row.scoring.version
+                                                            ? `v${row.scoring.version}`
+                                                            : '—'}
                                                     </TableCell>
                                                     <TableCell className="text-right tabular-nums">
                                                         {

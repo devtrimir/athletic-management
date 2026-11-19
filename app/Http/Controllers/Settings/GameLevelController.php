@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\SaveGameLevelRequest;
 use App\Models\Competition;
 use App\Models\GameLevel;
 use App\Models\PointSchemeRow;
+use App\Models\Tournament;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -62,8 +63,8 @@ class GameLevelController extends Controller
     {
         Gate::authorize('delete', $gameLevel);
 
-        if (Competition::where('game_level_id', $gameLevel->id)->exists() || PointSchemeRow::where('game_level_id', $gameLevel->id)->exists()) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => __('This level is used by competitions or points versions. Deactivate it instead.')]);
+        if (Competition::where('game_level_id', $gameLevel->id)->exists() || PointSchemeRow::where('game_level_id', $gameLevel->id)->exists() || Tournament::withoutGlobalScopes()->where('game_level_id', $gameLevel->id)->exists()) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('This level is used by competitions, tournaments or points versions. Deactivate it instead.')]);
 
             return to_route('game-levels.index');
         }

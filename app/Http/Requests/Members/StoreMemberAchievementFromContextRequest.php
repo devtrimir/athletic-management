@@ -47,6 +47,7 @@ class StoreMemberAchievementFromContextRequest extends FormRequest
         $this->merge([
             'tournament_id' => $this->normalizeForeignKeyInput((string) ($this->input('tournament_id') ?? '')),
             'event_id' => $this->normalizeForeignKeyInput((string) ($this->input('event_id') ?? '')),
+            'game_level_id' => $this->normalizeForeignKeyInput((string) ($this->input('game_level_id') ?? '')),
             'team_id' => $this->normalizeForeignKeyInput((string) ($this->input('team_id') ?? '')),
             'sport_id' => $this->normalizeForeignKeyInput((string) ($this->input('sport_id') ?? '')),
             'event_sport_id' => $this->normalizeForeignKeyInput((string) ($this->input('event_sport_id') ?? '')),
@@ -132,6 +133,7 @@ class StoreMemberAchievementFromContextRequest extends FormRequest
             'session_name' => ['nullable', 'string', 'max:255'],
             'session_start_year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'session_end_year' => ['nullable', 'integer', 'min:2000', 'max:2100', 'gt:session_start_year'],
+            'game_level_id' => ['nullable', 'integer', Rule::exists('game_levels', 'id')->where('organization_id', $orgId)],
             'tier_id' => ['nullable', 'required_without:tournament_id', 'integer', Rule::exists('tournament_tiers', 'id')],
             'is_historical_session' => ['nullable', 'boolean'],
             'allow_inactive_member' => ['nullable', 'boolean'],

@@ -51,7 +51,7 @@ class TournamentProfileData
             'session:id,name',
             'tier:id,code,label_hi,label_en',
             'sport:id,name',
-            'competition.gameLevel',
+            'gameLevel',
         ]);
         $tournament->loadCount('events');
         $this->appendAggregateCounts($tournament);

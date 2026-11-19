@@ -1818,5 +1818,11 @@
     "Version published.": "संस्करण प्रकाशित किया गया।",
     "Draft saved.": "ड्राफ़्ट सहेजा गया।",
     "Draft deleted.": "ड्राफ़्ट हटाया गया।",
-    "No competition set": "प्रतियोगिता तय नहीं"
+    "No competition set": "प्रतियोगिता तय नहीं",
+    "No game level set": "खेल स्तर तय नहीं",
+    "Select game level": "खेल स्तर चुनें",
+    "Search game levels…": "खेल स्तर खोजें…",
+    "Pick the game level of this tournament. The points players earn for Gold, Silver, Bronze or Participation come from the points version in force on its start date. Without one, no points are given until you choose it.": "इस टूर्नामेंट का खेल स्तर चुनें। स्वर्ण, रजत, कांस्य या सहभागिता के अंक इसकी शुरुआत तिथि पर लागू अंक-संस्करण से तय होते हैं। इसे चुने बिना कोई अंक नहीं जुड़ेंगे।",
+    "This level is used by competitions, tournaments or points versions. Deactivate it instead.": "यह स्तर प्रतियोगिताओं, टूर्नामेंटों या अंक-संस्करणों में उपयोग में है। इसे हटाने के बजाय निष्क्रिय करें।",
+    "Decides the points for this result. Without one, no points are given until the tournament has a game level.": "इस परिणाम के अंक इसी से तय होते हैं। इसके बिना, टूर्नामेंट का खेल स्तर तय होने तक कोई अंक नहीं जुड़ेंगे।"
 }

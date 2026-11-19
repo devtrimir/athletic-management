@@ -30,6 +30,7 @@ use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\AuditLogBuilder;
 use App\Services\Performance\MemberPerformanceService;
+use App\Support\Points\GameLevelOptions;
 use Illuminate\Support\Collection;
 
 class MemberProfileData
@@ -193,6 +194,7 @@ class MemberProfileData
             'units' => Unit::orderBy('name')->get(['id', 'name']),
             'sports' => Sport::orderBy('name')->get(['id', 'name']),
             'tiers' => TournamentTier::orderByDesc('weight')->get(['id', 'code']),
+            'gameLevels' => GameLevelOptions::forOrganization($orgId),
             'sessions' => SportSession::select(['id', 'name', 'is_current'])
                 ->orderByDesc('start_year')
                 ->orderByDesc('id')
@@ -200,7 +202,7 @@ class MemberProfileData
             'tournaments' => Tournament::query()
                 ->with(['sports:id,name', 'sport:id,name'])
                 ->where('organization_id', $orgId)
-                ->select(['id', 'session_id', 'tier_id', 'sport_id', 'name', 'venue', 'date_from', 'date_to'])
+                ->select(['id', 'session_id', 'tier_id', 'game_level_id', 'sport_id', 'name', 'venue', 'date_from', 'date_to'])
                 ->orderByDesc('date_from')
                 ->orderByDesc('id')
                 ->limit(500)
@@ -209,6 +211,7 @@ class MemberProfileData
                     'id' => $tournament->id,
                     'session_id' => $tournament->session_id,
                     'tier_id' => $tournament->tier_id,
+                    'game_level_id' => $tournament->game_level_id,
                     'sport_id' => $tournament->sport_id,
                     'name' => $tournament->name,
                     'venue' => $tournament->venue,

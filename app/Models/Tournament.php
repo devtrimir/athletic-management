@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property int $session_id
  * @property int $tier_id
  * @property int|null $competition_id
+ * @property int|null $game_level_id
  * @property int|null $sport_id
  * @property string $name
  * @property string|null $venue
@@ -44,6 +45,7 @@ use Illuminate\Support\Carbon;
     'session_id',
     'tier_id',
     'competition_id',
+    'game_level_id',
     'sport_id',
     'name',
     'venue',
@@ -57,14 +59,14 @@ class Tournament extends Model
     use HasFactory, SoftDeletes, Tenanted;
 
     /**
-     * Attaching a competition (or moving the date) rescores the tournament's results.
+     * Choosing a game level (or moving the date) rescores the tournament's results.
      * Chains the Tenanted trait's booted(), which this method would otherwise replace.
      */
     protected static function booted(): void
     {
         static::addGlobalScope(new BelongsToOrganization);
         static::saved(function (Tournament $tournament): void {
-            if ($tournament->wasChanged(['competition_id', 'date_from'])) {
+            if ($tournament->wasChanged(['game_level_id', 'competition_id', 'date_from'])) {
                 app(ScoreTournament::class)($tournament);
             }
         });
@@ -98,6 +100,12 @@ class Tournament extends Model
     public function tier(): BelongsTo
     {
         return $this->belongsTo(TournamentTier::class, 'tier_id');
+    }
+
+    /** @return BelongsTo<GameLevel, $this> */
+    public function gameLevel(): BelongsTo
+    {
+        return $this->belongsTo(GameLevel::class);
     }
 
     /** @return BelongsTo<Competition, $this> */
