@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Actions\Points\ScoreParticipation;
 use App\Concerns\Auditable;
 use App\Concerns\HasMedia;
 use App\Observers\AuditObserver;
@@ -38,6 +39,14 @@ class Achievement extends Model
 {
     /** @use HasFactory<AchievementFactory> */
     use Auditable, HasFactory, HasMedia;
+
+    /** A medal change (or removal) changes the stored points. */
+    protected static function booted(): void
+    {
+        $rescore = fn (Achievement $achievement) => app(ScoreParticipation::class)($achievement->participation);
+        static::saved($rescore);
+        static::deleted($rescore);
+    }
 
     /** @return BelongsTo<Participation, $this> */
     public function participation(): BelongsTo
