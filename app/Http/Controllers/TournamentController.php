@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Tournaments\StoreTournamentRequest;
 use App\Http\Requests\Tournaments\UpdateTournamentRequest;
 use App\Models\Achievement;
+use App\Models\Competition;
+use App\Models\GameLevel;
 use App\Models\Participation;
 use App\Models\Sport;
 use App\Models\SportSession;
@@ -219,7 +221,26 @@ class TournamentController extends Controller
     }
 
     /**
-     * @return array{sessions: Collection, sports: Collection, tiers: Collection}
+     * Active competitions labelled "Competition (Game level)" in the current language.
+     *
+     * @return list<array{id: int, label: string}>
+     */
+    private function competitionOptions(): array
+    {
+        $column = app()->getLocale() === 'en' ? 'name_en' : 'name_hi';
+        $levels = GameLevel::orderBy('sort_order')->pluck($column, 'id');
+
+        return Competition::where('is_active', true)->whereIn('game_level_id', $levels->keys())
+            ->orderBy('sort_order')->get()
+            ->sortBy(fn (Competition $competition) => $levels->keys()->search($competition->game_level_id))
+            ->map(fn (Competition $competition) => [
+                'id' => $competition->id,
+                'label' => $competition->{$column}.' ('.$levels[$competition->game_level_id].')',
+            ])->values()->all();
+    }
+
+    /**
+     * @return array{sessions: Collection<int, SportSession>, sports: Collection<int, Sport>, tiers: Collection<int, TournamentTier>, competitions: list<array{id: int, label: string}>}
      */
     private function formOptions(int $orgId): array
     {
@@ -235,6 +256,7 @@ class TournamentController extends Controller
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en'])
                 ->orderByDesc('weight')
                 ->get(),
+            'competitions' => $this->competitionOptions(),
         ];
     }
 

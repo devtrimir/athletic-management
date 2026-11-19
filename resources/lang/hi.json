@@ -1770,5 +1770,8 @@
     "Show all": "सभी दिखाएं",
     "Show less": "कम दिखाएं",
     "City": "शहर",
-    "External coach": "बाहरी कोच"
+    "External coach": "बाहरी कोच",
+    "Select competition": "प्रतियोगिता चुनें",
+    "Search competitions…": "प्रतियोगिता खोजें…",
+    "Pick the competition this tournament belongs to (for example Asian Games or National Games). Its game level decides how many points players earn for Gold, Silver, Bronze or Participation. Without one, no points are given until you choose it.": "वह प्रतियोगिता चुनें जिसका यह टूर्नामेंट हिस्सा है (जैसे एशियन गेम्स या नेशनल गेम्स)। उसका खेल स्तर तय करता है कि स्वर्ण, रजत, कांस्य या सहभागिता पर खिलाड़ियों को कितने अंक मिलेंगे। इसे चुने बिना कोई अंक नहीं जुड़ेंगे।"
 }

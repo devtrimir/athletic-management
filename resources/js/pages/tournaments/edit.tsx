@@ -18,6 +18,7 @@ import { useTranslation } from '@/hooks/use-translation';
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label: string };
+type Competition = { id: number; label: string };
 
 type TournamentProp = {
     id: number;
@@ -28,6 +29,7 @@ type TournamentProp = {
     raw_date_text: string | null;
     session: Session | null;
     tier: { id: number; code: string; label: string } | null;
+    competition_id: number | null;
     sport: Sport | null;
     sports: Sport[];
 };
@@ -36,6 +38,7 @@ type FormData = {
     name: string;
     session_id: string;
     tier_id: string;
+    competition_id: string;
     sport_ids: string[];
     date_from: string;
     date_to: string;
@@ -48,11 +51,13 @@ export default function TournamentsEdit({
     sessions,
     sports,
     tiers,
+    competitions,
 }: {
     tournament: TournamentProp;
     sessions: Session[];
     sports: Sport[];
     tiers: Tier[];
+    competitions: Competition[];
 }) {
     const { t } = useTranslation();
     const { locale = 'en' } = usePage().props as { locale?: string };
@@ -69,6 +74,7 @@ export default function TournamentsEdit({
         name: tournament.name,
         session_id: tournament.session ? String(tournament.session.id) : '',
         tier_id: tournament.tier ? String(tournament.tier.id) : '',
+        competition_id: tournament.competition_id ? String(tournament.competition_id) : '',
         sport_ids:
             tournament.sports.length > 0
                 ? tournament.sports.map((sport) => String(sport.id))
@@ -182,6 +188,28 @@ export default function TournamentsEdit({
                                     searchPlaceholder={t('Search tiers…')}
                                 />
                                 <InputError message={errors.tier_id} />
+                            </div>
+
+                            {/* Competition */}
+                            <div className="grid gap-2">
+                                <Label htmlFor="competition_id">
+                                    {t('Competition')}
+                                </Label>
+                                <Combobox
+                                    id="competition_id"
+                                    value={data.competition_id}
+                                    onValueChange={(v) => setData('competition_id', v)}
+                                    items={competitions.map((competition) => ({
+                                        value: String(competition.id),
+                                        label: competition.label,
+                                    }))}
+                                    placeholder={t('Select competition')}
+                                    searchPlaceholder={t('Search competitions…')}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    {t('Pick the competition this tournament belongs to (for example Asian Games or National Games). Its game level decides how many points players earn for Gold, Silver, Bronze or Participation. Without one, no points are given until you choose it.')}
+                                </p>
+                                <InputError message={errors.competition_id} />
                             </div>
 
                             {/* Venue */}
