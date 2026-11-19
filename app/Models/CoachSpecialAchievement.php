@@ -65,7 +65,7 @@ class CoachSpecialAchievement extends Model
     protected function casts(): array
     {
         return [
-            'awarded_on' => 'date',
+            'awarded_on' => 'date:Y-m-d',
             'order_document_size_bytes' => 'integer',
         ];
     }

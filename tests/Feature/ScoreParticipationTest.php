@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Achievement;
 use App\Models\Competition;
 use App\Models\Event;
+use App\Models\GameLevel;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Participation;
@@ -109,4 +110,26 @@ it('backfills existing participations with the points:score command', function (
     $this->artisan('points:score')->assertSuccessful();
 
     expect(scores($participation))->toHaveCount(1);
+});
+
+it('scores from the tournament\'s game level directly, and the level wins over an old competition link', function (): void {
+    $org = Organization::factory()->create();
+    $this->seed(PointSchemeSeeder::class);
+    $level = fn (string $code) => GameLevel::withoutGlobalScope(BelongsToOrganization::class)->where('organization_id', $org->id)->where('code', $code)->firstOrFail();
+    $asianGames = Competition::withoutGlobalScope(BelongsToOrganization::class)->where('organization_id', $org->id)->where('name_en', 'Asian Games')->firstOrFail();
+
+    $tournament = Tournament::factory()->forOrganization($org)->create(['game_level_id' => $level('NATIONAL')->id, 'competition_id' => $asianGames->id, 'date_from' => '2026-03-01']);
+    $participation = Participation::factory()->forEvent(Event::factory()->forTournament($tournament)->create())->create();
+    Achievement::factory()->forParticipation($participation)->create(['medal_type' => 'GOLD']);
+
+    // National gold is 60; the Asian Games competition (senior continental, 80) is ignored.
+    expect(scores($participation))->toBe([[$participation->member_id, 'GOLD', 60]]);
+
+    $tournament->update(['game_level_id' => $level('OLYMPIC')->id]);
+
+    expect(scores($participation))->toBe([[$participation->member_id, 'GOLD', 100]]);
+
+    $tournament->update(['game_level_id' => null, 'competition_id' => null]);
+
+    expect(scores($participation))->toBe([]);
 });

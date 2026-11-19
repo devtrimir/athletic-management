@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use App\Models\Achievement;
 use App\Models\Event;
+use App\Models\GameLevel;
 use App\Models\Member;
 use App\Models\Organization;
 use App\Models\Participation;
+use App\Models\ParticipationScore;
 use App\Models\Permission;
+use App\Models\PointScheme;
 use App\Models\Role;
 use App\Models\Sport;
 use App\Models\SportSession;
@@ -16,6 +19,7 @@ use App\Models\TeamMember;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\User;
+use Database\Seeders\PointSchemeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -391,4 +395,86 @@ test('auto assigns matching team for member achievement entries', function (): v
     expect($participation)->not->toBeNull()
         ->and($participation?->team_id)->toBe($setup['team']->id)
         ->and(Achievement::withoutGlobalScopes()->count())->toBe(1);
+});
+
+function achievementContextLevel(User $user, string $code = 'NATIONAL'): GameLevel
+{
+    return GameLevel::withoutGlobalScopes()->where('organization_id', $user->organization_id)->where('code', $code)->firstOrFail();
+}
+
+function achievementContextPoints(Member $member): array
+{
+    return ParticipationScore::where('member_id', $member->id)->get()->map(fn ($score) => [$score->result, $score->points, $score->point_scheme_id])->all();
+}
+
+it('gives the new tournament the chosen game level and scores the medal from its version', function (): void {
+    $user = achievementContextUser('members.manageBenefits');
+    $this->seed(PointSchemeSeeder::class);
+    $setup = achievementContextTournamentSetup($user, ['name' => 'Another Championship']);
+    $level = achievementContextLevel($user);
+
+    $this->actingAs($user)->post(route('members.achievements.resolve-and-store', $setup['member']), achievementContextPayload([
+        'tournament_name' => 'Brand New Championship',
+        'session_id' => (string) $setup['session']->id,
+        'tier_id' => (string) $setup['tournament']->tier_id,
+        'sport_id' => (string) $setup['sport']->id,
+        'event_sport_id' => (string) $setup['sport']->id,
+        'team_id' => (string) $setup['team']->id,
+        'game_level_id' => (string) $level->id,
+        'medal_type' => 'GOLD',
+    ]))->assertRedirect(route('members.events', $setup['member']));
+
+    $created = Tournament::withoutGlobalScopes()->firstWhere('name', 'Brand New Championship');
+    $version1 = PointScheme::withoutGlobalScopes()->where('organization_id', $user->organization_id)->where('version_number', 1)->value('id');
+
+    expect($created->game_level_id)->toBe($level->id)
+        ->and(achievementContextPoints($setup['member']))->toBe([['GOLD', 60, $version1]]);
+});
+
+it('fills a missing game level on an existing tournament, but never overwrites one', function (): void {
+    $user = achievementContextUser('members.manageBenefits');
+    $this->seed(PointSchemeSeeder::class);
+    $setup = achievementContextTournamentSetup($user);
+    $national = achievementContextLevel($user);
+    $world = achievementContextLevel($user, 'WORLD');
+    $payload = fn (array $extra) => achievementContextPayload(array_merge([
+        'tournament_id' => (string) $setup['tournament']->id,
+        'session_id' => (string) $setup['session']->id,
+        'tier_id' => (string) $setup['tournament']->tier_id,
+        'sport_id' => (string) $setup['sport']->id,
+        'event_sport_id' => (string) $setup['sport']->id,
+        'team_id' => (string) $setup['team']->id,
+    ], $extra));
+
+    $this->actingAs($user)->post(route('members.achievements.resolve-and-store', $setup['member']), $payload(['game_level_id' => (string) $national->id, 'medal_type' => 'SILVER']));
+
+    expect($setup['tournament']->fresh()->game_level_id)->toBe($national->id)
+        ->and(achievementContextPoints($setup['member'])[0][0])->toBe('SILVER')
+        ->and(achievementContextPoints($setup['member'])[0][1])->toBe(50);
+
+    // A different level sent for a tournament that already has one is ignored.
+    $this->actingAs($user)->post(route('members.achievements.resolve-and-store', $setup['member']), $payload(['game_level_id' => (string) $world->id, 'event_name' => 'Relay', 'medal_type' => 'BRONZE']));
+
+    expect($setup['tournament']->fresh()->game_level_id)->toBe($national->id);
+});
+
+it('scores nothing when no game level is chosen, and rejects another organisation\'s level', function (): void {
+    $user = achievementContextUser('members.manageBenefits');
+    $this->seed(PointSchemeSeeder::class);
+    $setup = achievementContextTournamentSetup($user);
+    $base = [
+        'tournament_id' => (string) $setup['tournament']->id,
+        'session_id' => (string) $setup['session']->id,
+        'tier_id' => (string) $setup['tournament']->tier_id,
+        'sport_id' => (string) $setup['sport']->id,
+        'event_sport_id' => (string) $setup['sport']->id,
+        'team_id' => (string) $setup['team']->id,
+    ];
+
+    $this->actingAs($user)->post(route('members.achievements.resolve-and-store', $setup['member']), achievementContextPayload($base));
+    expect(achievementContextPoints($setup['member']))->toBe([]);
+
+    $foreign = GameLevel::factory()->create(['organization_id' => Organization::factory()->create()->id]);
+    $this->actingAs($user)->post(route('members.achievements.resolve-and-store', $setup['member']), achievementContextPayload(array_merge($base, ['game_level_id' => (string) $foreign->id])))
+        ->assertSessionHasErrors('game_level_id');
 });

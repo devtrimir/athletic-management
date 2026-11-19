@@ -125,15 +125,13 @@ class MemberPerformanceService
                             'id' => (int) $award['id'],
                             'award_type' => $award['award_type'],
                             'title' => $award['title'],
-                            'points' => (int) $award['points'],
                         ])
                         ->all(),
                     'scoring' => [
-                        'participation_points' => (int) data_get($row, 'scoring.participation_points', 0),
-                        'medal_points' => (int) data_get($row, 'scoring.medal_points', 0),
-                        'tier_bonus_points' => (int) data_get($row, 'scoring.tier_bonus_points', 0),
-                        'award_points' => (int) data_get($row, 'scoring.award_points', 0),
                         'total_points' => (int) data_get($row, 'scoring.total_points', 0),
+                        'result' => data_get($row, 'scoring.result'),
+                        'game_level' => data_get($row, 'scoring.game_level'),
+                        'version' => data_get($row, 'scoring.version'),
                     ],
                 ])
                 ->all(),

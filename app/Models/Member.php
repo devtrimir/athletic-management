@@ -122,10 +122,10 @@ class Member extends Model
     protected function casts(): array
     {
         return [
-            'dob' => 'date',
-            'joining_date' => 'date',
-            'promotion_date' => 'date',
-            'team_since' => 'date',
+            'dob' => 'date:Y-m-d',
+            'joining_date' => 'date:Y-m-d',
+            'promotion_date' => 'date:Y-m-d',
+            'team_since' => 'date:Y-m-d',
             'source_refs' => 'array',
             'deleted_at' => 'datetime',
         ];

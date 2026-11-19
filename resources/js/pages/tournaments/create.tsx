@@ -17,13 +17,17 @@ import { useTranslation } from '@/hooks/use-translation';
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label: string };
-type Competition = { id: number; label: string };
+type GameLevel = {
+    id: number;
+    label: string;
+    description: string | null;
+};
 
 type FormData = {
     name: string;
     session_id: string;
     tier_id: string;
-    competition_id: string;
+    game_level_id: string;
     sport_ids: string[];
     date_from: string;
     date_to: string;
@@ -35,12 +39,12 @@ export default function TournamentsCreate({
     sessions,
     sports,
     tiers,
-    competitions,
+    gameLevels,
 }: {
     sessions: Session[];
     sports: Sport[];
     tiers: Tier[];
-    competitions: Competition[];
+    gameLevels: GameLevel[];
 }) {
     const { t } = useTranslation();
     const { locale = 'en' } = usePage().props as { locale?: string };
@@ -56,7 +60,7 @@ export default function TournamentsCreate({
         name: '',
         session_id: '',
         tier_id: '',
-        competition_id: '',
+        game_level_id: '',
         sport_ids: [],
         date_from: '',
         date_to: '',
@@ -167,26 +171,32 @@ export default function TournamentsCreate({
                                 <InputError message={errors.tier_id} />
                             </div>
 
-                            {/* Competition */}
+                            {/* Game level */}
                             <div className="grid gap-2">
-                                <Label htmlFor="competition_id">
-                                    {t('Competition')}
+                                <Label htmlFor="game_level_id">
+                                    {t('Game level')}
                                 </Label>
                                 <Combobox
-                                    id="competition_id"
-                                    value={data.competition_id}
-                                    onValueChange={(v) => setData('competition_id', v)}
-                                    items={competitions.map((competition) => ({
-                                        value: String(competition.id),
-                                        label: competition.label,
+                                    id="game_level_id"
+                                    value={data.game_level_id}
+                                    onValueChange={(v) =>
+                                        setData('game_level_id', v)
+                                    }
+                                    items={gameLevels.map((level) => ({
+                                        value: String(level.id),
+                                        label: level.label,
+                                        description:
+                                            level.description ?? undefined,
                                     }))}
-                                    placeholder={t('Select competition')}
-                                    searchPlaceholder={t('Search competitions…')}
+                                    placeholder={t('Select game level')}
+                                    searchPlaceholder={t('Search game levels…')}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    {t('Pick the competition this tournament belongs to (for example Asian Games or National Games). Its game level decides how many points players earn for Gold, Silver, Bronze or Participation. Without one, no points are given until you choose it.')}
+                                    {t(
+                                        'Pick the game level of this tournament. The points players earn for Gold, Silver, Bronze or Participation come from the points version in force on its start date. Without one, no points are given until you choose it.',
+                                    )}
                                 </p>
-                                <InputError message={errors.competition_id} />
+                                <InputError message={errors.game_level_id} />
                             </div>
 
                             {/* Venue */}

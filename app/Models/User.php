@@ -46,6 +46,7 @@ class User extends Authenticatable implements PasskeyUser
         return [
             'email_verified_at' => 'datetime',
             'two_factor_confirmed_at' => 'datetime',
+            'password' => 'hashed',
             'is_active' => 'boolean',
             'must_change_password' => 'boolean',
         ];

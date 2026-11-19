@@ -106,7 +106,7 @@ test('add members inserts rows and redirects to teams.show', function (): void {
         'member_id' => $member->id,
         'session_id' => $team->session_id,
         'role' => 'PLAYER',
-        'joined_on' => '2026-01-15 00:00:00',
+        'joined_on' => '2026-01-15',
     ]);
 });
 
@@ -194,7 +194,7 @@ test('adding member records roster movement', function (): void {
         'session_id' => $team->session_id,
         'action' => 'ADDED',
         'role' => 'CAPTAIN',
-        'effective_on' => '2026-01-15 00:00:00',
+        'effective_on' => '2026-01-15',
         'created_by' => $user->id,
     ]);
 });
@@ -431,7 +431,7 @@ test('bulk remove members requires and records the same audited removal details'
             'team_id' => $team->id,
             'member_id' => $member->id,
             'session_id' => $team->session_id,
-            'left_on' => '2026-03-01 00:00:00',
+            'left_on' => '2026-03-01',
         ]);
         $this->assertDatabaseHas('team_member_movements', [
             'team_id' => $team->id,
@@ -611,7 +611,7 @@ test('historical backfill applies inactive playable member and records movement 
         'team_id' => $team->id,
         'member_id' => $member->id,
         'session_id' => $oldSession->id,
-        'joined_on' => '2024-01-01 00:00:00',
+        'joined_on' => '2024-01-01',
         'left_on' => null,
     ]);
     $this->assertDatabaseHas('team_member_movements', [
@@ -674,8 +674,8 @@ test('historical backfill with left date records add and remove movements', func
         'team_id' => $team->id,
         'member_id' => $member->id,
         'session_id' => $oldSession->id,
-        'joined_on' => '2023-01-01 00:00:00',
-        'left_on' => '2023-05-01 00:00:00',
+        'joined_on' => '2023-01-01',
+        'left_on' => '2023-05-01',
     ]);
     $this->assertDatabaseHas('team_member_movements', [
         'team_id' => $team->id,
@@ -772,8 +772,8 @@ test('membership row can update role and dates', function (): void {
     $this->assertDatabaseHas('team_members', [
         'id' => $row->id,
         'role' => 'CAPTAIN',
-        'joined_on' => '2026-01-01 00:00:00',
-        'left_on' => '2026-02-01 00:00:00',
+        'joined_on' => '2026-01-01',
+        'left_on' => '2026-02-01',
     ]);
 });
 

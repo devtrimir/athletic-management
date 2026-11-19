@@ -21,10 +21,7 @@ class MarkMissingAttendanceBatchJob implements ShouldQueue
     /**
      * @param  array<int, array<string, mixed>>  $rows
      */
-    public function __construct(public readonly array $rows)
-    {
-        $this->onQueue('attendance');
-    }
+    public function __construct(public readonly array $rows) {}
 
     public function handle(): void
     {

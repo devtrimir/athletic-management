@@ -60,14 +60,12 @@ type LedgerRow = {
         id: number;
         award_type: string;
         title: string;
-        points: number;
     }>;
     scoring: {
-        participation_points: number;
-        medal_points: number;
-        tier_bonus_points: number;
-        award_points: number;
         total_points: number;
+        result: string | null;
+        game_level: string | null;
+        version: number | null;
     };
 };
 
@@ -80,10 +78,10 @@ type FilteredSessionSummaryRow = {
     medals: MedalCounts;
 };
 
-type TierGroup = {
+type LevelGroup = {
     key: string;
     label: string;
-    weight: number;
+    points: number;
     rows: LedgerRow[];
 };
 
@@ -121,9 +119,7 @@ function awardLabel(row: LedgerRow): string {
         return '—';
     }
 
-    return row.awards
-        .map((award) => `${award.title} (${award.points})`)
-        .join(', ');
+    return row.awards.map((award) => award.title).join(', ');
 }
 
 function emptyMedals(): MedalCounts {
@@ -132,27 +128,6 @@ function emptyMedals(): MedalCounts {
         SILVER: 0,
         BRONZE: 0,
         MERIT: 0,
-    };
-}
-
-function tierMeta(
-    row: LedgerRow,
-    t: (key: string) => string,
-): { key: string; label: string; weight: number } {
-    const tier = row.tournament?.tier;
-
-    if (tier === null || tier === undefined) {
-        return {
-            key: 'NO_TIER',
-            label: t('No tier'),
-            weight: -1,
-        };
-    }
-
-    return {
-        key: String(tier.id),
-        label: tier.label_hi,
-        weight: tier.weight,
     };
 }
 
@@ -427,23 +402,28 @@ export function MemberPerformanceTab({
     }, [filteredLedger]);
 
     const groupedLedger = useMemo(() => {
-        const groups = new Map<string, TierGroup>();
+        const groups = new Map<string, LevelGroup>();
 
         for (const row of filteredLedger) {
-            const tier = tierMeta(row, t);
-            const current = groups.get(tier.key) ?? {
-                key: tier.key,
-                label: tier.label,
-                weight: tier.weight,
+            const level = row.scoring.game_level;
+            const key = level ?? 'NO_LEVEL';
+            const current = groups.get(key) ?? {
+                key,
+                label: level ?? t('Not classified'),
+                points: 0,
                 rows: [],
             };
 
+            current.points += row.scoring.total_points;
             current.rows.push(row);
-            groups.set(tier.key, current);
+            groups.set(key, current);
         }
 
         return Array.from(groups.values()).sort(
-            (left, right) => right.weight - left.weight,
+            (left, right) =>
+                Number(left.key === 'NO_LEVEL') -
+                    Number(right.key === 'NO_LEVEL') ||
+                right.points - left.points,
         );
     }, [filteredLedger, t]);
 
@@ -833,8 +813,11 @@ export function MemberPerformanceTab({
                 ) : (
                     groupedLedger.map((group) => (
                         <div key={group.key} className="space-y-2">
-                            <h4 className="text-sm font-medium">
-                                {group.label}
+                            <h4 className="flex items-baseline justify-between text-sm font-medium">
+                                <span>{group.label}</span>
+                                <span className="text-muted-foreground tabular-nums">
+                                    {t('Points')}: {group.points}
+                                </span>
                             </h4>
                             <div
                                 className={`overflow-x-auto rounded-md border ${compactTableClasses}`}
@@ -853,16 +836,7 @@ export function MemberPerformanceTab({
                                             <TableHead>{t('Medal')}</TableHead>
                                             <TableHead>{t('Awards')}</TableHead>
                                             <TableHead className="text-right">
-                                                {t('Participation points')}
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                {t('Medal points')}
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                {t('Tier bonus')}
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                {t('Award points')}
+                                                {t('Version')}
                                             </TableHead>
                                             <TableHead className="text-right">
                                                 {t('Points')}
@@ -893,23 +867,14 @@ export function MemberPerformanceTab({
                                                 <TableCell className="max-w-64 text-sm">
                                                     {awardLabel(row)}
                                                 </TableCell>
-                                                <TableCell className="text-right tabular-nums">
-                                                    {
-                                                        row.scoring
-                                                            .participation_points
-                                                    }
+                                                <TableCell>
+                                                    {row.scoring.game_level ??
+                                                        '—'}
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
-                                                    {row.scoring.medal_points}
-                                                </TableCell>
-                                                <TableCell className="text-right tabular-nums">
-                                                    {
-                                                        row.scoring
-                                                            .tier_bonus_points
-                                                    }
-                                                </TableCell>
-                                                <TableCell className="text-right tabular-nums">
-                                                    {row.scoring.award_points}
+                                                    {row.scoring.version
+                                                        ? `v${row.scoring.version}`
+                                                        : '—'}
                                                 </TableCell>
                                                 <TableCell className="text-right font-semibold tabular-nums">
                                                     {row.scoring.total_points}

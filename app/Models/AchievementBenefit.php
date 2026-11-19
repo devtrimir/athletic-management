@@ -58,7 +58,7 @@ class AchievementBenefit extends Model
     {
         return [
             'cash_amount' => 'decimal:2',
-            'benefit_date' => 'date',
+            'benefit_date' => 'date:Y-m-d',
         ];
     }
 

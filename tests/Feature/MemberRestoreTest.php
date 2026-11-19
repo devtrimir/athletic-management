@@ -180,7 +180,7 @@ test('restore endpoint restores a soft-deleted member and transitions status to 
 
     $this->actingAs($user)
         ->post(route('members.restore', $member))
-        ->assertRedirect(route('members.show', $member));
+        ->assertRedirect(route('members.index', ['filter[status_scope]' => 'archived']));
 
     $member->refresh();
 

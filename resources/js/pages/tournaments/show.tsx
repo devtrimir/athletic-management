@@ -25,6 +25,7 @@ import {
     X,
 } from 'lucide-react';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import {
     destroy as destroyEvent,
     store as storeEvent,
@@ -52,6 +53,7 @@ import {
 } from '@/components/data-table/filter-pill';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { PointsUpdatesListener } from '@/components/points/points-updates-listener';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -100,6 +102,11 @@ type Tournament = {
     medals_count: number;
     session: { id: number; name: string } | null;
     tier: { id: number; code: string; label: string } | null;
+    game_level?: {
+        id: number;
+        name: string | null;
+        version: number | null;
+    } | null;
     sport: { id: number; name: string } | null;
 };
 
@@ -1515,6 +1522,13 @@ export default function TournamentsShow({
             value: tournament.tier?.label ?? '—',
             icon: Info,
         },
+        {
+            label: t('Game level'),
+            value: tournament.game_level?.name
+                ? `${tournament.game_level.name}${tournament.game_level.version ? ` · v${tournament.game_level.version}` : ''}`
+                : t('No game level set'),
+            icon: Medal,
+        },
         ...(tournament.sport
             ? [
                   {
@@ -1719,9 +1733,30 @@ export default function TournamentsShow({
     );
     let eventSerialNumber = 0;
 
+    const organizationId =
+        (page.props.auth as { user?: { organization_id?: number } } | undefined)
+            ?.user?.organization_id ?? null;
+
     return (
         <>
             <Head title={tournament.name} />
+
+            {organizationId !== null && (
+                <PointsUpdatesListener
+                    organizationId={organizationId}
+                    onFinished={(event) => {
+                        if (event.tournament_id === tournament.id) {
+                            router.reload();
+                            toast.success(
+                                t('Points updated for :name.').replace(
+                                    ':name',
+                                    event.name,
+                                ),
+                            );
+                        }
+                    }}
+                />
+            )}
 
             <div className="space-y-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

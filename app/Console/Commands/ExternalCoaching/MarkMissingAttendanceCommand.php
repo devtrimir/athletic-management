@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Throwable;
 
-#[Signature('external-coaching:mark-missing-attendance {--date= : Attendance date (Y-m-d). Defaults to yesterday.} {--dry-run : Run without writing rows.} {--chunk=500 : Number of assignments processed per scan chunk.} {--insert-chunk=1000 : Number of attendance rows inserted per DB insert batch.} {--queue : Dispatch insert jobs to the attendance queue instead of inserting synchronously.}')]
+#[Signature('external-coaching:mark-missing-attendance {--date= : Mark only this date (Y-m-d). Without it, yesterday and the missed days before it are marked.} {--catch-up-days=7 : How many days back (up to yesterday) to check when --date is not given.} {--dry-run : Run without writing rows.} {--chunk=500 : Number of assignments processed per scan chunk.} {--insert-chunk=1000 : Number of attendance rows inserted per DB insert batch.} {--queue : Dispatch insert jobs to the attendance queue instead of inserting synchronously.}')]
 #[Description('Mark absent attendance automatically when external coaches miss a day submission.')]
 class MarkMissingAttendanceCommand extends Command
 {
@@ -23,43 +23,18 @@ class MarkMissingAttendanceCommand extends Command
     public function handle(): int
     {
         try {
-            $attendanceDate = $this->resolveAttendanceDate();
             $chunkSize = $this->resolveChunkSize();
             $insertChunkSize = $this->resolveInsertChunkSize();
 
-            $summary = $this->attendanceService->markMissingForDate(
-                $attendanceDate,
-                $chunkSize,
-                $insertChunkSize,
-                (bool) $this->option('dry-run'),
-                (bool) $this->option('queue'),
-            );
-
-            $status = $summary['dry_run'] ? 'dry-run complete' : 'complete';
-
-            if ($summary['dispatched_jobs'] > 0) {
-                $this->info(sprintf(
-                    'Auto mark %s for %s: scanned=%d, missing_pairs=%d, dispatched_jobs=%d',
-                    $status,
-                    $summary['attendance_date'],
-                    $summary['assignments_scanned'],
-                    $summary['missing_pairs'],
-                    $summary['dispatched_jobs'],
+            foreach ($this->resolveAttendanceDates() as $attendanceDate) {
+                $this->report($this->attendanceService->markMissingForDate(
+                    $attendanceDate,
+                    $chunkSize,
+                    $insertChunkSize,
+                    (bool) $this->option('dry-run'),
+                    (bool) $this->option('queue'),
                 ));
-
-                return self::SUCCESS;
             }
-
-            $this->info(sprintf(
-                'Auto mark %s for %s: scanned=%d, missing_pairs=%d, inserted=%d, skipped=%d, errors=%d',
-                $status,
-                $summary['attendance_date'],
-                $summary['assignments_scanned'],
-                $summary['missing_pairs'],
-                $summary['inserted'],
-                $summary['skipped'],
-                $summary['errors'],
-            ));
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());
 
@@ -67,6 +42,63 @@ class MarkMissingAttendanceCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<string, mixed>  $summary
+     */
+    private function report(array $summary): void
+    {
+        $status = $summary['dry_run'] ? 'dry-run complete' : 'complete';
+
+        if ($summary['dispatched_jobs'] > 0) {
+            $this->info(sprintf(
+                'Auto mark %s for %s: scanned=%d, missing_pairs=%d, dispatched_jobs=%d',
+                $status,
+                $summary['attendance_date'],
+                $summary['assignments_scanned'],
+                $summary['missing_pairs'],
+                $summary['dispatched_jobs'],
+            ));
+
+            return;
+        }
+
+        $this->info(sprintf(
+            'Auto mark %s for %s: scanned=%d, missing_pairs=%d, inserted=%d, skipped=%d, errors=%d',
+            $status,
+            $summary['attendance_date'],
+            $summary['assignments_scanned'],
+            $summary['missing_pairs'],
+            $summary['inserted'],
+            $summary['skipped'],
+            $summary['errors'],
+        ));
+    }
+
+    /**
+     * One explicit date, or the missed days up to yesterday (oldest first). Marking is
+     * idempotent, so a day that was already handled is simply skipped.
+     *
+     * @return list<Carbon>
+     */
+    private function resolveAttendanceDates(): array
+    {
+        if (trim((string) $this->option('date')) !== '') {
+            return [$this->resolveAttendanceDate()];
+        }
+
+        $rawDays = trim((string) $this->option('catch-up-days'));
+        if (! preg_match('/^\d+$/', $rawDays) || (int) $rawDays < 1) {
+            throw new \RuntimeException('Catch-up days must be a positive integer.');
+        }
+
+        $days = min((int) $rawDays, 31);
+
+        return array_map(
+            fn (int $daysAgo): Carbon => Carbon::today()->subDays($daysAgo),
+            range($days, 1),
+        );
     }
 
     private function resolveAttendanceDate(): Carbon

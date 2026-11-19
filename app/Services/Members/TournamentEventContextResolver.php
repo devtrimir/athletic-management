@@ -59,6 +59,21 @@ class TournamentEventContextResolver
     }
 
     /**
+     * A tournament that has no game level yet takes the one chosen here, which also scores
+     * its existing results. A tournament that already has a level is never changed from this flow.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function fillMissingGameLevel(Tournament $tournament, array $data): void
+    {
+        $levelId = (int) ($data['game_level_id'] ?? 0);
+
+        if ($tournament->game_level_id === null && $levelId > 0) {
+            $tournament->update(['game_level_id' => $levelId]);
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @return array{0: Tournament, 1: bool}
      */
@@ -77,6 +92,8 @@ class TournamentEventContextResolver
                     'tournament_id' => __('Selected tournament does not exist.'),
                 ]);
             }
+
+            $this->fillMissingGameLevel($tournament, $data);
 
             return [$tournament, false];
         }
@@ -116,6 +133,8 @@ class TournamentEventContextResolver
         })->values();
 
         if ($matched->count() === 1) {
+            $this->fillMissingGameLevel($matched->first(), $data);
+
             return [$matched->first(), false];
         }
 
@@ -135,6 +154,7 @@ class TournamentEventContextResolver
             'organization_id' => $orgId,
             'session_id' => $session->id,
             'tier_id' => $tierId,
+            'game_level_id' => ($data['game_level_id'] ?? null) ?: null,
             'sport_id' => $sportId > 0 ? $sportId : null,
             'name' => (string) ($data['tournament_name'] ?? ''),
             'venue' => (string) ($data['venue'] ?? ''),

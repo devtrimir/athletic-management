@@ -19,7 +19,8 @@ import { useTranslation } from '@/hooks/use-translation';
 type Role = {
     id: number;
     code: string;
-    name: string;
+    name_hi: string | null;
+    name_en: string | null;
 };
 
 type User = {
@@ -33,6 +34,15 @@ type User = {
     can_delete: boolean;
     roles: Role[];
 };
+
+function roleLabel(role: Role, locale: string): string {
+    return (
+        (locale === 'hi' ? role.name_hi : role.name_en) ||
+        role.name_hi ||
+        role.name_en ||
+        role.code
+    );
+}
 
 export default function Index({ users }: { users: User[] }) {
     const { t } = useTranslation();
@@ -136,9 +146,7 @@ export default function Index({ users }: { users: User[] }) {
                                                         variant="secondary"
                                                         className="text-xs"
                                                     >
-                                                        {locale === 'hi'
-                                                            ? r.name
-                                                            : r.name}
+                                                        {roleLabel(r, locale)}
                                                     </Badge>
                                                 ))}
                                             </div>
