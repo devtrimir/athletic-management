@@ -26,6 +26,7 @@ import { MemberPerformanceTab } from '@/components/members/member-performance-ta
 import type { MemberPerformanceData } from '@/components/members/member-performance-tab';
 import { MembersMultiSelect } from '@/components/members-multi-select';
 import type { MultiSelectOption } from '@/components/option-multi-select';
+import { PointsUpdatesListener } from '@/components/points/points-updates-listener';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -775,9 +776,23 @@ export default function PlayerPerformanceRanking({
         }, {}),
     ).sort((left, right) => right.points - left.points);
 
+    const organizationId =
+        (
+            usePage().props.auth as
+                | { user?: { organization_id?: number } }
+                | undefined
+        )?.user?.organization_id ?? null;
+
     return (
         <>
             <Head title={reportTitle} />
+
+            {organizationId !== null && (
+                <PointsUpdatesListener
+                    organizationId={organizationId}
+                    onFinished={() => router.reload()}
+                />
+            )}
 
             <ListingLayout
                 title={reportTitle}

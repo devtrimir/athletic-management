@@ -20,7 +20,7 @@ use App\Models\Tournament;
 class ScoreParticipation
 {
     /** Merit has no row on the sheet, so it is scored as participation. */
-    private const RESULT_BY_MEDAL = ['GOLD' => 'GOLD', 'SILVER' => 'SILVER', 'BRONZE' => 'BRONZE'];
+    public const RESULT_BY_MEDAL = ['GOLD' => 'GOLD', 'SILVER' => 'SILVER', 'BRONZE' => 'BRONZE'];
 
     public function __invoke(Participation $participation): void
     {
