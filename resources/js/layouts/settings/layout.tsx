@@ -4,6 +4,7 @@ import {
     Building,
     Building2,
     CalendarDays,
+    Layers,
     LocateIcon,
     Tags,
     Medal,
@@ -23,6 +24,7 @@ import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { index as designationsIndex } from '@/routes/designations';
 import { index as districtsIndex } from '@/routes/districts';
+import { index as gameLevelsIndex } from '@/routes/game-levels';
 import { index as nisMastersIndex } from '@/routes/nis-masters';
 import { edit as editOrganisation } from '@/routes/organisation';
 import { edit } from '@/routes/profile';
@@ -89,6 +91,11 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
             title: t('Tournament Tiers'),
             href: tournamentTiersIndex(),
             icon: Medal,
+        },
+        {
+            title: t('Game levels & competitions'),
+            href: gameLevelsIndex(),
+            icon: Layers,
         },
         { title: t('NIS Masters'), href: nisMastersIndex(), icon: Medal },
     ];

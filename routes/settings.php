@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Settings\CompetitionController;
 use App\Http\Controllers\Settings\DesignationController;
 use App\Http\Controllers\Settings\DistrictController;
+use App\Http\Controllers\Settings\GameLevelController;
 use App\Http\Controllers\Settings\NisMasterController;
 use App\Http\Controllers\Settings\OrganizationController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -64,6 +66,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('settings/tournament-tiers', TournamentTierController::class)
         ->except(['show'])
         ->names('tournament-tiers');
+
+    Route::resource('settings/game-levels', GameLevelController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->parameters(['game-levels' => 'gameLevel'])
+        ->names('game-levels');
+    Route::resource('settings/competitions', CompetitionController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->names('competitions');
 
     Route::resource('settings/nis-masters', NisMasterController::class)
         ->except(['show'])
