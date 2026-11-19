@@ -175,6 +175,37 @@ test('update saves changes and redirects', function (): void {
     expect($unit->refresh()->unit_type_id)->toBe($newType->id);
 });
 
+test('an admin can attach a district to a unit and detach it again by hand', function (): void {
+    $district = District::factory()->create();
+    $unit = Unit::factory()->create([
+        'organization_id' => $this->org->id,
+        'unit_type_id' => $this->unitType->id,
+        'district_id' => $district->id,
+    ]);
+    $payload = ['name' => $unit->name, 'unit_type_id' => $this->unitType->id];
+
+    // The form sends an empty value once the district is cleared.
+    $this->actingAs($this->admin)
+        ->patch(route('units.update', $unit), [...$payload, 'district_id' => ''])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('units.index'));
+
+    expect($unit->refresh()->district_id)->toBeNull();
+
+    $this->actingAs($this->admin)
+        ->patch(route('units.update', $unit), [...$payload, 'district_id' => $district->id])
+        ->assertSessionHasNoErrors();
+
+    expect($unit->refresh()->district_id)->toBe($district->id);
+
+    // Creating with no district chosen stores none.
+    $this->actingAs($this->admin)
+        ->post(route('units.store'), ['name' => 'No District Unit', 'unit_type_id' => $this->unitType->id, 'district_id' => ''])
+        ->assertSessionHasNoErrors();
+
+    expect(Unit::where('name', 'No District Unit')->firstOrFail()->district_id)->toBeNull();
+});
+
 test('update validates required fields', function (): void {
     $unit = Unit::factory()->create(['organization_id' => $this->org->id]);
 

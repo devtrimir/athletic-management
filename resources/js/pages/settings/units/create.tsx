@@ -2,6 +2,7 @@ import { Form, Head, Link } from '@inertiajs/react';
 import UnitController from '@/actions/App/Http/Controllers/Settings/UnitController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { OptionalDistrictField } from '@/components/settings/optional-district-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -94,9 +95,7 @@ export default function Create({
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <InputError
-                                        message={errors.unit_type_id}
-                                    />
+                                    <InputError message={errors.unit_type_id} />
                                 </div>
 
                                 <div className="grid gap-5 sm:grid-cols-2">
@@ -118,35 +117,11 @@ export default function Create({
                                         />
                                     </div>
 
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="district_id">
-                                            {t('District')}{' '}
-                                            <span className="font-normal text-muted-foreground">
-                                                {t('(optional)')}
-                                            </span>
-                                        </Label>
-                                        <Select name="district_id">
-                                            <SelectTrigger
-                                                id="district_id"
-                                                className="w-full"
-                                            >
-                                                <SelectValue placeholder="None" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {districts.map((d) => (
-                                                    <SelectItem
-                                                        key={d.id}
-                                                        value={String(d.id)}
-                                                    >
-                                                        {d.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <InputError
-                                            message={errors.district_id}
-                                        />
-                                    </div>
+                                    <OptionalDistrictField
+                                        districts={districts}
+                                        initialValue={null}
+                                        error={errors.district_id}
+                                    />
                                 </div>
                             </div>
 
