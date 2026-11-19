@@ -17,11 +17,13 @@ import { useTranslation } from '@/hooks/use-translation';
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label: string };
+type Competition = { id: number; label: string };
 
 type FormData = {
     name: string;
     session_id: string;
     tier_id: string;
+    competition_id: string;
     sport_ids: string[];
     date_from: string;
     date_to: string;
@@ -33,10 +35,12 @@ export default function TournamentsCreate({
     sessions,
     sports,
     tiers,
+    competitions,
 }: {
     sessions: Session[];
     sports: Sport[];
     tiers: Tier[];
+    competitions: Competition[];
 }) {
     const { t } = useTranslation();
     const { locale = 'en' } = usePage().props as { locale?: string };
@@ -52,6 +56,7 @@ export default function TournamentsCreate({
         name: '',
         session_id: '',
         tier_id: '',
+        competition_id: '',
         sport_ids: [],
         date_from: '',
         date_to: '',
@@ -160,6 +165,28 @@ export default function TournamentsCreate({
                                     searchPlaceholder={t('Search tiers…')}
                                 />
                                 <InputError message={errors.tier_id} />
+                            </div>
+
+                            {/* Competition */}
+                            <div className="grid gap-2">
+                                <Label htmlFor="competition_id">
+                                    {t('Competition')}
+                                </Label>
+                                <Combobox
+                                    id="competition_id"
+                                    value={data.competition_id}
+                                    onValueChange={(v) => setData('competition_id', v)}
+                                    items={competitions.map((competition) => ({
+                                        value: String(competition.id),
+                                        label: competition.label,
+                                    }))}
+                                    placeholder={t('Select competition')}
+                                    searchPlaceholder={t('Search competitions…')}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    {t('Decides the points players earn. Leave empty to score later.')}
+                                </p>
+                                <InputError message={errors.competition_id} />
                             </div>
 
                             {/* Venue */}

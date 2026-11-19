@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Achievement;
+use App\Models\Competition;
 use App\Models\Event;
 use App\Models\Member;
 use App\Models\Organization;
@@ -15,6 +16,7 @@ use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\User;
+use Database\Seeders\PointSchemeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -441,4 +443,32 @@ test('destroy soft-deletes tournament and redirects to index', function () {
         ->assertRedirect(route('tournaments.index'));
 
     $this->assertSoftDeleted('tournaments', ['id' => $tournament->id]);
+});
+
+test('store and update save the competition and reject one from another org', function () {
+    $user = tournamentUser('tournaments.create', 'tournaments.update');
+    $this->seed(PointSchemeSeeder::class);
+    $own = Competition::withoutGlobalScopes()->where('organization_id', $user->organization_id)->first()
+        ?? Competition::factory()->create(['organization_id' => $user->organization_id]);
+    $foreign = Competition::factory()->create(['organization_id' => Organization::factory()->create()->id]);
+
+    $payload = validTournamentPayload($user);
+    $this->actingAs($user)->post(route('tournaments.store'), $payload + ['competition_id' => $foreign->id])
+        ->assertSessionHasErrors('competition_id');
+
+    $this->actingAs($user)->post(route('tournaments.store'), $payload + ['competition_id' => $own->id]);
+    $tournament = Tournament::latest('id')->first();
+    expect($tournament->competition_id)->toBe($own->id);
+
+    $this->actingAs($user)->patch(route('tournaments.update', $tournament), ['competition_id' => null])->assertSessionHasNoErrors();
+    expect($tournament->fresh()->competition_id)->toBeNull();
+});
+
+test('create and edit offer active competitions with their game level', function () {
+    $user = tournamentUser('tournaments.create', 'tournaments.update');
+    $this->seed(PointSchemeSeeder::class);
+
+    $this->actingAs($user)->get(route('tournaments.create'))->assertOk()->assertInertia(fn ($page) => $page
+        ->has('competitions', 21)
+        ->whereType('competitions.0.label', 'string'));
 });

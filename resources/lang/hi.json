@@ -1770,5 +1770,8 @@
     "Show all": "सभी दिखाएं",
     "Show less": "कम दिखाएं",
     "City": "शहर",
-    "External coach": "बाहरी कोच"
+    "External coach": "बाहरी कोच",
+    "Select competition": "प्रतियोगिता चुनें",
+    "Search competitions…": "प्रतियोगिता खोजें…",
+    "Decides the points players earn. Leave empty to score later.": "खिलाड़ियों के अंक इसी से तय होते हैं। खाली छोड़ने पर बाद में अंक जुड़ेंगे।"
 }
