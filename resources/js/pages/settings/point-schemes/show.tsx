@@ -71,7 +71,7 @@ export default function Show({
                 <div className="flex items-start justify-between gap-4">
                     <Heading
                         variant="small"
-                        title={`${t('Version')} ${scheme.version_number}`}
+                        title={`v${scheme.version_number}`}
                         description={
                             canEdit
                                 ? t(

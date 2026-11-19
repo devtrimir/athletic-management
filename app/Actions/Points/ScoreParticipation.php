@@ -14,8 +14,8 @@ use App\Models\Tournament;
 /**
  * Stores a player's points for a participation (team events have one participation per player, so everyone gets full points) under the version in force
  * on the tournament's date. Re-running replaces the stored rows, so it also
- * serves as the "reprocess" after a competition is attached or a medal changes.
- * Tournaments without a competition score nothing yet.
+ * serves as the "reprocess" after a game level is chosen or a medal changes.
+ * Tournaments without a game level (or competition) score nothing yet.
  */
 class ScoreParticipation
 {
@@ -28,8 +28,8 @@ class ScoreParticipation
         $tournament = Tournament::withoutGlobalScopes()->find($participation->event->tournament_id);
 
         $stale = ParticipationScore::where('participation_id', $participation->id);
-        $level = $tournament?->competition_id === null ? null
-            : Competition::withoutGlobalScopes()->whereKey($tournament->competition_id)->value('game_level_id');
+        $level = $tournament?->game_level_id ?? ($tournament?->competition_id === null ? null
+            : Competition::withoutGlobalScopes()->whereKey($tournament->competition_id)->value('game_level_id'));
 
         if ($tournament === null || $level === null) {
             $stale->delete();

@@ -7,16 +7,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Tournaments\StoreTournamentRequest;
 use App\Http\Requests\Tournaments\UpdateTournamentRequest;
 use App\Models\Achievement;
-use App\Models\Competition;
-use App\Models\GameLevel;
 use App\Models\Participation;
-use App\Models\PointScheme;
-use App\Models\PointSchemeRow;
 use App\Models\Sport;
 use App\Models\SportSession;
 use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Services\PromotionDependencyGuard;
+use App\Support\Points\GameLevelOptions;
 use App\Support\Tournaments\TournamentProfileData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -223,42 +220,7 @@ class TournamentController extends Controller
     }
 
     /**
-     * Active competitions grouped by game level, the group heading showing the Gold/Silver/Bronze/Participation
-     * points of the version in force today (shown as a hint; scoring uses the tournament's own date).
-     *
-     * @return list<array{id: int, label: string, group: string}>
-     */
-    private function competitionOptions(int $orgId): array
-    {
-        $column = app()->getLocale() === 'en' ? 'name_en' : 'name_hi';
-        $levels = GameLevel::orderBy('sort_order')->pluck($column, 'id');
-        $schemeId = PointScheme::withoutGlobalScopes()->where('organization_id', $orgId)->inForceOn(now()->toDateString())->value('id');
-        $initials = ['GOLD' => 'G', 'SILVER' => 'S', 'BRONZE' => 'B', 'PARTICIPATION' => 'P'];
-        $byLevel = [];
-
-        foreach (PointSchemeRow::where('point_scheme_id', $schemeId)->get() as $row) {
-            $byLevel[$row->game_level_id][$row->result] = $row->points;
-        }
-
-        $competitions = Competition::where('is_active', true)->whereIn('game_level_id', $levels->keys())
-            ->orderBy('sort_order')->get();
-        $options = [];
-
-        foreach ($levels as $levelId => $levelName) {
-            $badge = isset($byLevel[$levelId])
-                ? implode(' · ', array_map(fn (string $result, string $initial): string => $initial.($byLevel[$levelId][$result] ?? 0), array_keys($initials), $initials))
-                : null;
-
-            foreach ($competitions->where('game_level_id', $levelId) as $competition) {
-                $options[] = ['id' => $competition->id, 'label' => (string) $competition->{$column}, 'group' => $badge === null ? (string) $levelName : $levelName.' — '.$badge];
-            }
-        }
-
-        return $options;
-    }
-
-    /**
-     * @return array{sessions: Collection<int, SportSession>, sports: Collection<int, Sport>, tiers: Collection<int, TournamentTier>, competitions: list<array{id: int, label: string, group: string}>}
+     * @return array{sessions: Collection<int, SportSession>, sports: Collection<int, Sport>, tiers: Collection<int, TournamentTier>, gameLevels: list<array{id: int, label: string, description: string|null}>}
      */
     private function formOptions(int $orgId): array
     {
@@ -274,7 +236,7 @@ class TournamentController extends Controller
             'tiers' => TournamentTier::select(['id', 'code', 'label_hi', 'label_en'])
                 ->orderByDesc('weight')
                 ->get(),
-            'competitions' => $this->competitionOptions($orgId),
+            'gameLevels' => GameLevelOptions::forOrganization($orgId),
         ];
     }
 

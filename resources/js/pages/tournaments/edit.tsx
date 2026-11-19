@@ -18,10 +18,10 @@ import { useTranslation } from '@/hooks/use-translation';
 type Session = { id: number; name: string };
 type Sport = { id: number; name: string };
 type Tier = { id: number; code: string; label: string };
-type Competition = {
+type GameLevel = {
     id: number;
     label: string;
-    group: string;
+    description: string | null;
 };
 
 type TournamentProp = {
@@ -33,7 +33,7 @@ type TournamentProp = {
     raw_date_text: string | null;
     session: Session | null;
     tier: { id: number; code: string; label: string } | null;
-    competition_id: number | null;
+    game_level_id: number | null;
     sport: Sport | null;
     sports: Sport[];
 };
@@ -42,7 +42,7 @@ type FormData = {
     name: string;
     session_id: string;
     tier_id: string;
-    competition_id: string;
+    game_level_id: string;
     sport_ids: string[];
     date_from: string;
     date_to: string;
@@ -55,13 +55,13 @@ export default function TournamentsEdit({
     sessions,
     sports,
     tiers,
-    competitions,
+    gameLevels,
 }: {
     tournament: TournamentProp;
     sessions: Session[];
     sports: Sport[];
     tiers: Tier[];
-    competitions: Competition[];
+    gameLevels: GameLevel[];
 }) {
     const { t } = useTranslation();
     const { locale = 'en' } = usePage().props as { locale?: string };
@@ -78,8 +78,8 @@ export default function TournamentsEdit({
         name: tournament.name,
         session_id: tournament.session ? String(tournament.session.id) : '',
         tier_id: tournament.tier ? String(tournament.tier.id) : '',
-        competition_id: tournament.competition_id
-            ? String(tournament.competition_id)
+        game_level_id: tournament.game_level_id
+            ? String(tournament.game_level_id)
             : '',
         sport_ids:
             tournament.sports.length > 0
@@ -196,33 +196,32 @@ export default function TournamentsEdit({
                                 <InputError message={errors.tier_id} />
                             </div>
 
-                            {/* Competition */}
+                            {/* Game level */}
                             <div className="grid gap-2">
-                                <Label htmlFor="competition_id">
-                                    {t('Competition')}
+                                <Label htmlFor="game_level_id">
+                                    {t('Game level')}
                                 </Label>
                                 <Combobox
-                                    id="competition_id"
-                                    value={data.competition_id}
+                                    id="game_level_id"
+                                    value={data.game_level_id}
                                     onValueChange={(v) =>
-                                        setData('competition_id', v)
+                                        setData('game_level_id', v)
                                     }
-                                    items={competitions.map((competition) => ({
-                                        value: String(competition.id),
-                                        label: competition.label,
-                                        group: competition.group,
+                                    items={gameLevels.map((level) => ({
+                                        value: String(level.id),
+                                        label: level.label,
+                                        description:
+                                            level.description ?? undefined,
                                     }))}
-                                    placeholder={t('Select competition')}
-                                    searchPlaceholder={t(
-                                        'Search competitions…',
-                                    )}
+                                    placeholder={t('Select game level')}
+                                    searchPlaceholder={t('Search game levels…')}
                                 />
                                 <p className="text-xs text-muted-foreground">
                                     {t(
-                                        'Pick the competition this tournament belongs to (for example Asian Games or National Games). Its game level decides how many points players earn for Gold, Silver, Bronze or Participation. Without one, no points are given until you choose it.',
+                                        'Pick the game level of this tournament. The points players earn for Gold, Silver, Bronze or Participation come from the points version in force on its start date. Without one, no points are given until you choose it.',
                                     )}
                                 </p>
-                                <InputError message={errors.competition_id} />
+                                <InputError message={errors.game_level_id} />
                             </div>
 
                             {/* Venue */}

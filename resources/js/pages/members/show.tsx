@@ -173,6 +173,7 @@ type TournamentOption = {
     id: number;
     session_id: number;
     tier_id: number;
+    game_level_id: number | null;
     sport_id: number | null;
     name: string;
     venue: string | null;
@@ -418,6 +419,7 @@ type QuickAddAchievementForm = {
     session_end_year: string;
     is_historical_session: string;
     tier_id: string;
+    game_level_id: string;
     sport_id: string;
     venue: string;
     date_from: string;
@@ -530,6 +532,7 @@ export default function MembersShow({
     sessions = [],
     sports = [],
     tiers = [],
+    gameLevels = [],
     tournaments = [],
     events = [],
     eventTeams,
@@ -556,6 +559,11 @@ export default function MembersShow({
     sessions?: { id: number; name: string }[];
     sports?: { id: number; name: string }[];
     tiers?: { id: number; code: string }[];
+    gameLevels?: {
+        id: number;
+        label: string;
+        description: string | null;
+    }[];
     tournaments?: TournamentOption[];
     events?: EventOption[];
     eventTeams?: EventTeamRow[];
@@ -727,6 +735,7 @@ export default function MembersShow({
         session_end_year: '',
         is_historical_session: '',
         tier_id: '',
+        game_level_id: '',
         sport_id: '',
         venue: '',
         date_from: '',
@@ -912,6 +921,7 @@ export default function MembersShow({
             session_end_year: '',
             is_historical_session: '',
             tier_id: '',
+            game_level_id: '',
             sport_id: '',
             venue: '',
             date_from: '',
@@ -1183,6 +1193,9 @@ export default function MembersShow({
             return {
                 ...current,
                 tournament_name: quickAddSelectedTournament.name,
+                game_level_id: quickAddSelectedTournament.game_level_id
+                    ? String(quickAddSelectedTournament.game_level_id)
+                    : current.game_level_id,
                 venue: quickAddSelectedTournament.venue ?? current.venue,
                 date_from:
                     quickAddSelectedTournament.date_from ?? current.date_from,
@@ -1274,6 +1287,7 @@ export default function MembersShow({
                     key === 'sport_id' ||
                     key === 'event_sport_id' ||
                     key === 'tier_id' ||
+                    key === 'game_level_id' ||
                     key === 'tournament_id' ||
                     key === 'event_id'
                         ? normalizeNumericString(String(value))
@@ -2309,9 +2323,7 @@ export default function MembersShow({
                                         )}
                                         {detail(
                                             t('Joining date'),
-                                            formatDate(
-                                                member.joining_date,
-                                            ),
+                                            formatDate(member.joining_date),
                                         )}
                                         {detail(
                                             t('Home district'),
@@ -2369,9 +2381,7 @@ export default function MembersShow({
                                         {member.team_since &&
                                             detail(
                                                 t('Team since'),
-                                                formatDate(
-                                                    member.team_since,
-                                                ),
+                                                formatDate(member.team_since),
                                             )}
                                         {member.home_address &&
                                             detail(
@@ -3809,6 +3819,38 @@ export default function MembersShow({
                                         searchPlaceholder={t('Search tiers')}
                                         emptyMessage={t('No tiers found')}
                                     />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label>{t('Game level')}</Label>
+                                    <Combobox
+                                        value={quickAddForm.game_level_id}
+                                        onValueChange={(value) =>
+                                            setQuickAddField(
+                                                'game_level_id',
+                                                value,
+                                            )
+                                        }
+                                        disabled={
+                                            quickAddSelectedTournament?.game_level_id !=
+                                            null
+                                        }
+                                        items={gameLevels.map((level) => ({
+                                            value: String(level.id),
+                                            label: level.label,
+                                            description:
+                                                level.description ?? undefined,
+                                        }))}
+                                        placeholder={t('Select game level')}
+                                        searchPlaceholder={t(
+                                            'Search game levels…',
+                                        )}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'Decides the points for this result. Without one, no points are given until the tournament has a game level.',
+                                        )}
+                                    </p>
                                 </div>
 
                                 <div className="space-y-1.5">

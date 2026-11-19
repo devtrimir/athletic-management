@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\PointScheme;
 use App\Models\Tournament;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -40,13 +41,16 @@ class TournamentResource extends JsonResource
                 'label_hi' => $this->tier->label_hi,
                 'label' => $this->tier->label,
             ]),
-            'competition' => $this->whenLoaded('competition', function (): ?array {
+            'game_level' => $this->whenLoaded('gameLevel', function (): ?array {
                 $column = app()->getLocale() === 'en' ? 'name_en' : 'name_hi';
 
-                return $this->competition ? [
-                    'id' => $this->competition->id,
-                    'name' => $this->competition->{$column},
-                    'game_level' => $this->competition->gameLevel?->{$column},
+                return $this->gameLevel ? [
+                    'id' => $this->gameLevel->id,
+                    'name' => $this->gameLevel->{$column},
+                    'version' => PointScheme::withoutGlobalScopes()
+                        ->where('organization_id', $this->organization_id)
+                        ->inForceOn($this->date_from?->toDateString() ?? $this->created_at->toDateString())
+                        ->value('version_number'),
                 ] : null;
             }),
             'sport' => $this->whenLoaded('sport', fn () => $this->sport ? [

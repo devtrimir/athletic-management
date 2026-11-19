@@ -100,10 +100,10 @@ type Tournament = {
     medals_count: number;
     session: { id: number; name: string } | null;
     tier: { id: number; code: string; label: string } | null;
-    competition?: {
+    game_level?: {
         id: number;
-        name: string;
-        game_level: string | null;
+        name: string | null;
+        version: number | null;
     } | null;
     sport: { id: number; name: string } | null;
 };
@@ -1521,10 +1521,10 @@ export default function TournamentsShow({
             icon: Info,
         },
         {
-            label: t('Competition'),
-            value: tournament.competition
-                ? `${tournament.competition.name}${tournament.competition.game_level ? ` · ${tournament.competition.game_level}` : ''}`
-                : t('No competition set'),
+            label: t('Game level'),
+            value: tournament.game_level?.name
+                ? `${tournament.game_level.name}${tournament.game_level.version ? ` · v${tournament.game_level.version}` : ''}`
+                : t('No game level set'),
             icon: Medal,
         },
         ...(tournament.sport
