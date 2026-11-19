@@ -35,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property-read Team|null $team
  * @property-read SportSession $session
  * @property-read Achievement|null $achievement
+ * @property-read ParticipationScore|null $score
  * @property-read Collection<int, ParticipationAward> $participationAwards
  */
 #[Fillable([
@@ -71,6 +72,12 @@ class Participation extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /** @return HasOne<ParticipationScore, $this> */
+    public function score(): HasOne
+    {
+        return $this->hasOne(ParticipationScore::class);
     }
 
     /** @return BelongsTo<Member, $this> */

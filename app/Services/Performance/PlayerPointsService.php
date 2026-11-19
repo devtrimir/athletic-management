@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Performance;
 
+use App\Models\GameLevel;
 use App\Models\Participation;
+use App\Models\PointScheme;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -41,9 +43,11 @@ class PlayerPointsService
      */
     public function run(int $orgId, array $filters = []): array
     {
-        $rows = $this->participationQuery($orgId, $filters)
-            ->get()
-            ->map(fn (Participation $participation): array => $this->rowForParticipation($participation));
+        $participations = $this->participationQuery($orgId, $filters)->get();
+        $levels = GameLevel::withoutGlobalScopes()->where('organization_id', $orgId)
+            ->pluck(app()->getLocale() === 'en' ? 'name_en' : 'name_hi', 'id');
+        $versions = PointScheme::withoutGlobalScopes()->where('organization_id', $orgId)->pluck('version_number', 'id');
+        $rows = $participations->map(fn (Participation $participation): array => $this->rowForParticipation($participation, $levels, $versions));
 
         return [
             'rows' => $rows->values(),
@@ -144,6 +148,8 @@ class PlayerPointsService
                     ]),
                 'event.tournament.tier' => fn ($query) => $query
                     ->select(['id', 'code', 'label_hi', 'label_en', 'weight']),
+                'score' => fn ($query) => $query
+                    ->select(['id', 'participation_id', 'point_scheme_id', 'game_level_id', 'result', 'points']),
                 'achievement' => fn ($query) => $query
                     ->select([
                         'id',
@@ -238,9 +244,11 @@ class PlayerPointsService
     }
 
     /**
+     * @param  Collection<int, string>  $levels
+     * @param  Collection<int, int>  $versions
      * @return array<string, mixed>
      */
-    private function rowForParticipation(Participation $participation): array
+    private function rowForParticipation(Participation $participation, Collection $levels, Collection $versions): array
     {
         $member = $participation->member;
         $event = $participation->event;
@@ -257,18 +265,10 @@ class PlayerPointsService
                 'title' => $award->title,
                 'points_override' => $award->points_override,
                 'remarks' => $award->remarks,
-                'points' => $award->points_override ?? $this->awardPoints($award->award_type),
             ])
             ->values();
 
-        $participationPoints = $this->participationBasePoints();
-        $medalPoints = $achievement?->medal_type !== null
-            ? $this->medalPoints($achievement->medal_type)
-            : 0;
-        $tierBonusPoints = $achievement?->medal_type !== null && $tier?->code !== null
-            ? $this->tierBonusPoints($tier->code)
-            : 0;
-        $awardPoints = $awards->sum('points');
+        $score = $participation->score;
 
         return [
             'participation_id' => $participation->id,
@@ -319,11 +319,10 @@ class PlayerPointsService
             ] : null,
             'awards' => $awards->all(),
             'scoring' => [
-                'participation_points' => $participationPoints,
-                'medal_points' => $medalPoints,
-                'tier_bonus_points' => $tierBonusPoints,
-                'award_points' => $awardPoints,
-                'total_points' => $participationPoints + $medalPoints + $tierBonusPoints + $awardPoints,
+                'total_points' => $score?->points ?? 0,
+                'result' => $score?->result,
+                'game_level' => $score ? $levels[$score->game_level_id] ?? null : null,
+                'version' => $score ? $versions[$score->point_scheme_id] ?? null : null,
             ],
         ];
     }
@@ -462,25 +461,5 @@ class PlayerPointsService
         }
 
         return $counts;
-    }
-
-    private function participationBasePoints(): int
-    {
-        return (int) config('player_points.participation.base_points', 0);
-    }
-
-    private function medalPoints(string $medalType): int
-    {
-        return (int) config("player_points.medals.{$medalType}", 0);
-    }
-
-    private function tierBonusPoints(string $tierCode): int
-    {
-        return (int) config("player_points.tier_bonus.{$tierCode}", 0);
-    }
-
-    private function awardPoints(string $awardType): int
-    {
-        return (int) config("player_points.awards.{$awardType}", 0);
     }
 }

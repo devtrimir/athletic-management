@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Achievement;
+use App\Models\Competition;
 use App\Models\Event;
 use App\Models\Member;
 use App\Models\Organization;
@@ -14,6 +15,7 @@ use App\Models\Tournament;
 use App\Models\TournamentTier;
 use App\Models\Unit;
 use App\Services\Performance\PlayerPointsService;
+use Database\Seeders\PointSchemeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -52,7 +54,12 @@ function ppSetupParticipation(
             ['code' => 'NATIONAL'],
             ['label_hi' => 'राष्ट्रीय', 'label_en' => 'National', 'weight' => 80],
         );
+    // Classify under National Games so results score from the seeded Version 1.
+    (new PointSchemeSeeder)->run();
+    $competition = Competition::withoutGlobalScopes()->where('organization_id', $org->id)->where('name_en', 'National Games')->first();
     $tournament = Tournament::factory()->create([
+        'competition_id' => $competition->id,
+        'date_from' => '2026-03-01',
         'organization_id' => $org->id,
         'session_id' => $session->id,
         'tier_id' => $tier->id,
@@ -117,16 +124,12 @@ test('calculates line item points and member summaries from achievements and awa
     $result = app(PlayerPointsService::class)->run($org->id);
 
     expect($result['rows'])->toHaveCount(1);
-    expect($result['rows'][0]['scoring'])->toMatchArray([
-        'participation_points' => 1,
-        'medal_points' => 10,
-        'tier_bonus_points' => 6,
-        'award_points' => 8,
-        'total_points' => 25,
-    ]);
+    // National gold on Version 1; special awards are listed but not scored.
+    expect($result['rows'][0]['scoring'])->toMatchArray(['total_points' => 60, 'result' => 'GOLD', 'version' => 1])
+        ->and($result['rows'][0]['scoring']['game_level'])->not->toBeNull();
 
     expect($result['by_member'])->toHaveCount(1)
-        ->and($result['by_member'][0]['points'])->toBe(25)
+        ->and($result['by_member'][0]['points'])->toBe(60)
         ->and($result['by_member'][0]['participation_count'])->toBe(1)
         ->and($result['by_member'][0]['achievement_count'])->toBe(1)
         ->and($result['by_member'][0]['award_count'])->toBe(1)
@@ -138,7 +141,7 @@ test('calculates line item points and member summaries from achievements and awa
         ]);
 });
 
-test('award points override replaces configured award points', function (): void {
+test('a merit medal scores as participation and awards add no points', function (): void {
     $org = ppOrg();
     $setup = ppSetupParticipation($org, ['medal_type' => 'MERIT']);
     ParticipationAward::factory()
@@ -152,10 +155,9 @@ test('award points override replaces configured award points', function (): void
 
     $result = app(PlayerPointsService::class)->run($org->id);
 
-    expect($result['rows'][0]['scoring']['medal_points'])->toBe(3)
-        ->and($result['rows'][0]['scoring']['tier_bonus_points'])->toBe(6)
-        ->and($result['rows'][0]['scoring']['award_points'])->toBe(11)
-        ->and($result['rows'][0]['scoring']['total_points'])->toBe(21);
+    expect($result['rows'][0]['scoring']['result'])->toBe('PARTICIPATION')
+        ->and($result['rows'][0]['scoring']['total_points'])->toBe(30)
+        ->and($result['totals']['award_count'])->toBe(1);
 });
 
 test('filters by unit and session and excludes other organisations', function (): void {
@@ -181,7 +183,7 @@ test('filters by unit and session and excludes other organisations', function ()
     ]);
 
     expect($result['rows'])->toHaveCount(1)
-        ->and($result['totals']['points'])->toBe(14)
+        ->and($result['totals']['points'])->toBe(50)
         ->and($result['by_member'])->toHaveCount(1)
         ->and($result['by_member'][0]['medals']['SILVER'])->toBe(1);
 });
